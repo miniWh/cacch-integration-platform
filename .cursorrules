@@ -1,0 +1,357 @@
+# cacch-integration-platform Cursor Rules
+# 适用：Spring Boot 4 + Java 21 模块化单体集成中台
+
+---
+
+## 一、项目上下文
+
+你正在开发 **cacch-integration-platform**，这是一个企业级多系统集成中台，基于 Spring Boot 4 构建，采用模块化单体架构，当前以单项目方式部署，后续可按业务域垂直拆分为微服务。
+
+核心目标：标准化对接内外部第三方业务系统，提供统一的接口适配、数据同步、消息转发与能力封装。
+
+---
+
+## 二、技术栈约束
+
+| 组件 | 版本 | 说明 |
+|------|------|------|
+| Java | 21 LTS | 推荐 Amazon Corretto 21 / Eclipse Temurin 21 |
+| Spring Boot | 4.0.5 | 基于 Jakarta EE 11 |
+| MyBatis-Plus | 3.5.16 | 持久层增强框架 |
+| PostgreSQL | 12.22 | 主数据库 |
+| Flyway | 12.4.0 | Schema 版本化迁移 |
+| AWS SDK v2 | 2.42.36 | 对接 MinIO（S3）和 SQS |
+| Caffeine | 3.1.8 | JVM 堆内缓存 |
+| Redis | Lettuce 客户端 | 分布式缓存 |
+| MapStruct | 1.6.3 | 编译期对象转换 |
+| BCrypt | at.favre.lib | API Key 安全哈希 |
+
+- 所有依赖版本由父 POM 统一管控，**不得在子模块 pom.xml 中自行指定版本号**（父 POM 已声明的依赖）。
+- 禁止引入父 POM 未声明的依赖，如需新增依赖，先在父 POM 的 `<dependencyManagement>` 中声明版本，再在子模块中引用。
+
+---
+
+## 三、模块架构规则
+
+### 3.1 模块职责边界（严格遵守，不得越界）
+
+| 模块 | 职责 | 禁止事项 |
+|------|------|----------|
+| `cacch-integration-common` | 全局常量、工具类、统一异常、统一返回体、通用注解、基础 DTO | 不得包含任何业务逻辑；不得依赖其他子模块 |
+| `cacch-integration-dao` | 数据库实体 DO、Mapper 接口、MyBatis-Plus 配置 | 仅做数据读写；禁止拼接业务逻辑；不得依赖 service/manager |
+| `cacch-integration-service` | 单聚合内核心业务逻辑 | 不做跨聚合流程编排；不控制跨服务事务；不得依赖 manager |
+| `cacch-integration-manager` | 跨聚合流程编排、全局事务控制、多服务聚合查询 | 不直接操作数据库；不编写单表 CRUD 逻辑 |
+| `cacch-integration-integration` | 第三方系统客户端封装、协议转换、接口适配 | 业务层不得直接调用第三方 SDK，必须通过此模块 |
+| `cacch-integration-async` | SQS 消息消费、异步任务调度、批量数据处理 | 解耦主流程，不得同步阻塞主线程 |
+| `cacch-integration-web` | Controller、配置文件、启动类 | 仅做参数校验、请求转发、结果封装；不含业务逻辑 |
+
+### 3.2 依赖流向（单向严禁反向）
+
+```
+web → manager → service → dao → common
+integration → common（被 manager/service 按需依赖）
+async → service / manager（由 web 统一加载）
+```
+
+- **下层模块不得依赖上层模块**（如 `service` 不能依赖 `manager`，`dao` 不能依赖 `service`）。
+- 模块间调用必须通过接口层（`api` 包下的接口），**禁止直接依赖实现类**。
+- 禁止循环依赖。
+
+### 3.3 包名规范
+
+- 顶层包名：`com.cacch.integration`
+- 各模块按职责划分子包，例如：
+  - common：`com.cacch.integration.common.{constant|utils|exception|result|annotation}`
+  - dao：`com.cacch.integration.{entity|mapper|config}`
+  - service：`com.cacch.integration.service.{api|impl}`
+  - manager：`com.cacch.integration.manager.{api|impl}`
+  - integration：`com.cacch.integration.integration.{client|adapter}`
+  - async：`com.cacch.integration.async.{consumer|task}`
+  - web：`com.cacch.integration.{controller|convert|dto|security|config}`
+
+---
+
+## 四、代码分层规范
+
+采用「Controller → Manager → Service → Mapper」四层架构，各层职责严格隔离：
+
+### Controller 层
+- 仅做：参数校验（`@Valid`）、调用 Manager/Service、使用统一返回体封装结果
+- 禁止：编写任何业务逻辑、直接操作数据库、直接调用 Mapper
+
+```java
+// 正确示例
+@PostMapping("/api/key")
+public Result<ApiKeyVO> createApiKey(@Valid @RequestBody CreateApiKeyRequest request) {
+    return Result.success(apiKeyManager.createApiKey(request));
+}
+```
+
+### Manager 层
+- 仅做：跨聚合流程编排、全局事务控制（`@Transactional`）、多 Service 结果聚合
+- 禁止：直接注入 Mapper、编写单表 CRUD 逻辑
+
+### Service 层
+- 仅做：单一聚合内的业务逻辑、操作对应聚合根数据
+- 禁止：跨聚合调用其他 Service 的写操作、控制跨服务事务、依赖 Manager
+
+### Mapper 层
+- 仅做：数据库 SQL 交互
+- 禁止：拼接任何业务逻辑、调用其他 Mapper 外的 Bean
+
+---
+
+## 五、对象转换规范
+
+- **所有 DO ↔ DTO 转换必须通过 MapStruct 实现**，禁止手动 setter/getter 堆砌。
+- Converter 接口统一放在 `cacch-integration-web` 模块的 `convert` 包下。
+- MapStruct 接口声明为 `@Mapper(componentModel = "spring")`。
+
+```java
+// 正确示例
+@Mapper(componentModel = "spring")
+public interface ApiKeyConverter {
+    ApiKeyVO toVO(ApiKeyDO apiKeyDO);
+    ApiKeyDO toDO(CreateApiKeyRequest request);
+}
+
+// 错误示例（禁止）
+ApiKeyVO vo = new ApiKeyVO();
+vo.setId(apiKeyDO.getId());
+vo.setName(apiKeyDO.getName());
+```
+
+---
+
+## 六、数据库开发规范
+
+### 6.1 表结构规范
+- 所有表必须包含以下标准字段：
+
+```sql
+id          BIGINT PRIMARY KEY,          -- 主键
+created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,  -- 创建时间
+updated_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,  -- 更新时间
+is_deleted  SMALLINT NOT NULL DEFAULT 0  -- 逻辑删除标记（0正常 1删除）
+```
+
+- 表名统一前缀 `t_integration_`，全小写，下划线分隔，例如 `t_integration_api_key`。
+
+### 6.2 Schema 变更规范
+- **禁止直接修改数据库结构**，所有变更必须通过 Flyway 脚本提交。
+- Flyway 脚本命名：`V{版本号}__{描述}.sql`，版本号递增，**禁止修改已执行脚本**。
+- 脚本路径：`cacch-integration-web/src/main/resources/db/migration/`
+
+### 6.3 PostgreSQL 12 兼容约束
+- **禁止使用 `MERGE` 语法**，幂等写入统一使用 `INSERT ... ON CONFLICT DO UPDATE`。
+- 分区表避免复杂嵌套设计。
+- 大表需提前配置 `autovacuum` 参数，定期检查表膨胀。
+
+### 6.4 MyBatis-Plus 使用规范
+- 实体类使用 `@TableName`、`@TableId`、`@TableField` 注解。
+- 逻辑删除字段使用 `@TableLogic`，配合全局配置。
+- 复杂查询使用 `LambdaQueryWrapper`，禁止字符串拼接 SQL。
+
+---
+
+## 七、安全规范
+
+- **API Key、密钥、密码等敏感信息禁止硬编码**，必须通过 `application-{profile}.yml` 或配置中心注入。
+- 所有对外接口必须经过鉴权校验（API Key 或 JWT）与参数合法性校验。
+- 敏感数据存储必须做哈希（BCrypt）或加密处理，**禁止明文存储**。
+- 第三方系统的 AccessKey/SecretKey 统一通过配置注入，不得出现在代码中。
+
+---
+
+## 八、命名规范
+
+### 类命名
+| 类型 | 命名规则 | 示例 |
+|------|----------|------|
+| 数据库实体 | `{业务名}DO` | `ApiKeyDO` |
+| 请求 DTO | `{操作}{业务名}Request` | `CreateApiKeyRequest` |
+| 响应 VO | `{业务名}VO` | `ApiKeyVO` |
+| Service 接口 | `I{业务名}Service` | `IApiKeyService` |
+| Service 实现 | `{业务名}ServiceImpl` | `ApiKeyServiceImpl` |
+| Manager 接口 | `I{业务名}Manager` | `IApiKeyManager` |
+| Manager 实现 | `{业务名}ManagerImpl` | `ApiKeyManagerImpl` |
+| Mapper 接口 | `{业务名}Mapper` | `ApiKeyMapper` |
+| Controller | `{业务名}Controller` | `ApiKeyController` |
+| 第三方客户端 | `{系统名}Client` | `DingTalkClient` |
+| 适配器 | `{系统名}Adapter` | `DingTalkAdapter` |
+| MapStruct 转换器 | `{业务名}Converter` | `ApiKeyConverter` |
+
+### 接口 URL 命名
+- RESTful 风格，名词复数，小写连字符：`/api/v1/api-keys`
+- 查询：`GET /api/v1/api-keys`、`GET /api/v1/api-keys/{id}`
+- 新增：`POST /api/v1/api-keys`
+- 更新：`PUT /api/v1/api-keys/{id}`
+- 删除：`DELETE /api/v1/api-keys/{id}`
+
+---
+
+## 九、统一返回体规范
+
+所有接口统一使用 `common` 模块的 `Result<T>` 包装返回值：
+
+```java
+// 成功
+Result.success(data)
+Result.success()
+
+// 失败
+Result.fail(errorCode, message)
+Result.fail(BizException)
+```
+
+- **禁止在 Controller 中直接返回裸实体或裸 DTO**。
+- 异常统一由全局异常处理器（`@RestControllerAdvice`）捕获，转换为 `Result` 格式返回。
+
+---
+
+## 十、异步与消息规范
+
+- SQS 消息消费逻辑统一放在 `cacch-integration-async` 模块的 `consumer` 包下。
+- 异步任务统一放在 `task` 包下。
+- 消息消费必须保证幂等性：消费前检查处理状态，避免重复处理。
+- 消费失败需记录错误日志并视情况入死信队列，**不得静默吞掉异常**。
+
+---
+
+## 十一、日志规范
+
+- 使用 SLF4J + `@Slf4j`（Lombok），禁止直接使用 `System.out.println`。
+- 关键业务节点（入参、出参、异常）必须打印日志。
+- 日志级别：
+  - `DEBUG`：调试信息，生产环境不开启
+  - `INFO`：正常业务流程节点
+  - `WARN`：可恢复的异常情况
+  - `ERROR`：需要介入处理的错误，必须附带异常堆栈
+- **禁止在日志中打印敏感信息**（API Key 明文、密码、Token 等）。
+
+```java
+// 正确示例
+log.info("[ApiKey] 创建成功，keyId={}, name={}", keyId, name);
+log.error("[ApiKey] 创建失败，request={}", request, e);
+
+// 错误示例（禁止）
+System.out.println("创建成功");
+log.info("apiKey原文: {}", rawApiKey); // 禁止打印敏感信息
+```
+
+---
+
+## 十二、事务控制规范（强制）
+
+**核心原则：事务注解必须显式声明全部关键属性，禁止依赖 Spring 默认值。**
+
+### 12.1 事务声明规则
+
+- 任何涉及写操作的业务方法，**必须显式使用 `@Transactional`**，禁止依赖"隐式事务"或"默认行为"。
+- **禁止使用空注解 `@Transactional`**（不声明任何属性），必须至少显式设置以下属性：
+
+```java
+// 错误示例（禁止 —— 完全依赖默认值）
+@Transactional
+public void updateOrder(OrderVO vo) { ... }
+
+// 错误示例（禁止 —— 仅设了 rollbackFor，传播行为仍是默认 REQUIRED）
+@Transactional(rollbackFor = Exception.class)
+public void updateOrder(OrderVO vo) { ... }
+
+// 正确示例 —— 显式声明所有关键属性
+@Transactional(
+    rollbackFor = Exception.class,
+    propagation = Propagation.REQUIRED,
+    readOnly = false,
+    timeout = 30
+)
+public void updateOrder(OrderVO vo) { ... }
+```
+
+### 12.2 各属性必须显式设置
+
+| 属性 | 要求 | 说明 |
+|------|------|------|
+| `rollbackFor` | **必须设为 `Exception.class`** | 禁止使用默认值（仅回滚 RuntimeException/Error），所有业务异常也必须触发回滚 |
+| `propagation` | **必须显式指定** | 禁止依赖默认 `REQUIRED`，每次都要明确选择传播行为 |
+| `readOnly` | **必须显式指定** | 读操作设为 `true`（启用 Hibernate/MyBatis 优化），写操作设为 `false` |
+| `timeout` | **必须显式设置** | 设置合理超时（默认 30s），防止长事务锁表 |
+| `isolation` | 涉及高并发或一致性要求时必须显式设置 | 默认 `DEFAULT` 只在简单场景可用 |
+
+### 12.3 传播行为使用场景
+
+| 场景 | 传播行为 | 说明 |
+|------|----------|------|
+| Manager 层跨聚合编排主方法 | `Propagation.REQUIRED` | 作为事务入口，创建或加入已有事务 |
+| Service 层单聚合写操作（被 Manager 调用） | `Propagation.REQUIRED` 或 `Propagation.MANDATORY` | `MANDATORY` 强制调用方必须已开启事务，更安全 |
+| 独立事务，不受外部事务回滚影响（如审计日志） | `Propagation.REQUIRES_NEW` | 挂起外部事务，新开独立事务 |
+| 只读查询 | `Propagation.SUPPORTS` | 有事务则加入，无事务也可执行 |
+
+### 12.4 只读事务规范
+
+```java
+// 读操作示例
+@Transactional(
+    rollbackFor = Exception.class,
+    propagation = Propagation.SUPPORTS,
+    readOnly = true,
+    timeout = 10
+)
+public ApiKeyVO getApiKey(Long id) { ... }
+```
+
+### 12.5 分层事务职责
+
+| 层级 | 事务职责 | 规则 |
+|------|----------|------|
+| **Controller** | **禁止使用 `@Transactional`** | 不做任何事务控制 |
+| **Manager** | 事务入口，全局事务控制 | 必须显式声明事务，调用下层 Service/DAO |
+| **Service** | 参与事务（由 Manager 驱动） | 可声明 `@Transactional(propagation = Propagation.MANDATORY, ...)` 强制要求调用方开事务；禁止自行开启独立事务做跨聚合操作 |
+| **Mapper/DAO** | **禁止使用 `@Transactional`** | 数据库交互层不控制事务 |
+| **Async 消费者** | 独立事务 | 每次消息消费必须开启独立事务，使用 `Propagation.REQUIRES_NEW` |
+
+### 12.6 禁止事项
+
+- **禁止将 `@Transactional` 加在类级别**，必须精确到方法级别，每个方法独立声明。
+- **禁止在 `private` 方法上使用 `@Transactional`**（Spring AOP 代理无效），事务注解仅用于 `public` 方法。
+- **禁止在同一个类中自调用事务方法**（自调用不走代理，事务失效）。如需内部事务调用，必须将事务方法拆分到独立的 Bean 中。
+- **禁止在事务内执行耗时非数据库操作**（如远程 HTTP 调用、文件 I/O），避免长事务。这些操作应放在事务外执行。
+- **禁止 try-catch 吞掉异常后不抛出**，否则事务不会回滚。
+
+```java
+// 错误示例（禁止 —— 吞异常导致事务不回滚）
+@Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED, ...)
+public void createOrder(OrderVO vo) {
+    try {
+        orderService.create(vo);
+        inventoryService.deduct(vo);
+    } catch (Exception e) {
+        log.error("创建订单失败", e);
+        // 吞掉了异常，事务不会回滚！
+    }
+}
+
+// 正确示例
+@Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED, ...)
+public void createOrder(OrderVO vo) {
+    orderService.create(vo);
+    inventoryService.deduct(vo);
+    // 异常自然向上抛出，触发回滚
+}
+```
+
+---
+
+## 十三、代码生成约束
+
+生成代码时，必须严格遵守以下规则：
+
+1. **确认模块归属**：根据功能判断代码应放在哪个模块，不得跨模块随意放置。
+2. **检查依赖方向**：新增依赖前确认不违反单向依赖规则。
+3. **使用规范类名**：严格按第八节命名规范生成类名和包名。
+4. **禁止直接 new 实体赋值**：DO ↔ DTO 转换必须通过 MapStruct Converter。
+5. **禁止硬编码配置**：数据库连接、Redis 地址、第三方系统密钥等均通过配置文件注入。
+6. **新建表必须有 Flyway 脚本**：每新增一张表，必须同步生成对应的 Flyway 迁移 SQL。
+7. **禁止修改已执行的 Flyway 脚本**：只能新增版本号更高的脚本。
+8. **接口优先**：Service 与 Manager 均先定义接口（`api` 包），再编写实现（`impl` 包）。
