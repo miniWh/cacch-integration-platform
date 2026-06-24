@@ -16,7 +16,7 @@
 | 组件 | 版本 | 说明 |
 |------|------|------|
 | Java | 21 LTS | 推荐 Amazon Corretto 21 / Eclipse Temurin 21 |
-| Spring Boot | 4.0.5 | 基于 Jakarta EE 11 |
+| Spring Boot | 4.0.6 | 基于 Jakarta EE 11 |
 | MyBatis-Plus | 3.5.16 | 持久层增强框架 |
 | PostgreSQL | 12.22 | 主数据库 |
 | Flyway | 12.4.0 | Schema 版本化迁移 |
@@ -24,7 +24,9 @@
 | Caffeine | 3.1.8 | JVM 堆内缓存 |
 | Redis | Lettuce 客户端 | 分布式缓存 |
 | MapStruct | 1.6.3 | 编译期对象转换 |
-| BCrypt | at.favre.lib | API Key 安全哈希 |
+| BCrypt | at.favre.lib 0.10.2 | API Key 安全哈希 |
+| PostgreSQL JDBC | 42.7.7 | PostgreSQL JDBC 驱动 |
+| Lombok | 1.18.36 | 编译期代码简化 |
 
 - 所有依赖版本由父 POM 统一管控，**不得在子模块 pom.xml 中自行指定版本号**（父 POM 已声明的依赖）。
 - 禁止引入父 POM 未声明的依赖，如需新增依赖，先在父 POM 的 `<dependencyManagement>` 中声明版本，再在子模块中引用。

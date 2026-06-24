@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CompilerConfiguration">
+    <annotationProcessing>
+      <profile name="Annotation profile for cacch-integration-platform" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <processorPath useClasspath="false">
+          <entry name="$PROJECT_DIR$/../../repository/org/projectlombok/lombok/1.18.36/lombok-1.18.36.jar" />
+          <entry name="$PROJECT_DIR$/../../repository/org/mapstruct/mapstruct-processor/1.6.3/mapstruct-processor-1.6.3.jar" />
+        </processorPath>
+        <module name="cacch-integration-web" />
+        <module name="cacch-integration-manager" />
+        <module name="cacch-integration-async" />
+        <module name="cacch-integration-service" />
+        <module name="cacch-integration-integration" />
+        <module name="cacch-integration-common" />
+        <module name="cacch-integration-dao" />
+      </profile>
+    </annotationProcessing>
+  </component>
+  <component name="JavacSettings">
+    <option name="ADDITIONAL_OPTIONS_OVERRIDE">
+      <module name="cacch-integration-async" options="-parameters" />
+      <module name="cacch-integration-common" options="-parameters" />
+      <module name="cacch-integration-dao" options="-parameters" />
+      <module name="cacch-integration-integration" options="-parameters" />
+      <module name="cacch-integration-manager" options="-parameters" />
+      <module name="cacch-integration-platform" options="-parameters" />
+      <module name="cacch-integration-service" options="-parameters" />
+      <module name="cacch-integration-web" options="-parameters" />
+    </option>
+  </component>
+</project>
