@@ -1,0 +1,56 @@
+# ==================== 测试环境配置 ====================
+
+spring:
+  # ---------- PostgreSQL 数据源 ----------
+  datasource:
+    # 数据库连接地址（测试库后缀 _test，与生产隔离）
+    url: jdbc:postgresql://127.0.0.1:5432/cacch_integration_test
+    username: your_username
+    password: your_password
+    driver-class-name: org.postgresql.Driver
+
+  # ---------- Redis 配置 ----------
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379
+      password: your_redis_password
+      lettuce:
+        pool:
+          # 最大活跃连接数
+          max-active: 8
+          # 最大空闲连接数
+          max-idle: 8
+          # 最小空闲连接数（0 表示不预创建）
+          min-idle: 0
+
+  # ---------- Flyway 数据库迁移 ----------
+  flyway:
+    # 启用 Flyway
+    enabled: true
+    # 测试环境允许对已有数据库执行基线化迁移（开发迭代中常用）
+    baseline-on-migrate: true
+
+# ---------- MyBatis-Plus 测试环境覆盖 ----------
+mybatis-plus:
+  configuration:
+    # 输出 SQL 到控制台（DEBUG 级别日志，测试排查用）
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+# ---------- 日志级别 ----------
+logging:
+  level:
+    # 项目包日志级别：INFO 记录关键业务流程节点
+    com.cacch.integration: INFO
+
+# ---------- 服务端口 ----------
+server:
+  # 测试环境使用 8081，避免与生产 8080 冲突
+  port: 8081
+
+# ---------- Actuator 健康监控 ----------
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
