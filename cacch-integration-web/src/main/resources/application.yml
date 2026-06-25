@@ -31,3 +31,12 @@ mybatis-plus:
     # 自动驼峰转换：数据库下划线字段 ←→ Java 驼峰属性
     # 示例：api_key_name → apiKeyName
     map-underscore-to-camel-case: true
+
+# ==================== 企业微信多应用配置（公共占位） ====================
+# 实际值请在 application-{profile}.yml 中覆盖
+# 配置格式：List of App Config，一个 (corpid, app-key) 唯一标识一个 token 槽位
+wecom:
+  apps:
+    - corpid: placeholder
+      app-key: default
+      secret: placeholder

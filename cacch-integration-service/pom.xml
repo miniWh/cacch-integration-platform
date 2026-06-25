@@ -21,10 +21,22 @@
             <artifactId>cacch-integration-dao</artifactId>
         </dependency>
 
+        <!-- 依赖 integration 模块（第三方客户端） -->
+        <dependency>
+            <groupId>com.cacch</groupId>
+            <artifactId>cacch-integration-integration</artifactId>
+        </dependency>
+
         <!-- Spring Boot Starter（事务等） -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter</artifactId>
+        </dependency>
+
+        <!-- Spring Data Redis（StringRedisTemplate） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
         </dependency>
     </dependencies>
 

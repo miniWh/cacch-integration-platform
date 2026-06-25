@@ -1,158 +1,42 @@
+# ==================== Cacch 集成中台 — 公共配置 ====================
+# 本文件存放所有环境共用的配置项
+# 环境差异化配置请分别编辑 application-{profile}.yml
+
 spring:
   application:
+    # 服务名称，用于注册中心、日志标识等
     name: cacch-integration-platform
 
   profiles:
-    active: dev
-
----
-# ==================== 开发环境 ====================
-spring:
-  config:
-    activate:
-      on-profile: dev
-
-  datasource:
-    url: jdbc:postgresql://127.0.0.1:5432/cacch_integration
-    username: your_username
-    password: your_password
-    driver-class-name: org.postgresql.Driver
-
-  data:
-    redis:
-      host: 127.0.0.1
-      port: 6379
-      password: your_redis_password
-      lettuce:
-        pool:
-          max-active: 8
-          max-idle: 8
-          min-idle: 0
+    # 默认激活的环境：test（本地开发/测试）、prod（生产上线）
+    active: test
 
   flyway:
-    enabled: true
+    # Schema 迁移脚本路径（所有环境统一）
     locations: classpath:db/migration
-    baseline-on-migrate: true
+    # 基线版本号，即第一个迁移脚本的版本
     baseline-version: 1
 
+# ==================== MyBatis-Plus 全局配置（所有环境共用） ====================
 mybatis-plus:
   global-config:
     db-config:
+      # 逻辑删除字段名（对应数据库表中的 is_deleted 列）
       logic-delete-field: isDeleted
+      # 逻辑已删除值：1 表示已删除
       logic-delete-value: 1
+      # 逻辑未删除值：0 表示正常
       logic-not-delete-value: 0
   configuration:
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    # 自动驼峰转换：数据库下划线字段 ←→ Java 驼峰属性
+    # 示例：api_key_name → apiKeyName
     map-underscore-to-camel-case: true
 
-logging:
-  level:
-    com.cacch.integration: DEBUG
-
-server:
-  port: 8080
-
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info
-
----
-# ==================== 测试环境 ====================
-spring:
-  config:
-    activate:
-      on-profile: test
-
-  datasource:
-    url: jdbc:postgresql://127.0.0.1:5432/cacch_integration_test
-    username: your_username
-    password: your_password
-    driver-class-name: org.postgresql.Driver
-
-  data:
-    redis:
-      host: 127.0.0.1
-      port: 6379
-      password: your_redis_password
-      lettuce:
-        pool:
-          max-active: 8
-          max-idle: 8
-          min-idle: 0
-
-  flyway:
-    enabled: true
-    locations: classpath:db/migration
-    baseline-on-migrate: true
-    baseline-version: 1
-
-mybatis-plus:
-  global-config:
-    db-config:
-      logic-delete-field: isDeleted
-      logic-delete-value: 1
-      logic-not-delete-value: 0
-  configuration:
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
-    map-underscore-to-camel-case: true
-
-logging:
-  level:
-    com.cacch.integration: INFO
-
-server:
-  port: 8081
-
----
-# ==================== 生产环境 ====================
-spring:
-  config:
-    activate:
-      on-profile: prod
-
-  datasource:
-    url: ${DB_URL:jdbc:postgresql://127.0.0.1:5432/cacch_integration}
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
-    driver-class-name: org.postgresql.Driver
-
-  data:
-    redis:
-      host: ${REDIS_HOST:127.0.0.1}
-      port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD}
-      lettuce:
-        pool:
-          max-active: 16
-          max-idle: 16
-          min-idle: 4
-
-  flyway:
-    enabled: true
-    locations: classpath:db/migration
-    baseline-on-migrate: false
-
-mybatis-plus:
-  global-config:
-    db-config:
-      logic-delete-field: isDeleted
-      logic-delete-value: 1
-      logic-not-delete-value: 0
-  configuration:
-    map-underscore-to-camel-case: true
-
-logging:
-  level:
-    com.cacch.integration: WARN
-    root: WARN
-
-server:
-  port: 8080
-
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info,metrics
+# ==================== 企业微信多应用配置（公共占位） ====================
+# 实际值请在 application-{profile}.yml 中覆盖
+# 配置格式：List of App Config，一个 (corpid, app-key) 唯一标识一个 token 槽位
+wecom:
+  apps:
+    - corpid: placeholder
+      app-key: default
+      secret: placeholder
