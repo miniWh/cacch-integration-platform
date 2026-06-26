@@ -84,14 +84,14 @@ cacch-integration-platform                    # 父工程根目录
 │       └── main
 │           └── java/com/cacch/integration/service
 │               ├── api                       # 业务接口定义
-│               └── impl                      # 单聚合业务实现
+│               │   └── impl                  # 接口实现类（置于 api 包内）
 ├── cacch-integration-manager                 # 业务编排模块
 │   ├── pom.xml
 │   └── src
 │       └── main
 │           └── java/com/cacch/integration/manager
 │               ├── api                       # 编排接口定义
-│               └── impl                      # 跨域编排、事务控制实现
+│               │   └── impl                  # 跨域编排、事务控制实现（置于 api 包内）
 ├── cacch-integration-integration             # 第三方适配模块
 │   ├── pom.xml
 │   └── src

@@ -65,8 +65,8 @@ async → service / manager（由 web 统一加载）
 - 各模块按职责划分子包，例如：
   - common：`com.cacch.integration.common.{constant|utils|exception|result|annotation}`
   - dao：`com.cacch.integration.{entity|mapper|config}`
-  - service：`com.cacch.integration.service.{api|impl}`
-  - manager：`com.cacch.integration.manager.{api|impl}`
+  - service：`com.cacch.integration.service.api`（接口）、`com.cacch.integration.service.api.impl`（实现）
+  - manager：`com.cacch.integration.manager.api`（接口）、`com.cacch.integration.manager.api.impl`（实现）
   - integration：`com.cacch.integration.integration.{client|adapter}`
   - async：`com.cacch.integration.async.{consumer|task}`
   - web：`com.cacch.integration.{controller|convert|dto|security|config}`
@@ -356,4 +356,4 @@ public void createOrder(OrderVO vo) {
 5. **禁止硬编码配置**：数据库连接、Redis 地址、第三方系统密钥等均通过配置文件注入。
 6. **新建表必须有 Flyway 脚本**：每新增一张表，必须同步生成对应的 Flyway 迁移 SQL。
 7. **禁止修改已执行的 Flyway 脚本**：只能新增版本号更高的脚本。
-8. **接口优先**：Service 与 Manager 均先定义接口（`api` 包），再编写实现（`impl` 包）。
+8. **接口优先**：Service 与 Manager 均先定义接口（`api` 包），再编写实现（`api.impl` 包，即实现类置于接口所在包的 `impl` 子包内）。

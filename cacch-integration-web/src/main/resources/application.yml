@@ -15,7 +15,7 @@ spring:
     # Schema 迁移脚本路径（所有环境统一）
     locations: classpath:db/migration
     # 基线版本号，即第一个迁移脚本的版本
-    baseline-version: 1
+    baseline-version: 0
 
 # ==================== MyBatis-Plus 全局配置（所有环境共用） ====================
 mybatis-plus:
