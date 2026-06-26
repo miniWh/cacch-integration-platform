@@ -7,22 +7,22 @@ spring:
   datasource:
     # 数据库地址通过环境变量 DB_URL 注入
     # 部署时务必设置：export DB_URL=jdbc:postgresql://your-host:5432/cacch_integration
-    url: ${DB_URL:jdbc:postgresql://127.0.0.1:5432/cacch_integration}
+    url: jdbc:postgresql://10.80.86.93:5432/cdb
     # 数据库用户名，由运维通过环境变量注入
-    username: ${DB_USERNAME}
+    username: esb
     # 数据库密码，由运维通过环境变量注入（严禁明文写在文件中）
-    password: ${DB_PASSWORD}
+    password: esb
     driver-class-name: org.postgresql.Driver
 
   # ---------- Redis 配置 ----------
   data:
     redis:
       # 生产 Redis 地址通过环境变量 REDIS_HOST 注入
-      host: ${REDIS_HOST:127.0.0.1}
+      host: 10.80.86.95
       # Redis 端口
-      port: ${REDIS_PORT:6379}
+      port: 6379
       # Redis 密码，通过环境变量 REDIS_PASSWORD 注入
-      password: ${REDIS_PASSWORD}
+      password: cacredis0826
       lettuce:
         pool:
           # 最大活跃连接数（生产环境适当放大）
@@ -60,7 +60,11 @@ server:
 #
 # Spring Boot 原生支持将 JSON 格式的环境变量值自动反序列化为 List<WeComAppConfig>
 wecom:
-  apps: ${WECOM_APPS_JSON:[{"corpid":"placeholder","app-key":"default","secret":"placeholder"}]}
+  apps:
+    # 泰禾 — 自建应用
+    - corpid: ww0ae0c799548c75bd
+      app-key:
+      secret: rJ4TpwlW7s1Z64xBHgUd35zNOUIQ14figIs5sfgqgaI
 
 # ---------- Actuator 健康监控 ----------
 management:

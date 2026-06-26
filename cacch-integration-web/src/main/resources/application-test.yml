@@ -4,17 +4,17 @@ spring:
   # ---------- PostgreSQL 数据源 ----------
   datasource:
     # 数据库连接地址（测试库后缀 _test，与生产隔离）
-    url: jdbc:postgresql://127.0.0.1:5432/cacch_integration_test
-    username: your_username
-    password: your_password
+    url: jdbc:postgresql://10.80.86.93:5432/cdb
+    username: esb
+    password: esb
     driver-class-name: org.postgresql.Driver
 
   # ---------- Redis 配置 ----------
   data:
     redis:
-      host: 127.0.0.1
+      host: 10.80.86.95
       port: 6379
-      password: your_redis_password
+      password: cacredis0826
       lettuce:
         pool:
           # 最大活跃连接数
@@ -52,19 +52,19 @@ server:
 # ---------- 企业微信多应用配置 ----------
 wecom:
   apps:
-    # 公司 A — 通讯录应用（读取部门/成员）
-    - corpid: ww_test_company_a
-      app-key: address-book
-      secret: test_secret_addr_book_a
+    # 泰禾 — 自建应用
+    - corpid: ww0ae0c799548c75bd
+      app-key:
+      secret: rJ4TpwlW7s1Z64xBHgUd35zNOUIQ14figIs5sfgqgaI
 
     # 公司 A — 客户联系应用（外部联系人/客户群）
     - corpid: ww_test_company_a
-      app-key: customer-contact
+      app-key:
       secret: test_secret_customer_a
 
     # 公司 B — 通讯录应用
     - corpid: ww_test_company_b
-      app-key: address-book
+      app-key:
       secret: test_secret_addr_book_b
 
 # ---------- Actuator 健康监控 ----------
