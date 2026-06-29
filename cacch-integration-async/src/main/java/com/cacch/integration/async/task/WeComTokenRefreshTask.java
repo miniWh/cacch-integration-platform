@@ -38,7 +38,7 @@ public class WeComTokenRefreshTask {
      */
     @PostConstruct
     public void init() {
-        log.info("[WeComRefresh] 应用启动，开始初始化所有应用 access_token");
+        log.info("【WeComRefresh】 应用启动，开始初始化所有应用 access_token");
         doRefresh();
     }
 
@@ -47,7 +47,7 @@ public class WeComTokenRefreshTask {
      */
     @Scheduled(initialDelay = REFRESH_INTERVAL_MS, fixedDelay = REFRESH_INTERVAL_MS)
     public void scheduledRefresh() {
-        log.info("[WeComRefresh] 定时任务触发，开始刷新所有应用 access_token");
+        log.info("【WeComRefresh】 定时任务触发，开始刷新所有应用 access_token");
         doRefresh();
     }
 
@@ -58,11 +58,11 @@ public class WeComTokenRefreshTask {
         List<WeComAppConfig> allApps = weComProperties.getAllApps();
 
         if (allApps.isEmpty()) {
-            log.warn("[WeComRefresh] 未配置任何企业微信应用，跳过刷新");
+            log.warn("【WeComRefresh】 未配置任何企业微信应用，跳过刷新");
             return;
         }
 
-        log.info("[WeComRefresh] 共发现 {} 个应用配置，开始逐一切始化", allApps.size());
+        log.info("【WeComRefresh】 共发现 {} 个应用配置，开始逐一切始化", allApps.size());
 
         int successCount = 0;
         int failCount = 0;
@@ -72,20 +72,20 @@ public class WeComTokenRefreshTask {
             String appKey = app.getAppKey();
             try {
                 String token = weComTokenManager.getAccessToken(corpid, appKey);
-                log.info("[WeComRefresh] 刷新成功, corpid={}, appKey={}, token 前 8 位={}",
+                log.info("【WeComRefresh】 刷新成功, corpid={}, appKey={}, token 前 8 位={}",
                         corpid, appKey, maskToken(token));
                 successCount++;
             } catch (BizException e) {
-                log.error("[WeComRefresh] 刷新失败, corpid={}, appKey={}, errCode={}, errMsg={}",
+                log.error("【WeComRefresh】 刷新失败, corpid={}, appKey={}, errCode={}, errMsg={}",
                         corpid, appKey, e.getCode(), e.getMessage());
                 failCount++;
             } catch (Exception e) {
-                log.error("[WeComRefresh] 刷新发生未知异常, corpid={}, appKey={}", corpid, appKey, e);
+                log.error("【WeComRefresh】 刷新发生未知异常, corpid={}, appKey={}", corpid, appKey, e);
                 failCount++;
             }
         }
 
-        log.info("[WeComRefresh] 刷新完成, 总数={}, 成功={}, 失败={}",
+        log.info("【WeComRefresh】 刷新完成, 总数={}, 成功={}, 失败={}",
                 allApps.size(), successCount, failCount);
     }
 

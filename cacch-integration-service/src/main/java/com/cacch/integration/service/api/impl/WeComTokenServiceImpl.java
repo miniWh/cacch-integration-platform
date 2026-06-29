@@ -35,12 +35,12 @@ public class WeComTokenServiceImpl implements IWeComTokenService {
         String cachedToken = stringRedisTemplate.opsForValue().get(redisKey);
 
         if (cachedToken != null && !cachedToken.isBlank()) {
-            log.info("[WeComToken] Redis 缓存命中, key={}", redisKey);
+            log.info("【WeComToken】 Redis 缓存命中, key={}", redisKey);
             return cachedToken;
         }
 
         // 2. 缓存未命中，调用企微 API
-        log.info("[WeComToken] Redis 缓存未命中, key={}, 将请求企微 API", redisKey);
+        log.info("【WeComToken】 Redis 缓存未命中, key={}, 将请求企微 API", redisKey);
 
         WeComTokenResponse response = weComTokenClient.fetchToken(corpid, corpsecret);
 
@@ -60,7 +60,7 @@ public class WeComTokenServiceImpl implements IWeComTokenService {
                 Duration.ofSeconds(IntegrationConstants.WECOM_TOKEN_TTL_SECONDS)
         );
 
-        log.info("[WeComToken] access_token 已写入 Redis, key={}, ttl={}s",
+        log.info("【WeComToken】 access_token 已写入 Redis, key={}, ttl={}s",
                 redisKey, IntegrationConstants.WECOM_TOKEN_TTL_SECONDS);
 
         return token;

@@ -321,8 +321,8 @@ Result.fail(BizException)
 
 ```java
 // 正确示例
-log.info("[ApiKey] 创建成功，keyId={}, name={}", keyId, name);
-log.error("[ApiKey] 创建失败，keyId={}", keyId, e);
+log.info("【ApiKey】 创建成功，keyId={}, name={}", keyId, name);
+log.error("【ApiKey】 创建失败，keyId={}", keyId, e);
 
 // 错误示例（禁止）
 System.out.println("创建成功");

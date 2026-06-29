@@ -31,27 +31,27 @@ public class WeComTokenClient {
     public WeComTokenResponse fetchToken(String corpid, String corpsecret) {
         String url = String.format(IntegrationConstants.WECOM_TOKEN_URL, corpid, corpsecret);
 
-        log.info("[WeComToken] 开始获取 access_token, corpid={}", maskString(corpid, 6));
+        log.info("【WeComToken】 开始获取 access_token, corpid={}", maskString(corpid, 6));
 
         try {
             WeComTokenResponse response = restTemplate.getForObject(url, WeComTokenResponse.class);
 
             if (response == null) {
-                log.error("[WeComToken] 接口返回 null");
+                log.error("【WeComToken】 接口返回 null");
                 throw new RestClientException("企业微信 /gettoken 返回 null");
             }
 
             if (response.isSuccess()) {
-                log.info("[WeComToken] access_token 获取成功, expires_in={}s", response.getExpiresIn());
+                log.info("【WeComToken】 access_token 获取成功, expires_in={}s", response.getExpiresIn());
             } else {
-                log.error("[WeComToken] 企微返回错误, errcode={}, errmsg={}",
+                log.error("【WeComToken】 企微返回错误, errcode={}, errmsg={}",
                         response.getErrCode(), response.getErrMsg());
             }
 
             return response;
 
         } catch (RestClientException e) {
-            log.error("[WeComToken] HTTP 调用失败, url={}", maskUrl(url), e);
+            log.error("【WeComToken】 HTTP 调用失败, url={}", maskUrl(url), e);
             throw e;
         }
     }
