@@ -38,5 +38,5 @@ mybatis-plus:
 wecom:
   apps:
     - corpid: placeholder
-      app-key: default
+      app-key: self-built
       secret: placeholder

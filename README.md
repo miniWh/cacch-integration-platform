@@ -65,59 +65,62 @@ cacch-integration-platform                    # 父工程根目录
 │   └── src
 │       └── main
 │           └── java/com/cacch/integration/common
-│               ├── constant                  # 全局常量
+│               ├── constant                  # 按业务域拆分（如 constant/wecom、constant/redis）
+│               ├── config                    # 按业务域拆分的配置 POJO（如 config/wecom）
 │               ├── utils                     # 通用工具类
 │               ├── exception                 # 统一异常定义
 │               ├── result                    # 统一返回封装
-│               ├── annotation                # 通用注解
-│               └── config                    # 可被多模块引用的配置 POJO
+│               └── annotation                # 通用注解
 ├── cacch-integration-dao                     # 数据持久模块
 │   ├── pom.xml
 │   └── src
 │       └── main
 │           └── java/com/cacch/integration
-│               ├── entity                    # 数据库实体DO
-│               ├── mapper                    # MyBatis Mapper接口
-│               └── config                    # 数据源、MyBatis-Plus配置
+│               ├── entity/{biz}              # 按业务域划分的数据库实体 DO
+│               ├── mapper/{biz}              # 按业务域划分的 Mapper 接口
+│               └── config                    # 数据源、MyBatis-Plus 配置
 ├── cacch-integration-service                 # 单聚合业务模块
 │   ├── pom.xml
 │   └── src
 │       └── main
 │           └── java/com/cacch/integration/service
-│               ├── api                       # 业务接口定义
-│               │   └── impl                  # 接口实现类（置于 api 包内）
+│               └── {biz}/api                 # 按业务域划分（如 wecom/api）
+│                   └── impl                  # 接口实现类
 ├── cacch-integration-manager                 # 业务编排模块
 │   ├── pom.xml
 │   └── src
 │       └── main
 │           └── java/com/cacch/integration/manager
-│               ├── api                       # 编排接口定义
-│               │   └── impl                  # 跨域编排、事务控制实现（置于 api 包内）
+│               └── {biz}/api                 # 按业务域划分（如 wecom/api）
+│                   └── impl                  # 跨域编排、事务控制实现
 ├── cacch-integration-integration             # 第三方适配模块
 │   ├── pom.xml
 │   └── src
 │       └── main
 │           └── java/com/cacch/integration/integration
-│               ├── client                    # 第三方系统调用客户端
-│               └── adapter                   # 协议转换与系统适配
+│               ├── {biz}/client              # 按业务域划分（如 wecom/client）
+│               ├── {biz}/adapter             # 协议转换与系统适配
+│               └── config                    # 基础设施配置（RestTemplate 等）
 ├── cacch-integration-async                   # 异步处理模块
 │   ├── pom.xml
 │   └── src
 │       └── main
 │           └── java/com/cacch/integration/async
-│               ├── consumer                  # SQS消息消费者
-│               └── task                      # 异步任务处理
+│               └── {biz}                     # 按业务域划分
+│                   ├── task                  # 定时任务（如 wecom/task）
+│                   └── consumer              # SQS 消息消费者
 └── cacch-integration-web                     # Web启动模块（单体启动入口）
     ├── pom.xml
     └── src
         ├── main
         │   ├── java/com/cacch/integration
         │   │   ├── CacchIntegrationApplication.java  # 启动类
-        │   │   ├── controller              # 控制层：OpenAPI、管理接口
-        │   │   ├── convert                 # MapStruct对象转换
-        │   │   ├── dto                     # 请求/响应DTO
-        │   │   ├── security                # 安全认证：API Key、JWT
-        │   │   └── config                  # Web层、缓存、安全等配置
+        │   │   ├── controller/{biz}          # 按业务域划分（如 controller/wecom）
+        │   │   ├── convert/{biz}             # MapStruct 对象转换
+        │   │   ├── dto/{biz}/vo              # 请求/响应 VO
+        │   │   ├── config/{biz}              # 业务域配置注册
+        │   │   ├── exception                 # 全局异常处理
+        │   │   └── security                  # 安全认证：API Key、JWT
         │   └── resources
         │       ├── application.yml         # 主配置文件
         │       ├── application-dev.yml     # 开发环境配置
@@ -138,7 +141,7 @@ cacch-integration-platform                    # 父工程根目录
 ### 4.5 命名规范
 - **父工程 groupId**：`com.cacch`
 - **所有子模块 artifactId**：统一前缀 `cacch-integration-` + 模块功能定位
-- **顶层包名**：`com.cacch.integration`，各模块按职责划分子包
+- **顶层包名**：`com.cacch.integration`，各模块内按业务域 `{biz}` 划分子包（详见 `.cursorrules` 3.3 节）
 - 数据库表名：统一前缀 `t_integration_`，全小写，下划线分隔，例如 `t_integration_api_key`
 - Flyway 脚本：`V{版本号}__{描述}.sql`，版本号递增，禁止修改已执行脚本
 

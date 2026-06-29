@@ -61,9 +61,9 @@ server:
 # Spring Boot 原生支持将 JSON 格式的环境变量值自动反序列化为 List<WeComAppConfig>
 wecom:
   apps:
-    # 泰禾 — 自建应用
+    # 泰禾 — 自建应用（智能表格等文档 API 使用此配置鉴权）
     - corpid: ww0ae0c799548c75bd
-      app-key:
+      app-key: self-built
       secret: rJ4TpwlW7s1Z64xBHgUd35zNOUIQ14figIs5sfgqgaI
 
 # ---------- Actuator 健康监控 ----------

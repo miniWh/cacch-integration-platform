@@ -52,19 +52,19 @@ server:
 # ---------- 企业微信多应用配置 ----------
 wecom:
   apps:
-    # 泰禾 — 自建应用
+    # 泰禾 — 自建应用（智能表格等文档 API 使用此配置鉴权）
     - corpid: ww0ae0c799548c75bd
-      app-key:
+      app-key: self-built
       secret: rJ4TpwlW7s1Z64xBHgUd35zNOUIQ14figIs5sfgqgaI
 
     # 公司 A — 客户联系应用（外部联系人/客户群）
     - corpid: ww_test_company_a
-      app-key:
+      app-key: customer-contact
       secret: test_secret_customer_a
 
     # 公司 B — 通讯录应用
     - corpid: ww_test_company_b
-      app-key:
+      app-key: address-book
       secret: test_secret_addr_book_b
 
 # ---------- Actuator 健康监控 ----------
