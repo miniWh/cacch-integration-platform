@@ -2,8 +2,8 @@ package com.cacch.integration.manager.api.impl;
 
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.ResultCode;
-import com.cacch.integration.config.WeComAppConfig;
-import com.cacch.integration.config.WeComProperties;
+import com.cacch.integration.common.config.WeComAppConfig;
+import com.cacch.integration.common.config.WeComProperties;
 import com.cacch.integration.manager.api.IWeComTokenManager;
 import com.cacch.integration.service.api.IWeComTokenService;
 import lombok.RequiredArgsConstructor;

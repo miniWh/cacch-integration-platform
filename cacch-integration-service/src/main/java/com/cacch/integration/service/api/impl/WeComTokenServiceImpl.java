@@ -10,8 +10,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 
@@ -29,12 +27,6 @@ public class WeComTokenServiceImpl implements IWeComTokenService {
     private final WeComTokenClient weComTokenClient;
 
     @Override
-    @Transactional(
-            rollbackFor = Exception.class,
-            propagation = Propagation.SUPPORTS,
-            readOnly = true,
-            timeout = 10
-    )
     public String getAccessToken(String corpid, String appKey, String corpsecret) {
         // 动态生成 Redis Key：:wecom:token:{corpid}:{appKey}
         String redisKey = IntegrationConstants.wecomTokenKey(corpid, appKey);

@@ -69,7 +69,8 @@ cacch-integration-platform                    # 父工程根目录
 │               ├── utils                     # 通用工具类
 │               ├── exception                 # 统一异常定义
 │               ├── result                    # 统一返回封装
-│               └── annotation                # 通用注解
+│               ├── annotation                # 通用注解
+│               └── config                    # 可被多模块引用的配置 POJO
 ├── cacch-integration-dao                     # 数据持久模块
 │   ├── pom.xml
 │   └── src
@@ -200,6 +201,9 @@ mvn clean compile
    基于 AWS SDK v2 对接 S3 兼容存储，支持集成报文、附件文件的统一存储与管理。
 
 ## 七、开发规范
+
+> 详细 AI 编码约束与分层禁止项见项目根目录 [`.cursorrules`](.cursorrules)。
+
 ### 7.1 代码分层规范
 采用「Controller → Manager → Service → Mapper」四层架构，各层职责严格隔离，禁止越界：
 - **Controller 层**：仅做参数校验、请求转发、结果统一封装，不包含业务逻辑与流程编排

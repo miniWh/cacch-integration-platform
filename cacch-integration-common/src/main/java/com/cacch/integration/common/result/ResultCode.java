@@ -20,6 +20,7 @@ public enum ResultCode {
     // ———————————————— 客户端错误 4xxxx ————————————————
     PARAM_ERROR(40000, "参数校验失败"),
     PARAM_MISSING(40001, "缺少必要参数"),
+    PARAM_INVALID(40002, "参数无效"),
 
     // ———————————————— 集成层错误 5xxxx ————————————————
     INTEGRATION_ERROR(50001, "第三方系统调用失败"),

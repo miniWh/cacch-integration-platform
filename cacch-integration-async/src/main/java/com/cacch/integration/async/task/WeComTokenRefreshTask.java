@@ -1,8 +1,8 @@
 package com.cacch.integration.async.task;
 
 import com.cacch.integration.common.exception.BizException;
-import com.cacch.integration.config.WeComAppConfig;
-import com.cacch.integration.config.WeComProperties;
+import com.cacch.integration.common.config.WeComAppConfig;
+import com.cacch.integration.common.config.WeComProperties;
 import com.cacch.integration.manager.api.IWeComTokenManager;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;

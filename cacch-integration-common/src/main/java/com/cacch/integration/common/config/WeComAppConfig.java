@@ -1,6 +1,6 @@
-package com.cacch.integration.config;
+package com.cacch.integration.common.config;
 
-import lombok.Data;
+import lombok.Value;
 
 /**
  * 企业微信单个应用配置 — 由 yml 的 wecom.apps 列表绑定
@@ -12,22 +12,22 @@ import lombok.Data;
  *
  * @author cacch-integration
  */
-@Data
+@Value
 public class WeComAppConfig {
 
     /**
      * 企业 ID，注册企微时分配
      */
-    private String corpid;
+    String corpid;
 
     /**
      * 业务标识，对应一类企微 API
      * 建议值：address-book（通讯录）、customer-contact（客户联系）、calendar（日程）
      */
-    private String appKey;
+    String appKey;
 
     /**
      * 该企业下该应用的凭证密钥
      */
-    private String secret;
+    String secret;
 }
