@@ -31,17 +31,7 @@ spring:
     # 测试环境允许对已有数据库执行基线化迁移（开发迭代中常用）
     baseline-on-migrate: true
 
-# ---------- MyBatis-Plus 测试环境覆盖 ----------
-mybatis-plus:
-  configuration:
-    # 输出 SQL 到控制台（DEBUG 级别日志，测试排查用）
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
-
-# ---------- 日志级别 ----------
-logging:
-  level:
-    # 项目包日志级别：INFO 记录关键业务流程节点
-    com.cacch.integration: INFO
+# ---------- MyBatis-Plus 测试环境：SQL 日志走 SLF4J（级别见 logback-spring.xml test profile） ----------
 
 # ---------- 服务端口 ----------
 server:

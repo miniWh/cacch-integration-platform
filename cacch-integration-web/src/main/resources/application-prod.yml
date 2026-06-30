@@ -40,14 +40,6 @@ spring:
     # 所有 Schema 变更必须通过递增版本号的迁移脚本执行
     baseline-on-migrate: false
 
-# ---------- 日志级别 ----------
-logging:
-  level:
-    # 生产环境仅记录 WARN 及以上级别，避免日志洪水影响性能
-    com.cacch.integration: INFO
-    # 根日志级别
-    root: WARN
-
 # ---------- 服务端口 ----------
 server:
   port: 8080
