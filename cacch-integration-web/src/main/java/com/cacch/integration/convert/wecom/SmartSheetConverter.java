@@ -11,6 +11,7 @@ import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComGetRec
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComGetSheetResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComRecordInfo;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComSheetInfo;
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComUpdateRecordsResponse;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
@@ -48,4 +49,13 @@ public interface SmartSheetConverter {
 
     @Mapping(source = "hasMore", target = "hasMore")
     SmartRecordListVO toRecordListVO(WeComGetRecordsResponse response);
+
+    default SmartRecordListVO toRecordListVO(WeComUpdateRecordsResponse response) {
+        if (response == null) {
+            return null;
+        }
+        SmartRecordListVO vo = new SmartRecordListVO();
+        vo.setRecords(toRecordVOList(response.getRecords()));
+        return vo;
+    }
 }

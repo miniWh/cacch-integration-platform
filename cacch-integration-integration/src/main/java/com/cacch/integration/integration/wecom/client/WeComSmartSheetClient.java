@@ -1,12 +1,16 @@
 package com.cacch.integration.integration.wecom.client;
 
 import com.cacch.integration.common.constant.wecom.WeComConstants;
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComAddRecordsRequest;
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComAddRecordsResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComGetFieldsRequest;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComGetFieldsResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComGetRecordsRequest;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComGetRecordsResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComGetSheetRequest;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComGetSheetResponse;
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComUpdateRecordsRequest;
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComUpdateRecordsResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -50,6 +54,26 @@ public class WeComSmartSheetClient {
         String url = String.format(WeComConstants.SMARTSHEET_GET_RECORDS_URL, accessToken);
         log.info("【WeComSmartSheet】查询记录, docid={}, sheetId={}", request.getDocid(), request.getSheetId());
         return post(url, request, WeComGetRecordsResponse.class, "查询记录");
+    }
+
+    /**
+     * 添加智能表格记录
+     */
+    public WeComAddRecordsResponse addRecords(String accessToken, WeComAddRecordsRequest request) {
+        String url = String.format(WeComConstants.SMARTSHEET_ADD_RECORDS_URL, accessToken);
+        log.info("【WeComSmartSheet】添加记录, docid={}, sheetId={}, count={}",
+                request.getDocid(), request.getSheetId(), request.getRecords().size());
+        return post(url, request, WeComAddRecordsResponse.class, "添加记录");
+    }
+
+    /**
+     * 更新智能表格记录
+     */
+    public WeComUpdateRecordsResponse updateRecords(String accessToken, WeComUpdateRecordsRequest request) {
+        String url = String.format(WeComConstants.SMARTSHEET_UPDATE_RECORDS_URL, accessToken);
+        log.info("【WeComSmartSheet】更新记录, docid={}, sheetId={}, count={}",
+                request.getDocid(), request.getSheetId(), request.getRecords().size());
+        return post(url, request, WeComUpdateRecordsResponse.class, "更新记录");
     }
 
     private <T> T post(String url, Object request, Class<T> responseType, String action) {

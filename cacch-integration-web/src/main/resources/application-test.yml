@@ -47,16 +47,6 @@ wecom:
       app-key: self-built
       secret: rJ4TpwlW7s1Z64xBHgUd35zNOUIQ14figIs5sfgqgaI
 
-    # 公司 A — 客户联系应用（外部联系人/客户群）
-    - corpid: ww_test_company_a
-      app-key: customer-contact
-      secret: test_secret_customer_a
-
-    # 公司 B — 通讯录应用
-    - corpid: ww_test_company_b
-      app-key: address-book
-      secret: test_secret_addr_book_b
-
 # ---------- Actuator 健康监控 ----------
 management:
   endpoints:

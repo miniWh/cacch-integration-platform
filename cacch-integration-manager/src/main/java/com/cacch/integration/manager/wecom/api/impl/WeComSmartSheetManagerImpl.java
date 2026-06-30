@@ -4,9 +4,12 @@ import com.cacch.integration.common.config.wecom.WeComAppConfig;
 import com.cacch.integration.common.config.wecom.WeComProperties;
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.ResultCode;
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComAddRecordsResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComGetFieldsResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComGetRecordsResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComGetSheetResponse;
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComRecordWriteItem;
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComUpdateRecordsResponse;
 import com.cacch.integration.manager.wecom.api.IWeComSmartSheetManager;
 import com.cacch.integration.manager.wecom.api.IWeComTokenManager;
 import com.cacch.integration.service.wecom.api.IWeComSmartSheetService;
@@ -14,6 +17,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClientException;
+
+import java.util.List;
 
 /**
  * 企业微信智能表格编排实现 — 使用自建应用配置获取 access_token 后调用 Service
@@ -45,6 +50,18 @@ public class WeComSmartSheetManagerImpl implements IWeComSmartSheetManager {
     public WeComGetRecordsResponse getRecords(String docId, String sheetId, Integer offset, Integer limit) {
         return execute("查询记录", () ->
                 weComSmartSheetService.getRecords(resolveAccessToken(), docId, sheetId, offset, limit));
+    }
+
+    @Override
+    public WeComAddRecordsResponse addRecords(String docId, String sheetId, List<WeComRecordWriteItem> records) {
+        return execute("添加记录", () ->
+                weComSmartSheetService.addRecords(resolveAccessToken(), docId, sheetId, records));
+    }
+
+    @Override
+    public WeComUpdateRecordsResponse updateRecords(String docId, String sheetId, List<WeComRecordWriteItem> records) {
+        return execute("更新记录", () ->
+                weComSmartSheetService.updateRecords(resolveAccessToken(), docId, sheetId, records));
     }
 
     private String resolveAccessToken() {

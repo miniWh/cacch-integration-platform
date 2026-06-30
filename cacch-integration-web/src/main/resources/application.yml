@@ -37,6 +37,13 @@ mybatis-plus:
 
 # 日志统一由 logback-spring.xml 管理，请勿在此配置 logging.level / logging.file
 
+# ==================== 会议同步定时任务 Cron（公共占位） ====================
+meeting:
+  sync:
+    master-cron: "0 */10 * * * ?"
+    meeting-cron: "0 */5 * * * ?"
+    todo-cron: "0 */15 * * * ?"
+
 # ==================== 企业微信多应用配置（公共占位） ====================
 # 实际值请在 application-{profile}.yml 中覆盖
 # 配置格式：List of App Config，一个 (corpid, app-key) 唯一标识一个 token 槽位

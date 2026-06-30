@@ -46,6 +46,52 @@ public final class WeComConstants {
             "https://qyapi.weixin.qq.com/cgi-bin/wedoc/smartsheet/get_records?access_token=%s";
 
     /**
+     * 智能表格 — 添加记录 API 地址
+     */
+    public static final String SMARTSHEET_ADD_RECORDS_URL =
+            "https://qyapi.weixin.qq.com/cgi-bin/wedoc/smartsheet/add_records?access_token=%s";
+
+    /**
+     * 智能表格 — 更新记录 API 地址
+     */
+    public static final String SMARTSHEET_UPDATE_RECORDS_URL =
+            "https://qyapi.weixin.qq.com/cgi-bin/wedoc/smartsheet/update_records?access_token=%s";
+
+    /**
+     * 文档 — 新建文档/智能表格 API 地址
+     */
+    public static final String DOC_CREATE_URL =
+            "https://qyapi.weixin.qq.com/cgi-bin/wedoc/create_doc?access_token=%s";
+
+    /**
+     * 智能表格文档类型（doc_type=10）
+     */
+    public static final int DOC_TYPE_SMART_SHEET = 10;
+
+    /**
+     * 智能表格记录 key 类型 — 字段 ID
+     */
+    public static final String CELL_VALUE_KEY_TYPE_FIELD_ID = "CELL_VALUE_KEY_TYPE_FIELD_ID";
+
+    /**
+     * 会议 — 创建预约会议 API 地址
+     */
+    public static final String MEETING_CREATE_URL =
+            "https://qyapi.weixin.qq.com/cgi-bin/meeting/create?access_token=%s";
+
+    /**
+     * 会议 — 获取会议详情 API 地址
+     */
+    public static final String MEETING_GET_INFO_URL =
+            "https://qyapi.weixin.qq.com/cgi-bin/meeting/get_info?access_token=%s";
+
+    /**
+     * 会议 — 获取录制转写详情 API 地址
+     */
+    public static final String MEETING_TRANSCRIPT_GET_DETAIL_URL =
+            "https://qyapi.weixin.qq.com/cgi-bin/meeting/record/transcript/get_detail?access_token=%s";
+
+    /**
      * 动态生成企业微信 access_token 缓存 Key
      *
      * @param corpid 企业 ID

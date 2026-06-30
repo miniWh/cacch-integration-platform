@@ -1,8 +1,13 @@
 package com.cacch.integration.service.wecom.api;
 
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComAddRecordsResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComGetFieldsResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComGetRecordsResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComGetSheetResponse;
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComRecordWriteItem;
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComUpdateRecordsResponse;
+
+import java.util.List;
 
 /**
  * 企业微信智能表格服务接口
@@ -42,4 +47,16 @@ public interface IWeComSmartSheetService {
      * @param limit       分页大小
      */
     WeComGetRecordsResponse getRecords(String accessToken, String docId, String sheetId, Integer offset, Integer limit);
+
+    /**
+     * 添加智能表格记录
+     */
+    WeComAddRecordsResponse addRecords(String accessToken, String docId, String sheetId,
+                                       List<WeComRecordWriteItem> records);
+
+    /**
+     * 更新智能表格记录
+     */
+    WeComUpdateRecordsResponse updateRecords(String accessToken, String docId, String sheetId,
+                                               List<WeComRecordWriteItem> records);
 }

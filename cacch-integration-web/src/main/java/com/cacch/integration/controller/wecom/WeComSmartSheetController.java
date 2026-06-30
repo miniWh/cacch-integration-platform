@@ -2,15 +2,19 @@ package com.cacch.integration.controller.wecom;
 
 import com.cacch.integration.common.result.Result;
 import com.cacch.integration.convert.wecom.SmartSheetConverter;
+import com.cacch.integration.dto.wecom.request.UpdateSmartRecordsRequest;
 import com.cacch.integration.dto.wecom.vo.SmartFieldListVO;
 import com.cacch.integration.dto.wecom.vo.SmartRecordListVO;
 import com.cacch.integration.dto.wecom.vo.SmartSheetVO;
 import com.cacch.integration.manager.wecom.api.IWeComSmartSheetManager;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -83,5 +87,17 @@ public class WeComSmartSheetController {
             @RequestParam(required = false, defaultValue = "100") Integer limit) {
         return Result.success(smartSheetConverter.toRecordListVO(
                 weComSmartSheetManager.getRecords(docId, sheetId, offset, limit)));
+    }
+
+    /**
+     * 更新智能表格记录（回写会议状态、总控表 doc_id 等）
+     */
+    @PostMapping("/{docId}/sheets/{sheetId}/records/update")
+    public Result<SmartRecordListVO> updateRecords(
+            @PathVariable @NotBlank String docId,
+            @PathVariable @NotBlank String sheetId,
+            @Valid @RequestBody UpdateSmartRecordsRequest request) {
+        return Result.success(smartSheetConverter.toRecordListVO(
+                weComSmartSheetManager.updateRecords(docId, sheetId, request.toWriteItems())));
     }
 }
