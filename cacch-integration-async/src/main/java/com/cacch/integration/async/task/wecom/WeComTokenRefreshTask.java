@@ -1,4 +1,4 @@
-package com.cacch.integration.async.wecom.task;
+package com.cacch.integration.async.task.wecom;
 
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.config.wecom.WeComAppConfig;
