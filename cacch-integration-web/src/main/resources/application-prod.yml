@@ -32,13 +32,9 @@ spring:
           # 最小空闲连接数（预创建 4 个，应对突发流量）
           min-idle: 4
 
-  # ---------- Flyway 数据库迁移 ----------
+  # ---------- Flyway：生产环境禁止自动迁移（与 test 共用库，迁移仅由 test profile 执行） ----------
   flyway:
-    # 启用 Flyway
-    enabled: true
-    # 生产环境严禁 baseline-on-migrate=true（防止误覆盖已有数据库结构）
-    # 所有 Schema 变更必须通过递增版本号的迁移脚本执行
-    baseline-on-migrate: false
+    enabled: false
 
 # ---------- 服务端口 ----------
 server:

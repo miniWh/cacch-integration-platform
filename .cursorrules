@@ -263,6 +263,10 @@ is_deleted  SMALLINT NOT NULL DEFAULT 0  -- 逻辑删除标记（0正常 1删除
 - **禁止直接修改数据库结构**，所有变更必须通过 Flyway 脚本提交。
 - Flyway 脚本命名：`V{版本号}__{描述}.sql`，版本号递增，**禁止修改已执行脚本**。
 - 脚本路径：`cacch-integration-web/src/main/resources/db/migration/`
+- **执行策略（test/prod 共用库）**：
+  - `spring.profiles.active=test`：**唯一**允许 Flyway 自动迁移的环境（`spring.flyway.enabled=true`）
+  - `spring.profiles.active=prod`：**禁止** Flyway 自动迁移（`spring.flyway.enabled=false`），生产启动不得改表
+  - 新增脚本先在 test 环境启动验证，prod 仅使用已迁移完成的表结构
 
 ### 6.3 PostgreSQL 12 兼容约束
 - **禁止使用 `MERGE` 语法**，幂等写入统一使用 `INSERT ... ON CONFLICT DO UPDATE`。

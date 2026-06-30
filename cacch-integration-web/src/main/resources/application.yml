@@ -12,10 +12,13 @@ spring:
     active: test
 
   flyway:
-    # Schema 迁移脚本路径（所有环境统一）
+    # 默认关闭：仅 test profile 开启迁移（test/prod 共用同一数据库，生产禁止自动改表）
+    enabled: false
     locations: classpath:db/migration
-    # 基线版本号，即第一个迁移脚本的版本
     baseline-version: 0
+    validate-on-migrate: true
+    encoding: UTF-8
+    clean-disabled: true
 
 # ==================== MyBatis-Plus 全局配置（所有环境共用） ====================
 mybatis-plus:

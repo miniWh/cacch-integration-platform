@@ -1,9 +1,8 @@
 # ==================== 测试环境配置 ====================
 
 spring:
-  # ---------- PostgreSQL 数据源 ----------
+  # ---------- PostgreSQL 数据源（与 prod 共用同一库 cdb） ----------
   datasource:
-    # 数据库连接地址（测试库后缀 _test，与生产隔离）
     url: jdbc:postgresql://10.80.86.93:5432/cdb
     username: esb
     password: esb
@@ -24,12 +23,13 @@ spring:
           # 最小空闲连接数（0 表示不预创建）
           min-idle: 0
 
-  # ---------- Flyway 数据库迁移 ----------
+  # ---------- Flyway 数据库迁移（test/prod 共用同一库，仅 test 启动时执行） ----------
   flyway:
-    # 启用 Flyway
     enabled: true
-    # 测试环境允许对已有数据库执行基线化迁移（开发迭代中常用）
+    # 已有表结构的数据库首次接入 Flyway 时自动 baseline，再执行未运行的脚本
     baseline-on-migrate: true
+    # 禁止 clean（共用库，防止误删数据）
+    clean-disabled: true
 
 # ---------- MyBatis-Plus 测试环境：SQL 日志走 SLF4J（级别见 logback-spring.xml test profile） ----------
 

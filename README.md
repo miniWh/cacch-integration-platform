@@ -169,11 +169,10 @@ spring:
       port: 6379
       password: your_redis_password
 
-  # Flyway配置
+  # Flyway：仅 test profile 开启，prod 禁止自动迁移（见 application-test.yml / application-prod.yml）
   flyway:
-    enabled: true
+    enabled: false
     locations: classpath:db/migration
-    baseline-on-migrate: true
 ```
 
 ### 5.3 启动项目
@@ -198,7 +197,7 @@ mvn clean compile
    Caffeine 堆内缓存承载 Dashboard 高频统计查询，Redis 分布式缓存承载认证信息、全表统计快照，兼顾性能与分布式一致性。
 
 5. **数据库版本管控**
-   Flyway 全量管控 Schema 变更，保障开发、测试、生产环境数据结构一致，降低发布故障风险。
+   Flyway 管理 Schema 变更；**test/prod 共用同一数据库，仅 test 环境启动时执行迁移**，prod 启动不操作数据库结构。
 
 6. **对象存储集成**
    基于 AWS SDK v2 对接 S3 兼容存储，支持集成报文、附件文件的统一存储与管理。
@@ -251,7 +250,7 @@ java -jar cacch-integration-web.jar --spring.profiles.active=prod --spring.confi
 ### 8.3 运维注意事项
 1. **数据库运维**：PostgreSQL 12 无官方安全补丁，需严格限制数据库访问白名单，定期执行 vacuum 分析，监控表膨胀率。
 2. **缓存运维**：Redis 需配置持久化策略，关键认证数据设置合理过期时间，避免缓存穿透与雪崩。
-3. **版本升级**：Flyway 会在服务启动时自动执行未运行的迁移脚本，升级前需在测试环境完整验证脚本兼容性。
+3. **版本升级**：Schema 变更脚本仅在 **test profile 启动**时由 Flyway 执行；prod 部署前须确认 test 已完成迁移，prod 启动不会再次执行 SQL。
 
 ## 九、可选扩展增强
 根据项目迭代需要，可按需引入以下主流组件提升可维护性与稳定性：
