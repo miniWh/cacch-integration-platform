@@ -46,6 +46,12 @@ wecom:
     - corpid: ww0ae0c799548c75bd
       app-key: self-built
       secret: rJ4TpwlW7s1Z64xBHgUd35zNOUIQ14figIs5sfgqgaI
+  # 群机器人 Webhook 告警（测试环境按需开启，key 勿提交到版本库）
+  webhook:
+    enabled: false
+    key: ""
+    mention-mobiles: []
+    alert-interval-seconds: 1800
 
 # ---------- Actuator 健康监控 ----------
 management:

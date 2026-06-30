@@ -16,10 +16,12 @@ import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComGetShe
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComRecordInfo;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComRecordWriteItem;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComSheetInfo;
+import com.cacch.integration.common.dto.wecom.WeComAlertCommand;
 import com.cacch.integration.manager.meeting.api.IMeetingSyncManager;
 import com.cacch.integration.manager.wecom.api.IWeComDocManager;
 import com.cacch.integration.manager.wecom.api.IWeComMeetingManager;
 import com.cacch.integration.manager.wecom.api.IWeComSmartSheetManager;
+import com.cacch.integration.manager.wecom.api.IWeComWebhookManager;
 import com.cacch.integration.service.meeting.api.IMeetingRecordService;
 import com.cacch.integration.service.meeting.api.ISmartTableService;
 import com.cacch.integration.service.meeting.api.ITodoItemService;
@@ -45,6 +47,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class MeetingSyncManagerImpl implements IMeetingSyncManager {
 
+    private static final String BIZ = "meeting";
     private static final int RECORD_PAGE_SIZE = 100;
     private static final String APPLY_STATUS_APPROVED = "已批准";
 
@@ -54,6 +57,7 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
     private final IWeComSmartSheetManager weComSmartSheetManager;
     private final IWeComDocManager weComDocManager;
     private final IWeComMeetingManager weComMeetingManager;
+    private final IWeComWebhookManager weComWebhookManager;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -171,6 +175,15 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
             markSyncSuccess(table);
         } catch (Exception e) {
             markSyncError(table, e);
+            weComWebhookManager.sendAlert(WeComAlertCommand.builder()
+                    .biz(BIZ)
+                    .title("智能表格同步异常")
+                    .subject(table.getTableName())
+                    .context("smartTableId=" + table.getId() + ", docId=" + table.getDocId())
+                    .error(e)
+                    .dedupType("table")
+                    .dedupId(String.valueOf(table.getId()))
+                    .build());
             log.error("【MeetingSync】同步会议行失败, smartTableId={}", table.getId(), e);
         }
     }

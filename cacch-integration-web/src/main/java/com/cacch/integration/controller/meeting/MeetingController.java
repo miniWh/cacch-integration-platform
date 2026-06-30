@@ -22,7 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 /**
- * 智能表格会议管理 — 配置与会议记录查询
+ * 智能表格会议管理 — 配置、会议记录查询与同步手动触发
  */
 @RestController
 @RequestMapping("/api/v1/meeting")

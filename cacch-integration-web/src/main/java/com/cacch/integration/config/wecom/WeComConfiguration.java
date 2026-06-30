@@ -1,6 +1,7 @@
 package com.cacch.integration.config.wecom;
 
 import com.cacch.integration.common.config.wecom.WeComProperties;
+import com.cacch.integration.common.config.wecom.WeComWebhookProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 
@@ -10,6 +11,6 @@ import org.springframework.context.annotation.Configuration;
  * @author cacch-integration
  */
 @Configuration
-@EnableConfigurationProperties(WeComProperties.class)
+@EnableConfigurationProperties({WeComProperties.class, WeComWebhookProperties.class})
 public class WeComConfiguration {
 }

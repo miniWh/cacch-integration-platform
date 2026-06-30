@@ -92,6 +92,21 @@ public final class WeComConstants {
             "https://qyapi.weixin.qq.com/cgi-bin/meeting/record/transcript/get_detail?access_token=%s";
 
     /**
+     * 群机器人 Webhook 发送消息 API 地址（key 由配置注入）
+     */
+    public static final String WEBHOOK_SEND_URL =
+            "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=%s";
+
+    /**
+     * Webhook 告警去重 Redis Key
+     *
+     * @param alertKey 告警标识（任务名 + 错误摘要 hash）
+     */
+    public static String webhookAlertRedisKey(String alertKey) {
+        return RedisConstants.KEY_PREFIX + "wecom:webhook:alert:" + alertKey;
+    }
+
+    /**
      * 动态生成企业微信 access_token 缓存 Key
      *
      * @param corpid 企业 ID

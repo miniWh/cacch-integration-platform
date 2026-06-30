@@ -52,3 +52,9 @@ wecom:
     - corpid: placeholder
       app-key: self-built
       secret: placeholder
+  # 群机器人 Webhook — 定时同步异常告警（key 从企微群机器人 Webhook 地址中获取）
+  webhook:
+    enabled: false
+    key: "4432e2bc-1a69-4fc3-945a-5acb52e399c5"
+    mention-mobiles: []
+    alert-interval-seconds: 1800
