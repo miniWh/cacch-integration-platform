@@ -49,7 +49,7 @@ wecom:
   # 群机器人 Webhook 告警（测试环境按需开启，key 勿提交到版本库）
   webhook:
     enabled: false
-    key: ""
+    key: "4432e2bc-1a69-4fc3-945a-5acb52e399c5"
     mention-mobiles: []
     alert-interval-seconds: 1800
 
