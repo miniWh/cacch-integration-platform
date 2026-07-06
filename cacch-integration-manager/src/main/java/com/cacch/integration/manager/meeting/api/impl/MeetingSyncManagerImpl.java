@@ -113,10 +113,12 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
 
     @Override
     public void createPendingWeComMeetings() {
-        List<MeetingRecordDO> pendingRecords = meetingRecordService.listByStatus(
-                MeetingRecordStatusEnum.PENDING.getCode());
-        for (MeetingRecordDO record : pendingRecords) {
-            createWeComMeetingForRecord(record);
+        List<SmartTableDO> meetingTables = smartTableService.listEnabledMeetingTables();
+        for (SmartTableDO table : meetingTables) {
+            List<MeetingRecordDO> records = meetingRecordService.listBySmartTableId(table.getId());
+            for (MeetingRecordDO record : records) {
+                tryCreateWeComMeeting(table, record);
+            }
         }
     }
 
@@ -335,7 +337,10 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
             }
             Map<String, String> mapping = ensureMeetingColumnMapping(table);
             for (WeComRecordInfo row : response.getRecords()) {
-                upsertMeetingRecord(table, mapping, row);
+                MeetingRecordDO record = upsertMeetingRecord(table, mapping, row);
+                if (record != null) {
+                    tryCreateWeComMeeting(table, record);
+                }
             }
             smartTableService.markSyncSuccess(table.getId());
         } catch (Exception e) {
@@ -353,11 +358,11 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
         }
     }
 
-    private void upsertMeetingRecord(SmartTableDO table, Map<String, String> mapping, WeComRecordInfo row) {
+    private MeetingRecordDO upsertMeetingRecord(SmartTableDO table, Map<String, String> mapping, WeComRecordInfo row) {
         Map<String, Object> values = row.getValues();
         String title = WeComSmartSheetCellAdapter.getMappedText(values, mapping, "meeting_title");
         if (!StringUtils.hasText(title)) {
-            return;
+            return null;
         }
         MeetingRecordDO existing = meetingRecordService.getBySmartTableIdAndRecordId(table.getId(), row.getRecordId());
         MeetingRecordDO record = existing != null ? existing : new MeetingRecordDO();
@@ -369,6 +374,10 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
         applyMeetingStart(record, WeComSmartSheetCellAdapter.getMappedText(values, mapping, "start_time"));
         record.setDuration(parseDuration(WeComSmartSheetCellAdapter.getMappedText(values, mapping, "duration")));
         record.setMeetingLink(WeComSmartSheetCellAdapter.getMappedText(values, mapping, "meeting_link"));
+        List<String> attendees = WeComSmartSheetCellAdapter.getMappedUserIds(values, mapping, "attendees");
+        if (!attendees.isEmpty()) {
+            record.setAttendees(attendees);
+        }
         String sheetStatus = WeComSmartSheetCellAdapter.getMappedText(values, mapping, "status");
         String sheetMinutesStatus = WeComSmartSheetCellAdapter.getMappedText(values, mapping, "minutes_status");
         String sheetWecomMeetingCode = WeComSmartSheetCellAdapter.getMappedText(values, mapping, "wecom_meeting_code");
@@ -379,10 +388,10 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
         if (StringUtils.hasText(sheetWecomMeetingId)) {
             record.setWecomMeetingId(sheetWecomMeetingId);
         }
-        if (StringUtils.hasText(sheetStatus) && existing == null) {
+        if (StringUtils.hasText(sheetStatus)) {
             record.setStatus(mapSheetStatus(sheetStatus));
         } else if (existing == null) {
-            record.setStatus(MeetingRecordStatusEnum.PENDING.getCode());
+            record.setStatus(null);
         }
         if (StringUtils.hasText(sheetMinutesStatus)) {
             record.setMinutesStatus(mapSheetMinutesStatus(sheetMinutesStatus));
@@ -394,34 +403,97 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
         } else {
             meetingRecordService.updateById(record);
         }
+        return record;
     }
 
-    private void createWeComMeetingForRecord(MeetingRecordDO record) {
-        SmartTableDO table = smartTableService.getById(record.getSmartTableId());
-        if (table == null) {
+    private void tryCreateWeComMeeting(SmartTableDO table, MeetingRecordDO record) {
+        if (!isEligibleForMeetingCreation(record)) {
             return;
         }
+        try {
+            createWeComMeetingForRecord(table, record);
+        } catch (Exception e) {
+            log.error("【MeetingSync】创建企微会议失败, smartTableId={}, recordId={}",
+                    table.getId(), record.getRecordId(), e);
+        }
+    }
+
+    /**
+     * 校验是否满足自动建会条件：会议状态为「待发起」，且主题/时间/时长/参会人均合法。
+     */
+    private boolean isEligibleForMeetingCreation(MeetingRecordDO record) {
+        if (!StringUtils.hasText(record.getStatus())) {
+            log.debug("【MeetingSync】跳过建会: 未选择会议状态, recordId={}", record.getRecordId());
+            return false;
+        }
+        if (MeetingRecordStatusEnum.SCHEDULED.getCode().equals(record.getStatus())
+                || StringUtils.hasText(record.getWecomMeetingId())) {
+            log.debug("【MeetingSync】跳过建会: 会议已是已创建, recordId={}", record.getRecordId());
+            return false;
+        }
+        if (!MeetingRecordStatusEnum.PENDING.getCode().equals(record.getStatus())) {
+            log.debug("【MeetingSync】跳过建会: 会议状态非待发起, status={}, recordId={}",
+                    record.getStatus(), record.getRecordId());
+            return false;
+        }
+        if (!StringUtils.hasText(record.getMeetingTitle())) {
+            log.debug("【MeetingSync】跳过建会: 会议主题为空, recordId={}", record.getRecordId());
+            return false;
+        }
         if (record.getMeetingDate() == null || record.getStartTime() == null) {
-            log.warn("【MeetingSync】会议缺少日期/时间, recordId={}", record.getId());
+            log.debug("【MeetingSync】跳过建会: 开始时间为空, recordId={}", record.getRecordId());
+            return false;
+        }
+        LocalDateTime startDateTime = LocalDateTime.of(record.getMeetingDate(), record.getStartTime());
+        if (!startDateTime.isAfter(LocalDateTime.now())) {
+            log.debug("【MeetingSync】跳过建会: 开始时间不晚于当前时间, recordId={}", record.getRecordId());
+            return false;
+        }
+        if (record.getDuration() == null
+                || record.getDuration() < MeetingConstants.MIN_MEETING_DURATION_MINUTES) {
+            log.debug("【MeetingSync】跳过建会: 会议时长不足{}分钟, recordId={}",
+                    MeetingConstants.MIN_MEETING_DURATION_MINUTES, record.getRecordId());
+            return false;
+        }
+        if (record.getAttendees() == null || record.getAttendees().isEmpty()) {
+            log.debug("【MeetingSync】跳过建会: 参会人为空, recordId={}", record.getRecordId());
+            return false;
+        }
+        return true;
+    }
+
+    private void createWeComMeetingForRecord(SmartTableDO table, MeetingRecordDO record) {
+        if (table == null) {
             return;
         }
         LocalDateTime startDateTime = LocalDateTime.of(record.getMeetingDate(), record.getStartTime());
         long epochSec = startDateTime.atZone(ZoneId.systemDefault()).toEpochSecond();
+        String hostUserId = record.getAttendees().getFirst();
         WeComCreateMeetingResponse meetingResponse = weComMeetingManager.createMeeting(
-                table.getUserId(),
+                hostUserId,
                 record.getMeetingTitle(),
                 epochSec,
-                record.getDuration() != null ? record.getDuration() : 30,
-                record.getAttendees());
+                record.getDuration(),
+                record.getAttendees(),
+                record.getMeetingDescription());
 
         WeComGetMeetingInfoResponse info = weComMeetingManager.getMeetingInfo(meetingResponse.getMeetingid());
         record.setWecomMeetingId(meetingResponse.getMeetingid());
-        record.setWecomMeetingCode(info.getMeetingCode());
+        record.setWecomMeetingCode(firstNonBlank(meetingResponse.getMeetingCode(), info.getMeetingCode()));
+        record.setMeetingLink(firstNonBlank(meetingResponse.getMeetingLink(), info.getMeetingLink()));
         record.setStatus(MeetingRecordStatusEnum.SCHEDULED.getCode());
         meetingRecordService.updateById(record);
 
         writeBackMeetingStatus(table, record);
-        log.info("【MeetingSync】创建企微会议成功, recordId={}, meetingId={}", record.getId(), meetingResponse.getMeetingid());
+        log.info("【MeetingSync】创建企微会议成功, recordId={}, meetingId={}, host={}",
+                record.getId(), meetingResponse.getMeetingid(), hostUserId);
+    }
+
+    private String firstNonBlank(String primary, String fallback) {
+        if (StringUtils.hasText(primary)) {
+            return primary;
+        }
+        return StringUtils.hasText(fallback) ? fallback : null;
     }
 
     private Map<String, String> ensureMeetingColumnMapping(SmartTableDO table) {
@@ -666,14 +738,14 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
         }
     }
 
-    private int parseDuration(String text) {
+    private Integer parseDuration(String text) {
         if (!StringUtils.hasText(text)) {
-            return 30;
+            return null;
         }
         try {
             return Integer.parseInt(text.trim().replaceAll("[^0-9]", ""));
         } catch (Exception e) {
-            return 30;
+            return null;
         }
     }
 

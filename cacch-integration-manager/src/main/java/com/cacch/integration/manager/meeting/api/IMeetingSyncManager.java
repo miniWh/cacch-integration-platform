@@ -20,7 +20,7 @@ public interface IMeetingSyncManager {
     void syncMeetingRecordsFromSheets();
 
     /**
-     * 为待发起(PENDING)会议创建企微预约会议并回写智能表格
+     * 为待发起(PENDING)会议创建企微预约会议并回写智能表格（扫描后按规则校验）
      */
     void createPendingWeComMeetings();
 

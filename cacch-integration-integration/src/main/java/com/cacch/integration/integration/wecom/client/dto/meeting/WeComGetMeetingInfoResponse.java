@@ -19,6 +19,9 @@ public class WeComGetMeetingInfoResponse extends WeComBaseResponse {
     @JsonProperty("meeting_code")
     private String meetingCode;
 
+    @JsonProperty("meeting_link")
+    private String meetingLink;
+
     private String title;
 
     @JsonProperty("meeting_start")

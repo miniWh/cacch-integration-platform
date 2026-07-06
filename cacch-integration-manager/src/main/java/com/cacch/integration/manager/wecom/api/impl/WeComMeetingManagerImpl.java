@@ -34,10 +34,10 @@ public class WeComMeetingManagerImpl implements IWeComMeetingManager {
     @Override
     public WeComCreateMeetingResponse createMeeting(String adminUserid, String title,
                                                       long meetingStartEpochSec, int durationMinutes,
-                                                      List<String> attendeeUserIds) {
+                                                      List<String> attendeeUserIds, String description) {
         return execute("创建预约会议", () ->
                 weComMeetingService.createMeeting(resolveAccessToken(), adminUserid, title,
-                        meetingStartEpochSec, durationMinutes, attendeeUserIds));
+                        meetingStartEpochSec, durationMinutes, attendeeUserIds, description));
     }
 
     @Override

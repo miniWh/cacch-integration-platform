@@ -18,6 +18,12 @@ public class WeComCreateMeetingResponse extends WeComBaseResponse {
 
     private String meetingid;
 
+    @JsonProperty("meeting_code")
+    private String meetingCode;
+
+    @JsonProperty("meeting_link")
+    private String meetingLink;
+
     @JsonProperty("excess_users")
     private List<String> excessUsers;
 }

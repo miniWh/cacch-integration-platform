@@ -26,7 +26,7 @@ public class MeetingSyncTask {
     private final IWeComWebhookManager weComWebhookManager;
 
     /**
-     * 定时同步会议行并为待处理会议创建企微预约会议
+     * 定时扫描会议管理子表：同步行数据并按规则自动创建企微会议
      */
     @Scheduled(cron = "${meeting.sync.meeting-cron:0 */3 * * * ?}")
     public void syncMeetings() {
@@ -34,7 +34,6 @@ public class MeetingSyncTask {
             log.info("【MeetingTask】开始执行{}", TASK_NAME);
             try {
                 meetingSyncManager.syncMeetingRecordsFromSheets();
-                meetingSyncManager.createPendingWeComMeetings();
             } catch (Exception e) {
                 log.error("【MeetingTask】{}失败", TASK_NAME, e);
                 weComWebhookManager.sendAlert(WeComAlertCommand.builder()

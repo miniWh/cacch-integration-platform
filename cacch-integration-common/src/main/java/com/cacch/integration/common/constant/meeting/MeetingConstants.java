@@ -40,6 +40,11 @@ public final class MeetingConstants {
     public static final String TODO_SHEET_TITLE = "会议待办事项";
 
     /**
+     * 自动建会所需最短会议时长（分钟）
+     */
+    public static final int MIN_MEETING_DURATION_MINUTES = 5;
+
+    /**
      * 员工会议管理表列定义（有序，从左到右）。
      * 初始化时通过 add_fields 新建；因企微批量新增列会插入到左侧，实际 API 调用顺序需与此列表相反。
      */

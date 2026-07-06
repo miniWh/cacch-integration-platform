@@ -116,6 +116,40 @@ public final class WeComSmartSheetCellAdapter {
     }
 
     /**
+     * 从成员列原始值中解析 userId 列表
+     */
+    public static List<String> extractUserIds(Object cellValue) {
+        if (!(cellValue instanceof List<?> list) || list.isEmpty()) {
+            return List.of();
+        }
+        List<String> userIds = new ArrayList<>();
+        for (Object item : list) {
+            if (item instanceof Map<?, ?> map) {
+                Object userId = map.get("user_id");
+                if (userId != null && !userId.toString().isBlank()) {
+                    userIds.add(userId.toString());
+                }
+            }
+        }
+        return userIds;
+    }
+
+    /**
+     * 按列映射 key 从 record values 中取成员 userId 列表
+     */
+    public static List<String> getMappedUserIds(Map<String, Object> values, Map<String, String> columnMapping,
+                                                String logicalKey) {
+        if (values == null || columnMapping == null) {
+            return List.of();
+        }
+        String fieldTitle = columnMapping.get(logicalKey);
+        if (fieldTitle == null) {
+            return List.of();
+        }
+        return extractUserIds(values.get(fieldTitle));
+    }
+
+    /**
      * 判断映射值是否为企微 fieldId（历史数据兼容，fieldId 为短字母数字串）
      */
     public static boolean looksLikeFieldId(String value) {
