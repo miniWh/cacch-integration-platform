@@ -684,12 +684,6 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
         if (sheetStatus.contains("取消")) {
             return MeetingRecordStatusEnum.CANCELLED.getCode();
         }
-        if (sheetStatus.contains("结束") || sheetStatus.contains("完成")) {
-            return MeetingRecordStatusEnum.COMPLETED.getCode();
-        }
-        if (sheetStatus.contains("进行")) {
-            return MeetingRecordStatusEnum.IN_PROGRESS.getCode();
-        }
         if (sheetStatus.contains("创建") || sheetStatus.contains("已创建")) {
             return MeetingRecordStatusEnum.SCHEDULED.getCode();
         }

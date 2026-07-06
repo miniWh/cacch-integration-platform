@@ -13,8 +13,6 @@ public enum MeetingRecordStatusEnum {
 
     PENDING("PENDING", "待发起"),
     SCHEDULED("SCHEDULED", "已创建"),
-    IN_PROGRESS("IN_PROGRESS", "进行中"),
-    COMPLETED("COMPLETED", "已结束"),
     CANCELLED("CANCELLED", "已取消");
 
     private final String code;
