@@ -73,6 +73,7 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
             WeComGetRecordsResponse recordsResponse = weComSmartSheetManager.getRecords(
                     master.getDocId(), master.getMeetingSheetId(), 0, RECORD_PAGE_SIZE);
             if (recordsResponse.getRecords() == null) {
+                log.warn("【MeetingSync】未填写已批准申请的总控表(MASTER)，跳过扫描");
                 return;
             }
             Map<String, String> mapping = master.getMeetingColumnMapping();
