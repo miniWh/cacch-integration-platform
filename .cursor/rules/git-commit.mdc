@@ -1,0 +1,54 @@
+---
+description: Git 提交说明规范（Conventional Commits）
+alwaysApply: true
+---
+
+# Git Commit 规范
+
+创建 commit 时遵循 Conventional Commits。完整规范见 `.cursorrules` 第十七节。
+
+## 格式
+
+```
+<type>(<scope>): <subject>
+
+<body>
+
+<footer>
+```
+
+小改动可只写首行。
+
+## type（必填，英文）
+
+`feat` `fix` `docs` `style` `refactor` `perf` `test` `build` `ci` `chore` `revert`
+
+## scope（建议，小写）
+
+业务域：`wecom` `meeting` `apikey`  
+模块：`common` `dao` `service` `manager` `integration` `async` `web`  
+基础设施：`db` `config` `deps`
+
+## subject（必填，中文）
+
+- 祈使语气，≤ 50 字，句末不加句号
+- 说明业务意图，禁止「开发」「修改」「日志修改」
+
+## body / footer（按需）
+
+- body：为什么改、影响范围、Flyway 版本
+- footer：`Closes #123`、`BREAKING CHANGE:`、`Co-authored-by:`
+
+## 示例
+
+```
+feat(wecom): 实现 Token Redis 缓存与自动刷新
+fix(meeting): 修复主表扫描重复处理 recordId
+docs: 补充 Git 提交说明规范
+```
+
+## 禁止
+
+- 无 type 的模糊说明
+- 一次 commit 混入多个不相关变更
+- 提交 target/、.class 等构建产物

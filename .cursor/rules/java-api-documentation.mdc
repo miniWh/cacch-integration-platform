@@ -1,0 +1,51 @@
+---
+description: Java 接口、方法、参数 Javadoc 文档注释规范
+globs: **/*.java
+alwaysApply: false
+---
+
+# Java API 文档注释规范
+
+生成或修改 Java 代码时，必须为公开 API 补充中文 Javadoc。完整规范见项目根目录 `.cursorrules` 第十六节。
+
+## 必须编写 Javadoc 的类型
+
+- Service / Manager 接口（`*.api`）及其实现类（`*.api.impl`）
+- Controller 及其每个 HTTP 端点方法
+- Integration Client、Adapter 的 public 方法
+- Mapper 自定义方法、工具类 public 静态方法
+- DO / DTO / VO / Request 类及非显而易见字段
+- 定时任务、消息消费者的入口方法
+
+## 每个 public 方法必须包含
+
+| 标签 | 要求 |
+|------|------|
+| 方法描述 | 首行说明「做什么」及关键业务规则 |
+| `@param` | **每个参数一行**，说明含义、格式、是否可空、取值约束 |
+| `@return` | 非 `void` 必须说明返回值含义；集合说明空集合语义 |
+| `@throws` | 声明或可抛出的业务/集成异常须说明触发条件 |
+
+类注释须含职责说明；公开 API 类添加 `@author cacch-integration`。
+
+## 正确示例
+
+```java
+/**
+ * 获取企业微信 access_token（优先 Redis 缓存，miss 时调企微 API）
+ *
+ * @param corpid     企业 ID
+ * @param appKey     业务标识（如 address-book）
+ * @param corpsecret 应用凭证密钥，禁止写入日志
+ * @return access_token 字符串
+ * @throws BizException 企微 API 调用失败时抛出
+ */
+String getAccessToken(String corpid, String appKey, String corpsecret);
+```
+
+## 禁止
+
+- 无 `@param` 的方法（有参数时）
+- 用参数名充当说明（如 `@param id id`）
+- 注释与实现不一致
+- 对 `BaseMapper` 默认 CRUD、Lombok 生成方法重复写 Javadoc
