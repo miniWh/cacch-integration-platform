@@ -1,4 +1,4 @@
-﻿package com.cacch.integration.manager.wecom.api;
+package com.cacch.integration.manager.wecom.api;
 
 import com.cacch.integration.common.exception.BizException;
 

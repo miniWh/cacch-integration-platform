@@ -5,6 +5,7 @@ import lombok.Value;
 
 /**
  * 平台级企微 Webhook 告警指令 — 各业务域统一使用此模型发送告警
+ * @author hongfu_zhou@cacch.com
  */
 @Value
 @Builder

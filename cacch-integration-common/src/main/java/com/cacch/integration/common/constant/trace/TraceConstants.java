@@ -1,4 +1,4 @@
-﻿package com.cacch.integration.common.constant.trace;
+package com.cacch.integration.common.constant.trace;
 
 /**
  * 链路追踪 TraceId 常量

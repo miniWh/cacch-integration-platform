@@ -10,6 +10,7 @@ import java.util.stream.Collectors;
 
 /**
  * 更新智能表格记录请求
+ * @author hongfu_zhou@cacch.com
  */
 @Data
 public class UpdateSmartRecordsRequest {

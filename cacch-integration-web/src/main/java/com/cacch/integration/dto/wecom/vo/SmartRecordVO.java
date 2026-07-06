@@ -1,4 +1,4 @@
-﻿package com.cacch.integration.dto.wecom.vo;
+package com.cacch.integration.dto.wecom.vo;
 
 import lombok.Data;
 

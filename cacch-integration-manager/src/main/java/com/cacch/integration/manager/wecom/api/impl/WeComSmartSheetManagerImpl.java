@@ -1,4 +1,4 @@
-﻿package com.cacch.integration.manager.wecom.api.impl;
+package com.cacch.integration.manager.wecom.api.impl;
 
 import com.cacch.integration.common.config.wecom.WeComAppConfig;
 import com.cacch.integration.common.config.wecom.WeComProperties;

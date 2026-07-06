@@ -1,4 +1,4 @@
-﻿package com.cacch.integration.common.result;
+package com.cacch.integration.common.result;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;

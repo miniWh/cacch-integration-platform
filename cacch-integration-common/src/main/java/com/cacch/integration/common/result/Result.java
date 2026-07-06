@@ -1,4 +1,4 @@
-﻿package com.cacch.integration.common.result;
+package com.cacch.integration.common.result;
 
 import com.cacch.integration.common.exception.BizException;
 import lombok.AllArgsConstructor;

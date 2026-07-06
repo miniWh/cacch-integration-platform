@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 
 /**
  * 智能表格类型
+ * @author hongfu_zhou@cacch.com
  */
 @Getter
 @RequiredArgsConstructor

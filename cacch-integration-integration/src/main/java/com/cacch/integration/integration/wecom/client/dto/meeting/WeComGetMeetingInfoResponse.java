@@ -7,6 +7,7 @@ import lombok.EqualsAndHashCode;
 
 /**
  * 企微 — 获取会议详情响应（仅映射业务所需字段）
+ * @author hongfu_zhou@cacch.com
  */
 @Data
 @EqualsAndHashCode(callSuper = true)

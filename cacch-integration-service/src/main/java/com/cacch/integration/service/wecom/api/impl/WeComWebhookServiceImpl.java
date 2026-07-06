@@ -15,6 +15,11 @@ import org.springframework.stereotype.Service;
 import java.time.Duration;
 import java.util.List;
 
+/**
+ * 企微 Webhook 通知服务实现
+ *
+ * @author hongfu_zhou@cacch.com
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor

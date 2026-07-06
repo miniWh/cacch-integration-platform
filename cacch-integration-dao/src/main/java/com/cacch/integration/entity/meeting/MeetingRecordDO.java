@@ -16,6 +16,7 @@ import java.util.List;
 
 /**
  * 会议记录 DO
+ * @author hongfu_zhou@cacch.com
  */
 @Data
 @TableName(value = "t_integration_meeting_record", autoResultMap = true)

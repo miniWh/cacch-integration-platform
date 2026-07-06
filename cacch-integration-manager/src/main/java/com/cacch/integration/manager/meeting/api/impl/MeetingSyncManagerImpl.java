@@ -1,13 +1,16 @@
 package com.cacch.integration.manager.meeting.api.impl;
 
+import com.cacch.integration.common.constant.meeting.MeetingConstants;
+import com.cacch.integration.common.dto.wecom.WeComAlertCommand;
 import com.cacch.integration.common.enums.meeting.MeetingMinutesStatusEnum;
 import com.cacch.integration.common.enums.meeting.MeetingRecordStatusEnum;
 import com.cacch.integration.common.enums.meeting.SmartTableTypeEnum;
 import com.cacch.integration.common.exception.BizException;
+import com.cacch.integration.common.result.ResultCode;
 import com.cacch.integration.entity.meeting.MeetingRecordDO;
 import com.cacch.integration.entity.meeting.SmartTableDO;
 import com.cacch.integration.entity.meeting.TodoItemDO;
-import com.cacch.integration.integration.wecom.adapter.SmartSheetCellAdapter;
+import com.cacch.integration.integration.wecom.adapter.WeComSmartSheetCellAdapter;
 import com.cacch.integration.integration.wecom.client.dto.doc.WeComCreateDocResponse;
 import com.cacch.integration.integration.wecom.client.dto.meeting.WeComCreateMeetingResponse;
 import com.cacch.integration.integration.wecom.client.dto.meeting.WeComGetMeetingInfoResponse;
@@ -16,7 +19,6 @@ import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComGetShe
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComRecordInfo;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComRecordWriteItem;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComSheetInfo;
-import com.cacch.integration.common.dto.wecom.WeComAlertCommand;
 import com.cacch.integration.manager.meeting.api.IMeetingSyncManager;
 import com.cacch.integration.manager.wecom.api.IWeComDocManager;
 import com.cacch.integration.manager.wecom.api.IWeComMeetingManager;
@@ -28,7 +30,6 @@ import com.cacch.integration.service.meeting.api.ITodoItemService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDate;
@@ -41,6 +42,8 @@ import java.util.Map;
 
 /**
  * 会议智能表格同步编排实现
+ *
+ * @author hongfu_zhou@cacch.com
  */
 @Slf4j
 @Component
@@ -49,7 +52,6 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
 
     private static final String BIZ = "meeting";
     private static final int RECORD_PAGE_SIZE = 100;
-    private static final String APPLY_STATUS_APPROVED = "已批准";
 
     private final ISmartTableService smartTableService;
     private final IMeetingRecordService meetingRecordService;
@@ -60,7 +62,6 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
     private final IWeComWebhookManager weComWebhookManager;
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
     public void scanMasterAndProvision() {
         SmartTableDO master = smartTableService.getEnabledMaster();
         if (master == null) {
@@ -78,15 +79,14 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
             for (WeComRecordInfo record : recordsResponse.getRecords()) {
                 provisionEmployeeTable(master, mapping, record);
             }
-            markSyncSuccess(master);
+            smartTableService.markSyncSuccess(master.getId());
         } catch (Exception e) {
-            markSyncError(master, e);
+            smartTableService.markSyncError(master.getId(), e.getMessage());
             throw e;
         }
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
     public void syncMeetingRecordsFromSheets() {
         List<SmartTableDO> meetingTables = smartTableService.listEnabledMeetingTables();
         for (SmartTableDO table : meetingTables) {
@@ -95,7 +95,6 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
     public void createPendingWeComMeetings() {
         List<MeetingRecordDO> pendingRecords = meetingRecordService.listByStatus(
                 MeetingRecordStatusEnum.PENDING.getCode());
@@ -105,7 +104,6 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
     public void syncTodosToSheet() {
         List<SmartTableDO> meetingTables = smartTableService.listEnabledMeetingTables();
         for (SmartTableDO table : meetingTables) {
@@ -124,20 +122,20 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
 
     private void provisionEmployeeTable(SmartTableDO master, Map<String, String> mapping, WeComRecordInfo record) {
         Map<String, Object> values = record.getValues();
-        String applyStatus = SmartSheetCellAdapter.getMappedText(values, mapping, "apply_status");
-        if (!APPLY_STATUS_APPROVED.equals(applyStatus)) {
+        String applyStatus = WeComSmartSheetCellAdapter.getMappedText(values, mapping, "apply_status");
+        if (!MeetingConstants.APPLY_STATUS_APPROVED.equals(applyStatus)) {
             return;
         }
-        String createdDocId = SmartSheetCellAdapter.getMappedText(values, mapping, "created_doc_id");
+        String createdDocId = WeComSmartSheetCellAdapter.getMappedText(values, mapping, "created_doc_id");
         if (StringUtils.hasText(createdDocId)) {
             return;
         }
-        String userId = SmartSheetCellAdapter.getMappedText(values, mapping, "user_id");
+        String userId = WeComSmartSheetCellAdapter.getMappedText(values, mapping, "user_id");
         if (!StringUtils.hasText(userId)) {
             log.warn("【MeetingSync】总控行缺少 user_id, recordId={}", record.getRecordId());
             return;
         }
-        String userName = SmartSheetCellAdapter.getMappedText(values, mapping, "user_name");
+        String userName = WeComSmartSheetCellAdapter.getMappedText(values, mapping, "user_name");
         String docName = StringUtils.hasText(userName) ? userName + "的会议管理" : userId + "的会议管理";
 
         WeComCreateDocResponse docResponse = weComDocManager.createSmartSheetDoc(docName, List.of(userId));
@@ -152,8 +150,8 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
         meetingTable.setDocUrl(docResponse.getUrl());
         meetingTable.setMeetingSheetId(meetingSheetId);
         meetingTable.setMeetingColumnMapping(copyColumnMapping(master.getMeetingColumnMapping()));
-        meetingTable.setStatus(1);
-        smartTableService.save(meetingTable);
+        meetingTable.setStatus(MeetingConstants.SMART_TABLE_STATUS_ENABLED);
+        smartTableService.saveNew(meetingTable);
 
         writeBackMasterProvision(master, mapping, record.getRecordId(), docResponse);
         log.info("【MeetingSync】为员工创建会议管理表, userId={}, docId={}", userId, docResponse.getDocid());
@@ -165,16 +163,16 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
             WeComGetRecordsResponse response = weComSmartSheetManager.getRecords(
                     table.getDocId(), table.getMeetingSheetId(), 0, RECORD_PAGE_SIZE);
             if (response.getRecords() == null) {
-                markSyncSuccess(table);
+                smartTableService.markSyncSuccess(table.getId());
                 return;
             }
             Map<String, String> mapping = table.getMeetingColumnMapping();
             for (WeComRecordInfo row : response.getRecords()) {
                 upsertMeetingRecord(table, mapping, row);
             }
-            markSyncSuccess(table);
+            smartTableService.markSyncSuccess(table.getId());
         } catch (Exception e) {
-            markSyncError(table, e);
+            smartTableService.markSyncError(table.getId(), e.getMessage());
             weComWebhookManager.sendAlert(WeComAlertCommand.builder()
                     .biz(BIZ)
                     .title("智能表格同步异常")
@@ -190,7 +188,7 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
 
     private void upsertMeetingRecord(SmartTableDO table, Map<String, String> mapping, WeComRecordInfo row) {
         Map<String, Object> values = row.getValues();
-        String title = SmartSheetCellAdapter.getMappedText(values, mapping, "meeting_title");
+        String title = WeComSmartSheetCellAdapter.getMappedText(values, mapping, "meeting_title");
         if (!StringUtils.hasText(title)) {
             return;
         }
@@ -199,11 +197,11 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
         record.setSmartTableId(table.getId());
         record.setRecordId(row.getRecordId());
         record.setMeetingTitle(title);
-        record.setMeetingDate(parseDate(SmartSheetCellAdapter.getMappedText(values, mapping, "meeting_date")));
-        record.setStartTime(parseTime(SmartSheetCellAdapter.getMappedText(values, mapping, "start_time")));
-        record.setDuration(parseDuration(SmartSheetCellAdapter.getMappedText(values, mapping, "duration")));
-        record.setMeetingLink(SmartSheetCellAdapter.getMappedText(values, mapping, "meeting_link"));
-        String sheetStatus = SmartSheetCellAdapter.getMappedText(values, mapping, "status");
+        record.setMeetingDate(parseDate(WeComSmartSheetCellAdapter.getMappedText(values, mapping, "meeting_date")));
+        record.setStartTime(parseTime(WeComSmartSheetCellAdapter.getMappedText(values, mapping, "start_time")));
+        record.setDuration(parseDuration(WeComSmartSheetCellAdapter.getMappedText(values, mapping, "duration")));
+        record.setMeetingLink(WeComSmartSheetCellAdapter.getMappedText(values, mapping, "meeting_link"));
+        String sheetStatus = WeComSmartSheetCellAdapter.getMappedText(values, mapping, "status");
         if (StringUtils.hasText(sheetStatus) && existing == null) {
             record.setStatus(mapSheetStatus(sheetStatus));
         } else if (existing == null) {
@@ -246,7 +244,7 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
     }
 
     private void writeBackMasterProvision(SmartTableDO master, Map<String, String> mapping,
-                                            String recordId, WeComCreateDocResponse docResponse) {
+                                          String recordId, WeComCreateDocResponse docResponse) {
         Map<String, Object> values = new HashMap<>();
         putTextValue(values, mapping, "created_doc_id", docResponse.getDocid());
         putTextValue(values, mapping, "created_doc_url", docResponse.getUrl());
@@ -294,20 +292,19 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
     }
 
     private void putTextValue(Map<String, Object> values, Map<String, String> mapping,
-                                String logicalKey, String text) {
+                              String logicalKey, String text) {
         if (mapping == null || !StringUtils.hasText(text)) {
             return;
         }
         String fieldId = mapping.get(logicalKey);
         if (fieldId != null) {
-            values.put(fieldId, SmartSheetCellAdapter.textCell(text));
+            values.put(fieldId, WeComSmartSheetCellAdapter.textCell(text));
         }
     }
 
     private String resolveFirstSheetId(WeComGetSheetResponse sheetResponse) {
         if (sheetResponse.getSheetList() == null || sheetResponse.getSheetList().isEmpty()) {
-            throw new BizException(com.cacch.integration.common.result.ResultCode.INTEGRATION_ERROR,
-                    "新建智能表格未返回子表信息");
+            throw new BizException(ResultCode.INTEGRATION_ERROR, "新建智能表格未返回子表信息");
         }
         WeComSheetInfo sheet = sheetResponse.getSheetList().getFirst();
         return sheet.getSheetId();
@@ -315,18 +312,6 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
 
     private Map<String, String> copyColumnMapping(Map<String, String> source) {
         return source != null ? new HashMap<>(source) : new HashMap<>();
-    }
-
-    private void markSyncSuccess(SmartTableDO table) {
-        table.setLastSyncTime(LocalDateTime.now());
-        table.setLastSyncError(null);
-        smartTableService.updateById(table);
-    }
-
-    private void markSyncError(SmartTableDO table, Exception e) {
-        table.setLastSyncTime(LocalDateTime.now());
-        table.setLastSyncError(e.getMessage());
-        smartTableService.updateById(table);
     }
 
     private LocalDate parseDate(String text) {

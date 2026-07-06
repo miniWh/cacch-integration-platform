@@ -1,4 +1,4 @@
-﻿package com.cacch.integration.service.wecom.api.impl;
+package com.cacch.integration.service.wecom.api.impl;
 
 import com.cacch.integration.common.constant.wecom.WeComConstants;
 import com.cacch.integration.common.exception.BizException;

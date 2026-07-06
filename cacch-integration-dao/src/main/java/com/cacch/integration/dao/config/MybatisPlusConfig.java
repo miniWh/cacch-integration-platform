@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
 
 /**
  * MyBatis-Plus 全局配置
+ * @author hongfu_zhou@cacch.com
  */
 @Configuration
 @MapperScan("com.cacch.integration.mapper")

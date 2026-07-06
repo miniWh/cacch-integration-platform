@@ -14,6 +14,11 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 
+/**
+ * 企微文档服务实现
+ *
+ * @author hongfu_zhou@cacch.com
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor

@@ -7,6 +7,7 @@ import java.util.Map;
 
 /**
  * 智能表格配置 VO
+ * @author hongfu_zhou@cacch.com
  */
 @Data
 public class SmartTableConfigVO {

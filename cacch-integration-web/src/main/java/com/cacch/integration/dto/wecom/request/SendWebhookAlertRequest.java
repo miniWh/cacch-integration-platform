@@ -5,6 +5,7 @@ import lombok.Data;
 
 /**
  * 手动触发 Webhook 告警请求（平台级）
+ * @author hongfu_zhou@cacch.com
  */
 @Data
 public class SendWebhookAlertRequest {

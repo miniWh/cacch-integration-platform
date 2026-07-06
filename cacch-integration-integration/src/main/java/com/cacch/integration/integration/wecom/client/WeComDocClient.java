@@ -11,6 +11,7 @@ import org.springframework.web.client.RestTemplate;
 
 /**
  * 企业微信文档 HTTP 客户端
+ * @author hongfu_zhou@cacch.com
  */
 @Slf4j
 @Component

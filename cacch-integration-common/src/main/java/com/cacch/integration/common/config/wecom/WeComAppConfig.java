@@ -1,4 +1,4 @@
-﻿package com.cacch.integration.common.config.wecom;
+package com.cacch.integration.common.config.wecom;
 
 import lombok.Value;
 

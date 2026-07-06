@@ -1,4 +1,4 @@
-package com.cacch.integration.async.task.meeting;
+package com.cacch.integration.async.meeting.task;
 
 import com.cacch.integration.async.support.ScheduledTaskTraceSupport;
 import com.cacch.integration.common.dto.wecom.WeComAlertCommand;
@@ -10,26 +10,30 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 /**
- * 会议行同步与建会定时任务
+ * 总控表扫描定时任务 — 扫描已批准申请并创建员工会议管理智能表格
+ *
+ * @author hongfu_zhou@cacch.com
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class MeetingSyncTask {
+public class MasterTableScanTask {
 
     private static final String BIZ = "meeting";
-    private static final String TASK_NAME = "会议行同步与建会";
+    private static final String TASK_NAME = "总控表扫描";
 
     private final IMeetingSyncManager meetingSyncManager;
     private final IWeComWebhookManager weComWebhookManager;
 
-    @Scheduled(cron = "${meeting.sync.meeting-cron:0 */5 * * * ?}")
-    public void syncMeetings() {
+    /**
+     * 定时扫描总控表并创建员工会议管理智能表格
+     */
+    @Scheduled(cron = "${meeting.sync.master-cron:0 */10 * * * ?}")
+    public void scanMasterTable() {
         ScheduledTaskTraceSupport.runWithTraceId(() -> {
             log.info("【MeetingTask】开始执行{}", TASK_NAME);
             try {
-                meetingSyncManager.syncMeetingRecordsFromSheets();
-                meetingSyncManager.createPendingWeComMeetings();
+                meetingSyncManager.scanMasterAndProvision();
             } catch (Exception e) {
                 log.error("【MeetingTask】{}失败", TASK_NAME, e);
                 weComWebhookManager.sendAlert(WeComAlertCommand.builder()

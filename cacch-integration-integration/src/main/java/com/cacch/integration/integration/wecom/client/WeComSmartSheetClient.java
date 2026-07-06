@@ -1,4 +1,4 @@
-﻿package com.cacch.integration.integration.wecom.client;
+package com.cacch.integration.integration.wecom.client;
 
 import com.cacch.integration.common.constant.wecom.WeComConstants;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComAddRecordsRequest;

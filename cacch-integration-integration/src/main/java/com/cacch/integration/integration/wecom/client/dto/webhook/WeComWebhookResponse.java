@@ -5,6 +5,7 @@ import lombok.Data;
 
 /**
  * 企微 Webhook 通用响应
+ * @author hongfu_zhou@cacch.com
  */
 @Data
 public class WeComWebhookResponse {

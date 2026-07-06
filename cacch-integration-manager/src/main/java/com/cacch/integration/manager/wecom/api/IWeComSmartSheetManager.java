@@ -1,4 +1,4 @@
-﻿package com.cacch.integration.manager.wecom.api;
+package com.cacch.integration.manager.wecom.api;
 
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComAddRecordsResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComGetFieldsResponse;
@@ -45,7 +45,23 @@ public interface IWeComSmartSheetManager {
      */
     WeComGetRecordsResponse getRecords(String docId, String sheetId, Integer offset, Integer limit);
 
+    /**
+     * 向智能表格子表添加记录（使用配置中的自建应用鉴权）
+     *
+     * @param docId   文档 docid
+     * @param sheetId 子表 ID
+     * @param records 待写入记录列表
+     * @return 添加结果（含新 recordId）
+     */
     WeComAddRecordsResponse addRecords(String docId, String sheetId, List<WeComRecordWriteItem> records);
 
+    /**
+     * 更新智能表格子表记录（使用配置中的自建应用鉴权）
+     *
+     * @param docId   文档 docid
+     * @param sheetId 子表 ID
+     * @param records 待更新记录列表（须含 recordId）
+     * @return 更新结果
+     */
     WeComUpdateRecordsResponse updateRecords(String docId, String sheetId, List<WeComRecordWriteItem> records);
 }

@@ -6,6 +6,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
  * Cacch 集成平台启动类
+ * @author hongfu_zhou@cacch.com
  */
 @SpringBootApplication
 @EnableScheduling

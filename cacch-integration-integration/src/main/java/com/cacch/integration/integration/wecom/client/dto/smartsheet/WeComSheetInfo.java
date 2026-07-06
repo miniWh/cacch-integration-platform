@@ -1,4 +1,4 @@
-﻿package com.cacch.integration.integration.wecom.client.dto.smartsheet;
+package com.cacch.integration.integration.wecom.client.dto.smartsheet;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;

@@ -8,6 +8,7 @@ import java.util.List;
 
 /**
  * 企微 Webhook — 文本消息请求（支持 @ 指定成员）
+ * @author hongfu_zhou@cacch.com
  */
 @Data
 @Builder

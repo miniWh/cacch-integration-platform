@@ -1,4 +1,4 @@
-﻿package com.cacch.integration.convert.wecom;
+package com.cacch.integration.convert.wecom;
 
 import com.cacch.integration.dto.wecom.vo.SmartFieldListVO;
 import com.cacch.integration.dto.wecom.vo.SmartFieldVO;
@@ -50,12 +50,5 @@ public interface SmartSheetConverter {
     @Mapping(source = "hasMore", target = "hasMore")
     SmartRecordListVO toRecordListVO(WeComGetRecordsResponse response);
 
-    default SmartRecordListVO toRecordListVO(WeComUpdateRecordsResponse response) {
-        if (response == null) {
-            return null;
-        }
-        SmartRecordListVO vo = new SmartRecordListVO();
-        vo.setRecords(toRecordVOList(response.getRecords()));
-        return vo;
-    }
+    SmartRecordListVO toRecordListVO(WeComUpdateRecordsResponse response);
 }

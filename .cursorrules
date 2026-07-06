@@ -382,7 +382,7 @@ Result.fail(BizException)
 ## 十、异步与消息规范
 
 - SQS 消息消费逻辑统一放在 `cacch-integration-async` 模块的 `consumer` 包下。
-- 定时任务（`@Scheduled`）统一放在 `async.task` 包下。
+- 定时任务（`@Scheduled`）统一放在 `async.{biz}.task` 包下。
 - `@EnableScheduling` 仅在 web 启动类声明。
 - 消息消费必须保证幂等性：消费前检查处理状态，避免重复处理。
 - 消费失败需记录错误日志并视情况入死信队列，**不得静默吞掉异常**。

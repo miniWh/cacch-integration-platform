@@ -6,6 +6,7 @@ import lombok.Data;
 
 /**
  * 企微 — 获取录制转写详情请求
+ * @author hongfu_zhou@cacch.com
  */
 @Data
 @Builder

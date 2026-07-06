@@ -1,4 +1,4 @@
-﻿package com.cacch.integration.common.exception;
+package com.cacch.integration.common.exception;
 
 import com.cacch.integration.common.result.ResultCode;
 import lombok.Getter;

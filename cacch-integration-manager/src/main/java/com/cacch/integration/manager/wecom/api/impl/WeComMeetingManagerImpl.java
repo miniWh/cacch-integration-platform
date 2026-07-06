@@ -17,6 +17,11 @@ import org.springframework.web.client.RestClientException;
 
 import java.util.List;
 
+/**
+ * 企微会议编排实现
+ *
+ * @author hongfu_zhou@cacch.com
+ */
 @Slf4j
 @Component
 @RequiredArgsConstructor

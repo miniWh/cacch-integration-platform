@@ -6,15 +6,20 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 智能表格单元格值构建与解析适配器
+ * 企微智能表格单元格值构建与解析适配器
+ *
+ * @author hongfu_zhou@cacch.com
  */
-public final class SmartSheetCellAdapter {
+public final class WeComSmartSheetCellAdapter {
 
-    private SmartSheetCellAdapter() {
+    private WeComSmartSheetCellAdapter() {
     }
 
     /**
      * 构建文本类型单元格值
+     *
+     * @param text 单元格文本，null 时按空字符串处理
+     * @return 企微智能表格要求的单元格值结构
      */
     public static List<Map<String, String>> textCell(String text) {
         List<Map<String, String>> cells = new ArrayList<>(1);
@@ -27,6 +32,9 @@ public final class SmartSheetCellAdapter {
 
     /**
      * 从单元格原始值中提取文本（兼容 List 结构和纯字符串）
+     *
+     * @param cellValue 企微返回的单元格原始值
+     * @return 提取后的文本，无法解析时返回空字符串
      */
     public static String extractText(Object cellValue) {
         switch (cellValue) {
@@ -52,8 +60,14 @@ public final class SmartSheetCellAdapter {
 
     /**
      * 按列映射 key 从 record values 中取文本
+     *
+     * @param values        行字段值 Map（fieldId → 单元格值）
+     * @param columnMapping 逻辑列名 → 企微 fieldId 映射
+     * @param logicalKey    逻辑列名（如 meeting_title）
+     * @return 映射列的文本值，缺失时返回空字符串
      */
-    public static String getMappedText(Map<String, Object> values, Map<String, String> columnMapping, String logicalKey) {
+    public static String getMappedText(Map<String, Object> values, Map<String, String> columnMapping,
+                                       String logicalKey) {
         if (values == null || columnMapping == null) {
             return "";
         }

@@ -1,4 +1,4 @@
-﻿package com.cacch.integration.common.constant.wecom;
+package com.cacch.integration.common.constant.wecom;
 
 import com.cacch.integration.common.constant.redis.RedisConstants;
 
@@ -72,6 +72,11 @@ public final class WeComConstants {
      * 智能表格记录 key 类型 — 字段 ID
      */
     public static final String CELL_VALUE_KEY_TYPE_FIELD_ID = "CELL_VALUE_KEY_TYPE_FIELD_ID";
+
+    /**
+     * 企微预约会议最小时长（秒），官方要求不少于 300 秒
+     */
+    public static final int MEETING_MIN_DURATION_SECONDS = 300;
 
     /**
      * 会议 — 创建预约会议 API 地址

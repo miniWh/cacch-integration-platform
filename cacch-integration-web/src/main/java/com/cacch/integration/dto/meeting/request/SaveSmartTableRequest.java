@@ -8,6 +8,7 @@ import java.util.Map;
 
 /**
  * 创建/更新智能表格配置请求
+ * @author hongfu_zhou@cacch.com
  */
 @Data
 public class SaveSmartTableRequest {

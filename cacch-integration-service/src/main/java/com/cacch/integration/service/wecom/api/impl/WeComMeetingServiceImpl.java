@@ -1,5 +1,6 @@
 package com.cacch.integration.service.wecom.api.impl;
 
+import com.cacch.integration.common.constant.wecom.WeComConstants;
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.ResultCode;
 import com.cacch.integration.integration.wecom.client.WeComMeetingClient;
@@ -17,12 +18,15 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 
+/**
+ * 企微会议服务实现
+ *
+ * @author hongfu_zhou@cacch.com
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class WeComMeetingServiceImpl implements IWeComMeetingService {
-
-    private static final int MIN_DURATION_SECONDS = 300;
 
     private final WeComMeetingClient weComMeetingClient;
 
@@ -30,7 +34,7 @@ public class WeComMeetingServiceImpl implements IWeComMeetingService {
     public WeComCreateMeetingResponse createMeeting(String accessToken, String adminUserid, String title,
                                                       long meetingStartEpochSec, int durationMinutes,
                                                       List<String> attendeeUserIds) {
-        int durationSec = Math.max(durationMinutes * 60, MIN_DURATION_SECONDS);
+        int durationSec = Math.max(durationMinutes * 60, WeComConstants.MEETING_MIN_DURATION_SECONDS);
         WeComCreateMeetingRequest.WeComMeetingInvitees invitees = null;
         if (attendeeUserIds != null && !attendeeUserIds.isEmpty()) {
             invitees = WeComCreateMeetingRequest.WeComMeetingInvitees.builder()

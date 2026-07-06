@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 
 /**
  * 会议记录状态
+ * @author hongfu_zhou@cacch.com
  */
 @Getter
 @RequiredArgsConstructor

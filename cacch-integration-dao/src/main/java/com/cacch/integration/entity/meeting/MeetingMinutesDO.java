@@ -15,6 +15,7 @@ import java.util.Map;
 
 /**
  * 会议纪要 DO
+ * @author hongfu_zhou@cacch.com
  */
 @Data
 @TableName(value = "t_integration_meeting_minutes", autoResultMap = true)

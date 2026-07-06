@@ -7,6 +7,7 @@ import lombok.EqualsAndHashCode;
 
 /**
  * 企微 — 新建文档/智能表格响应
+ * @author hongfu_zhou@cacch.com
  */
 @Data
 @EqualsAndHashCode(callSuper = true)

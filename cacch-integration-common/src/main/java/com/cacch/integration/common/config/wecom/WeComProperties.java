@@ -1,4 +1,4 @@
-﻿package com.cacch.integration.common.config.wecom;
+package com.cacch.integration.common.config.wecom;
 
 import com.cacch.integration.common.constant.wecom.WeComConstants;
 import org.springframework.boot.context.properties.ConfigurationProperties;

@@ -1,4 +1,4 @@
-﻿package com.cacch.integration.config.wecom;
+package com.cacch.integration.config.wecom;
 
 import com.cacch.integration.common.config.wecom.WeComProperties;
 import com.cacch.integration.common.config.wecom.WeComWebhookProperties;

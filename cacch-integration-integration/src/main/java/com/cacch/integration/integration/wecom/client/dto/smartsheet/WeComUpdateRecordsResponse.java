@@ -7,6 +7,7 @@ import java.util.List;
 
 /**
  * 企微智能表格 — 更新记录响应
+ * @author hongfu_zhou@cacch.com
  */
 @Data
 @EqualsAndHashCode(callSuper = true)

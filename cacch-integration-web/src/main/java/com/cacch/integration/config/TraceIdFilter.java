@@ -1,4 +1,4 @@
-﻿package com.cacch.integration.config;
+package com.cacch.integration.config;
 
 import com.cacch.integration.common.constant.trace.TraceConstants;
 import jakarta.servlet.FilterChain;

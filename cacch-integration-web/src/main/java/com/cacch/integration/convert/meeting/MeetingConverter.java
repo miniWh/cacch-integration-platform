@@ -9,6 +9,11 @@ import org.mapstruct.Mapper;
 
 import java.util.List;
 
+/**
+ * 会议模块 MapStruct 转换器
+ *
+ * @author hongfu_zhou@cacch.com
+ */
 @Mapper(componentModel = "spring")
 public interface MeetingConverter {
 

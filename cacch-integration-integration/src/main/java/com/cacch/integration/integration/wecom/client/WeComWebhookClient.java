@@ -12,6 +12,7 @@ import org.springframework.web.client.RestTemplate;
 
 /**
  * 企微群机器人 Webhook HTTP 客户端
+ * @author hongfu_zhou@cacch.com
  */
 @Slf4j
 @Component

@@ -1,4 +1,4 @@
-﻿package com.cacch.integration.integration.config;
+package com.cacch.integration.integration.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

@@ -9,6 +9,7 @@ import java.util.List;
 
 /**
  * 企微 — 创建预约会议响应
+ * @author hongfu_zhou@cacch.com
  */
 @Data
 @EqualsAndHashCode(callSuper = true)

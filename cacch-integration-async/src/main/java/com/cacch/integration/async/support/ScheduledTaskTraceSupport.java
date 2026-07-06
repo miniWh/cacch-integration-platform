@@ -7,6 +7,7 @@ import java.util.UUID;
 
 /**
  * 定时任务 TraceId 工具
+ * @author hongfu_zhou@cacch.com
  */
 public final class ScheduledTaskTraceSupport {
 

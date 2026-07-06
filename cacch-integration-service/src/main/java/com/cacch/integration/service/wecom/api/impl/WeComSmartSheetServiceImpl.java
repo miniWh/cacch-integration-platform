@@ -1,5 +1,6 @@
-﻿package com.cacch.integration.service.wecom.api.impl;
+package com.cacch.integration.service.wecom.api.impl;
 
+import com.cacch.integration.common.constant.wecom.WeComConstants;
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.ResultCode;
 import com.cacch.integration.integration.wecom.client.WeComSmartSheetClient;
@@ -31,8 +32,6 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class WeComSmartSheetServiceImpl implements IWeComSmartSheetService {
-
-    private static final String KEY_TYPE_FIELD_ID = "CELL_VALUE_KEY_TYPE_FIELD_ID";
 
     private final WeComSmartSheetClient weComSmartSheetClient;
 
@@ -68,7 +67,7 @@ public class WeComSmartSheetServiceImpl implements IWeComSmartSheetService {
         WeComGetRecordsRequest request = WeComGetRecordsRequest.builder()
                 .docid(docId)
                 .sheetId(sheetId)
-                .keyType(KEY_TYPE_FIELD_ID)
+                .keyType(WeComConstants.CELL_VALUE_KEY_TYPE_FIELD_ID)
                 .offset(offset)
                 .limit(limit)
                 .build();
@@ -83,7 +82,7 @@ public class WeComSmartSheetServiceImpl implements IWeComSmartSheetService {
         WeComAddRecordsRequest request = WeComAddRecordsRequest.builder()
                 .docid(docId)
                 .sheetId(sheetId)
-                .keyType(KEY_TYPE_FIELD_ID)
+                .keyType(WeComConstants.CELL_VALUE_KEY_TYPE_FIELD_ID)
                 .records(records)
                 .build();
         WeComAddRecordsResponse response = weComSmartSheetClient.addRecords(accessToken, request);
@@ -97,7 +96,7 @@ public class WeComSmartSheetServiceImpl implements IWeComSmartSheetService {
         WeComUpdateRecordsRequest request = WeComUpdateRecordsRequest.builder()
                 .docid(docId)
                 .sheetId(sheetId)
-                .keyType(KEY_TYPE_FIELD_ID)
+                .keyType(WeComConstants.CELL_VALUE_KEY_TYPE_FIELD_ID)
                 .records(records)
                 .build();
         WeComUpdateRecordsResponse response = weComSmartSheetClient.updateRecords(accessToken, request);

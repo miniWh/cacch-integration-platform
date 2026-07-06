@@ -14,6 +14,7 @@ import java.util.Map;
 
 /**
  * 智能表格配置 DO — 总控表(MASTER)与员工会议表(MEETING)
+ * @author hongfu_zhou@cacch.com
  */
 @Data
 @TableName(value = "t_integration_smart_table", autoResultMap = true)

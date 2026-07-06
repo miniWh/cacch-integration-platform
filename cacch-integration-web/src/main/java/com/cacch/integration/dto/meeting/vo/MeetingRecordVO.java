@@ -9,6 +9,7 @@ import java.util.List;
 
 /**
  * 会议记录 VO
+ * @author hongfu_zhou@cacch.com
  */
 @Data
 public class MeetingRecordVO {

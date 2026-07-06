@@ -4,6 +4,8 @@ package com.cacch.integration.manager.meeting.api;
  * 会议智能表格同步编排接口
  *
  * <p>对应 V2 业务流程：总控扫描 → 会议行同步 → 建会回写 → 纪要拉取 → 待办回写</p>
+ *
+ * @author hongfu_zhou@cacch.com
  */
 public interface IMeetingSyncManager {
 

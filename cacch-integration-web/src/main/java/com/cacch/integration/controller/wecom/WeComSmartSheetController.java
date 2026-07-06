@@ -1,4 +1,4 @@
-﻿package com.cacch.integration.controller.wecom;
+package com.cacch.integration.controller.wecom;
 
 import com.cacch.integration.common.result.Result;
 import com.cacch.integration.convert.wecom.SmartSheetConverter;

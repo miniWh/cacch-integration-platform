@@ -45,13 +45,7 @@
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
 
-        <!-- 依赖 dao 模块（DataSource + MyBatis，Flyway 迁移所需） -->
-        <dependency>
-            <groupId>com.cacch</groupId>
-            <artifactId>cacch-integration-dao</artifactId>
-        </dependency>
-
-        <!-- Spring Boot Flyway（含 flyway-core，配合 flyway-database-postgresql 支持 PostgreSQL） -->
+        <!-- Flyway 通过 manager/async → service → dao 传递依赖获得数据源与实体 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-flyway</artifactId>

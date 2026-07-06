@@ -23,6 +23,7 @@ import java.util.HexFormat;
 
 /**
  * 企微 Webhook 平台级编排实现
+ * @author hongfu_zhou@cacch.com
  */
 @Slf4j
 @Component
