@@ -4,6 +4,8 @@ import com.cacch.integration.common.constant.wecom.WeComConstants;
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.ResultCode;
 import com.cacch.integration.integration.wecom.client.WeComSmartSheetClient;
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComAddFieldsRequest;
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComAddFieldsResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComAddRecordsRequest;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComAddRecordsResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComBaseResponse;
@@ -14,6 +16,10 @@ import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComGetRec
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComGetSheetRequest;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComGetSheetResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComRecordWriteItem;
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComFieldAddItem;
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComFieldUpdateItem;
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComUpdateFieldsRequest;
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComUpdateFieldsResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComUpdateRecordsRequest;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComUpdateRecordsResponse;
 import com.cacch.integration.service.wecom.api.IWeComSmartSheetService;
@@ -101,6 +107,32 @@ public class WeComSmartSheetServiceImpl implements IWeComSmartSheetService {
                 .build();
         WeComUpdateRecordsResponse response = weComSmartSheetClient.updateRecords(accessToken, request);
         assertWeComSuccess(response, "更新记录");
+        return response;
+    }
+
+    @Override
+    public WeComAddFieldsResponse addFields(String accessToken, String docId, String sheetId,
+                                            List<WeComFieldAddItem> fields) {
+        WeComAddFieldsRequest request = WeComAddFieldsRequest.builder()
+                .docid(docId)
+                .sheetId(sheetId)
+                .fields(fields)
+                .build();
+        WeComAddFieldsResponse response = weComSmartSheetClient.addFields(accessToken, request);
+        assertWeComSuccess(response, "添加字段");
+        return response;
+    }
+
+    @Override
+    public WeComUpdateFieldsResponse updateFields(String accessToken, String docId, String sheetId,
+                                                    List<WeComFieldUpdateItem> fields) {
+        WeComUpdateFieldsRequest request = WeComUpdateFieldsRequest.builder()
+                .docid(docId)
+                .sheetId(sheetId)
+                .fields(fields)
+                .build();
+        WeComUpdateFieldsResponse response = weComSmartSheetClient.updateFields(accessToken, request);
+        assertWeComSuccess(response, "更新字段");
         return response;
     }
 

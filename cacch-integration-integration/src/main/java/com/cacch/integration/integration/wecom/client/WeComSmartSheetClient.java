@@ -1,6 +1,8 @@
 package com.cacch.integration.integration.wecom.client;
 
 import com.cacch.integration.common.constant.wecom.WeComConstants;
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComAddFieldsRequest;
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComAddFieldsResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComAddRecordsRequest;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComAddRecordsResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComGetFieldsRequest;
@@ -9,6 +11,8 @@ import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComGetRec
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComGetRecordsResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComGetSheetRequest;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComGetSheetResponse;
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComUpdateFieldsRequest;
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComUpdateFieldsResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComUpdateRecordsRequest;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComUpdateRecordsResponse;
 import lombok.RequiredArgsConstructor;
@@ -64,6 +68,26 @@ public class WeComSmartSheetClient {
         log.info("【WeComSmartSheet】添加记录, docid={}, sheetId={}, count={}",
                 request.getDocid(), request.getSheetId(), request.getRecords().size());
         return post(url, request, WeComAddRecordsResponse.class, "添加记录");
+    }
+
+    /**
+     * 添加智能表格字段
+     */
+    public WeComAddFieldsResponse addFields(String accessToken, WeComAddFieldsRequest request) {
+        String url = String.format(WeComConstants.SMARTSHEET_ADD_FIELDS_URL, accessToken);
+        log.info("【WeComSmartSheet】添加字段, docid={}, sheetId={}, count={}",
+                request.getDocid(), request.getSheetId(), request.getFields().size());
+        return post(url, request, WeComAddFieldsResponse.class, "添加字段");
+    }
+
+    /**
+     * 更新智能表格字段（重命名列等）
+     */
+    public WeComUpdateFieldsResponse updateFields(String accessToken, WeComUpdateFieldsRequest request) {
+        String url = String.format(WeComConstants.SMARTSHEET_UPDATE_FIELDS_URL, accessToken);
+        log.info("【WeComSmartSheet】更新字段, docid={}, sheetId={}, count={}",
+                request.getDocid(), request.getSheetId(), request.getFields().size());
+        return post(url, request, WeComUpdateFieldsResponse.class, "更新字段");
     }
 
     /**

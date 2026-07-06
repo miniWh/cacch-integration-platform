@@ -58,6 +58,28 @@ public final class WeComConstants {
             "https://qyapi.weixin.qq.com/cgi-bin/wedoc/smartsheet/update_records?access_token=%s";
 
     /**
+     * 智能表格 — 添加字段 API 地址
+     */
+    public static final String SMARTSHEET_ADD_FIELDS_URL =
+            "https://qyapi.weixin.qq.com/cgi-bin/wedoc/smartsheet/add_fields?access_token=%s";
+
+    /**
+     * 智能表格 — 更新字段 API 地址
+     */
+    public static final String SMARTSHEET_UPDATE_FIELDS_URL =
+            "https://qyapi.weixin.qq.com/cgi-bin/wedoc/smartsheet/update_fields?access_token=%s";
+
+    /**
+     * 智能表格字段类型 — 文本
+     */
+    public static final String FIELD_TYPE_TEXT = "FIELD_TYPE_TEXT";
+
+    /**
+     * 智能表格字段类型 — 成员
+     */
+    public static final String FIELD_TYPE_USER = "FIELD_TYPE_USER";
+
+    /**
      * 文档 — 新建文档/智能表格 API 地址
      */
     public static final String DOC_CREATE_URL =

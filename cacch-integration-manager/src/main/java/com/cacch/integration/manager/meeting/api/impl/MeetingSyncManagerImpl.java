@@ -1,6 +1,8 @@
 package com.cacch.integration.manager.meeting.api.impl;
 
 import com.cacch.integration.common.constant.meeting.MeetingConstants;
+import com.cacch.integration.common.constant.meeting.MeetingSheetColumnDef;
+import com.cacch.integration.common.constant.wecom.WeComConstants;
 import com.cacch.integration.common.dto.wecom.WeComAlertCommand;
 import com.cacch.integration.common.enums.meeting.MeetingMinutesStatusEnum;
 import com.cacch.integration.common.enums.meeting.MeetingRecordStatusEnum;
@@ -15,7 +17,13 @@ import com.cacch.integration.integration.wecom.client.dto.doc.WeComCreateDocResp
 import com.cacch.integration.integration.wecom.client.dto.meeting.WeComCreateMeetingResponse;
 import com.cacch.integration.integration.wecom.client.dto.meeting.WeComGetMeetingInfoResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComGetRecordsResponse;
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComAddFieldsResponse;
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComFieldAddItem;
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComFieldInfo;
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComFieldUpdateItem;
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComGetFieldsResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComGetSheetResponse;
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComUserFieldProperty;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComRecordInfo;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComRecordWriteItem;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComSheetInfo;
@@ -36,7 +44,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -151,6 +161,8 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
         WeComCreateDocResponse docResponse = weComDocManager.createSmartSheetDoc(docName, List.of(userId));
         WeComGetSheetResponse sheetResponse = weComSmartSheetManager.getSheets(docResponse.getDocid(), null, false);
         String meetingSheetId = resolveFirstSheetId(sheetResponse);
+        Map<String, String> meetingColumnMapping = setupMeetingSheetColumns(
+                docResponse.getDocid(), meetingSheetId);
 
         SmartTableDO meetingTable = new SmartTableDO();
         meetingTable.setTableType(SmartTableTypeEnum.MEETING.getCode());
@@ -159,13 +171,66 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
         meetingTable.setDocId(docResponse.getDocid());
         meetingTable.setDocUrl(docResponse.getUrl());
         meetingTable.setMeetingSheetId(meetingSheetId);
-        meetingTable.setMeetingColumnMapping(copyColumnMapping(master.getMeetingColumnMapping()));
+        meetingTable.setMeetingColumnMapping(meetingColumnMapping);
         meetingTable.setStatus(MeetingConstants.SMART_TABLE_STATUS_ENABLED);
         smartTableService.saveNew(meetingTable);
 
         writeBackMasterProvision(master, mapping, record.getRecordId(), docName,
                 docResponse.getDocid(), docResponse.getUrl());
         log.info("【MeetingSync】为员工创建会议管理表, userId={}, docId={}", userId, docResponse.getDocid());
+    }
+
+    /**
+     * 初始化员工会议管理表列：将默认列重命名为「会议主题」，再添加其余业务列，并返回逻辑 key → fieldId 映射。
+     */
+    private Map<String, String> setupMeetingSheetColumns(String docId, String sheetId) {
+        WeComGetFieldsResponse fieldsResponse = weComSmartSheetManager.getFields(docId, sheetId, 0, 100);
+        List<WeComFieldInfo> existingFields = fieldsResponse.getFields();
+        if (existingFields == null || existingFields.isEmpty()) {
+            throw new BizException(ResultCode.INTEGRATION_ERROR, "新建智能表格未返回字段信息");
+        }
+
+        List<MeetingSheetColumnDef> columns = MeetingConstants.MEETING_SHEET_COLUMNS;
+        Map<String, String> mapping = new LinkedHashMap<>();
+
+        WeComFieldInfo defaultField = existingFields.getFirst();
+        MeetingSheetColumnDef firstColumn = columns.getFirst();
+        if (!firstColumn.title().equals(defaultField.getFieldTitle())) {
+            weComSmartSheetManager.updateFields(docId, sheetId, List.of(
+                    WeComFieldUpdateItem.builder()
+                            .fieldId(defaultField.getFieldId())
+                            .fieldTitle(firstColumn.title())
+                            .fieldType(defaultField.getFieldType())
+                            .build()));
+        }
+        mapping.put(firstColumn.logicalKey(), defaultField.getFieldId());
+
+        if (columns.size() > 1) {
+            List<WeComFieldAddItem> toAdd = new ArrayList<>();
+            for (int i = 1; i < columns.size(); i++) {
+                toAdd.add(toFieldAddItem(columns.get(i)));
+            }
+            WeComAddFieldsResponse addResponse = weComSmartSheetManager.addFields(docId, sheetId, toAdd);
+            if (addResponse.getFields() == null || addResponse.getFields().size() != toAdd.size()) {
+                throw new BizException(ResultCode.INTEGRATION_ERROR, "添加会议管理表字段返回不完整");
+            }
+            for (int i = 0; i < addResponse.getFields().size(); i++) {
+                mapping.put(columns.get(i + 1).logicalKey(), addResponse.getFields().get(i).getFieldId());
+            }
+        }
+
+        log.info("【MeetingSync】会议管理表列初始化完成, docId={}, columns={}", docId, mapping.keySet());
+        return mapping;
+    }
+
+    private WeComFieldAddItem toFieldAddItem(MeetingSheetColumnDef column) {
+        WeComFieldAddItem.WeComFieldAddItemBuilder builder = WeComFieldAddItem.builder()
+                .fieldTitle(column.title())
+                .fieldType(column.fieldType());
+        if (WeComConstants.FIELD_TYPE_USER.equals(column.fieldType())) {
+            builder.propertyUser(WeComUserFieldProperty.builder().isMultiple(true).build());
+        }
+        return builder.build();
     }
 
     private void syncSingleMeetingTable(SmartTableDO table) {
@@ -332,10 +397,6 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
         }
         WeComSheetInfo sheet = sheetResponse.getSheetList().getFirst();
         return sheet.getSheetId();
-    }
-
-    private Map<String, String> copyColumnMapping(Map<String, String> source) {
-        return source != null ? new HashMap<>(source) : new HashMap<>();
     }
 
     private LocalDate parseDate(String text) {

@@ -1,10 +1,14 @@
 package com.cacch.integration.manager.wecom.api;
 
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComAddFieldsResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComAddRecordsResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComGetFieldsResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComGetRecordsResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComGetSheetResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComRecordWriteItem;
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComFieldAddItem;
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComFieldUpdateItem;
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComUpdateFieldsResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComUpdateRecordsResponse;
 
 import java.util.List;
@@ -64,4 +68,24 @@ public interface IWeComSmartSheetManager {
      * @return 更新结果
      */
     WeComUpdateRecordsResponse updateRecords(String docId, String sheetId, List<WeComRecordWriteItem> records);
+
+    /**
+     * 添加智能表格字段
+     *
+     * @param docId   文档 docid
+     * @param sheetId 子表 ID
+     * @param fields  待添加字段列表
+     * @return 添加结果（含 fieldId）
+     */
+    WeComAddFieldsResponse addFields(String docId, String sheetId, List<WeComFieldAddItem> fields);
+
+    /**
+     * 更新智能表格字段（重命名列等）
+     *
+     * @param docId   文档 docid
+     * @param sheetId 子表 ID
+     * @param fields  待更新字段列表
+     * @return 更新结果
+     */
+    WeComUpdateFieldsResponse updateFields(String docId, String sheetId, List<WeComFieldUpdateItem> fields);
 }
