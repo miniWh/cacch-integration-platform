@@ -48,7 +48,7 @@ wecom:
       secret: rJ4TpwlW7s1Z64xBHgUd35zNOUIQ14figIs5sfgqgaI
   # 群机器人 Webhook 告警（测试环境按需开启，key 勿提交到版本库）
   webhook:
-    enabled: false
+    enabled: true
     key: "4432e2bc-1a69-4fc3-945a-5acb52e399c5"
     mention-mobiles: []
     alert-interval-seconds: 1800
