@@ -34,6 +34,18 @@ public final class WeComConstants {
             "https://qyapi.weixin.qq.com/cgi-bin/wedoc/smartsheet/get_sheet?access_token=%s";
 
     /**
+     * 智能表格 — 添加子表 API 地址
+     */
+    public static final String SMARTSHEET_ADD_SHEET_URL =
+            "https://qyapi.weixin.qq.com/cgi-bin/wedoc/smartsheet/add_sheet?access_token=%s";
+
+    /**
+     * 智能表格 — 更新子表 API 地址
+     */
+    public static final String SMARTSHEET_UPDATE_SHEET_URL =
+            "https://qyapi.weixin.qq.com/cgi-bin/wedoc/smartsheet/update_sheet?access_token=%s";
+
+    /**
      * 智能表格 — 查询字段 API 地址
      */
     public static final String SMARTSHEET_GET_FIELDS_URL =

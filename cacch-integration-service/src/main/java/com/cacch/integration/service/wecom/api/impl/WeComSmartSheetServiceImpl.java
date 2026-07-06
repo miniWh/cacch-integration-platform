@@ -6,6 +6,11 @@ import com.cacch.integration.common.result.ResultCode;
 import com.cacch.integration.integration.wecom.client.WeComSmartSheetClient;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComDeleteFieldsRequest;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComDeleteFieldsResponse;
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComAddSheetRequest;
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComAddSheetResponse;
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComUpdateSheetRequest;
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComUpdateSheetResponse;
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComSheetProperties;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComAddFieldsRequest;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComAddFieldsResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComAddRecordsRequest;
@@ -52,6 +57,34 @@ public class WeComSmartSheetServiceImpl implements IWeComSmartSheetService {
                 .build();
         WeComGetSheetResponse response = weComSmartSheetClient.getSheets(accessToken, request);
         assertWeComSuccess(response, "查询子表");
+        return response;
+    }
+
+    @Override
+    public WeComAddSheetResponse addSheet(String accessToken, String docId, String title, Integer index) {
+        WeComSheetProperties properties = new WeComSheetProperties();
+        properties.setTitle(title);
+        properties.setIndex(index);
+        WeComAddSheetRequest request = WeComAddSheetRequest.builder()
+                .docid(docId)
+                .properties(properties)
+                .build();
+        WeComAddSheetResponse response = weComSmartSheetClient.addSheet(accessToken, request);
+        assertWeComSuccess(response, "添加子表");
+        return response;
+    }
+
+    @Override
+    public WeComUpdateSheetResponse updateSheet(String accessToken, String docId, String sheetId, String title) {
+        WeComSheetProperties properties = new WeComSheetProperties();
+        properties.setSheetId(sheetId);
+        properties.setTitle(title);
+        WeComUpdateSheetRequest request = WeComUpdateSheetRequest.builder()
+                .docid(docId)
+                .properties(properties)
+                .build();
+        WeComUpdateSheetResponse response = weComSmartSheetClient.updateSheet(accessToken, request);
+        assertWeComSuccess(response, "更新子表");
         return response;
     }
 

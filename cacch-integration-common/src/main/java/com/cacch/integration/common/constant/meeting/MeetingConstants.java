@@ -30,6 +30,16 @@ public final class MeetingConstants {
     public static final int SMART_TABLE_STATUS_ENABLED = 1;
 
     /**
+     * 员工会议管理文档 — 会议子表名称
+     */
+    public static final String MEETING_SHEET_TITLE = "会议管理";
+
+    /**
+     * 员工会议管理文档 — 待办子表名称
+     */
+    public static final String TODO_SHEET_TITLE = "会议待办事项";
+
+    /**
      * 员工会议管理表列定义（有序，从左到右）。
      * 初始化时通过 add_fields 新建；因企微批量新增列会插入到左侧，实际 API 调用顺序需与此列表相反。
      */
@@ -45,6 +55,18 @@ public final class MeetingConstants {
             new MeetingSheetColumnDef("meeting_link", "会议链接", WeComConstants.FIELD_TYPE_URL),
             new MeetingSheetColumnDef("wecom_meeting_code", "企微会议号", WeComConstants.FIELD_TYPE_TEXT),
             new MeetingSheetColumnDef("wecom_meeting_id", "企微会议ID", WeComConstants.FIELD_TYPE_TEXT)
+    );
+
+    /**
+     * 会议待办事项子表列定义（有序，从左到右）。
+     * 前三列类型与会议管理子表对应列一致；初始化时 API 调用顺序与此列表相反。
+     */
+    public static final List<MeetingSheetColumnDef> TODO_SHEET_COLUMNS = List.of(
+            new MeetingSheetColumnDef("meeting_title", "会议主题", WeComConstants.FIELD_TYPE_TEXT),
+            new MeetingSheetColumnDef("wecom_meeting_code", "企微会议号", WeComConstants.FIELD_TYPE_TEXT),
+            new MeetingSheetColumnDef("start_time", "开始时间", WeComConstants.FIELD_TYPE_DATE_TIME),
+            new MeetingSheetColumnDef("todo_item", "待办事项", WeComConstants.FIELD_TYPE_TEXT),
+            new MeetingSheetColumnDef("assignee", "责任人", WeComConstants.FIELD_TYPE_USER)
     );
 
     private static List<String> meetingStatusOptions() {
@@ -65,6 +87,17 @@ public final class MeetingConstants {
     public static Map<String, String> buildMeetingColumnTitleMapping() {
         Map<String, String> mapping = new LinkedHashMap<>();
         for (MeetingSheetColumnDef column : MEETING_SHEET_COLUMNS) {
+            mapping.put(column.logicalKey(), column.title());
+        }
+        return mapping;
+    }
+
+    /**
+     * 构建会议待办子表逻辑 key → 列标题 映射
+     */
+    public static Map<String, String> buildTodoColumnTitleMapping() {
+        Map<String, String> mapping = new LinkedHashMap<>();
+        for (MeetingSheetColumnDef column : TODO_SHEET_COLUMNS) {
             mapping.put(column.logicalKey(), column.title());
         }
         return mapping;

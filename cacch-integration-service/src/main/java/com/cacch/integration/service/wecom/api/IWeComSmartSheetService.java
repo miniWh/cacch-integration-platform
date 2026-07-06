@@ -5,6 +5,8 @@ import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComDelete
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComAddRecordsResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComGetFieldsResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComGetRecordsResponse;
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComAddSheetResponse;
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComUpdateSheetResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComGetSheetResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComRecordWriteItem;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComFieldAddItem;
@@ -30,6 +32,21 @@ public interface IWeComSmartSheetService {
      * @param needAllTypeSheet  可选，是否返回全部类型子表
      */
     WeComGetSheetResponse getSheets(String accessToken, String docId, String sheetId, Boolean needAllTypeSheet);
+
+    /**
+     * 添加智能表格子表
+     *
+     * @param accessToken 企微 access_token
+     * @param docId       文档 docid
+     * @param title       子表标题
+     * @param index       子表下标，可为 null
+     */
+    WeComAddSheetResponse addSheet(String accessToken, String docId, String title, Integer index);
+
+    /**
+     * 更新智能表格子表标题
+     */
+    WeComUpdateSheetResponse updateSheet(String accessToken, String docId, String sheetId, String title);
 
     /**
      * 查询智能表格字段

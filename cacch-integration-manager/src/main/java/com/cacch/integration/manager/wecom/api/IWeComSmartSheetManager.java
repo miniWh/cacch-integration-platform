@@ -5,6 +5,8 @@ import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComDelete
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComAddRecordsResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComGetFieldsResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComGetRecordsResponse;
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComAddSheetResponse;
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComUpdateSheetResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComGetSheetResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComRecordWriteItem;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComFieldAddItem;
@@ -29,6 +31,16 @@ public interface IWeComSmartSheetManager {
      * @param needAllTypeSheet  可选，是否返回全部类型子表
      */
     WeComGetSheetResponse getSheets(String docId, String sheetId, Boolean needAllTypeSheet);
+
+    /**
+     * 添加智能表格子表
+     */
+    WeComAddSheetResponse addSheet(String docId, String title, Integer index);
+
+    /**
+     * 更新智能表格子表标题
+     */
+    WeComUpdateSheetResponse updateSheet(String docId, String sheetId, String title);
 
     /**
      * 查询智能表格字段（使用配置中的自建应用 corpid + secret 鉴权）

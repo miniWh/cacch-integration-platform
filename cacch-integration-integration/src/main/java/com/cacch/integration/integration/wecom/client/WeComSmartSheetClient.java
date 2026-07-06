@@ -1,6 +1,10 @@
 package com.cacch.integration.integration.wecom.client;
 
 import com.cacch.integration.common.constant.wecom.WeComConstants;
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComAddSheetRequest;
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComAddSheetResponse;
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComUpdateSheetRequest;
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComUpdateSheetResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComAddFieldsRequest;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComAddFieldsResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComDeleteFieldsRequest;
@@ -80,6 +84,27 @@ public class WeComSmartSheetClient {
         log.info("【WeComSmartSheet】删除字段, docid={}, sheetId={}, count={}",
                 request.getDocid(), request.getSheetId(), request.getFieldIds().size());
         return post(url, request, WeComDeleteFieldsResponse.class, "删除字段");
+    }
+
+    /**
+     * 添加智能表格子表
+     */
+    public WeComAddSheetResponse addSheet(String accessToken, WeComAddSheetRequest request) {
+        String url = String.format(WeComConstants.SMARTSHEET_ADD_SHEET_URL, accessToken);
+        log.info("【WeComSmartSheet】添加子表, docid={}, title={}",
+                request.getDocid(), request.getProperties() != null ? request.getProperties().getTitle() : null);
+        return post(url, request, WeComAddSheetResponse.class, "添加子表");
+    }
+
+    /**
+     * 更新智能表格子表（重命名等）
+     */
+    public WeComUpdateSheetResponse updateSheet(String accessToken, WeComUpdateSheetRequest request) {
+        String url = String.format(WeComConstants.SMARTSHEET_UPDATE_SHEET_URL, accessToken);
+        log.info("【WeComSmartSheet】更新子表, docid={}, sheetId={}",
+                request.getDocid(),
+                request.getProperties() != null ? request.getProperties().getSheetId() : null);
+        return post(url, request, WeComUpdateSheetResponse.class, "更新子表");
     }
 
     /**

@@ -9,6 +9,8 @@ import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComDelete
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComAddRecordsResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComGetFieldsResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComGetRecordsResponse;
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComAddSheetResponse;
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComUpdateSheetResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComGetSheetResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComRecordWriteItem;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComFieldAddItem;
@@ -43,6 +45,18 @@ public class WeComSmartSheetManagerImpl implements IWeComSmartSheetManager {
     public WeComGetSheetResponse getSheets(String docId, String sheetId, Boolean needAllTypeSheet) {
         return execute("查询子表", () ->
                 weComSmartSheetService.getSheets(resolveAccessToken(), docId, sheetId, needAllTypeSheet));
+    }
+
+    @Override
+    public WeComAddSheetResponse addSheet(String docId, String title, Integer index) {
+        return execute("添加子表", () ->
+                weComSmartSheetService.addSheet(resolveAccessToken(), docId, title, index));
+    }
+
+    @Override
+    public WeComUpdateSheetResponse updateSheet(String docId, String sheetId, String title) {
+        return execute("更新子表", () ->
+                weComSmartSheetService.updateSheet(resolveAccessToken(), docId, sheetId, title));
     }
 
     @Override

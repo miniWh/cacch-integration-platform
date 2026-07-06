@@ -83,6 +83,19 @@ public final class WeComSmartSheetCellAdapter {
     }
 
     /**
+     * 构建成员类型单元格值（单选人员）
+     *
+     * @param userId 企微成员 userId
+     */
+    public static List<Map<String, String>> userCell(String userId) {
+        List<Map<String, String>> cells = new ArrayList<>(1);
+        Map<String, String> cell = new HashMap<>(2);
+        cell.put("user_id", userId != null ? userId : "");
+        cells.add(cell);
+        return cells;
+    }
+
+    /**
      * 按列映射 key 从 record values 中取文本
      *
      * @param values        行字段值 Map（fieldTitle → 单元格值）
