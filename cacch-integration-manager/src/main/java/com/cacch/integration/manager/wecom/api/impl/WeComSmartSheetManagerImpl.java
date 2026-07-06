@@ -1,4 +1,4 @@
-package com.cacch.integration.manager.wecom.api.impl;
+﻿package com.cacch.integration.manager.wecom.api.impl;
 
 import com.cacch.integration.common.config.wecom.WeComAppConfig;
 import com.cacch.integration.common.config.wecom.WeComProperties;
@@ -23,7 +23,7 @@ import java.util.List;
 /**
  * 企业微信智能表格编排实现 — 使用自建应用配置获取 access_token 后调用 Service
  *
- * @author cacch-integration
+ * @author hongfu_zhou@cacch.com
  */
 @Slf4j
 @Component

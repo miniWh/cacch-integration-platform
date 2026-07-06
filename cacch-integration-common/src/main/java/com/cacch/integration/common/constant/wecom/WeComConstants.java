@@ -1,11 +1,11 @@
-package com.cacch.integration.common.constant.wecom;
+﻿package com.cacch.integration.common.constant.wecom;
 
 import com.cacch.integration.common.constant.redis.RedisConstants;
 
 /**
  * 企业微信相关常量
  *
- * @author cacch-integration
+ * @author hongfu_zhou@cacch.com
  */
 public final class WeComConstants {
 

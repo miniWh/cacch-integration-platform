@@ -1,4 +1,4 @@
-package com.cacch.integration.common.config.wecom;
+﻿package com.cacch.integration.common.config.wecom;
 
 import com.cacch.integration.common.constant.wecom.WeComConstants;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -12,7 +12,7 @@ import java.util.Optional;
  *
  * <p>配置 POJO 定义在 common 模块，由 web 模块通过 {@code @EnableConfigurationProperties} 注册为 Bean。</p>
  *
- * @author cacch-integration
+ * @author hongfu_zhou@cacch.com
  */
 @ConfigurationProperties(prefix = "wecom")
 public class WeComProperties {

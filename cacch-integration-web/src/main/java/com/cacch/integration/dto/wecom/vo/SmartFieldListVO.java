@@ -1,4 +1,4 @@
-package com.cacch.integration.dto.wecom.vo;
+﻿package com.cacch.integration.dto.wecom.vo;
 
 import lombok.Data;
 
@@ -7,7 +7,7 @@ import java.util.List;
 /**
  * 智能表格字段列表 VO
  *
- * @author cacch-integration
+ * @author hongfu_zhou@cacch.com
  */
 @Data
 public class SmartFieldListVO {

@@ -1,4 +1,4 @@
-package com.cacch.integration.dto.wecom.vo;
+﻿package com.cacch.integration.dto.wecom.vo;
 
 import lombok.Data;
 
@@ -7,7 +7,7 @@ import java.util.Map;
 /**
  * 智能表格记录 VO
  *
- * @author cacch-integration
+ * @author hongfu_zhou@cacch.com
  */
 @Data
 public class SmartRecordVO {

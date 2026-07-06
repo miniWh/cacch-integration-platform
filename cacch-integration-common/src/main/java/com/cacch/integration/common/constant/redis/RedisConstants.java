@@ -1,9 +1,9 @@
-package com.cacch.integration.common.constant.redis;
+﻿package com.cacch.integration.common.constant.redis;
 
 /**
  * Redis 缓存相关常量
  *
- * @author cacch-integration
+ * @author hongfu_zhou@cacch.com
  */
 public final class RedisConstants {
 

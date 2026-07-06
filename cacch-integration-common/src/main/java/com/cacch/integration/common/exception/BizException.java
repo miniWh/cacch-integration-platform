@@ -1,4 +1,4 @@
-package com.cacch.integration.common.exception;
+﻿package com.cacch.integration.common.exception;
 
 import com.cacch.integration.common.result.ResultCode;
 import lombok.Getter;
@@ -6,7 +6,7 @@ import lombok.Getter;
 /**
  * 业务异常基类，所有自定义异常均继承此类
  *
- * @author cacch-integration
+ * @author hongfu_zhou@cacch.com
  */
 @Getter
 public class BizException extends RuntimeException {

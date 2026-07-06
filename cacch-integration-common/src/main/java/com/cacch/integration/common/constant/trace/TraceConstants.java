@@ -1,9 +1,9 @@
-package com.cacch.integration.common.constant.trace;
+﻿package com.cacch.integration.common.constant.trace;
 
 /**
  * 链路追踪 TraceId 常量
  *
- * @author cacch-integration
+ * @author hongfu_zhou@cacch.com
  */
 public final class TraceConstants {
 

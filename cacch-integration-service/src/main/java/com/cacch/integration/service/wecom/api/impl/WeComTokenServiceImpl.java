@@ -1,4 +1,4 @@
-package com.cacch.integration.service.wecom.api.impl;
+﻿package com.cacch.integration.service.wecom.api.impl;
 
 import com.cacch.integration.common.constant.wecom.WeComConstants;
 import com.cacch.integration.common.exception.BizException;
@@ -16,7 +16,7 @@ import java.time.Duration;
 /**
  * 企业微信 Token 服务实现：Redis 缓存读写 + miss 时调用 Client
  *
- * @author cacch-integration
+ * @author hongfu_zhou@cacch.com
  */
 @Slf4j
 @Service

@@ -1,4 +1,4 @@
-package com.cacch.integration.integration.wecom.client;
+﻿package com.cacch.integration.integration.wecom.client;
 
 import com.cacch.integration.common.constant.wecom.WeComConstants;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComAddRecordsRequest;
@@ -20,7 +20,7 @@ import org.springframework.web.client.RestTemplate;
 /**
  * 企业微信智能表格 HTTP 客户端
  *
- * @author cacch-integration
+ * @author hongfu_zhou@cacch.com
  */
 @Slf4j
 @Component

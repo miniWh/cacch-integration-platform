@@ -1,4 +1,4 @@
-package com.cacch.integration.config;
+﻿package com.cacch.integration.config;
 
 import com.cacch.integration.common.constant.trace.TraceConstants;
 import jakarta.servlet.FilterChain;
@@ -20,7 +20,7 @@ import java.util.UUID;
  *
  * <p>优先使用请求头 {@link TraceConstants#HEADER_TRACE_ID}，无则自动生成。</p>
  *
- * @author cacch-integration
+ * @author hongfu_zhou@cacch.com
  */
 @Slf4j
 @Component

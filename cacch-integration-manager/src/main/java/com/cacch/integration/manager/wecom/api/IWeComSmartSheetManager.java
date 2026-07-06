@@ -1,4 +1,4 @@
-package com.cacch.integration.manager.wecom.api;
+﻿package com.cacch.integration.manager.wecom.api;
 
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComAddRecordsResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComGetFieldsResponse;
@@ -12,7 +12,7 @@ import java.util.List;
 /**
  * 企业微信智能表格编排接口（对外唯一入口）
  *
- * @author cacch-integration
+ * @author hongfu_zhou@cacch.com
  */
 public interface IWeComSmartSheetManager {
 

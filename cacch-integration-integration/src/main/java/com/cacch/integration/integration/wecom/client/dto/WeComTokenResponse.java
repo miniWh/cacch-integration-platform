@@ -1,4 +1,4 @@
-package com.cacch.integration.integration.wecom.client.dto;
+﻿package com.cacch.integration.integration.wecom.client.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
@@ -16,7 +16,7 @@ import lombok.Data;
  * }
  * </pre>
  *
- * @author cacch-integration
+ * @author hongfu_zhou@cacch.com
  */
 @Data
 public class WeComTokenResponse {

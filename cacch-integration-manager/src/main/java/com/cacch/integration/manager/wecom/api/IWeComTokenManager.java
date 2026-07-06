@@ -1,11 +1,11 @@
-package com.cacch.integration.manager.wecom.api;
+﻿package com.cacch.integration.manager.wecom.api;
 
 import com.cacch.integration.common.exception.BizException;
 
 /**
  * 企业微信 Token 编排接口（对外唯一入口）
  *
- * @author cacch-integration
+ * @author hongfu_zhou@cacch.com
  */
 public interface IWeComTokenManager {
 

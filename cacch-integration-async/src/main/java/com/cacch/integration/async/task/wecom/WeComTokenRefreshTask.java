@@ -1,4 +1,4 @@
-package com.cacch.integration.async.task.wecom;
+﻿package com.cacch.integration.async.task.wecom;
 
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.config.wecom.WeComAppConfig;
@@ -20,7 +20,7 @@ import java.util.List;
  * 运行中：每 100 分钟遍历所有 app 逐一刷新（企微 token 有效期 120 分钟）
  * </pre>
  *
- * @author cacch-integration
+ * @author hongfu_zhou@cacch.com
  */
 @Slf4j
 @Component

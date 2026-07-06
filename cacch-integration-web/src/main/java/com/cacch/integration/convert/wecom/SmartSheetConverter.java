@@ -1,4 +1,4 @@
-package com.cacch.integration.convert.wecom;
+﻿package com.cacch.integration.convert.wecom;
 
 import com.cacch.integration.dto.wecom.vo.SmartFieldListVO;
 import com.cacch.integration.dto.wecom.vo.SmartFieldVO;
@@ -20,7 +20,7 @@ import java.util.List;
 /**
  * 企微智能表格 MapStruct 转换器
  *
- * @author cacch-integration
+ * @author hongfu_zhou@cacch.com
  */
 @Mapper(componentModel = "spring")
 public interface SmartSheetConverter {

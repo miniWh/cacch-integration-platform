@@ -1,4 +1,4 @@
-package com.cacch.integration.exception;
+﻿package com.cacch.integration.exception;
 
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.Result;
@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 /**
  * 全局异常处理器 — 将各类异常统一转换为 {@link Result} 格式
  *
- * @author cacch-integration
+ * @author hongfu_zhou@cacch.com
  */
 @Slf4j
 @RestControllerAdvice

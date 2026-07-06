@@ -1,4 +1,4 @@
-package com.cacch.integration.integration.wecom.client.dto.smartsheet;
+﻿package com.cacch.integration.integration.wecom.client.dto.smartsheet;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -10,7 +10,7 @@ import java.util.List;
 /**
  * 企微智能表格 — 查询记录请求
  *
- * @author cacch-integration
+ * @author hongfu_zhou@cacch.com
  */
 @Data
 @Builder

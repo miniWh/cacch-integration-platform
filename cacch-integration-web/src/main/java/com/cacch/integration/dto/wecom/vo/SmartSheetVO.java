@@ -1,11 +1,11 @@
-package com.cacch.integration.dto.wecom.vo;
+﻿package com.cacch.integration.dto.wecom.vo;
 
 import lombok.Data;
 
 /**
  * 智能表格子表 VO
  *
- * @author cacch-integration
+ * @author hongfu_zhou@cacch.com
  */
 @Data
 public class SmartSheetVO {

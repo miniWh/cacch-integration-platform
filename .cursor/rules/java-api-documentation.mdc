@@ -26,7 +26,7 @@ alwaysApply: false
 | `@return` | 非 `void` 必须说明返回值含义；集合说明空集合语义 |
 | `@throws` | 声明或可抛出的业务/集成异常须说明触发条件 |
 
-类注释须含职责说明；公开 API 类添加 `@author cacch-integration`。
+类注释须含职责说明；公开 API 类必须添加 `@author hongfu_zhou@cacch.com`，禁止使用其他作者标识。
 
 ## 正确示例
 

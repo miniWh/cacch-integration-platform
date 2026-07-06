@@ -1,4 +1,4 @@
-package com.cacch.integration.common.result;
+﻿package com.cacch.integration.common.result;
 
 import com.cacch.integration.common.exception.BizException;
 import lombok.AllArgsConstructor;
@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
  * 统一返回体，所有 API 通过此类包装返回值
  *
  * @param <T> 响应数据类型
- * @author cacch-integration
+ * @author hongfu_zhou@cacch.com
  */
 @Data
 @NoArgsConstructor

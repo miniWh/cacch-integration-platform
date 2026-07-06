@@ -1,4 +1,4 @@
-package com.cacch.integration.common.result;
+﻿package com.cacch.integration.common.result;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -6,7 +6,7 @@ import lombok.Getter;
 /**
  * 统一错误码枚举
  *
- * @author cacch-integration
+ * @author hongfu_zhou@cacch.com
  */
 @Getter
 @AllArgsConstructor

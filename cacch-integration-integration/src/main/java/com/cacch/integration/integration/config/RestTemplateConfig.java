@@ -1,4 +1,4 @@
-package com.cacch.integration.integration.config;
+﻿package com.cacch.integration.integration.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -11,7 +11,7 @@ import java.time.Duration;
 /**
  * RestTemplate 配置，统一 HTTP 客户端超时与编码
  *
- * @author cacch-integration
+ * @author hongfu_zhou@cacch.com
  */
 @Configuration
 public class RestTemplateConfig {

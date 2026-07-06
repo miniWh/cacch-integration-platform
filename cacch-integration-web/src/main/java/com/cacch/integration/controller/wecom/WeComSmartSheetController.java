@@ -1,4 +1,4 @@
-package com.cacch.integration.controller.wecom;
+﻿package com.cacch.integration.controller.wecom;
 
 import com.cacch.integration.common.result.Result;
 import com.cacch.integration.convert.wecom.SmartSheetConverter;
@@ -26,7 +26,7 @@ import java.util.List;
  *
  * <p>鉴权使用配置文件 {@code wecom.apps} 中自建应用的 corpid + secret，调用方无需传递密钥。</p>
  *
- * @author cacch-integration
+ * @author hongfu_zhou@cacch.com
  */
 @Validated
 @RestController

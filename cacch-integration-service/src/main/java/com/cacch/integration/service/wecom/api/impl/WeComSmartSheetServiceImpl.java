@@ -1,4 +1,4 @@
-package com.cacch.integration.service.wecom.api.impl;
+﻿package com.cacch.integration.service.wecom.api.impl;
 
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.ResultCode;
@@ -25,7 +25,7 @@ import java.util.List;
 /**
  * 企业微信智能表格服务实现
  *
- * @author cacch-integration
+ * @author hongfu_zhou@cacch.com
  */
 @Slf4j
 @Service

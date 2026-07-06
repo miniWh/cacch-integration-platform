@@ -1,4 +1,4 @@
-package com.cacch.integration.manager.wecom.api.impl;
+﻿package com.cacch.integration.manager.wecom.api.impl;
 
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.ResultCode;
@@ -14,7 +14,7 @@ import org.springframework.web.client.RestClientException;
 /**
  * 企业微信 Token 编排实现 — 内部通过 WeComProperties 解析 secret
  *
- * @author cacch-integration
+ * @author hongfu_zhou@cacch.com
  */
 @Slf4j
 @Component

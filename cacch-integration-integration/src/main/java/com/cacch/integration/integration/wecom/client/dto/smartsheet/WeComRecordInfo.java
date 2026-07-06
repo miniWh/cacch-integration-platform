@@ -1,4 +1,4 @@
-package com.cacch.integration.integration.wecom.client.dto.smartsheet;
+﻿package com.cacch.integration.integration.wecom.client.dto.smartsheet;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
@@ -8,7 +8,7 @@ import java.util.Map;
 /**
  * 企微智能表格记录信息
  *
- * @author cacch-integration
+ * @author hongfu_zhou@cacch.com
  */
 @Data
 public class WeComRecordInfo {

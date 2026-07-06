@@ -1,4 +1,4 @@
-package com.cacch.integration.common.config.wecom;
+﻿package com.cacch.integration.common.config.wecom;
 
 import lombok.Value;
 
@@ -10,7 +10,7 @@ import lombok.Value;
  * 同一公司可配置多个 app-key（如通讯录、客户联系），各自使用不同 secret。
  * </pre>
  *
- * @author cacch-integration
+ * @author hongfu_zhou@cacch.com
  */
 @Value
 public class WeComAppConfig {
