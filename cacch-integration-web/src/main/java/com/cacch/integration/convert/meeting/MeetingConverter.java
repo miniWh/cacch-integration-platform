@@ -1,6 +1,8 @@
 package com.cacch.integration.convert.meeting;
 
+import com.cacch.integration.common.dto.meeting.MeetingCreateScanResult;
 import com.cacch.integration.dto.meeting.request.SaveSmartTableRequest;
+import com.cacch.integration.dto.meeting.vo.MeetingCreateScanResultVO;
 import com.cacch.integration.dto.meeting.vo.MeetingRecordVO;
 import com.cacch.integration.dto.meeting.vo.SmartTableConfigVO;
 import com.cacch.integration.entity.meeting.MeetingRecordDO;
@@ -26,4 +28,6 @@ public interface MeetingConverter {
     MeetingRecordVO toMeetingRecordVO(MeetingRecordDO recordDO);
 
     List<MeetingRecordVO> toMeetingRecordVOList(List<MeetingRecordDO> list);
+
+    MeetingCreateScanResultVO toMeetingCreateScanResultVO(MeetingCreateScanResult result);
 }

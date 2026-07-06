@@ -3,6 +3,7 @@ package com.cacch.integration.controller.meeting;
 import com.cacch.integration.common.result.Result;
 import com.cacch.integration.convert.meeting.MeetingConverter;
 import com.cacch.integration.dto.meeting.request.SaveSmartTableRequest;
+import com.cacch.integration.dto.meeting.vo.MeetingCreateScanResultVO;
 import com.cacch.integration.dto.meeting.vo.MeetingRecordVO;
 import com.cacch.integration.dto.meeting.vo.SmartTableConfigVO;
 import com.cacch.integration.manager.meeting.api.IMeetingSyncManager;
@@ -155,7 +156,30 @@ public class MeetingController {
     }
 
     /**
-     * 手动触发会议行同步
+     * 手动扫描所有会议管理子表中的待创建会议记录，并按规则发起建会
+     *
+     * @return 扫描与建会统计
+     */
+    @PostMapping("/sync/scan-and-create-meetings")
+    public Result<MeetingCreateScanResultVO> scanAndCreateMeetings() {
+        return Result.success(meetingConverter.toMeetingCreateScanResultVO(
+                meetingSyncManager.scanAndCreatePendingMeetings()));
+    }
+
+    /**
+     * 手动扫描指定会议管理子表中的待创建会议记录，并按规则发起建会
+     *
+     * @param id 员工会议表配置主键（table_type=MEETING）
+     * @return 扫描与建会统计
+     */
+    @PostMapping("/smart-tables/{id}/scan-and-create-meetings")
+    public Result<MeetingCreateScanResultVO> scanAndCreateMeetingsByTable(@PathVariable Long id) {
+        return Result.success(meetingConverter.toMeetingCreateScanResultVO(
+                meetingSyncManager.scanAndCreatePendingMeetings(id)));
+    }
+
+    /**
+     * 手动触发会议行同步（同步子表数据并尝试建会，无统计返回）
      *
      * @return 无数据成功响应
      */
@@ -166,7 +190,7 @@ public class MeetingController {
     }
 
     /**
-     * 手动触发为待处理会议创建企微会议
+     * 基于本地库记录尝试建会（不重新拉取智能表格，适用于同步后立即补建）
      *
      * @return 无数据成功响应
      */

@@ -1,5 +1,7 @@
 package com.cacch.integration.manager.meeting.api;
 
+import com.cacch.integration.common.dto.meeting.MeetingCreateScanResult;
+
 /**
  * 会议智能表格同步编排接口
  *
@@ -23,6 +25,21 @@ public interface IMeetingSyncManager {
      * 为待发起(PENDING)会议创建企微预约会议并回写智能表格（扫描后按规则校验）
      */
     void createPendingWeComMeetings();
+
+    /**
+     * 扫描所有员工会议管理子表，同步待创建会议记录并按规则发起建会
+     *
+     * @return 扫描与建会统计
+     */
+    MeetingCreateScanResult scanAndCreatePendingMeetings();
+
+    /**
+     * 扫描指定员工会议管理子表，同步待创建会议记录并按规则发起建会
+     *
+     * @param smartTableId 员工会议表配置主键（table_type=MEETING）
+     * @return 扫描与建会统计
+     */
+    MeetingCreateScanResult scanAndCreatePendingMeetings(Long smartTableId);
 
     /**
      * 将未写入智能表格的待办事项添加到待办子表

@@ -3,6 +3,7 @@ package com.cacch.integration.manager.meeting.api.impl;
 import com.cacch.integration.common.constant.meeting.MeetingConstants;
 import com.cacch.integration.common.constant.meeting.MeetingSheetColumnDef;
 import com.cacch.integration.common.constant.wecom.WeComConstants;
+import com.cacch.integration.common.dto.meeting.MeetingCreateScanResult;
 import com.cacch.integration.common.dto.wecom.WeComAlertCommand;
 import com.cacch.integration.common.enums.meeting.MeetingMinutesStatusEnum;
 import com.cacch.integration.common.enums.meeting.MeetingRecordStatusEnum;
@@ -105,10 +106,23 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
 
     @Override
     public void syncMeetingRecordsFromSheets() {
+        scanAndCreatePendingMeetings();
+    }
+
+    @Override
+    public MeetingCreateScanResult scanAndCreatePendingMeetings() {
+        MeetingCreateScanResult total = MeetingCreateScanResult.empty();
         List<SmartTableDO> meetingTables = smartTableService.listEnabledMeetingTables();
         for (SmartTableDO table : meetingTables) {
-            syncSingleMeetingTable(table);
+            total = total.merge(scanAndCreatePendingMeetingsForTable(table));
         }
+        return total;
+    }
+
+    @Override
+    public MeetingCreateScanResult scanAndCreatePendingMeetings(Long smartTableId) {
+        SmartTableDO table = requireEnabledMeetingTable(smartTableId);
+        return scanAndCreatePendingMeetingsForTable(table);
     }
 
     @Override
@@ -326,20 +340,30 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
         return builder.build();
     }
 
-    private void syncSingleMeetingTable(SmartTableDO table) {
-        log.info("【MeetingSync】同步会议行, smartTableId={}, docId={}", table.getId(), table.getDocId());
+    private MeetingCreateScanResult scanAndCreatePendingMeetingsForTable(SmartTableDO table) {
+        log.info("【MeetingSync】扫描会议管理子表并尝试建会, smartTableId={}, docId={}", table.getId(), table.getDocId());
+        int scannedRows = 0;
+        int createdCount = 0;
+        int skippedCount = 0;
+        int failedCount = 0;
         try {
             WeComGetRecordsResponse response = weComSmartSheetManager.getRecords(
                     table.getDocId(), table.getMeetingSheetId(), 0, RECORD_PAGE_SIZE);
-            if (response.getRecords() == null) {
-                smartTableService.markSyncSuccess(table.getId());
-                return;
-            }
-            Map<String, String> mapping = ensureMeetingColumnMapping(table);
-            for (WeComRecordInfo row : response.getRecords()) {
-                MeetingRecordDO record = upsertMeetingRecord(table, mapping, row);
-                if (record != null) {
-                    tryCreateWeComMeeting(table, record);
+            if (response.getRecords() != null) {
+                Map<String, String> mapping = ensureMeetingColumnMapping(table);
+                for (WeComRecordInfo row : response.getRecords()) {
+                    scannedRows++;
+                    MeetingRecordDO record = upsertMeetingRecord(table, mapping, row);
+                    if (record == null) {
+                        skippedCount++;
+                        continue;
+                    }
+                    int outcome = tryCreateWeComMeeting(table, record);
+                    switch (outcome) {
+                        case 1 -> createdCount++;
+                        case -1 -> failedCount++;
+                        default -> skippedCount++;
+                    }
                 }
             }
             smartTableService.markSyncSuccess(table.getId());
@@ -347,15 +371,19 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
             smartTableService.markSyncError(table.getId(), e.getMessage());
             weComWebhookManager.sendAlert(WeComAlertCommand.builder()
                     .biz(BIZ)
-                    .title("智能表格同步异常")
+                    .title("智能表格扫描建会异常")
                     .subject(table.getTableName())
                     .context("smartTableId=" + table.getId() + ", docId=" + table.getDocId())
                     .error(e)
                     .dedupType("table")
                     .dedupId(String.valueOf(table.getId()))
                     .build());
-            log.error("【MeetingSync】同步会议行失败, smartTableId={}", table.getId(), e);
+            log.error("【MeetingSync】扫描建会失败, smartTableId={}", table.getId(), e);
+            throw e;
         }
+        log.info("【MeetingSync】扫描建会完成, smartTableId={}, scanned={}, created={}, skipped={}, failed={}",
+                table.getId(), scannedRows, createdCount, skippedCount, failedCount);
+        return new MeetingCreateScanResult(scannedRows, createdCount, skippedCount, failedCount);
     }
 
     private MeetingRecordDO upsertMeetingRecord(SmartTableDO table, Map<String, String> mapping, WeComRecordInfo row) {
@@ -406,15 +434,20 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
         return record;
     }
 
-    private void tryCreateWeComMeeting(SmartTableDO table, MeetingRecordDO record) {
+    /**
+     * @return 1 已创建，0 跳过，-1 失败
+     */
+    private int tryCreateWeComMeeting(SmartTableDO table, MeetingRecordDO record) {
         if (!isEligibleForMeetingCreation(record)) {
-            return;
+            return 0;
         }
         try {
             createWeComMeetingForRecord(table, record);
+            return 1;
         } catch (Exception e) {
             log.error("【MeetingSync】创建企微会议失败, smartTableId={}, recordId={}",
                     table.getId(), record.getRecordId(), e);
+            return -1;
         }
     }
 
