@@ -1,6 +1,7 @@
 package com.cacch.integration.service.meeting.api.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.cacch.integration.common.constant.meeting.MeetingConstants;
 import com.cacch.integration.common.enums.meeting.SmartTableTypeEnum;
 import com.cacch.integration.entity.meeting.SmartTableDO;
@@ -111,13 +112,12 @@ public class SmartTableServiceImpl implements ISmartTableService {
             timeout = 30
     )
     public void markSyncSuccess(Long smartTableId) {
-        SmartTableDO table = smartTableMapper.selectById(smartTableId);
-        if (table == null) {
-            return;
-        }
-        table.setLastSyncTime(LocalDateTime.now());
-        table.setLastSyncError(null);
-        smartTableMapper.updateById(table);
+        LocalDateTime now = LocalDateTime.now();
+        smartTableMapper.update(null, new LambdaUpdateWrapper<SmartTableDO>()
+                .eq(SmartTableDO::getId, smartTableId)
+                .set(SmartTableDO::getLastSyncTime, now)
+                .set(SmartTableDO::getLastSyncError, null)
+                .set(SmartTableDO::getUpdatedAt, now));
     }
 
     @Override
@@ -128,12 +128,11 @@ public class SmartTableServiceImpl implements ISmartTableService {
             timeout = 30
     )
     public void markSyncError(Long smartTableId, String errorMessage) {
-        SmartTableDO table = smartTableMapper.selectById(smartTableId);
-        if (table == null) {
-            return;
-        }
-        table.setLastSyncTime(LocalDateTime.now());
-        table.setLastSyncError(errorMessage);
-        smartTableMapper.updateById(table);
+        LocalDateTime now = LocalDateTime.now();
+        smartTableMapper.update(null, new LambdaUpdateWrapper<SmartTableDO>()
+                .eq(SmartTableDO::getId, smartTableId)
+                .set(SmartTableDO::getLastSyncTime, now)
+                .set(SmartTableDO::getLastSyncError, errorMessage)
+                .set(SmartTableDO::getUpdatedAt, now));
     }
 }

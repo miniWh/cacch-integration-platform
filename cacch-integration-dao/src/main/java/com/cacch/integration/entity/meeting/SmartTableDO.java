@@ -6,7 +6,7 @@ import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.baomidou.mybatisplus.extension.handlers.Jackson3TypeHandler;
+import com.cacch.integration.dao.typehandler.PostgreSqlJsonbTypeHandler;
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -35,12 +35,12 @@ public class SmartTableDO {
 
     private String meetingSheetId;
 
-    @TableField(typeHandler = Jackson3TypeHandler.class)
+    @TableField(typeHandler = PostgreSqlJsonbTypeHandler.class)
     private Map<String, String> meetingColumnMapping;
 
     private String todoSheetId;
 
-    @TableField(typeHandler = Jackson3TypeHandler.class)
+    @TableField(typeHandler = PostgreSqlJsonbTypeHandler.class)
     private Map<String, String> todoColumnMapping;
 
     private Integer status;
