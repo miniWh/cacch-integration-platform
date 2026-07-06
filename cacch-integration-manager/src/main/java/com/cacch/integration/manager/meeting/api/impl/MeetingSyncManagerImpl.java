@@ -91,7 +91,7 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
                 log.warn("【MeetingSync】未填写已批准申请的总控表(MASTER)，跳过扫描");
                 return;
             }
-            Map<String, String> mapping = master.getMeetingColumnMapping();
+            Map<String, String> mapping = ensureMeetingColumnMapping(master);
             for (WeComRecordInfo record : recordsResponse.getRecords()) {
                 provisionEmployeeTable(master, mapping, record);
             }
@@ -127,11 +127,12 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
                 continue;
             }
             List<TodoItemDO> todos = todoItemService.listPendingBySmartTableId(table.getId());
+            Map<String, String> todoMapping = ensureTodoColumnMapping(table);
             for (TodoItemDO todo : todos) {
                 if (StringUtils.hasText(todo.getRecordId())) {
                     continue;
                 }
-                writeTodoToSheet(table, todo);
+                writeTodoToSheet(table, todoMapping, todo);
             }
         }
     }
@@ -231,7 +232,7 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
     }
 
     /**
-     * 初始化员工会议管理表列：先删除子表全部原始列，再按业务顺序新建列并返回逻辑 key → fieldId 映射。
+     * 初始化员工会议管理表列：先删除子表全部原始列，再按业务顺序新建列并返回逻辑 key → 列标题 映射。
      */
     private Map<String, String> setupMeetingSheetColumns(String docId, String sheetId) {
         WeComGetFieldsResponse fieldsResponse = weComSmartSheetManager.getFields(docId, sheetId, 0, 100);
@@ -248,10 +249,7 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
             throw new BizException(ResultCode.INTEGRATION_ERROR, "添加会议管理表字段返回不完整");
         }
 
-        Map<String, String> mapping = new LinkedHashMap<>();
-        for (int i = 0; i < columns.size(); i++) {
-            mapping.put(columns.get(i).logicalKey(), addResponse.getFields().get(i).getFieldId());
-        }
+        Map<String, String> mapping = MeetingConstants.buildMeetingColumnTitleMapping();
         log.info("【MeetingSync】会议管理表列初始化完成, docId={}, columns={}", docId, mapping.keySet());
         return mapping;
     }
@@ -299,7 +297,7 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
                 smartTableService.markSyncSuccess(table.getId());
                 return;
             }
-            Map<String, String> mapping = table.getMeetingColumnMapping();
+            Map<String, String> mapping = ensureMeetingColumnMapping(table);
             for (WeComRecordInfo row : response.getRecords()) {
                 upsertMeetingRecord(table, mapping, row);
             }
@@ -388,6 +386,62 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
         log.info("【MeetingSync】创建企微会议成功, recordId={}, meetingId={}", record.getId(), meetingResponse.getMeetingid());
     }
 
+    private Map<String, String> ensureMeetingColumnMapping(SmartTableDO table) {
+        return ensureTitleBasedMapping(table, table.getMeetingSheetId(), table.getMeetingColumnMapping(), true);
+    }
+
+    private Map<String, String> ensureTodoColumnMapping(SmartTableDO table) {
+        return ensureTitleBasedMapping(table, table.getTodoSheetId(), table.getTodoColumnMapping(), false);
+    }
+
+    /**
+     * 将历史 fieldId 映射自动解析为列标题并回写 DB，便于用户删列重建后列名不变即可继续同步。
+     */
+    private Map<String, String> ensureTitleBasedMapping(SmartTableDO table, String sheetId,
+                                                        Map<String, String> mapping, boolean meetingMapping) {
+        if (mapping == null || mapping.isEmpty() || !StringUtils.hasText(sheetId)) {
+            return mapping;
+        }
+        boolean needsResolve = mapping.values().stream().anyMatch(WeComSmartSheetCellAdapter::looksLikeFieldId);
+        if (!needsResolve) {
+            return mapping;
+        }
+        WeComGetFieldsResponse fieldsResponse = weComSmartSheetManager.getFields(
+                table.getDocId(), sheetId, 0, 100);
+        if (fieldsResponse.getFields() == null || fieldsResponse.getFields().isEmpty()) {
+            return mapping;
+        }
+        Map<String, String> idToTitle = new HashMap<>();
+        for (WeComFieldInfo field : fieldsResponse.getFields()) {
+            idToTitle.put(field.getFieldId(), field.getFieldTitle());
+        }
+        Map<String, String> resolved = new LinkedHashMap<>();
+        boolean changed = false;
+        for (Map.Entry<String, String> entry : mapping.entrySet()) {
+            String value = entry.getValue();
+            String title = idToTitle.getOrDefault(value, value);
+            resolved.put(entry.getKey(), title);
+            if (!title.equals(value)) {
+                changed = true;
+            }
+        }
+        if (changed) {
+            SmartTableDO update = new SmartTableDO();
+            update.setId(table.getId());
+            if (meetingMapping) {
+                update.setMeetingColumnMapping(resolved);
+                table.setMeetingColumnMapping(resolved);
+            } else {
+                update.setTodoColumnMapping(resolved);
+                table.setTodoColumnMapping(resolved);
+            }
+            smartTableService.updateById(update);
+            log.info("【MeetingSync】列映射已从 fieldId 迁移为列标题, smartTableId={}, meeting={}",
+                    table.getId(), meetingMapping);
+        }
+        return resolved;
+    }
+
     private void writeBackMasterProvision(SmartTableDO master, Map<String, String> mapping,
                                           String recordId, String linkText,
                                           String docId, String docUrl) {
@@ -402,7 +456,7 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
     }
 
     private void writeBackMeetingStatus(SmartTableDO table, MeetingRecordDO record) {
-        Map<String, String> mapping = table.getMeetingColumnMapping();
+        Map<String, String> mapping = ensureMeetingColumnMapping(table);
         if (mapping == null) {
             return;
         }
@@ -424,8 +478,7 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
         weComSmartSheetManager.updateRecords(table.getDocId(), table.getMeetingSheetId(), List.of(item));
     }
 
-    private void writeTodoToSheet(SmartTableDO table, TodoItemDO todo) {
-        Map<String, String> mapping = table.getTodoColumnMapping();
+    private void writeTodoToSheet(SmartTableDO table, Map<String, String> mapping, TodoItemDO todo) {
         Map<String, Object> values = new HashMap<>();
         putTextValue(values, mapping, "todo_title", todo.getTodoTitle());
         putTextValue(values, mapping, "assignee", todo.getAssigneeName());
@@ -448,9 +501,9 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
         if (mapping == null || !StringUtils.hasText(text)) {
             return;
         }
-        String fieldId = mapping.get(logicalKey);
-        if (fieldId != null) {
-            values.put(fieldId, WeComSmartSheetCellAdapter.textCell(text));
+        String fieldTitle = mapping.get(logicalKey);
+        if (fieldTitle != null) {
+            values.put(fieldTitle, WeComSmartSheetCellAdapter.textCell(text));
         }
     }
 
@@ -459,10 +512,10 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
         if (mapping == null || !StringUtils.hasText(link)) {
             return;
         }
-        String fieldId = mapping.get(logicalKey);
-        if (fieldId != null) {
+        String fieldTitle = mapping.get(logicalKey);
+        if (fieldTitle != null) {
             String displayText = StringUtils.hasText(linkText) ? linkText : link;
-            values.put(fieldId, WeComSmartSheetCellAdapter.urlCell(displayText, link));
+            values.put(fieldTitle, WeComSmartSheetCellAdapter.urlCell(displayText, link));
         }
     }
 

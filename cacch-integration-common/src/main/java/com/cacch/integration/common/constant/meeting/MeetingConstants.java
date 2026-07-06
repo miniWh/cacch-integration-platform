@@ -5,7 +5,9 @@ import com.cacch.integration.common.enums.meeting.MeetingMinutesStatusEnum;
 import com.cacch.integration.common.enums.meeting.MeetingRecordStatusEnum;
 
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 会议管理业务常量
@@ -55,5 +57,16 @@ public final class MeetingConstants {
         return Arrays.stream(MeetingMinutesStatusEnum.values())
                 .map(MeetingMinutesStatusEnum::getDesc)
                 .toList();
+    }
+
+    /**
+     * 构建员工会议表逻辑 key → 列标题 映射（用于列初始化及 DB 存储）
+     */
+    public static Map<String, String> buildMeetingColumnTitleMapping() {
+        Map<String, String> mapping = new LinkedHashMap<>();
+        for (MeetingSheetColumnDef column : MEETING_SHEET_COLUMNS) {
+            mapping.put(column.logicalKey(), column.title());
+        }
+        return mapping;
     }
 }

@@ -85,8 +85,8 @@ public final class WeComSmartSheetCellAdapter {
     /**
      * 按列映射 key 从 record values 中取文本
      *
-     * @param values        行字段值 Map（fieldId → 单元格值）
-     * @param columnMapping 逻辑列名 → 企微 fieldId 映射
+     * @param values        行字段值 Map（fieldTitle → 单元格值）
+     * @param columnMapping 逻辑列名 → 企微列标题 映射
      * @param logicalKey    逻辑列名（如 meeting_title）
      * @return 映射列的文本值，缺失时返回空字符串
      */
@@ -95,10 +95,20 @@ public final class WeComSmartSheetCellAdapter {
         if (values == null || columnMapping == null) {
             return "";
         }
-        String fieldId = columnMapping.get(logicalKey);
-        if (fieldId == null) {
+        String fieldTitle = columnMapping.get(logicalKey);
+        if (fieldTitle == null) {
             return "";
         }
-        return extractText(values.get(fieldId));
+        return extractText(values.get(fieldTitle));
+    }
+
+    /**
+     * 判断映射值是否为企微 fieldId（历史数据兼容，fieldId 为短字母数字串）
+     */
+    public static boolean looksLikeFieldId(String value) {
+        if (value == null || value.isBlank()) {
+            return false;
+        }
+        return value.matches("^[a-zA-Z][a-zA-Z0-9]{3,15}$");
     }
 }

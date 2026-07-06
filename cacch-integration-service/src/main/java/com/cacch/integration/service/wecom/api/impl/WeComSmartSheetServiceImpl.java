@@ -75,7 +75,7 @@ public class WeComSmartSheetServiceImpl implements IWeComSmartSheetService {
         WeComGetRecordsRequest request = WeComGetRecordsRequest.builder()
                 .docid(docId)
                 .sheetId(sheetId)
-                .keyType(WeComConstants.CELL_VALUE_KEY_TYPE_FIELD_ID)
+                .keyType(WeComConstants.CELL_VALUE_KEY_TYPE_FIELD_TITLE)
                 .offset(offset)
                 .limit(limit)
                 .build();
@@ -90,7 +90,7 @@ public class WeComSmartSheetServiceImpl implements IWeComSmartSheetService {
         WeComAddRecordsRequest request = WeComAddRecordsRequest.builder()
                 .docid(docId)
                 .sheetId(sheetId)
-                .keyType(WeComConstants.CELL_VALUE_KEY_TYPE_FIELD_ID)
+                .keyType(WeComConstants.CELL_VALUE_KEY_TYPE_FIELD_TITLE)
                 .records(records)
                 .build();
         WeComAddRecordsResponse response = weComSmartSheetClient.addRecords(accessToken, request);
@@ -104,7 +104,7 @@ public class WeComSmartSheetServiceImpl implements IWeComSmartSheetService {
         WeComUpdateRecordsRequest request = WeComUpdateRecordsRequest.builder()
                 .docid(docId)
                 .sheetId(sheetId)
-                .keyType(WeComConstants.CELL_VALUE_KEY_TYPE_FIELD_ID)
+                .keyType(WeComConstants.CELL_VALUE_KEY_TYPE_FIELD_TITLE)
                 .records(records)
                 .build();
         WeComUpdateRecordsResponse response = weComSmartSheetClient.updateRecords(accessToken, request);
