@@ -4,6 +4,8 @@ import com.cacch.integration.common.constant.wecom.WeComConstants;
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.ResultCode;
 import com.cacch.integration.integration.wecom.client.WeComSmartSheetClient;
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComDeleteFieldsRequest;
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComDeleteFieldsResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComAddFieldsRequest;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComAddFieldsResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComAddRecordsRequest;
@@ -120,6 +122,19 @@ public class WeComSmartSheetServiceImpl implements IWeComSmartSheetService {
                 .build();
         WeComAddFieldsResponse response = weComSmartSheetClient.addFields(accessToken, request);
         assertWeComSuccess(response, "添加字段");
+        return response;
+    }
+
+    @Override
+    public WeComDeleteFieldsResponse deleteFields(String accessToken, String docId, String sheetId,
+                                                  List<String> fieldIds) {
+        WeComDeleteFieldsRequest request = WeComDeleteFieldsRequest.builder()
+                .docid(docId)
+                .sheetId(sheetId)
+                .fieldIds(fieldIds)
+                .build();
+        WeComDeleteFieldsResponse response = weComSmartSheetClient.deleteFields(accessToken, request);
+        assertWeComSuccess(response, "删除字段");
         return response;
     }
 

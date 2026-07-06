@@ -23,4 +23,16 @@ public class WeComFieldAddItem {
 
     @JsonProperty("property_user")
     private WeComUserFieldProperty propertyUser;
+
+    @JsonProperty("property_date_time")
+    private WeComDateTimeFieldProperty propertyDateTime;
+
+    @JsonProperty("property_number")
+    private WeComNumberFieldProperty propertyNumber;
+
+    @JsonProperty("property_single_select")
+    private WeComSingleSelectFieldProperty propertySingleSelect;
+
+    @JsonProperty("property_url")
+    private WeComUrlFieldProperty propertyUrl;
 }

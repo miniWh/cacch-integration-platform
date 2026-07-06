@@ -5,6 +5,7 @@ import com.cacch.integration.common.config.wecom.WeComProperties;
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.ResultCode;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComAddFieldsResponse;
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComDeleteFieldsResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComAddRecordsResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComGetFieldsResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComGetRecordsResponse;
@@ -72,6 +73,12 @@ public class WeComSmartSheetManagerImpl implements IWeComSmartSheetManager {
     public WeComAddFieldsResponse addFields(String docId, String sheetId, List<WeComFieldAddItem> fields) {
         return execute("添加字段", () ->
                 weComSmartSheetService.addFields(resolveAccessToken(), docId, sheetId, fields));
+    }
+
+    @Override
+    public WeComDeleteFieldsResponse deleteFields(String docId, String sheetId, List<String> fieldIds) {
+        return execute("删除字段", () ->
+                weComSmartSheetService.deleteFields(resolveAccessToken(), docId, sheetId, fieldIds));
     }
 
     @Override

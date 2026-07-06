@@ -70,14 +70,50 @@ public final class WeComConstants {
             "https://qyapi.weixin.qq.com/cgi-bin/wedoc/smartsheet/update_fields?access_token=%s";
 
     /**
+     * 智能表格 — 删除字段 API 地址
+     */
+    public static final String SMARTSHEET_DELETE_FIELDS_URL =
+            "https://qyapi.weixin.qq.com/cgi-bin/wedoc/smartsheet/delete_fields?access_token=%s";
+
+    /**
      * 智能表格字段类型 — 文本
      */
     public static final String FIELD_TYPE_TEXT = "FIELD_TYPE_TEXT";
 
     /**
+     * 智能表格字段类型 — 数字
+     */
+    public static final String FIELD_TYPE_NUMBER = "FIELD_TYPE_NUMBER";
+
+    /**
+     * 智能表格字段类型 — 日期时间
+     */
+    public static final String FIELD_TYPE_DATE_TIME = "FIELD_TYPE_DATE_TIME";
+
+    /**
      * 智能表格字段类型 — 成员
      */
     public static final String FIELD_TYPE_USER = "FIELD_TYPE_USER";
+
+    /**
+     * 智能表格字段类型 — 超链接
+     */
+    public static final String FIELD_TYPE_URL = "FIELD_TYPE_URL";
+
+    /**
+     * 智能表格字段类型 — 单选
+     */
+    public static final String FIELD_TYPE_SINGLE_SELECT = "FIELD_TYPE_SINGLE_SELECT";
+
+    /**
+     * 会议开始时间列日期格式：YYYY-MM-DD HH:MM
+     */
+    public static final String DATE_TIME_FORMAT_YMD_HM = "yyyy-mm-dd hh:mm";
+
+    /**
+     * 超链接字段展示样式 — 纯文字
+     */
+    public static final String URL_LINK_TYPE_PURE_TEXT = "LINK_TYPE_PURE_TEXT";
 
     /**
      * 文档 — 新建文档/智能表格 API 地址

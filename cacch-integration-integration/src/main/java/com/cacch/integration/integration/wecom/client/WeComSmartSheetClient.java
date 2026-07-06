@@ -3,6 +3,8 @@ package com.cacch.integration.integration.wecom.client;
 import com.cacch.integration.common.constant.wecom.WeComConstants;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComAddFieldsRequest;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComAddFieldsResponse;
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComDeleteFieldsRequest;
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComDeleteFieldsResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComAddRecordsRequest;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComAddRecordsResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComGetFieldsRequest;
@@ -68,6 +70,16 @@ public class WeComSmartSheetClient {
         log.info("【WeComSmartSheet】添加记录, docid={}, sheetId={}, count={}",
                 request.getDocid(), request.getSheetId(), request.getRecords().size());
         return post(url, request, WeComAddRecordsResponse.class, "添加记录");
+    }
+
+    /**
+     * 删除智能表格字段
+     */
+    public WeComDeleteFieldsResponse deleteFields(String accessToken, WeComDeleteFieldsRequest request) {
+        String url = String.format(WeComConstants.SMARTSHEET_DELETE_FIELDS_URL, accessToken);
+        log.info("【WeComSmartSheet】删除字段, docid={}, sheetId={}, count={}",
+                request.getDocid(), request.getSheetId(), request.getFieldIds().size());
+        return post(url, request, WeComDeleteFieldsResponse.class, "删除字段");
     }
 
     /**

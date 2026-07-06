@@ -1,6 +1,7 @@
 package com.cacch.integration.manager.wecom.api;
 
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComAddFieldsResponse;
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComDeleteFieldsResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComAddRecordsResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComGetFieldsResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComGetRecordsResponse;
@@ -78,6 +79,11 @@ public interface IWeComSmartSheetManager {
      * @return 添加结果（含 fieldId）
      */
     WeComAddFieldsResponse addFields(String docId, String sheetId, List<WeComFieldAddItem> fields);
+
+    /**
+     * 删除智能表格字段
+     */
+    WeComDeleteFieldsResponse deleteFields(String docId, String sheetId, List<String> fieldIds);
 
     /**
      * 更新智能表格字段（重命名列等）

@@ -50,8 +50,6 @@ public class MeetingRecordDO {
 
     private String minutesStatus;
 
-    private Integer reminderSent;
-
     private Integer syncVersion;
 
     @TableField(fill = FieldFill.INSERT)
