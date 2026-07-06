@@ -1,4 +1,4 @@
-package com.cacch.integration.async.meeting.task;
+﻿package com.cacch.integration.async.meeting.task;
 
 import com.cacch.integration.async.support.ScheduledTaskTraceSupport;
 import com.cacch.integration.common.dto.wecom.WeComAlertCommand;
@@ -28,7 +28,7 @@ public class MeetingSyncTask {
     /**
      * 定时同步会议行并为待处理会议创建企微预约会议
      */
-    @Scheduled(cron = "${meeting.sync.meeting-cron:0 */5 * * * ?}")
+    @Scheduled(cron = "${meeting.sync.meeting-cron:0 */3 * * * ?}")
     public void syncMeetings() {
         ScheduledTaskTraceSupport.runWithTraceId(() -> {
             log.info("【MeetingTask】开始执行{}", TASK_NAME);

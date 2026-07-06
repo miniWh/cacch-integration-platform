@@ -1,4 +1,4 @@
-package com.cacch.integration.async.meeting.task;
+﻿package com.cacch.integration.async.meeting.task;
 
 import com.cacch.integration.async.support.ScheduledTaskTraceSupport;
 import com.cacch.integration.common.dto.wecom.WeComAlertCommand;
@@ -28,7 +28,7 @@ public class TodoSyncTask {
     /**
      * 定时将待办事项回写到智能表格子表
      */
-    @Scheduled(cron = "${meeting.sync.todo-cron:0 */15 * * * ?}")
+    @Scheduled(cron = "${meeting.sync.todo-cron:0 */3 * * * ?}")
     public void syncTodos() {
         ScheduledTaskTraceSupport.runWithTraceId(() -> {
             log.info("【MeetingTask】开始执行{}", TASK_NAME);
