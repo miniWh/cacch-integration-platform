@@ -28,4 +28,16 @@ public interface IMeetingSyncManager {
      * 将未写入智能表格的待办事项添加到待办子表
      */
     void syncTodosToSheet();
+
+    /**
+     * 手动初始化指定员工会议管理表的智能表格列，并更新本地列映射
+     *
+     * @param smartTableId 员工会议表配置主键（table_type=MEETING）
+     */
+    void initializeMeetingSheetColumns(Long smartTableId);
+
+    /**
+     * 手动初始化所有已启用员工会议管理表的智能表格列
+     */
+    void initializeAllMeetingSheetColumns();
 }

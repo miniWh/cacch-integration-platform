@@ -131,6 +131,30 @@ public class MeetingController {
     }
 
     /**
+     * 手动初始化指定员工会议管理表的智能表格列（适用于历史已创建、未初始化的表格）
+     *
+     * @param id 员工会议表配置主键（table_type=MEETING）
+     * @return 更新后的配置视图对象（含新 meetingColumnMapping）
+     */
+    @PostMapping("/smart-tables/{id}/init-columns")
+    public Result<SmartTableConfigVO> initMeetingSheetColumns(@PathVariable Long id) {
+        meetingSyncManager.initializeMeetingSheetColumns(id);
+        return Result.success(meetingConverter.toSmartTableVO(smartTableService.getById(id)));
+    }
+
+    /**
+     * 手动初始化所有已启用员工会议管理表的智能表格列
+     *
+     * @return 全部会议表配置列表（含更新后的列映射）
+     */
+    @PostMapping("/sync/init-meeting-columns")
+    public Result<List<SmartTableConfigVO>> initAllMeetingSheetColumns() {
+        meetingSyncManager.initializeAllMeetingSheetColumns();
+        return Result.success(meetingConverter.toSmartTableVOList(
+                smartTableService.listEnabledMeetingTables()));
+    }
+
+    /**
      * 手动触发会议行同步
      *
      * @return 无数据成功响应

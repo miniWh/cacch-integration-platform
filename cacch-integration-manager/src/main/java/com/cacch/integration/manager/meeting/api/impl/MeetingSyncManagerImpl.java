@@ -185,6 +185,51 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
         log.info("【MeetingSync】为员工创建会议管理表, userId={}, docId={}", userId, docResponse.getDocid());
     }
 
+    @Override
+    public void initializeMeetingSheetColumns(Long smartTableId) {
+        SmartTableDO table = requireEnabledMeetingTable(smartTableId);
+        doInitializeMeetingSheetColumns(table);
+    }
+
+    @Override
+    public void initializeAllMeetingSheetColumns() {
+        List<SmartTableDO> tables = smartTableService.listEnabledMeetingTables();
+        for (SmartTableDO table : tables) {
+            try {
+                doInitializeMeetingSheetColumns(table);
+            } catch (Exception e) {
+                smartTableService.markSyncError(table.getId(), e.getMessage());
+                log.error("【MeetingSync】手动初始化会议表列失败, smartTableId={}, docId={}",
+                        table.getId(), table.getDocId(), e);
+            }
+        }
+    }
+
+    private SmartTableDO requireEnabledMeetingTable(Long smartTableId) {
+        SmartTableDO table = smartTableService.getById(smartTableId);
+        if (table == null) {
+            throw new BizException(ResultCode.PARAM_INVALID, "智能表格配置不存在, id=" + smartTableId);
+        }
+        if (!SmartTableTypeEnum.MEETING.getCode().equals(table.getTableType())) {
+            throw new BizException(ResultCode.PARAM_INVALID, "仅支持 MEETING 类型员工会议表");
+        }
+        if (!Integer.valueOf(MeetingConstants.SMART_TABLE_STATUS_ENABLED).equals(table.getStatus())) {
+            throw new BizException(ResultCode.PARAM_INVALID, "智能表格配置未启用, id=" + smartTableId);
+        }
+        return table;
+    }
+
+    private void doInitializeMeetingSheetColumns(SmartTableDO table) {
+        log.info("【MeetingSync】手动初始化会议表列, smartTableId={}, docId={}", table.getId(), table.getDocId());
+        Map<String, String> mapping = setupMeetingSheetColumns(table.getDocId(), table.getMeetingSheetId());
+        SmartTableDO update = new SmartTableDO();
+        update.setId(table.getId());
+        update.setMeetingColumnMapping(mapping);
+        smartTableService.updateById(update);
+        smartTableService.markSyncSuccess(table.getId());
+        log.info("【MeetingSync】手动初始化会议表列完成, smartTableId={}, columns={}", table.getId(), mapping.keySet());
+    }
+
     /**
      * 初始化员工会议管理表列：先删除子表全部原始列，再按业务顺序新建列并返回逻辑 key → fieldId 映射。
      */
