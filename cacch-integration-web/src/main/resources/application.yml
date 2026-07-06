@@ -40,9 +40,9 @@ mybatis-plus:
 # ==================== 会议同步定时任务 Cron（公共占位） ====================
 meeting:
   sync:
-    master-cron: "0 */10 * * * ?"
-    meeting-cron: "0 */5 * * * ?"
-    todo-cron: "0 */15 * * * ?"
+    master-cron: "0 */3 * * * ?"
+    meeting-cron: "0 */3 * * * ?"
+    todo-cron: "0 */3 * * * ?"
 
 # ==================== 企业微信多应用配置（公共占位） ====================
 # 实际值请在 application-{profile}.yml 中覆盖
