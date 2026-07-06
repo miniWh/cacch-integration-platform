@@ -138,6 +138,15 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
         String userName = WeComSmartSheetCellAdapter.getMappedText(values, mapping, "user_name");
         String docName = StringUtils.hasText(userName) ? userName + "的会议管理" : userId + "的会议管理";
 
+        SmartTableDO existingMeeting = smartTableService.getEnabledMeetingByUserId(userId);
+        if (existingMeeting != null) {
+            writeBackMasterProvision(master, mapping, record.getRecordId(), docName,
+                    existingMeeting.getDocId(), existingMeeting.getDocUrl());
+            log.info("【MeetingSync】总控回写重试（本地已有会议表）, userId={}, docId={}",
+                    userId, existingMeeting.getDocId());
+            return;
+        }
+
         WeComCreateDocResponse docResponse = weComDocManager.createSmartSheetDoc(docName, List.of(userId));
         WeComGetSheetResponse sheetResponse = weComSmartSheetManager.getSheets(docResponse.getDocid(), null, false);
         String meetingSheetId = resolveFirstSheetId(sheetResponse);
@@ -153,7 +162,8 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
         meetingTable.setStatus(MeetingConstants.SMART_TABLE_STATUS_ENABLED);
         smartTableService.saveNew(meetingTable);
 
-        writeBackMasterProvision(master, mapping, record.getRecordId(), docResponse);
+        writeBackMasterProvision(master, mapping, record.getRecordId(), docName,
+                docResponse.getDocid(), docResponse.getUrl());
         log.info("【MeetingSync】为员工创建会议管理表, userId={}, docId={}", userId, docResponse.getDocid());
     }
 
@@ -244,10 +254,11 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
     }
 
     private void writeBackMasterProvision(SmartTableDO master, Map<String, String> mapping,
-                                          String recordId, WeComCreateDocResponse docResponse) {
+                                          String recordId, String linkText,
+                                          String docId, String docUrl) {
         Map<String, Object> values = new HashMap<>();
-        putTextValue(values, mapping, "created_doc_id", docResponse.getDocid());
-        putTextValue(values, mapping, "created_doc_url", docResponse.getUrl());
+        putTextValue(values, mapping, "created_doc_id", docId);
+        putUrlValue(values, mapping, "created_doc_url", linkText, docUrl);
         WeComRecordWriteItem item = WeComRecordWriteItem.builder()
                 .recordId(recordId)
                 .values(values)
@@ -299,6 +310,18 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
         String fieldId = mapping.get(logicalKey);
         if (fieldId != null) {
             values.put(fieldId, WeComSmartSheetCellAdapter.textCell(text));
+        }
+    }
+
+    private void putUrlValue(Map<String, Object> values, Map<String, String> mapping,
+                             String logicalKey, String linkText, String link) {
+        if (mapping == null || !StringUtils.hasText(link)) {
+            return;
+        }
+        String fieldId = mapping.get(logicalKey);
+        if (fieldId != null) {
+            String displayText = StringUtils.hasText(linkText) ? linkText : link;
+            values.put(fieldId, WeComSmartSheetCellAdapter.urlCell(displayText, link));
         }
     }
 

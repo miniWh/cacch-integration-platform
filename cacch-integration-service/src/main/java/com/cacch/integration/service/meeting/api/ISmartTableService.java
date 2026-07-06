@@ -36,6 +36,14 @@ public interface ISmartTableService {
     SmartTableDO getByUserIdAndDocId(String userId, String docId);
 
     /**
+     * 按用户 ID 查询启用的会议子表（MEETING 类型且 status=1）
+     *
+     * @param userId 企微用户 ID
+     * @return 会议子表配置，不存在时返回 null
+     */
+    SmartTableDO getEnabledMeetingByUserId(String userId);
+
+    /**
      * 查询所有启用的会议子表（MEETING 类型且 status=1）
      *
      * @return 会议子表列表，无数据时返回空列表

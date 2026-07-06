@@ -72,6 +72,21 @@ public class SmartTableServiceImpl implements ISmartTableService {
             readOnly = true,
             timeout = 10
     )
+    public SmartTableDO getEnabledMeetingByUserId(String userId) {
+        return smartTableMapper.selectOne(new LambdaQueryWrapper<SmartTableDO>()
+                .eq(SmartTableDO::getTableType, SmartTableTypeEnum.MEETING.getCode())
+                .eq(SmartTableDO::getUserId, userId)
+                .eq(SmartTableDO::getStatus, MeetingConstants.SMART_TABLE_STATUS_ENABLED)
+                .last("LIMIT 1"));
+    }
+
+    @Override
+    @Transactional(
+            rollbackFor = Exception.class,
+            propagation = Propagation.SUPPORTS,
+            readOnly = true,
+            timeout = 10
+    )
     public List<SmartTableDO> listEnabledMeetingTables() {
         return smartTableMapper.selectList(new LambdaQueryWrapper<SmartTableDO>()
                 .eq(SmartTableDO::getTableType, SmartTableTypeEnum.MEETING.getCode())

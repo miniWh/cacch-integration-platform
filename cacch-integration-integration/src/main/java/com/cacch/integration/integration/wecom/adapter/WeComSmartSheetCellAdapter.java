@@ -31,6 +31,23 @@ public final class WeComSmartSheetCellAdapter {
     }
 
     /**
+     * 构建超链接类型单元格值
+     *
+     * @param text 链接展示文本，null 时按空字符串处理
+     * @param link 链接地址，null 时按空字符串处理
+     * @return 企微智能表格要求的 URL 单元格值结构
+     */
+    public static List<Map<String, String>> urlCell(String text, String link) {
+        List<Map<String, String>> cells = new ArrayList<>(1);
+        Map<String, String> cell = new HashMap<>(3);
+        cell.put("type", "url");
+        cell.put("text", text != null ? text : "");
+        cell.put("link", link != null ? link : "");
+        cells.add(cell);
+        return cells;
+    }
+
+    /**
      * 从单元格原始值中提取文本（兼容 List 结构和纯字符串）
      *
      * @param cellValue 企微返回的单元格原始值
@@ -47,6 +64,13 @@ public final class WeComSmartSheetCellAdapter {
             case List<?> list when !list.isEmpty() -> {
                 Object first = list.getFirst();
                 if (first instanceof Map<?, ?> map) {
+                    Object type = map.get("type");
+                    if ("url".equals(type)) {
+                        Object link = map.get("link");
+                        if (link != null && !link.toString().isBlank()) {
+                            return link.toString();
+                        }
+                    }
                     Object text = map.get("text");
                     return text != null ? text.toString() : "";
                 }
