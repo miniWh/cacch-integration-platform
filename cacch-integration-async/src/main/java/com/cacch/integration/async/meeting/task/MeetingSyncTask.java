@@ -1,4 +1,4 @@
-﻿package com.cacch.integration.async.meeting.task;
+package com.cacch.integration.async.meeting.task;
 
 import com.cacch.integration.async.support.ScheduledTaskTraceSupport;
 import com.cacch.integration.common.dto.wecom.WeComAlertCommand;
