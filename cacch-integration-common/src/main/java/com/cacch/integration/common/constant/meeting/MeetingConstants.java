@@ -30,8 +30,8 @@ public final class MeetingConstants {
     public static final int SMART_TABLE_STATUS_ENABLED = 1;
 
     /**
-     * 员工会议管理表列定义（有序）。
-     * 初始化时先删除子表全部原始列，再按此顺序通过 add_fields 新建。
+     * 员工会议管理表列定义（有序，从左到右）。
+     * 初始化时通过 add_fields 新建；因企微批量新增列会插入到左侧，实际 API 调用顺序需与此列表相反。
      */
     public static final List<MeetingSheetColumnDef> MEETING_SHEET_COLUMNS = List.of(
             new MeetingSheetColumnDef("meeting_title", "会议主题", WeComConstants.FIELD_TYPE_TEXT),

@@ -245,7 +245,10 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
         log.info("【MeetingSync】会议管理表列初始化, docId={}, 原始列数={}", docId, originalFieldIds.size());
 
         List<MeetingSheetColumnDef> columns = MeetingConstants.MEETING_SHEET_COLUMNS;
-        List<WeComFieldAddItem> toAdd = columns.stream().map(this::toFieldAddItem).toList();
+        // 企微 add_fields 批量新增时列会插入到左侧，逆序调用以保证最终列顺序与 MEETING_SHEET_COLUMNS 一致
+        List<WeComFieldAddItem> toAdd = columns.reversed().stream()
+                .map(this::toFieldAddItem)
+                .toList();
         WeComAddFieldsResponse addResponse = weComSmartSheetManager.addFields(docId, sheetId, toAdd);
         if (addResponse.getFields() == null || addResponse.getFields().size() != columns.size()) {
             throw new BizException(ResultCode.INTEGRATION_ERROR, "添加会议管理表字段返回不完整");
