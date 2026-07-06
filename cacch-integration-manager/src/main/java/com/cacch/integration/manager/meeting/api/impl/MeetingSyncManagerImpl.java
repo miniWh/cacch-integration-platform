@@ -232,21 +232,27 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
     }
 
     /**
-     * 初始化员工会议管理表列：先删除子表全部原始列，再按业务顺序新建列并返回逻辑 key → 列标题 映射。
+     * 初始化员工会议管理表列：先遍历收集原始列，再按业务标题新增列，最后删除原始列，返回逻辑 key → 列标题 映射。
      */
     private Map<String, String> setupMeetingSheetColumns(String docId, String sheetId) {
         WeComGetFieldsResponse fieldsResponse = weComSmartSheetManager.getFields(docId, sheetId, 0, 100);
-        List<WeComFieldInfo> existingFields = fieldsResponse.getFields();
-        if (existingFields != null && !existingFields.isEmpty()) {
-            List<String> fieldIds = existingFields.stream().map(WeComFieldInfo::getFieldId).toList();
-            weComSmartSheetManager.deleteFields(docId, sheetId, fieldIds);
-        }
+        List<WeComFieldInfo> existingFields = fieldsResponse.getFields() != null
+                ? fieldsResponse.getFields()
+                : List.of();
+        List<String> originalFieldIds = existingFields.stream()
+                .map(WeComFieldInfo::getFieldId)
+                .toList();
+        log.info("【MeetingSync】会议管理表列初始化, docId={}, 原始列数={}", docId, originalFieldIds.size());
 
         List<MeetingSheetColumnDef> columns = MeetingConstants.MEETING_SHEET_COLUMNS;
         List<WeComFieldAddItem> toAdd = columns.stream().map(this::toFieldAddItem).toList();
         WeComAddFieldsResponse addResponse = weComSmartSheetManager.addFields(docId, sheetId, toAdd);
         if (addResponse.getFields() == null || addResponse.getFields().size() != columns.size()) {
             throw new BizException(ResultCode.INTEGRATION_ERROR, "添加会议管理表字段返回不完整");
+        }
+
+        if (!originalFieldIds.isEmpty()) {
+            weComSmartSheetManager.deleteFields(docId, sheetId, originalFieldIds);
         }
 
         Map<String, String> mapping = MeetingConstants.buildMeetingColumnTitleMapping();
