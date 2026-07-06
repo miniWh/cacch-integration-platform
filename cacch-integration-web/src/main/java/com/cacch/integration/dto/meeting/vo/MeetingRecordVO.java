@@ -22,6 +22,8 @@ public class MeetingRecordVO {
 
     private String meetingTitle;
 
+    private String meetingDescription;
+
     private LocalDate meetingDate;
 
     private LocalTime startTime;

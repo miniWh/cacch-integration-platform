@@ -364,6 +364,8 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
         record.setSmartTableId(table.getId());
         record.setRecordId(row.getRecordId());
         record.setMeetingTitle(title);
+        record.setMeetingDescription(
+                WeComSmartSheetCellAdapter.getMappedText(values, mapping, "meeting_description"));
         applyMeetingStart(record, WeComSmartSheetCellAdapter.getMappedText(values, mapping, "start_time"));
         record.setDuration(parseDuration(WeComSmartSheetCellAdapter.getMappedText(values, mapping, "duration")));
         record.setMeetingLink(WeComSmartSheetCellAdapter.getMappedText(values, mapping, "meeting_link"));

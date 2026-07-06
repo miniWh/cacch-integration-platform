@@ -45,6 +45,7 @@ public final class MeetingConstants {
      */
     public static final List<MeetingSheetColumnDef> MEETING_SHEET_COLUMNS = List.of(
             new MeetingSheetColumnDef("meeting_title", "会议主题", WeComConstants.FIELD_TYPE_TEXT),
+            new MeetingSheetColumnDef("meeting_description", "会议描述", WeComConstants.FIELD_TYPE_TEXT),
             new MeetingSheetColumnDef("start_time", "开始时间", WeComConstants.FIELD_TYPE_DATE_TIME),
             new MeetingSheetColumnDef("duration", "会议时长（分钟）", WeComConstants.FIELD_TYPE_NUMBER),
             new MeetingSheetColumnDef("attendees", "参会人", WeComConstants.FIELD_TYPE_USER),
@@ -53,8 +54,8 @@ public final class MeetingConstants {
             new MeetingSheetColumnDef("minutes_status", "纪要状态", WeComConstants.FIELD_TYPE_SINGLE_SELECT,
                     minutesStatusOptions()),
             new MeetingSheetColumnDef("meeting_link", "会议链接", WeComConstants.FIELD_TYPE_URL),
-            new MeetingSheetColumnDef("wecom_meeting_code", "企微会议号", WeComConstants.FIELD_TYPE_TEXT),
-            new MeetingSheetColumnDef("wecom_meeting_id", "企微会议ID", WeComConstants.FIELD_TYPE_TEXT)
+            new MeetingSheetColumnDef("wecom_meeting_code", "会议号", WeComConstants.FIELD_TYPE_TEXT),
+            new MeetingSheetColumnDef("wecom_meeting_id", "会议ID", WeComConstants.FIELD_TYPE_TEXT)
     );
 
     /**
@@ -63,7 +64,7 @@ public final class MeetingConstants {
      */
     public static final List<MeetingSheetColumnDef> TODO_SHEET_COLUMNS = List.of(
             new MeetingSheetColumnDef("meeting_title", "会议主题", WeComConstants.FIELD_TYPE_TEXT),
-            new MeetingSheetColumnDef("wecom_meeting_code", "企微会议号", WeComConstants.FIELD_TYPE_TEXT),
+            new MeetingSheetColumnDef("wecom_meeting_code", "会议号", WeComConstants.FIELD_TYPE_TEXT),
             new MeetingSheetColumnDef("start_time", "开始时间", WeComConstants.FIELD_TYPE_DATE_TIME),
             new MeetingSheetColumnDef("todo_item", "待办事项", WeComConstants.FIELD_TYPE_TEXT),
             new MeetingSheetColumnDef("assignee", "责任人", WeComConstants.FIELD_TYPE_USER)
