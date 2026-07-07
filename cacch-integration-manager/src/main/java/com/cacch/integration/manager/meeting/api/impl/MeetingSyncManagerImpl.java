@@ -195,6 +195,11 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
     public void syncMeetingMinutesFromWeCom() {
         List<MeetingRecordDO> records = meetingRecordService.listByStatusWithWecomMeetingId(
                 MeetingRecordStatusEnum.SCHEDULED.getCode());
+        if (records.isEmpty()) {
+            log.info("【MeetingSync】纪要拉取跳过, reason=无 SCHEDULED 且含企微会议ID 的记录");
+            return;
+        }
+        log.info("【MeetingSync】开始纪要拉取, candidateCount={}", records.size());
         int scanned = 0;
         int processed = 0;
         int skipped = 0;

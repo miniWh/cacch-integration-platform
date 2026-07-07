@@ -60,10 +60,19 @@ class MeetingMinutesTxSupport {
     )
     public int persistMinutesAndTodos(MeetingRecordDO record, SmartTableDO table,
                                       String rawContent, List<String> todoTitles) {
+        if (!StringUtils.hasText(rawContent)) {
+            log.info("【MeetingMinutes】纪要原文为空，仍将标记已生成, recordId={}, meetingId={}",
+                    record.getRecordId(), record.getWecomMeetingId());
+        }
         MeetingMinutesDO minutes = meetingMinutesService.getByMeetingId(record.getId());
         if (minutes == null) {
             minutes = new MeetingMinutesDO();
             minutes.setMeetingId(record.getId());
+            log.info("【MeetingMinutes】新建纪要记录, recordId={}, meetingId={}",
+                    record.getRecordId(), record.getWecomMeetingId());
+        } else {
+            log.info("【MeetingMinutes】更新已有纪要记录, recordId={}, meetingId={}, minutesId={}",
+                    record.getRecordId(), record.getWecomMeetingId(), minutes.getId());
         }
         minutes.setRawContent(rawContent);
         minutes.setTodoList(buildTodoJson(todoTitles));
@@ -75,8 +84,17 @@ class MeetingMinutesTxSupport {
             meetingMinutesService.updateById(minutes);
         }
         int createdCount = 0;
+        int skippedBlank = 0;
+        int skippedDuplicate = 0;
         for (String title : todoTitles) {
-            if (!StringUtils.hasText(title) || todoItemService.existsByMeetingIdAndTodoTitle(record.getId(), title)) {
+            if (!StringUtils.hasText(title)) {
+                skippedBlank++;
+                continue;
+            }
+            if (todoItemService.existsByMeetingIdAndTodoTitle(record.getId(), title)) {
+                skippedDuplicate++;
+                log.info("【MeetingMinutes】跳过重复待办, recordId={}, meetingId={}, todoTitle={}",
+                        record.getRecordId(), record.getWecomMeetingId(), title);
                 continue;
             }
             TodoItemDO todo = new TodoItemDO();
@@ -87,6 +105,14 @@ class MeetingMinutesTxSupport {
             todo.setStatus(TodoStatusEnum.PENDING.getCode());
             todoItemService.save(todo);
             createdCount++;
+        }
+        if (skippedBlank > 0) {
+            log.info("【MeetingMinutes】跳过空白待办标题, recordId={}, meetingId={}, count={}",
+                    record.getRecordId(), record.getWecomMeetingId(), skippedBlank);
+        }
+        if (skippedDuplicate > 0) {
+            log.info("【MeetingMinutes】跳过重复待办合计, recordId={}, meetingId={}, count={}",
+                    record.getRecordId(), record.getWecomMeetingId(), skippedDuplicate);
         }
         record.setMinutesStatus(MeetingMinutesStatusEnum.GENERATED.getCode());
         meetingRecordService.updateById(record);
@@ -99,6 +125,7 @@ class MeetingMinutesTxSupport {
      *
      * @param record 会议记录
      * @param table  智能表格配置
+     * @param reason 结束等待的原因
      */
     @Transactional(
             rollbackFor = Exception.class,
@@ -106,7 +133,9 @@ class MeetingMinutesTxSupport {
             readOnly = false,
             timeout = 60
     )
-    public void finalizeWithoutTodos(MeetingRecordDO record, SmartTableDO table) {
+    public void finalizeWithoutTodos(MeetingRecordDO record, SmartTableDO table, String reason) {
+        log.info("【MeetingMinutes】无待办结束处理, recordId={}, meetingId={}, reason={}",
+                record.getRecordId(), record.getWecomMeetingId(), reason);
         record.setMinutesStatus(MeetingMinutesStatusEnum.GENERATED.getCode());
         meetingRecordService.updateById(record);
         writeBackMinutesStatus(table, record);
@@ -125,10 +154,19 @@ class MeetingMinutesTxSupport {
     private void writeBackMinutesStatus(SmartTableDO table, MeetingRecordDO record) {
         Map<String, String> mapping = table.getMeetingColumnMapping();
         if (mapping == null) {
+            log.info("【MeetingMinutes】跳过纪要状态回写, recordId={}, meetingId={}, reason=列映射为空",
+                    record.getRecordId(), record.getWecomMeetingId());
             return;
         }
         String fieldTitle = mapping.get("minutes_status");
         if (!StringUtils.hasText(fieldTitle)) {
+            log.info("【MeetingMinutes】跳过纪要状态回写, recordId={}, meetingId={}, reason=未配置 minutes_status 列",
+                    record.getRecordId(), record.getWecomMeetingId());
+            return;
+        }
+        if (!StringUtils.hasText(table.getDocId()) || !StringUtils.hasText(table.getMeetingSheetId())) {
+            log.info("【MeetingMinutes】跳过纪要状态回写, recordId={}, meetingId={}, reason=docId 或 meetingSheetId 为空",
+                    record.getRecordId(), record.getWecomMeetingId());
             return;
         }
         Map<String, Object> values = new HashMap<>();
@@ -139,5 +177,7 @@ class MeetingMinutesTxSupport {
                 .values(values)
                 .build();
         weComSmartSheetManager.updateRecords(table.getDocId(), table.getMeetingSheetId(), List.of(item));
+        log.info("【MeetingMinutes】纪要状态已回写表格, recordId={}, meetingId={}, status={}",
+                record.getRecordId(), record.getWecomMeetingId(), MeetingMinutesStatusEnum.GENERATED.getDesc());
     }
 }

@@ -28,6 +28,7 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * 会议纪要拉取与待办解析编排实现
@@ -54,44 +55,70 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
 
     @Override
     public int trySyncMinutes(MeetingRecordDO record) {
-        if (!isEligible(record)) {
+        String skipReason = checkEligibility(record);
+        if (skipReason != null) {
+            logSkip(record, skipReason);
             return 0;
         }
         SmartTableDO table = smartTableService.getById(record.getSmartTableId());
-        if (table == null
-                || !Integer.valueOf(MeetingConstants.SMART_TABLE_STATUS_ENABLED).equals(table.getStatus())) {
+        if (table == null) {
+            logSkip(record, "智能表格配置不存在, smartTableId=" + record.getSmartTableId());
+            return 0;
+        }
+        if (!Integer.valueOf(MeetingConstants.SMART_TABLE_STATUS_ENABLED).equals(table.getStatus())) {
+            logSkip(record, "智能表格未启用, smartTableId=" + table.getId() + ", status=" + table.getStatus());
             return 0;
         }
         try {
             WeComGetMeetingInfoResponse info = weComMeetingManager.getMeetingInfo(record.getWecomMeetingId());
             if (!isMeetingEnded(info, record)) {
+                Long endEpochSec = resolveMeetingEndEpochSec(info, record);
+                if (endEpochSec == null) {
+                    logSkip(record, "无法解析会议结束时间，暂不拉取纪要");
+                } else {
+                    long readyAt = endEpochSec + minutesEndBufferMinutes * 60L;
+                    logSkip(record, String.format(
+                            "会议尚未结束或未过缓冲期, endEpochSec=%d, bufferMinutes=%d, readyAtEpochSec=%d, nowEpochSec=%d",
+                            endEpochSec, minutesEndBufferMinutes, readyAt, Instant.now().getEpochSecond()));
+                }
                 return 0;
             }
             List<SessionRecordFile> sessionFiles = listSessionFiles(info, record);
             if (sessionFiles.isEmpty()) {
                 if (shouldStopWaiting(info, record)) {
-                    meetingMinutesTxSupport.finalizeWithoutTodos(record, table);
-                    log.info("【MeetingMinutes】录制未就绪且已超过等待窗口, recordId={}, meetingId={}",
-                            record.getRecordId(), record.getWecomMeetingId());
+                    meetingMinutesTxSupport.finalizeWithoutTodos(record, table, "录制未就绪且已超过等待窗口");
+                    log.info("【MeetingMinutes】等待窗口结束，标记纪要已生成（无待办）, recordId={}, meetingId={}, maxWaitHours={}",
+                            record.getRecordId(), record.getWecomMeetingId(), minutesMaxWaitHours);
                     return 1;
                 }
-                log.info("【MeetingMinutes】录制未就绪, recordId={}, meetingId={}",
-                        record.getRecordId(), record.getWecomMeetingId());
+                logSkip(record, String.format(
+                        "企微录制列表为空，继续等待, maxWaitHours=%d", minutesMaxWaitHours));
                 return 0;
             }
-            if (sessionFiles.stream().anyMatch(SessionRecordFile::transcoding)) {
-                log.info("【MeetingMinutes】存在转码中的录制, recordId={}, meetingId={}",
-                        record.getRecordId(), record.getWecomMeetingId());
+            List<SessionRecordFile> transcodingFiles = sessionFiles.stream()
+                    .filter(SessionRecordFile::transcoding)
+                    .toList();
+            if (!transcodingFiles.isEmpty()) {
+                logSkip(record, String.format(
+                        "存在转码中的录制, transcodingCount=%d, recordFileIds=%s",
+                        transcodingFiles.size(),
+                        transcodingFiles.stream().map(SessionRecordFile::recordFileId).collect(Collectors.joining(","))));
                 return 0;
             }
             List<SessionRecordFile> readyFiles = assignSessionIndexes(sessionFiles);
             int sessionCount = readyFiles.size();
+            log.info("【MeetingMinutes】开始解析纪要, recordId={}, meetingId={}, sessionCount={}",
+                    record.getRecordId(), record.getWecomMeetingId(), sessionCount);
             List<String> allTodos = new ArrayList<>();
             StringBuilder rawContent = new StringBuilder();
             for (SessionRecordFile sessionFile : readyFiles) {
                 List<String> sessionTodos = fetchTodosFromTxtSummary(
-                        record.getWecomMeetingId(), sessionFile, sessionCount, rawContent);
+                        record, sessionFile, sessionCount, rawContent);
                 allTodos.addAll(sessionTodos);
+            }
+            if (allTodos.isEmpty()) {
+                log.info("【MeetingMinutes】全部场次均未解析到待办, recordId={}, meetingId={}, sessionCount={}",
+                        record.getRecordId(), record.getWecomMeetingId(), sessionCount);
             }
             int createdCount = meetingMinutesTxSupport.persistMinutesAndTodos(
                     record, table, rawContent.toString(), allTodos);
@@ -105,16 +132,28 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
         }
     }
 
-    private boolean isEligible(MeetingRecordDO record) {
-        if (record == null || !MeetingRecordStatusEnum.SCHEDULED.getCode().equals(record.getStatus())) {
-            return false;
+    /**
+     * @return null 表示可继续处理；非 null 为跳过原因
+     */
+    private String checkEligibility(MeetingRecordDO record) {
+        if (record == null) {
+            return "会议记录为空";
         }
-        if (!StringUtils.hasText(record.getWecomMeetingId()) || !StringUtils.hasText(record.getRecordId())) {
-            return false;
+        if (!MeetingRecordStatusEnum.SCHEDULED.getCode().equals(record.getStatus())) {
+            return "会议状态非已创建(SCHEDULED), status=" + record.getStatus();
+        }
+        if (!StringUtils.hasText(record.getWecomMeetingId())) {
+            return "缺少企微会议ID";
+        }
+        if (!StringUtils.hasText(record.getRecordId())) {
+            return "缺少智能表格行 recordId";
         }
         String minutesStatus = record.getMinutesStatus();
-        return !StringUtils.hasText(minutesStatus)
-                || MeetingMinutesStatusEnum.NONE.getCode().equals(minutesStatus);
+        if (StringUtils.hasText(minutesStatus)
+                && !MeetingMinutesStatusEnum.NONE.getCode().equals(minutesStatus)) {
+            return "纪要状态非空/无, minutesStatus=" + minutesStatus;
+        }
+        return null;
     }
 
     private boolean isMeetingEnded(WeComGetMeetingInfoResponse info, MeetingRecordDO record) {
@@ -164,21 +203,29 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
         WeComListRecordResponse response = weComMeetingManager.listRecords(
                 record.getWecomMeetingId(), startSec, endSec);
         if (response.getRecordList() == null || response.getRecordList().isEmpty()) {
+            log.info("【MeetingMinutes】录制列表查询无结果, recordId={}, meetingId={}, startEpochSec={}, endEpochSec={}",
+                    record.getRecordId(), record.getWecomMeetingId(), startSec, endSec);
             return List.of();
         }
         List<SessionRecordFile> files = new ArrayList<>();
         for (WeComRecordMeetingInfo meetingRecord : response.getRecordList()) {
-            if (meetingRecord.getRecordFileList() == null) {
+            if (meetingRecord.getRecordFileList() == null || meetingRecord.getRecordFileList().isEmpty()) {
+                log.info("【MeetingMinutes】录制项无文件列表, recordId={}, meetingId={}, meetingRecordId={}, state={}",
+                        record.getRecordId(), record.getWecomMeetingId(),
+                        meetingRecord.getMeetingRecordId(), meetingRecord.getState());
                 continue;
             }
             boolean transcoding = meetingRecord.getState() != null
                     && meetingRecord.getState() != WeComConstants.MEETING_RECORD_STATE_TRANSCODED;
             for (WeComRecordFileInfo fileInfo : meetingRecord.getRecordFileList()) {
                 if (!StringUtils.hasText(fileInfo.getRecordFileId())) {
+                    log.info("【MeetingMinutes】跳过无 recordFileId 的录制文件, recordId={}, meetingId={}, state={}",
+                            record.getRecordId(), record.getWecomMeetingId(), meetingRecord.getState());
                     continue;
                 }
                 long startTime = fileInfo.getRecordStartTime() != null ? fileInfo.getRecordStartTime() : 0L;
-                files.add(new SessionRecordFile(fileInfo.getRecordFileId(), startTime, transcoding, 0));
+                files.add(new SessionRecordFile(fileInfo.getRecordFileId(), startTime, transcoding,
+                        meetingRecord.getState(), 0));
             }
         }
         return files;
@@ -192,7 +239,7 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
         for (int i = 0; i < sorted.size(); i++) {
             SessionRecordFile file = sorted.get(i);
             indexed.add(new SessionRecordFile(
-                    file.recordFileId(), file.startTime(), file.transcoding(), i + 1));
+                    file.recordFileId(), file.startTime(), file.transcoding(), file.recordState(), i + 1));
         }
         return indexed;
     }
@@ -205,21 +252,30 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
                 .atZone(ZoneId.systemDefault()).toEpochSecond();
     }
 
-    private List<String> fetchTodosFromTxtSummary(String meetingId, SessionRecordFile sessionFile,
+    private List<String> fetchTodosFromTxtSummary(MeetingRecordDO record, SessionRecordFile sessionFile,
                                                   int sessionCount, StringBuilder rawContent) {
+        String meetingId = record.getWecomMeetingId();
         WeComGetRecordFileResponse fileResponse = weComMeetingManager.getRecordFile(
                 meetingId, sessionFile.recordFileId());
-        WeComMeetingSummaryFileInfo txtSummary = fileResponse.resolveMeetingSummaryFiles().stream()
+        List<WeComMeetingSummaryFileInfo> summaryFiles = fileResponse.resolveMeetingSummaryFiles();
+        WeComMeetingSummaryFileInfo txtSummary = summaryFiles.stream()
                 .filter(this::isTxtSummary)
                 .findFirst()
                 .orElse(null);
         if (txtSummary == null) {
-            log.info("【MeetingMinutes】跳过非 TXT 或无纪要文件, meetingId={}, recordFileId={}",
-                    meetingId, sessionFile.recordFileId());
+            String availableTypes = summaryFiles.stream()
+                    .map(file -> file.getFileType() != null ? file.getFileType() : "unknown")
+                    .collect(Collectors.joining(","));
+            log.info("【MeetingMinutes】跳过非 TXT 或无纪要文件, recordId={}, meetingId={}, sessionIndex={}, "
+                            + "recordFileId={}, availableSummaryTypes={}",
+                    record.getRecordId(), meetingId, sessionFile.sessionIndex(),
+                    sessionFile.recordFileId(), availableTypes.isEmpty() ? "none" : availableTypes);
             return List.of();
         }
         String content = weComMeetingManager.downloadText(txtSummary.getDownloadAddress());
         if (!StringUtils.hasText(content)) {
+            log.info("【MeetingMinutes】TXT 纪要内容为空, recordId={}, meetingId={}, sessionIndex={}, recordFileId={}",
+                    record.getRecordId(), meetingId, sessionFile.sessionIndex(), sessionFile.recordFileId());
             return List.of();
         }
         if (!rawContent.isEmpty()) {
@@ -227,7 +283,16 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
         }
         rawContent.append(content);
         List<String> todos = MeetingSummaryTodoParser.parseTodos(content);
+        if (todos.isEmpty()) {
+            log.info("【MeetingMinutes】TXT 纪要未解析出待办, recordId={}, meetingId={}, sessionIndex={}, "
+                            + "recordFileId={}, contentLength={}",
+                    record.getRecordId(), meetingId, sessionFile.sessionIndex(),
+                    sessionFile.recordFileId(), content.length());
+            return List.of();
+        }
         if (sessionCount <= 1) {
+            log.info("【MeetingMinutes】场次待办解析完成, recordId={}, meetingId={}, sessionIndex={}, todoCount={}",
+                    record.getRecordId(), meetingId, sessionFile.sessionIndex(), todos.size());
             return todos;
         }
         List<String> prefixed = new ArrayList<>(todos.size());
@@ -238,6 +303,8 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
             }
             prefixed.add(todo.startsWith(prefix) ? todo : prefix + todo);
         }
+        log.info("【MeetingMinutes】场次待办解析完成（已加场次前缀）, recordId={}, meetingId={}, sessionIndex={}, todoCount={}",
+                record.getRecordId(), meetingId, sessionFile.sessionIndex(), prefixed.size());
         return prefixed;
     }
 
@@ -248,6 +315,16 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
                 && WeComConstants.MEETING_SUMMARY_FILE_TYPE_TXT.equalsIgnoreCase(fileInfo.getFileType().trim());
     }
 
-    private record SessionRecordFile(String recordFileId, long startTime, boolean transcoding, int sessionIndex) {
+    private void logSkip(MeetingRecordDO record, String reason) {
+        if (record == null) {
+            log.info("【MeetingMinutes】跳过纪要拉取, reason={}", reason);
+            return;
+        }
+        log.info("【MeetingMinutes】跳过纪要拉取, recordId={}, meetingId={}, reason={}",
+                record.getRecordId(), record.getWecomMeetingId(), reason);
+    }
+
+    private record SessionRecordFile(String recordFileId, long startTime, boolean transcoding,
+                                     Integer recordState, int sessionIndex) {
     }
 }
