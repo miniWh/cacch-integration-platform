@@ -13,9 +13,17 @@ import com.cacch.integration.integration.wecom.client.dto.meeting.WeComGetTransc
 import com.cacch.integration.integration.wecom.client.dto.meeting.WeComGetTranscriptResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.RequestEntity;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
+
+import java.net.URI;
 
 /**
  * 企业微信会议 HTTP 客户端
@@ -62,14 +70,35 @@ public class WeComMeetingClient {
     /**
      * 下载文本文件内容（用于会议纪要 TXT）
      *
+     * <p>腾讯云 COS 预签名 URL 对 query 参数编码敏感，必须使用已编码 URI 发起请求，
+     * 否则 RestTemplate 二次编码会导致签名校验失败（403 AccessDenied / Request has expired）。</p>
+     *
      * @param downloadUrl 下载地址
      * @return 文件文本内容
      */
     public String downloadText(String downloadUrl) {
+        if (downloadUrl == null || downloadUrl.isBlank()) {
+            throw new RestClientException("企业微信纪要下载地址为空");
+        }
+        String normalizedUrl = downloadUrl.trim();
         try {
-            return restTemplate.getForObject(downloadUrl, String.class);
+            URI uri = UriComponentsBuilder.fromUriString(normalizedUrl).build(true).toUri();
+            RequestEntity<Void> request = RequestEntity.get(uri)
+                    .accept(MediaType.TEXT_PLAIN, MediaType.APPLICATION_OCTET_STREAM, MediaType.ALL)
+                    .header(HttpHeaders.USER_AGENT, "Mozilla/5.0 (compatible; CacchIntegration/1.0)")
+                    .build();
+            ResponseEntity<String> response = restTemplate.exchange(request, String.class);
+            return response.getBody() != null ? response.getBody() : "";
+        } catch (IllegalArgumentException e) {
+            log.error("【WeComMeeting】纪要下载地址非法, url={}", normalizedUrl, e);
+            throw new RestClientException("企业微信纪要下载地址非法", e);
         } catch (RestClientException e) {
-            log.error("【WeComMeeting】下载纪要文件失败, url={}", downloadUrl, e);
+            if (e instanceof HttpClientErrorException.Forbidden) {
+                log.error("【WeComMeeting】下载纪要文件403（签名URL可能已过期或被二次编码破坏）, url={}",
+                        normalizedUrl, e);
+            } else {
+                log.error("【WeComMeeting】下载纪要文件失败, url={}", normalizedUrl, e);
+            }
             throw e;
         }
     }

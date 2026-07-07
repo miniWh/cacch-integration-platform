@@ -21,6 +21,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.RestClientException;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -272,7 +274,7 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
                     sessionFile.recordFileId(), availableTypes.isEmpty() ? "none" : availableTypes);
             return List.of();
         }
-        String content = weComMeetingManager.downloadText(txtSummary.getDownloadAddress());
+        String content = downloadSummaryText(record, meetingId, sessionFile.recordFileId(), txtSummary);
         if (!StringUtils.hasText(content)) {
             log.info("【MeetingMinutes】TXT 纪要内容为空, recordId={}, meetingId={}, sessionIndex={}, recordFileId={}",
                     record.getRecordId(), meetingId, sessionFile.sessionIndex(), sessionFile.recordFileId());
@@ -313,6 +315,33 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
                 && StringUtils.hasText(fileInfo.getDownloadAddress())
                 && StringUtils.hasText(fileInfo.getFileType())
                 && WeComConstants.MEETING_SUMMARY_FILE_TYPE_TXT.equalsIgnoreCase(fileInfo.getFileType().trim());
+    }
+
+    /**
+     * 下载 TXT 纪要；403 时重新调用 get_file 获取新签名 URL 后重试一次
+     */
+    private String downloadSummaryText(MeetingRecordDO record, String meetingId, String recordFileId,
+                                       WeComMeetingSummaryFileInfo txtSummary) {
+        try {
+            return weComMeetingManager.downloadText(txtSummary.getDownloadAddress());
+        } catch (RestClientException e) {
+            if (!(e instanceof HttpClientErrorException.Forbidden)) {
+                throw e;
+            }
+            log.info("【MeetingMinutes】纪要下载403，重新获取下载地址后重试, recordId={}, meetingId={}, recordFileId={}",
+                    record.getRecordId(), meetingId, recordFileId);
+            WeComGetRecordFileResponse refreshed = weComMeetingManager.getRecordFile(meetingId, recordFileId);
+            WeComMeetingSummaryFileInfo refreshedTxt = refreshed.resolveMeetingSummaryFiles().stream()
+                    .filter(this::isTxtSummary)
+                    .findFirst()
+                    .orElse(null);
+            if (refreshedTxt == null || !StringUtils.hasText(refreshedTxt.getDownloadAddress())) {
+                log.info("【MeetingMinutes】重试失败，刷新后无 TXT 纪要下载地址, recordId={}, meetingId={}, recordFileId={}",
+                        record.getRecordId(), meetingId, recordFileId);
+                throw e;
+            }
+            return weComMeetingManager.downloadText(refreshedTxt.getDownloadAddress());
+        }
     }
 
     private void logSkip(MeetingRecordDO record, String reason) {
