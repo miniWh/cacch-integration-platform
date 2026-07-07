@@ -68,15 +68,12 @@ public class WeComMeetingClient {
     }
 
     /**
-     * 下载文本文件内容（用于会议纪要 TXT）
-     *
-     * <p>腾讯云 COS 预签名 URL 对 query 参数编码敏感，必须使用已编码 URI 发起请求，
-     * 否则 RestTemplate 二次编码会导致签名校验失败（403 AccessDenied / Request has expired）。</p>
+     * 下载二进制文件（用于 DOCX 纪要）
      *
      * @param downloadUrl 下载地址
-     * @return 文件文本内容
+     * @return 文件字节
      */
-    public String downloadText(String downloadUrl) {
+    public byte[] downloadBytes(String downloadUrl) {
         if (downloadUrl == null || downloadUrl.isBlank()) {
             throw new RestClientException("企业微信纪要下载地址为空");
         }
@@ -84,11 +81,11 @@ public class WeComMeetingClient {
         try {
             URI uri = UriComponentsBuilder.fromUriString(normalizedUrl).build(true).toUri();
             RequestEntity<Void> request = RequestEntity.get(uri)
-                    .accept(MediaType.TEXT_PLAIN, MediaType.APPLICATION_OCTET_STREAM, MediaType.ALL)
+                    .accept(MediaType.APPLICATION_OCTET_STREAM, MediaType.ALL)
                     .header(HttpHeaders.USER_AGENT, "Mozilla/5.0 (compatible; CacchIntegration/1.0)")
                     .build();
-            ResponseEntity<String> response = restTemplate.exchange(request, String.class);
-            return response.getBody() != null ? response.getBody() : "";
+            ResponseEntity<byte[]> response = restTemplate.exchange(request, byte[].class);
+            return response.getBody() != null ? response.getBody() : new byte[0];
         } catch (IllegalArgumentException e) {
             log.error("【WeComMeeting】纪要下载地址非法, url={}", normalizedUrl, e);
             throw new RestClientException("企业微信纪要下载地址非法", e);
@@ -101,6 +98,20 @@ public class WeComMeetingClient {
             }
             throw e;
         }
+    }
+
+    /**
+     * 下载文本文件内容（用于会议纪要 TXT）
+     *
+     * <p>腾讯云 COS 预签名 URL 对 query 参数编码敏感，必须使用已编码 URI 发起请求，
+     * 否则 RestTemplate 二次编码会导致签名校验失败（403 AccessDenied / Request has expired）。</p>
+     *
+     * @param downloadUrl 下载地址
+     * @return 文件文本内容
+     */
+    public String downloadText(String downloadUrl) {
+        byte[] bytes = downloadBytes(downloadUrl);
+        return new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
     }
 
     private <T> T post(String url, Object request, Class<T> responseType, String action) {

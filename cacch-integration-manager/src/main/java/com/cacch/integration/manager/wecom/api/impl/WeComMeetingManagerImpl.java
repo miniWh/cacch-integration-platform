@@ -73,6 +73,12 @@ public class WeComMeetingManagerImpl implements IWeComMeetingManager {
                 weComMeetingService.downloadText(downloadUrl));
     }
 
+    @Override
+    public byte[] downloadBytes(String downloadUrl) {
+        return execute("下载纪要文件", () ->
+                weComMeetingService.downloadBytes(downloadUrl));
+    }
+
     private String resolveAccessToken() {
         WeComAppConfig appConfig = weComProperties.findSelfBuiltApp()
                 .orElseThrow(() -> new BizException(ResultCode.PARAM_INVALID, "未配置企微自建应用（wecom.apps）"));

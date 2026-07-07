@@ -78,4 +78,12 @@ public interface IWeComMeetingService {
      * @return 文本内容
      */
     String downloadText(String downloadUrl);
+
+    /**
+     * 下载二进制文件
+     *
+     * @param downloadUrl 下载地址
+     * @return 文件字节
+     */
+    byte[] downloadBytes(String downloadUrl);
 }

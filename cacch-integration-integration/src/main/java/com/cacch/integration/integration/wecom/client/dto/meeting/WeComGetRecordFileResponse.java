@@ -29,16 +29,32 @@ public class WeComGetRecordFileResponse extends WeComBaseResponse {
     @JsonProperty("meeting_summary")
     private Object meetingSummary;
 
+    @JsonProperty("ai_meeting_transcripts")
+    private Object aiMeetingTranscripts;
+
     /**
      * 解析会议纪要文件列表（兼容 object / array 两种返回结构）
      *
      * @return 会议纪要文件列表，无数据时返回空列表
      */
     public List<WeComMeetingSummaryFileInfo> resolveMeetingSummaryFiles() {
-        if (meetingSummary == null) {
+        return resolveDownloadFiles(meetingSummary);
+    }
+
+    /**
+     * 解析智能转写文件列表（兼容 object / array 两种返回结构）
+     *
+     * @return 转写文件列表，无数据时返回空列表
+     */
+    public List<WeComMeetingSummaryFileInfo> resolveAiMeetingTranscriptFiles() {
+        return resolveDownloadFiles(aiMeetingTranscripts);
+    }
+
+    private List<WeComMeetingSummaryFileInfo> resolveDownloadFiles(Object node) {
+        if (node == null) {
             return List.of();
         }
-        if (meetingSummary instanceof List<?> list) {
+        if (node instanceof List<?> list) {
             List<WeComMeetingSummaryFileInfo> files = new ArrayList<>();
             for (Object item : list) {
                 WeComMeetingSummaryFileInfo file = toSummaryFile(item);
@@ -48,7 +64,7 @@ public class WeComGetRecordFileResponse extends WeComBaseResponse {
             }
             return files;
         }
-        WeComMeetingSummaryFileInfo file = toSummaryFile(meetingSummary);
+        WeComMeetingSummaryFileInfo file = toSummaryFile(node);
         return file != null ? List.of(file) : List.of();
     }
 

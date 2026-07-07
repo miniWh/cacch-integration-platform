@@ -130,6 +130,11 @@ public class WeComMeetingServiceImpl implements IWeComMeetingService {
         return weComMeetingClient.downloadText(downloadUrl);
     }
 
+    @Override
+    public byte[] downloadBytes(String downloadUrl) {
+        return weComMeetingClient.downloadBytes(downloadUrl);
+    }
+
     private void assertWeComSuccess(WeComBaseResponse response, String action) {
         if (!response.isSuccess()) {
             log.error("【WeComMeeting】{}失败, errcode={}, errmsg={}",

@@ -16,7 +16,11 @@ public final class MeetingSummaryTodoParser {
 
     private static final Pattern SECTION_HEADER = Pattern.compile(
             "^(#{1,6}\\s*)?(会议待办|待办事项|待办清单|Action Items|TODO)\\s*[:：]?\\s*$",
-            Pattern.CASE_INSENSITIVE);
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
+
+    private static final Pattern MARKDOWN_TODO_SECTION = Pattern.compile(
+            "^#{1,6}\\s*(会议待办|待办事项|待办清单)\\s*$",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
 
     private static final Pattern NEXT_SECTION = Pattern.compile(
             "^(#{1,6}\\s*)?(会议摘要|摘要|关键词|发言人|文字记录|会议记录|附录)\\s*[:：]?\\s*$",
@@ -57,7 +61,7 @@ public final class MeetingSummaryTodoParser {
                 }
                 continue;
             }
-            if (SECTION_HEADER.matcher(line).matches()) {
+            if (SECTION_HEADER.matcher(line).matches() || MARKDOWN_TODO_SECTION.matcher(line).matches()) {
                 inSection = true;
                 continue;
             }

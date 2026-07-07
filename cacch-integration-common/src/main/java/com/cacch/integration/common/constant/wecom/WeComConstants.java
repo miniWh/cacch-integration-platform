@@ -199,6 +199,11 @@ public final class WeComConstants {
     public static final String MEETING_SUMMARY_FILE_TYPE_TXT = "txt";
 
     /**
+     * 会议纪要 DOCX 文件类型标识
+     */
+    public static final String MEETING_SUMMARY_FILE_TYPE_DOCX = "docx";
+
+    /**
      * 群机器人 Webhook 发送消息 API 地址（key 由配置注入）
      */
     public static final String WEBHOOK_SEND_URL =

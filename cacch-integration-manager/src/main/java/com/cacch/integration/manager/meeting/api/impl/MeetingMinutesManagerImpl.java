@@ -6,6 +6,7 @@ import com.cacch.integration.common.enums.meeting.MeetingMinutesStatusEnum;
 import com.cacch.integration.common.enums.meeting.MeetingRecordStatusEnum;
 import com.cacch.integration.entity.meeting.MeetingRecordDO;
 import com.cacch.integration.entity.meeting.SmartTableDO;
+import com.cacch.integration.integration.wecom.adapter.MeetingSummaryDocumentExtractor;
 import com.cacch.integration.integration.wecom.adapter.MeetingSummaryTodoParser;
 import com.cacch.integration.integration.wecom.client.dto.meeting.WeComGetMeetingInfoResponse;
 import com.cacch.integration.integration.wecom.client.dto.meeting.WeComGetRecordFileResponse;
@@ -114,9 +115,15 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
             List<String> allTodos = new ArrayList<>();
             StringBuilder rawContent = new StringBuilder();
             for (SessionRecordFile sessionFile : readyFiles) {
-                List<String> sessionTodos = fetchTodosFromTxtSummary(
-                        record, sessionFile, sessionCount, rawContent);
-                allTodos.addAll(sessionTodos);
+                SummaryParseResult parseResult = fetchTodosFromSummaryFiles(
+                        record, sessionFile, sessionCount);
+                if (StringUtils.hasText(parseResult.content())) {
+                    if (!rawContent.isEmpty()) {
+                        rawContent.append("\n\n");
+                    }
+                    rawContent.append(parseResult.content());
+                }
+                allTodos.addAll(parseResult.todos());
             }
             if (allTodos.isEmpty()) {
                 log.info("【MeetingMinutes】全部场次均未解析到待办, recordId={}, meetingId={}, sessionCount={}",
@@ -254,94 +261,149 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
                 .atZone(ZoneId.systemDefault()).toEpochSecond();
     }
 
-    private List<String> fetchTodosFromTxtSummary(MeetingRecordDO record, SessionRecordFile sessionFile,
-                                                  int sessionCount, StringBuilder rawContent) {
+    private SummaryParseResult fetchTodosFromSummaryFiles(MeetingRecordDO record, SessionRecordFile sessionFile,
+                                                        int sessionCount) {
         String meetingId = record.getWecomMeetingId();
         WeComGetRecordFileResponse fileResponse = weComMeetingManager.getRecordFile(
                 meetingId, sessionFile.recordFileId());
         List<WeComMeetingSummaryFileInfo> summaryFiles = fileResponse.resolveMeetingSummaryFiles();
-        WeComMeetingSummaryFileInfo txtSummary = summaryFiles.stream()
-                .filter(this::isTxtSummary)
-                .findFirst()
-                .orElse(null);
-        if (txtSummary == null) {
-            String availableTypes = summaryFiles.stream()
-                    .map(file -> file.getFileType() != null ? file.getFileType() : "unknown")
-                    .collect(Collectors.joining(","));
-            log.info("【MeetingMinutes】跳过非 TXT 或无纪要文件, recordId={}, meetingId={}, sessionIndex={}, "
-                            + "recordFileId={}, availableSummaryTypes={}",
-                    record.getRecordId(), meetingId, sessionFile.sessionIndex(),
-                    sessionFile.recordFileId(), availableTypes.isEmpty() ? "none" : availableTypes);
-            return List.of();
-        }
-        String content = downloadSummaryText(record, meetingId, sessionFile.recordFileId(), txtSummary);
-        if (!StringUtils.hasText(content)) {
-            log.info("【MeetingMinutes】TXT 纪要内容为空, recordId={}, meetingId={}, sessionIndex={}, recordFileId={}",
+        List<WeComMeetingSummaryFileInfo> transcriptFiles = fileResponse.resolveAiMeetingTranscriptFiles();
+        log.info("【MeetingMinutes】录制文件详情, recordId={}, meetingId={}, sessionIndex={}, recordFileId={}, "
+                        + "summaryFiles={}, transcriptFiles={}",
+                record.getRecordId(), meetingId, sessionFile.sessionIndex(), sessionFile.recordFileId(),
+                describeSummaryFiles(summaryFiles), describeSummaryFiles(transcriptFiles));
+        if (summaryFiles.isEmpty()) {
+            log.info("【MeetingMinutes】跳过，无 meeting_summary 文件, recordId={}, meetingId={}, sessionIndex={}, "
+                            + "recordFileId={}",
                     record.getRecordId(), meetingId, sessionFile.sessionIndex(), sessionFile.recordFileId());
-            return List.of();
+            return SummaryParseResult.empty();
         }
-        if (!rawContent.isEmpty()) {
-            rawContent.append("\n\n");
+        List<WeComMeetingSummaryFileInfo> candidates = orderSummaryCandidates(summaryFiles);
+        for (WeComMeetingSummaryFileInfo summaryFile : candidates) {
+            if (!isSupportedSummaryType(summaryFile)) {
+                log.info("【MeetingMinutes】跳过不支持的纪要文件类型, recordId={}, meetingId={}, fileType={}",
+                        record.getRecordId(), meetingId, summaryFile.getFileType());
+                continue;
+            }
+            String content = downloadAndExtractSummary(record, meetingId, sessionFile.recordFileId(), summaryFile);
+            if (!StringUtils.hasText(content)) {
+                log.info("【MeetingMinutes】纪要文件内容为空, recordId={}, meetingId={}, fileType={}",
+                        record.getRecordId(), meetingId, summaryFile.getFileType());
+                continue;
+            }
+            if (WeComConstants.MEETING_SUMMARY_FILE_TYPE_TXT.equalsIgnoreCase(summaryFile.getFileType())
+                    && MeetingSummaryDocumentExtractor.isTranscriptLike(content)) {
+                log.info("【MeetingMinutes】跳过 meeting_summary 中的转写 TXT（待办在 DOCX 纪要中）, recordId={}, "
+                                + "meetingId={}, sessionIndex={}, recordFileId={}, contentLength={}",
+                        record.getRecordId(), meetingId, sessionFile.sessionIndex(), sessionFile.recordFileId(),
+                        content.length());
+                continue;
+            }
+            List<String> todos = MeetingSummaryTodoParser.parseTodos(content);
+            if (todos.isEmpty()) {
+                log.info("【MeetingMinutes】纪要文件未解析出待办, recordId={}, meetingId={}, fileType={}, "
+                                + "contentLength={}",
+                        record.getRecordId(), meetingId, summaryFile.getFileType(), content.length());
+                continue;
+            }
+            List<String> normalizedTodos = applySessionPrefix(todos, sessionFile.sessionIndex(), sessionCount);
+            log.info("【MeetingMinutes】场次待办解析完成, recordId={}, meetingId={}, sessionIndex={}, fileType={}, "
+                            + "todoCount={}",
+                    record.getRecordId(), meetingId, sessionFile.sessionIndex(), summaryFile.getFileType(),
+                    normalizedTodos.size());
+            return new SummaryParseResult(content, normalizedTodos);
         }
-        rawContent.append(content);
-        List<String> todos = MeetingSummaryTodoParser.parseTodos(content);
-        if (todos.isEmpty()) {
-            log.info("【MeetingMinutes】TXT 纪要未解析出待办, recordId={}, meetingId={}, sessionIndex={}, "
-                            + "recordFileId={}, contentLength={}",
-                    record.getRecordId(), meetingId, sessionFile.sessionIndex(),
-                    sessionFile.recordFileId(), content.length());
-            return List.of();
+        log.info("【MeetingMinutes】全部纪要文件均未解析到待办, recordId={}, meetingId={}, sessionIndex={}, recordFileId={}",
+                record.getRecordId(), meetingId, sessionFile.sessionIndex(), sessionFile.recordFileId());
+        return SummaryParseResult.empty();
+    }
+
+    private List<WeComMeetingSummaryFileInfo> orderSummaryCandidates(List<WeComMeetingSummaryFileInfo> summaryFiles) {
+        List<WeComMeetingSummaryFileInfo> ordered = new ArrayList<>();
+        summaryFiles.stream()
+                .filter(file -> WeComConstants.MEETING_SUMMARY_FILE_TYPE_DOCX.equalsIgnoreCase(file.getFileType()))
+                .forEach(ordered::add);
+        summaryFiles.stream()
+                .filter(file -> WeComConstants.MEETING_SUMMARY_FILE_TYPE_TXT.equalsIgnoreCase(file.getFileType()))
+                .forEach(ordered::add);
+        return ordered;
+    }
+
+    private boolean isSupportedSummaryType(WeComMeetingSummaryFileInfo fileInfo) {
+        if (fileInfo == null || !StringUtils.hasText(fileInfo.getFileType())) {
+            return false;
         }
+        String fileType = fileInfo.getFileType().trim();
+        return WeComConstants.MEETING_SUMMARY_FILE_TYPE_DOCX.equalsIgnoreCase(fileType)
+                || WeComConstants.MEETING_SUMMARY_FILE_TYPE_TXT.equalsIgnoreCase(fileType);
+    }
+
+    private String describeSummaryFiles(List<WeComMeetingSummaryFileInfo> files) {
+        if (files == null || files.isEmpty()) {
+            return "none";
+        }
+        return files.stream()
+                .map(file -> file.getFileType() != null ? file.getFileType() : "unknown")
+                .collect(Collectors.joining(","));
+    }
+
+    private List<String> applySessionPrefix(List<String> todos, int sessionIndex, int sessionCount) {
         if (sessionCount <= 1) {
-            log.info("【MeetingMinutes】场次待办解析完成, recordId={}, meetingId={}, sessionIndex={}, todoCount={}",
-                    record.getRecordId(), meetingId, sessionFile.sessionIndex(), todos.size());
             return todos;
         }
         List<String> prefixed = new ArrayList<>(todos.size());
-        String prefix = "第" + sessionFile.sessionIndex() + "场：";
+        String prefix = "第" + sessionIndex + "场：";
         for (String todo : todos) {
             if (!StringUtils.hasText(todo)) {
                 continue;
             }
             prefixed.add(todo.startsWith(prefix) ? todo : prefix + todo);
         }
-        log.info("【MeetingMinutes】场次待办解析完成（已加场次前缀）, recordId={}, meetingId={}, sessionIndex={}, todoCount={}",
-                record.getRecordId(), meetingId, sessionFile.sessionIndex(), prefixed.size());
         return prefixed;
     }
 
-    private boolean isTxtSummary(WeComMeetingSummaryFileInfo fileInfo) {
-        return fileInfo != null
-                && StringUtils.hasText(fileInfo.getDownloadAddress())
-                && StringUtils.hasText(fileInfo.getFileType())
-                && WeComConstants.MEETING_SUMMARY_FILE_TYPE_TXT.equalsIgnoreCase(fileInfo.getFileType().trim());
+    private String downloadAndExtractSummary(MeetingRecordDO record, String meetingId, String recordFileId,
+                                             WeComMeetingSummaryFileInfo summaryFile) {
+        byte[] bytes = downloadSummaryBytes(record, meetingId, recordFileId, summaryFile);
+        return MeetingSummaryDocumentExtractor.extractText(summaryFile.getFileType(), bytes);
     }
 
     /**
-     * 下载 TXT 纪要；403 时重新调用 get_file 获取新签名 URL 后重试一次
+     * 下载纪要文件；403 时重新调用 get_file 获取新签名 URL 后重试一次
      */
-    private String downloadSummaryText(MeetingRecordDO record, String meetingId, String recordFileId,
-                                       WeComMeetingSummaryFileInfo txtSummary) {
+    private byte[] downloadSummaryBytes(MeetingRecordDO record, String meetingId, String recordFileId,
+                                        WeComMeetingSummaryFileInfo summaryFile) {
         try {
-            return weComMeetingManager.downloadText(txtSummary.getDownloadAddress());
+            return weComMeetingManager.downloadBytes(summaryFile.getDownloadAddress());
         } catch (RestClientException e) {
             if (!(e instanceof HttpClientErrorException.Forbidden)) {
                 throw e;
             }
-            log.info("【MeetingMinutes】纪要下载403，重新获取下载地址后重试, recordId={}, meetingId={}, recordFileId={}",
-                    record.getRecordId(), meetingId, recordFileId);
+            log.info("【MeetingMinutes】纪要下载403，重新获取下载地址后重试, recordId={}, meetingId={}, recordFileId={}, "
+                            + "fileType={}",
+                    record.getRecordId(), meetingId, recordFileId, summaryFile.getFileType());
             WeComGetRecordFileResponse refreshed = weComMeetingManager.getRecordFile(meetingId, recordFileId);
-            WeComMeetingSummaryFileInfo refreshedTxt = refreshed.resolveMeetingSummaryFiles().stream()
-                    .filter(this::isTxtSummary)
-                    .findFirst()
-                    .orElse(null);
-            if (refreshedTxt == null || !StringUtils.hasText(refreshedTxt.getDownloadAddress())) {
-                log.info("【MeetingMinutes】重试失败，刷新后无 TXT 纪要下载地址, recordId={}, meetingId={}, recordFileId={}",
-                        record.getRecordId(), meetingId, recordFileId);
+            WeComMeetingSummaryFileInfo refreshedFile = findSameTypeSummaryFile(
+                    refreshed.resolveMeetingSummaryFiles(), summaryFile.getFileType());
+            if (refreshedFile == null || !StringUtils.hasText(refreshedFile.getDownloadAddress())) {
+                log.info("【MeetingMinutes】重试失败，刷新后无可用纪要下载地址, recordId={}, meetingId={}, "
+                                + "recordFileId={}, fileType={}",
+                        record.getRecordId(), meetingId, recordFileId, summaryFile.getFileType());
                 throw e;
             }
-            return weComMeetingManager.downloadText(refreshedTxt.getDownloadAddress());
+            return weComMeetingManager.downloadBytes(refreshedFile.getDownloadAddress());
         }
+    }
+
+    private WeComMeetingSummaryFileInfo findSameTypeSummaryFile(List<WeComMeetingSummaryFileInfo> files,
+                                                                String fileType) {
+        if (files == null || !StringUtils.hasText(fileType)) {
+            return null;
+        }
+        return files.stream()
+                .filter(file -> fileType.equalsIgnoreCase(file.getFileType()))
+                .findFirst()
+                .orElse(null);
     }
 
     private void logSkip(MeetingRecordDO record, String reason) {
@@ -355,5 +417,12 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
 
     private record SessionRecordFile(String recordFileId, long startTime, boolean transcoding,
                                      Integer recordState, int sessionIndex) {
+    }
+
+    private record SummaryParseResult(String content, List<String> todos) {
+
+        private static SummaryParseResult empty() {
+            return new SummaryParseResult(null, List.of());
+        }
     }
 }
