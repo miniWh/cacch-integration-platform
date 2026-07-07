@@ -22,7 +22,13 @@ public class MeetingRecordVO {
 
     private String meetingTitle;
 
+    private List<String> meetingType;
+
+    private List<String> meetingTopics;
+
     private String meetingDescription;
+
+    private String location;
 
     private LocalDate meetingDate;
 

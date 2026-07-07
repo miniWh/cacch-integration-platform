@@ -118,6 +118,11 @@ public final class WeComConstants {
     public static final String FIELD_TYPE_SINGLE_SELECT = "FIELD_TYPE_SINGLE_SELECT";
 
     /**
+     * 智能表格字段类型 — 多选
+     */
+    public static final String FIELD_TYPE_SELECT = "FIELD_TYPE_SELECT";
+
+    /**
      * 会议开始时间列日期格式：YYYY-MM-DD HH:MM
      */
     public static final String DATE_TIME_FORMAT_YMD_HM = "yyyy-mm-dd hh:mm";

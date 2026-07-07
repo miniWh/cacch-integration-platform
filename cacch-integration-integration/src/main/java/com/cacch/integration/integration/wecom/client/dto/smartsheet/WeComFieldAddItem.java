@@ -33,6 +33,9 @@ public class WeComFieldAddItem {
     @JsonProperty("property_single_select")
     private WeComSingleSelectFieldProperty propertySingleSelect;
 
+    @JsonProperty("property_select")
+    private WeComSelectFieldProperty propertySelect;
+
     @JsonProperty("property_url")
     private WeComUrlFieldProperty propertyUrl;
 }

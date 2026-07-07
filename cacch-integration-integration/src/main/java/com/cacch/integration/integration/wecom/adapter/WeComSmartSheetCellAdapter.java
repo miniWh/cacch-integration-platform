@@ -267,6 +267,41 @@ public final class WeComSmartSheetCellAdapter {
     }
 
     /**
+     * 从多选列原始值中提取选项文本列表
+     */
+    public static List<String> extractSelectTexts(Object cellValue) {
+        if (!(cellValue instanceof List<?> list) || list.isEmpty()) {
+            String single = extractSelectText(cellValue);
+            return single.isBlank() ? List.of() : List.of(single);
+        }
+        List<String> texts = new ArrayList<>();
+        for (Object item : list) {
+            if (item instanceof Map<?, ?> map) {
+                Object text = map.get("text");
+                if (text != null && !text.toString().isBlank()) {
+                    texts.add(text.toString());
+                }
+            }
+        }
+        return texts;
+    }
+
+    /**
+     * 按列映射 key 从 record values 中取多选文本列表
+     */
+    public static List<String> getMappedSelectTexts(Map<String, Object> values, Map<String, String> columnMapping,
+                                                    String logicalKey) {
+        if (values == null || columnMapping == null) {
+            return List.of();
+        }
+        String fieldTitle = columnMapping.get(logicalKey);
+        if (fieldTitle == null) {
+            return List.of();
+        }
+        return extractSelectTexts(values.get(fieldTitle));
+    }
+
+    /**
      * 按列映射 key 从 record values 中取成员 userId 列表
      */
     public static List<String> getMappedUserIds(Map<String, Object> values, Map<String, String> columnMapping,

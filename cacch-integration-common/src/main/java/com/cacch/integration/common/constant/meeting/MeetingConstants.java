@@ -50,7 +50,12 @@ public final class MeetingConstants {
      */
     public static final List<MeetingSheetColumnDef> MEETING_SHEET_COLUMNS = List.of(
             new MeetingSheetColumnDef("meeting_title", "会议主题", WeComConstants.FIELD_TYPE_TEXT),
+            new MeetingSheetColumnDef("meeting_type", "会议类型", WeComConstants.FIELD_TYPE_SELECT,
+                    meetingTypeOptions()),
+            new MeetingSheetColumnDef("meeting_topics", "会议议题", WeComConstants.FIELD_TYPE_SELECT,
+                    meetingTopicOptions()),
             new MeetingSheetColumnDef("meeting_description", "会议描述", WeComConstants.FIELD_TYPE_TEXT),
+            new MeetingSheetColumnDef("location", "地点", WeComConstants.FIELD_TYPE_TEXT),
             new MeetingSheetColumnDef("start_time", "开始时间", WeComConstants.FIELD_TYPE_DATE_TIME),
             new MeetingSheetColumnDef("duration", "会议时长（分钟）", WeComConstants.FIELD_TYPE_NUMBER),
             new MeetingSheetColumnDef("attendees", "参会人", WeComConstants.FIELD_TYPE_USER),
@@ -85,6 +90,14 @@ public final class MeetingConstants {
         return Arrays.stream(MeetingMinutesStatusEnum.values())
                 .map(MeetingMinutesStatusEnum::getDesc)
                 .toList();
+    }
+
+    private static List<String> meetingTypeOptions() {
+        return List.of("例会", "项目会", "评审会", "培训", "其他");
+    }
+
+    private static List<String> meetingTopicOptions() {
+        return List.of("进度同步", "方案讨论", "问题排查", "决策评审", "其他");
     }
 
     /**

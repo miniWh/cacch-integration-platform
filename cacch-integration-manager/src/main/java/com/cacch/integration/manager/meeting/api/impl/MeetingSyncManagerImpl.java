@@ -24,6 +24,7 @@ import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComDateTi
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComFieldAddItem;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComFieldInfo;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComNumberFieldProperty;
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComSelectFieldProperty;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComSelectOption;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComSingleSelectFieldProperty;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComUrlFieldProperty;
@@ -330,6 +331,13 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
                                     .map(text -> WeComSelectOption.builder().text(text).build())
                                     .toList())
                             .build());
+            case WeComConstants.FIELD_TYPE_SELECT -> builder.propertySelect(
+                    WeComSelectFieldProperty.builder()
+                            .isQuickAdd(true)
+                            .options(column.selectOptions().stream()
+                                    .map(text -> WeComSelectOption.builder().text(text).build())
+                                    .toList())
+                            .build());
             case WeComConstants.FIELD_TYPE_URL -> builder.propertyUrl(
                     WeComUrlFieldProperty.builder()
                             .type(WeComConstants.URL_LINK_TYPE_PURE_TEXT)
@@ -398,8 +406,17 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
         record.setSmartTableId(table.getId());
         record.setRecordId(row.getRecordId());
         record.setMeetingTitle(title);
+        List<String> meetingTypes = WeComSmartSheetCellAdapter.getMappedSelectTexts(values, mapping, "meeting_type");
+        if (!meetingTypes.isEmpty()) {
+            record.setMeetingType(meetingTypes);
+        }
+        List<String> meetingTopics = WeComSmartSheetCellAdapter.getMappedSelectTexts(values, mapping, "meeting_topics");
+        if (!meetingTopics.isEmpty()) {
+            record.setMeetingTopics(meetingTopics);
+        }
         record.setMeetingDescription(
                 WeComSmartSheetCellAdapter.getMappedText(values, mapping, "meeting_description"));
+        record.setLocation(WeComSmartSheetCellAdapter.getMappedText(values, mapping, "location"));
         applyMeetingStart(record, WeComSmartSheetCellAdapter.getMappedDateTime(values, mapping, "start_time"));
         record.setDuration(WeComSmartSheetCellAdapter.getMappedNumber(values, mapping, "duration"));
         record.setMeetingLink(WeComSmartSheetCellAdapter.getMappedText(values, mapping, "meeting_link"));
@@ -510,7 +527,8 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
                 epochSec,
                 record.getDuration(),
                 record.getAttendees(),
-                record.getMeetingDescription());
+                record.getMeetingDescription(),
+                record.getLocation());
 
         WeComGetMeetingInfoResponse info = weComMeetingManager.getMeetingInfo(meetingResponse.getMeetingid());
         record.setWecomMeetingId(meetingResponse.getMeetingid());

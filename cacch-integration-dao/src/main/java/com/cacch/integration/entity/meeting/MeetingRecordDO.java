@@ -31,7 +31,15 @@ public class MeetingRecordDO {
 
     private String meetingTitle;
 
+    @TableField(typeHandler = PostgreSqlJsonbTypeHandler.class)
+    private List<String> meetingType;
+
+    @TableField(typeHandler = PostgreSqlJsonbTypeHandler.class)
+    private List<String> meetingTopics;
+
     private String meetingDescription;
+
+    private String location;
 
     private LocalDate meetingDate;
 

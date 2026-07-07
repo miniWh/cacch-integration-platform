@@ -33,7 +33,8 @@ public class WeComMeetingServiceImpl implements IWeComMeetingService {
     @Override
     public WeComCreateMeetingResponse createMeeting(String accessToken, String adminUserid, String title,
                                                       long meetingStartEpochSec, int durationMinutes,
-                                                      List<String> attendeeUserIds, String description) {
+                                                      List<String> attendeeUserIds, String description,
+                                                      String location) {
         int durationSec = Math.max(durationMinutes * 60, WeComConstants.MEETING_MIN_DURATION_SECONDS);
         WeComCreateMeetingRequest.WeComMeetingInvitees invitees = null;
         if (attendeeUserIds != null && !attendeeUserIds.isEmpty()) {
@@ -47,6 +48,7 @@ public class WeComMeetingServiceImpl implements IWeComMeetingService {
                 .meetingStart(meetingStartEpochSec)
                 .meetingDuration(durationSec)
                 .description(description)
+                .location(location)
                 .invitees(invitees)
                 .build();
         WeComCreateMeetingResponse response = weComMeetingClient.createMeeting(accessToken, request);

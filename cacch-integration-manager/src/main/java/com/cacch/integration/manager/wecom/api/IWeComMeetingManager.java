@@ -25,7 +25,8 @@ public interface IWeComMeetingManager {
      */
     WeComCreateMeetingResponse createMeeting(String adminUserid, String title,
                                              long meetingStartEpochSec, int durationMinutes,
-                                             List<String> attendeeUserIds, String description);
+                                             List<String> attendeeUserIds, String description,
+                                             String location);
 
     /**
      * 查询会议详情
