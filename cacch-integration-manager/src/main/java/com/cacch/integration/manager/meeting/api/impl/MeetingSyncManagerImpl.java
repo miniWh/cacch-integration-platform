@@ -400,15 +400,15 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
         record.setMeetingTitle(title);
         record.setMeetingDescription(
                 WeComSmartSheetCellAdapter.getMappedText(values, mapping, "meeting_description"));
-        applyMeetingStart(record, WeComSmartSheetCellAdapter.getMappedText(values, mapping, "start_time"));
-        record.setDuration(parseDuration(WeComSmartSheetCellAdapter.getMappedText(values, mapping, "duration")));
+        applyMeetingStart(record, WeComSmartSheetCellAdapter.getMappedDateTime(values, mapping, "start_time"));
+        record.setDuration(WeComSmartSheetCellAdapter.getMappedNumber(values, mapping, "duration"));
         record.setMeetingLink(WeComSmartSheetCellAdapter.getMappedText(values, mapping, "meeting_link"));
         List<String> attendees = WeComSmartSheetCellAdapter.getMappedUserIds(values, mapping, "attendees");
         if (!attendees.isEmpty()) {
             record.setAttendees(attendees);
         }
-        String sheetStatus = WeComSmartSheetCellAdapter.getMappedText(values, mapping, "status");
-        String sheetMinutesStatus = WeComSmartSheetCellAdapter.getMappedText(values, mapping, "minutes_status");
+        String sheetStatus = WeComSmartSheetCellAdapter.getMappedSelectText(values, mapping, "status");
+        String sheetMinutesStatus = WeComSmartSheetCellAdapter.getMappedSelectText(values, mapping, "minutes_status");
         String sheetWecomMeetingCode = WeComSmartSheetCellAdapter.getMappedText(values, mapping, "wecom_meeting_code");
         String sheetWecomMeetingId = WeComSmartSheetCellAdapter.getMappedText(values, mapping, "wecom_meeting_id");
         if (StringUtils.hasText(sheetWecomMeetingCode)) {
@@ -550,7 +550,7 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
         }
         boolean needsResolve = mapping.values().stream().anyMatch(WeComSmartSheetCellAdapter::looksLikeFieldId);
         if (!needsResolve) {
-            log.info("【MeetingSync】列映射中无 fieldId, smartTableId={}, sheetId={}", table.getId(), sheetId);
+            log.debug("【MeetingSync】列映射已为列标题，无需 fieldId 迁移, smartTableId={}", table.getId());
             return mapping;
         }
         WeComGetFieldsResponse fieldsResponse = weComSmartSheetManager.getFields(
@@ -709,6 +709,14 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
             throw new BizException(ResultCode.INTEGRATION_ERROR, "新建待办子表未返回 sheetId");
         }
         return response.getProperties().getSheetId();
+    }
+
+    private void applyMeetingStart(MeetingRecordDO record, LocalDateTime dateTime) {
+        if (dateTime == null) {
+            return;
+        }
+        record.setMeetingDate(dateTime.toLocalDate());
+        record.setStartTime(dateTime.toLocalTime());
     }
 
     private void applyMeetingStart(MeetingRecordDO record, String startText) {

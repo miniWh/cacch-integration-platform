@@ -116,6 +116,135 @@ public final class WeComSmartSheetCellAdapter {
     }
 
     /**
+     * 从单元格原始值中提取数字（兼容 double / int / 文本）
+     */
+    public static Integer extractNumber(Object cellValue) {
+        if (cellValue == null) {
+            return null;
+        }
+        if (cellValue instanceof Number number) {
+            return number.intValue();
+        }
+        String text = extractText(cellValue);
+        if (text.isBlank()) {
+            return null;
+        }
+        try {
+            if (text.contains(".")) {
+                return (int) Double.parseDouble(text.trim());
+            }
+            return Integer.parseInt(text.trim().replaceAll("[^0-9-]", ""));
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    /**
+     * 从单选/多选列原始值中提取选项文本
+     */
+    public static String extractSelectText(Object cellValue) {
+        if (!(cellValue instanceof List<?> list) || list.isEmpty()) {
+            return extractText(cellValue);
+        }
+        Object first = list.getFirst();
+        if (first instanceof Map<?, ?> map) {
+            Object text = map.get("text");
+            if (text != null && !text.toString().isBlank()) {
+                return text.toString();
+            }
+        }
+        return extractText(cellValue);
+    }
+
+    /**
+     * 从日期时间列原始值解析为 LocalDateTime（企微返回毫秒时间戳字符串或数字）
+     */
+    public static java.time.LocalDateTime extractDateTime(Object cellValue) {
+        if (cellValue == null) {
+            return null;
+        }
+        if (cellValue instanceof Number number) {
+            long epoch = number.longValue();
+            if (epoch > 1_000_000_000_000L) {
+                epoch /= 1000;
+            }
+            return java.time.LocalDateTime.ofInstant(
+                    java.time.Instant.ofEpochSecond(epoch), java.time.ZoneId.systemDefault());
+        }
+        String text = cellValue instanceof String str ? str.trim() : extractText(cellValue);
+        if (text.isBlank()) {
+            return null;
+        }
+        String normalized = text.replace('T', ' ');
+        try {
+            if (normalized.matches("\\d+")) {
+                long epoch = Long.parseLong(normalized);
+                if (epoch > 1_000_000_000_000L) {
+                    epoch /= 1000;
+                }
+                return java.time.LocalDateTime.ofInstant(
+                        java.time.Instant.ofEpochSecond(epoch), java.time.ZoneId.systemDefault());
+            }
+            if (normalized.length() >= 16) {
+                String dateTimePart = normalized.length() >= 19 ? normalized.substring(0, 19) : normalized.substring(0, 16);
+                java.time.format.DateTimeFormatter formatter = normalized.length() >= 19
+                        ? java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+                        : java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+                return java.time.LocalDateTime.parse(dateTimePart, formatter);
+            }
+        } catch (Exception ignored) {
+            return null;
+        }
+        return null;
+    }
+
+    /**
+     * 按列映射 key 从 record values 中取数字
+     */
+    public static Integer getMappedNumber(Map<String, Object> values, Map<String, String> columnMapping,
+                                          String logicalKey) {
+        if (values == null || columnMapping == null) {
+            return null;
+        }
+        String fieldTitle = columnMapping.get(logicalKey);
+        if (fieldTitle == null) {
+            return null;
+        }
+        return extractNumber(values.get(fieldTitle));
+    }
+
+    /**
+     * 按列映射 key 从 record values 中取单选文本
+     */
+    public static String getMappedSelectText(Map<String, Object> values, Map<String, String> columnMapping,
+                                             String logicalKey) {
+        if (values == null || columnMapping == null) {
+            return "";
+        }
+        String fieldTitle = columnMapping.get(logicalKey);
+        if (fieldTitle == null) {
+            return "";
+        }
+        return extractSelectText(values.get(fieldTitle));
+    }
+
+    /**
+     * 按列映射 key 从 record values 中取日期时间
+     */
+    public static java.time.LocalDateTime getMappedDateTime(Map<String, Object> values,
+                                                            Map<String, String> columnMapping,
+                                                            String logicalKey) {
+        if (values == null || columnMapping == null) {
+            return null;
+        }
+        String fieldTitle = columnMapping.get(logicalKey);
+        if (fieldTitle == null) {
+            return null;
+        }
+        return extractDateTime(values.get(fieldTitle));
+    }
+
+    /**
      * 从成员列原始值中解析 userId 列表
      */
     public static List<String> extractUserIds(Object cellValue) {
@@ -126,6 +255,9 @@ public final class WeComSmartSheetCellAdapter {
         for (Object item : list) {
             if (item instanceof Map<?, ?> map) {
                 Object userId = map.get("user_id");
+                if (userId == null) {
+                    userId = map.get("userid");
+                }
                 if (userId != null && !userId.toString().isBlank()) {
                     userIds.add(userId.toString());
                 }
@@ -150,7 +282,8 @@ public final class WeComSmartSheetCellAdapter {
     }
 
     /**
-     * 判断映射值是否为企微 fieldId（历史数据兼容，fieldId 为短字母数字串）
+     * 判断映射值是否为企微 fieldId（历史数据兼容，fieldId 为短字母数字串）。
+     * 映射已改为列标题时返回 false 属正常现象，不代表无法读取表格数据。
      */
     public static boolean looksLikeFieldId(String value) {
         if (value == null || value.isBlank()) {
