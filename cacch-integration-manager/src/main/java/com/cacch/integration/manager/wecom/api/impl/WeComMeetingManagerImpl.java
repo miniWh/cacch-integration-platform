@@ -6,6 +6,8 @@ import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.ResultCode;
 import com.cacch.integration.integration.wecom.client.dto.meeting.WeComCreateMeetingResponse;
 import com.cacch.integration.integration.wecom.client.dto.meeting.WeComGetMeetingInfoResponse;
+import com.cacch.integration.integration.wecom.client.dto.meeting.WeComGetRecordFileResponse;
+import com.cacch.integration.integration.wecom.client.dto.meeting.WeComListRecordResponse;
 import com.cacch.integration.integration.wecom.client.dto.meeting.WeComGetTranscriptResponse;
 import com.cacch.integration.manager.wecom.api.IWeComMeetingManager;
 import com.cacch.integration.manager.wecom.api.IWeComTokenManager;
@@ -51,6 +53,24 @@ public class WeComMeetingManagerImpl implements IWeComMeetingManager {
     public WeComGetTranscriptResponse getTranscriptDetail(String meetingId, String recordFileId) {
         return execute("获取录制转写", () ->
                 weComMeetingService.getTranscriptDetail(resolveAccessToken(), meetingId, recordFileId));
+    }
+
+    @Override
+    public WeComListRecordResponse listRecords(String meetingId, long startTimeSec, long endTimeSec) {
+        return execute("获取录制列表", () ->
+                weComMeetingService.listRecords(resolveAccessToken(), meetingId, startTimeSec, endTimeSec));
+    }
+
+    @Override
+    public WeComGetRecordFileResponse getRecordFile(String meetingId, String recordFileId) {
+        return execute("获取录制文件详情", () ->
+                weComMeetingService.getRecordFile(resolveAccessToken(), meetingId, recordFileId));
+    }
+
+    @Override
+    public String downloadText(String downloadUrl) {
+        return execute("下载纪要文件", () ->
+                weComMeetingService.downloadText(downloadUrl));
     }
 
     private String resolveAccessToken() {

@@ -177,6 +177,28 @@ public final class WeComConstants {
             "https://qyapi.weixin.qq.com/cgi-bin/meeting/record/transcript/get_detail?access_token=%s";
 
     /**
+     * 会议 — 获取录制列表 API 地址
+     */
+    public static final String MEETING_RECORD_LIST_URL =
+            "https://qyapi.weixin.qq.com/cgi-bin/meeting/record/list?access_token=%s";
+
+    /**
+     * 会议 — 获取单个录制文件详情 API 地址
+     */
+    public static final String MEETING_RECORD_GET_FILE_URL =
+            "https://qyapi.weixin.qq.com/cgi-bin/meeting/record/get_file?access_token=%s";
+
+    /**
+     * 会议录制 — 转码完成状态
+     */
+    public static final int MEETING_RECORD_STATE_TRANSCODED = 3;
+
+    /**
+     * 会议纪要 TXT 文件类型标识
+     */
+    public static final String MEETING_SUMMARY_FILE_TYPE_TXT = "txt";
+
+    /**
      * 群机器人 Webhook 发送消息 API 地址（key 由配置注入）
      */
     public static final String WEBHOOK_SEND_URL =

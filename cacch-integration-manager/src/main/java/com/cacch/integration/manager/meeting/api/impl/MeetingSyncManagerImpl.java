@@ -34,6 +34,7 @@ import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComUserFi
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComRecordInfo;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComRecordWriteItem;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComSheetInfo;
+import com.cacch.integration.manager.meeting.api.IMeetingMinutesManager;
 import com.cacch.integration.manager.meeting.api.IMeetingSyncManager;
 import com.cacch.integration.manager.wecom.api.IWeComDocManager;
 import com.cacch.integration.manager.wecom.api.IWeComMeetingManager;
@@ -83,6 +84,7 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
     private final IWeComDocManager weComDocManager;
     private final IWeComMeetingManager weComMeetingManager;
     private final IWeComWebhookManager weComWebhookManager;
+    private final IMeetingMinutesManager meetingMinutesManager;
 
     @Override
     public void scanMasterAndProvision() {
@@ -187,6 +189,33 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
                 writeTodoToSheet(table, todoMapping, todo);
             }
         }
+    }
+
+    @Override
+    public void syncMeetingMinutesFromWeCom() {
+        List<MeetingRecordDO> records = meetingRecordService.listByStatusWithWecomMeetingId(
+                MeetingRecordStatusEnum.SCHEDULED.getCode());
+        int scanned = 0;
+        int processed = 0;
+        int skipped = 0;
+        int failed = 0;
+        for (MeetingRecordDO record : records) {
+            scanned++;
+            try {
+                int outcome = meetingMinutesManager.trySyncMinutes(record);
+                switch (outcome) {
+                    case 1 -> processed++;
+                    case -1 -> failed++;
+                    default -> skipped++;
+                }
+            } catch (Exception e) {
+                failed++;
+                log.error("【MeetingSync】纪要拉取失败, recordId={}, meetingId={}",
+                        record.getRecordId(), record.getWecomMeetingId(), e);
+            }
+        }
+        log.info("【MeetingSync】纪要拉取完成, scanned={}, processed={}, skipped={}, failed={}",
+                scanned, processed, skipped, failed);
     }
 
     private void provisionEmployeeTable(SmartTableDO master, Map<String, String> mapping, WeComRecordInfo record) {

@@ -69,4 +69,20 @@ public class TodoItemServiceImpl implements ITodoItemService {
     public void updateById(TodoItemDO todoItem) {
         todoItemMapper.updateById(todoItem);
     }
+
+    @Override
+    @Transactional(
+            rollbackFor = Exception.class,
+            propagation = Propagation.SUPPORTS,
+            readOnly = true,
+            timeout = 10
+    )
+    public boolean existsByMeetingIdAndTodoTitle(Long meetingId, String todoTitle) {
+        if (meetingId == null || todoTitle == null || todoTitle.isBlank()) {
+            return false;
+        }
+        return todoItemMapper.selectCount(new LambdaQueryWrapper<TodoItemDO>()
+                .eq(TodoItemDO::getMeetingId, meetingId)
+                .eq(TodoItemDO::getTodoTitle, todoTitle)) > 0;
+    }
 }

@@ -221,4 +221,15 @@ public class MeetingController {
         meetingSyncManager.syncTodosToSheet();
         return Result.success(null);
     }
+
+    /**
+     * 手动触发纪要拉取与待办解析
+     *
+     * @return 无数据成功响应
+     */
+    @PostMapping("/sync/minutes")
+    public Result<Void> triggerMinutesSync() {
+        meetingSyncManager.syncMeetingMinutesFromWeCom();
+        return Result.success(null);
+    }
 }

@@ -8,6 +8,11 @@ import com.cacch.integration.integration.wecom.client.dto.meeting.WeComCreateMee
 import com.cacch.integration.integration.wecom.client.dto.meeting.WeComCreateMeetingResponse;
 import com.cacch.integration.integration.wecom.client.dto.meeting.WeComGetMeetingInfoRequest;
 import com.cacch.integration.integration.wecom.client.dto.meeting.WeComGetMeetingInfoResponse;
+import com.cacch.integration.integration.wecom.client.dto.meeting.WeComGetRecordFileRequest;
+import com.cacch.integration.integration.wecom.client.dto.meeting.WeComGetRecordFileResponse;
+import com.cacch.integration.integration.wecom.client.dto.meeting.WeComListRecordRequest;
+import com.cacch.integration.integration.wecom.client.dto.meeting.WeComListRecordResponse;
+import com.cacch.integration.integration.wecom.client.dto.meeting.WeComRecordMeetingInfo;
 import com.cacch.integration.integration.wecom.client.dto.meeting.WeComGetTranscriptRequest;
 import com.cacch.integration.integration.wecom.client.dto.meeting.WeComGetTranscriptResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComBaseResponse;
@@ -16,6 +21,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -75,6 +81,53 @@ public class WeComMeetingServiceImpl implements IWeComMeetingService {
         WeComGetTranscriptResponse response = weComMeetingClient.getTranscriptDetail(accessToken, request);
         assertWeComSuccess(response, "获取录制转写");
         return response;
+    }
+
+    @Override
+    public WeComListRecordResponse listRecords(String accessToken, String meetingId,
+                                               long startTimeSec, long endTimeSec) {
+        List<WeComRecordMeetingInfo> allRecords = new ArrayList<>();
+        String cursor = null;
+        Integer limit = 20;
+        boolean hasMore;
+        do {
+            WeComListRecordRequest request = WeComListRecordRequest.builder()
+                    .meetingid(meetingId)
+                    .startTime(startTimeSec)
+                    .endTime(endTimeSec)
+                    .cursor(cursor)
+                    .limit(limit)
+                    .build();
+            WeComListRecordResponse response = weComMeetingClient.listRecords(accessToken, request);
+            assertWeComSuccess(response, "获取录制列表");
+            if (response.getRecordList() != null) {
+                allRecords.addAll(response.getRecordList());
+            }
+            hasMore = Boolean.TRUE.equals(response.getHasMore());
+            cursor = response.getNextCursor();
+        } while (hasMore && cursor != null && !cursor.isBlank());
+        WeComListRecordResponse merged = new WeComListRecordResponse();
+        merged.setErrCode(0);
+        merged.setErrMsg("ok");
+        merged.setRecordList(allRecords);
+        merged.setHasMore(false);
+        return merged;
+    }
+
+    @Override
+    public WeComGetRecordFileResponse getRecordFile(String accessToken, String meetingId, String recordFileId) {
+        WeComGetRecordFileRequest request = WeComGetRecordFileRequest.builder()
+                .meetingid(meetingId)
+                .recordFileId(recordFileId)
+                .build();
+        WeComGetRecordFileResponse response = weComMeetingClient.getRecordFile(accessToken, request);
+        assertWeComSuccess(response, "获取录制文件详情");
+        return response;
+    }
+
+    @Override
+    public String downloadText(String downloadUrl) {
+        return weComMeetingClient.downloadText(downloadUrl);
     }
 
     private void assertWeComSuccess(WeComBaseResponse response, String action) {

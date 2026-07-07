@@ -5,6 +5,10 @@ import com.cacch.integration.integration.wecom.client.dto.meeting.WeComCreateMee
 import com.cacch.integration.integration.wecom.client.dto.meeting.WeComCreateMeetingResponse;
 import com.cacch.integration.integration.wecom.client.dto.meeting.WeComGetMeetingInfoRequest;
 import com.cacch.integration.integration.wecom.client.dto.meeting.WeComGetMeetingInfoResponse;
+import com.cacch.integration.integration.wecom.client.dto.meeting.WeComGetRecordFileRequest;
+import com.cacch.integration.integration.wecom.client.dto.meeting.WeComGetRecordFileResponse;
+import com.cacch.integration.integration.wecom.client.dto.meeting.WeComListRecordRequest;
+import com.cacch.integration.integration.wecom.client.dto.meeting.WeComListRecordResponse;
 import com.cacch.integration.integration.wecom.client.dto.meeting.WeComGetTranscriptRequest;
 import com.cacch.integration.integration.wecom.client.dto.meeting.WeComGetTranscriptResponse;
 import lombok.RequiredArgsConstructor;
@@ -40,6 +44,34 @@ public class WeComMeetingClient {
         String url = String.format(WeComConstants.MEETING_TRANSCRIPT_GET_DETAIL_URL, accessToken);
         log.info("【WeComMeeting】获取录制转写, meetingId={}", request.getMeetingid());
         return post(url, request, WeComGetTranscriptResponse.class, "获取录制转写");
+    }
+
+    public WeComListRecordResponse listRecords(String accessToken, WeComListRecordRequest request) {
+        String url = String.format(WeComConstants.MEETING_RECORD_LIST_URL, accessToken);
+        log.info("【WeComMeeting】获取录制列表, meetingId={}", request.getMeetingid());
+        return post(url, request, WeComListRecordResponse.class, "获取录制列表");
+    }
+
+    public WeComGetRecordFileResponse getRecordFile(String accessToken, WeComGetRecordFileRequest request) {
+        String url = String.format(WeComConstants.MEETING_RECORD_GET_FILE_URL, accessToken);
+        log.info("【WeComMeeting】获取录制文件详情, meetingId={}, recordFileId={}",
+                request.getMeetingid(), request.getRecordFileId());
+        return post(url, request, WeComGetRecordFileResponse.class, "获取录制文件详情");
+    }
+
+    /**
+     * 下载文本文件内容（用于会议纪要 TXT）
+     *
+     * @param downloadUrl 下载地址
+     * @return 文件文本内容
+     */
+    public String downloadText(String downloadUrl) {
+        try {
+            return restTemplate.getForObject(downloadUrl, String.class);
+        } catch (RestClientException e) {
+            log.error("【WeComMeeting】下载纪要文件失败, url={}", downloadUrl, e);
+            throw e;
+        }
     }
 
     private <T> T post(String url, Object request, Class<T> responseType, String action) {

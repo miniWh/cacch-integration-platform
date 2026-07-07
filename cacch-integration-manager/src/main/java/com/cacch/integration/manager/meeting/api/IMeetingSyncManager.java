@@ -52,6 +52,11 @@ public interface IMeetingSyncManager {
     void syncTodosToSheet();
 
     /**
+     * 拉取已结束会议的 TXT 智能纪要，解析待办并入库
+     */
+    void syncMeetingMinutesFromWeCom();
+
+    /**
      * 手动初始化指定员工会议管理表的智能表格列，并更新本地列映射
      *
      * @param smartTableId 员工会议表配置主键（table_type=MEETING）

@@ -40,4 +40,13 @@ public interface ITodoItemService {
      * @param todoItem 待更新实体（须含 id）
      */
     void updateById(TodoItemDO todoItem);
+
+    /**
+     * 判断会议下是否已存在相同标题的待办（用于纪要解析去重）
+     *
+     * @param meetingId 会议记录主键
+     * @param todoTitle 待办标题
+     * @return 已存在时返回 true
+     */
+    boolean existsByMeetingIdAndTodoTitle(Long meetingId, String todoTitle);
 }

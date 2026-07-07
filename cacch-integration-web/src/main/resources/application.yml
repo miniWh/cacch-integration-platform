@@ -43,6 +43,9 @@ meeting:
     master-cron: "0 */3 * * * ?"
     meeting-cron: "0 */3 * * * ?"
     todo-cron: "0 */3 * * * ?"
+    minutes-cron: "0 */3 * * * ?"
+    minutes-end-buffer-minutes: 5
+    minutes-max-wait-hours: 48
 
 # ==================== 企业微信多应用配置（公共占位） ====================
 # 实际值请在 application-{profile}.yml 中覆盖

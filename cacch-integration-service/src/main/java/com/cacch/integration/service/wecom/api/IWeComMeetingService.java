@@ -2,6 +2,8 @@ package com.cacch.integration.service.wecom.api;
 
 import com.cacch.integration.integration.wecom.client.dto.meeting.WeComCreateMeetingResponse;
 import com.cacch.integration.integration.wecom.client.dto.meeting.WeComGetMeetingInfoResponse;
+import com.cacch.integration.integration.wecom.client.dto.meeting.WeComGetRecordFileResponse;
+import com.cacch.integration.integration.wecom.client.dto.meeting.WeComListRecordResponse;
 import com.cacch.integration.integration.wecom.client.dto.meeting.WeComGetTranscriptResponse;
 
 import java.util.List;
@@ -47,4 +49,33 @@ public interface IWeComMeetingService {
      * @return 转写详情
      */
     WeComGetTranscriptResponse getTranscriptDetail(String accessToken, String meetingId, String recordFileId);
+
+    /**
+     * 获取会议录制列表（支持分页）
+     *
+     * @param accessToken 企微 access_token
+     * @param meetingId   企微会议 ID
+     * @param startTimeSec 查询起始时间（Unix 秒）
+     * @param endTimeSec   查询结束时间（Unix 秒）
+     * @return 录制列表响应
+     */
+    WeComListRecordResponse listRecords(String accessToken, String meetingId, long startTimeSec, long endTimeSec);
+
+    /**
+     * 获取单个录制文件详情（含会议纪要下载地址）
+     *
+     * @param accessToken  企微 access_token
+     * @param meetingId    企微会议 ID
+     * @param recordFileId 录制文件 ID
+     * @return 录制文件详情
+     */
+    WeComGetRecordFileResponse getRecordFile(String accessToken, String meetingId, String recordFileId);
+
+    /**
+     * 下载文本文件内容
+     *
+     * @param downloadUrl 下载地址
+     * @return 文本内容
+     */
+    String downloadText(String downloadUrl);
 }
