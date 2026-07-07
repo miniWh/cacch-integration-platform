@@ -390,6 +390,7 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
         Map<String, Object> values = row.getValues();
         String title = WeComSmartSheetCellAdapter.getMappedText(values, mapping, "meeting_title");
         if (!StringUtils.hasText(title)) {
+            log.warn("【MeetingSync】会议标题为空, smartTableId={}, recordId={}", table.getId(), row.getRecordId());
             return null;
         }
         MeetingRecordDO existing = meetingRecordService.getBySmartTableIdAndRecordId(table.getId(), row.getRecordId());
@@ -497,6 +498,7 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
 
     private void createWeComMeetingForRecord(SmartTableDO table, MeetingRecordDO record) {
         if (table == null) {
+            log.warn("【MeetingSync】创建企微会议失败, 未配置智能表格, recordId={}", record.getRecordId());
             return;
         }
         LocalDateTime startDateTime = LocalDateTime.of(record.getMeetingDate(), record.getStartTime());
