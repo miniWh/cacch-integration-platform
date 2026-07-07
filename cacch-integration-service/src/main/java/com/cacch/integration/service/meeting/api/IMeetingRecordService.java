@@ -65,4 +65,12 @@ public interface IMeetingRecordService {
      * @param record 待更新实体（须含 id）
      */
     void updateById(MeetingRecordDO record);
+
+    /**
+     * 查询已创建且含企微会议 ID 的记录（用于企微详情反向同步）
+     *
+     * @param status 会议状态码
+     * @return 会议记录列表
+     */
+    List<MeetingRecordDO> listByStatusWithWecomMeetingId(String status);
 }

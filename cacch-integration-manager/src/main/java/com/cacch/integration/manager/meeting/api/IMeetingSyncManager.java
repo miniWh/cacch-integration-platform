@@ -42,6 +42,11 @@ public interface IMeetingSyncManager {
     MeetingCreateScanResult scanAndCreatePendingMeetings(Long smartTableId);
 
     /**
+     * 扫描已创建的企微会议详情，若有变更则回写会议管理子表（已开始会议不扫描）
+     */
+    void syncScheduledMeetingsFromWeCom();
+
+    /**
      * 将未写入智能表格的待办事项添加到待办子表
      */
     void syncTodosToSheet();

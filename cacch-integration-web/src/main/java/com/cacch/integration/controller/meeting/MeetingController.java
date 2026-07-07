@@ -201,6 +201,17 @@ public class MeetingController {
     }
 
     /**
+     * 手动触发企微已创建会议详情反向同步（已开始会议不扫描）
+     *
+     * @return 无数据成功响应
+     */
+    @PostMapping("/sync/meeting-details-from-wecom")
+    public Result<Void> syncMeetingDetailsFromWeCom() {
+        meetingSyncManager.syncScheduledMeetingsFromWeCom();
+        return Result.success(null);
+    }
+
+    /**
      * 手动触发待办回写智能表格
      *
      * @return 无数据成功响应

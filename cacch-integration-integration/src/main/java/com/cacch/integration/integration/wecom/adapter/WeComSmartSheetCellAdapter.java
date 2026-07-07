@@ -83,6 +83,24 @@ public final class WeComSmartSheetCellAdapter {
     }
 
     /**
+     * 构建多成员类型单元格值
+     */
+    public static List<Map<String, String>> userCells(List<String> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return List.of();
+        }
+        List<Map<String, String>> cells = new ArrayList<>(userIds.size());
+        for (String userId : userIds) {
+            if (userId != null && !userId.isBlank()) {
+                Map<String, String> cell = new HashMap<>(2);
+                cell.put("user_id", userId);
+                cells.add(cell);
+            }
+        }
+        return cells;
+    }
+
+    /**
      * 构建成员类型单元格值（单选人员）
      *
      * @param userId 企微成员 userId

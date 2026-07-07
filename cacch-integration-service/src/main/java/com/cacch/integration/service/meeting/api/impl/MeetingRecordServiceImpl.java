@@ -107,4 +107,20 @@ public class MeetingRecordServiceImpl implements IMeetingRecordService {
     public void updateById(MeetingRecordDO record) {
         meetingRecordMapper.updateById(record);
     }
+
+    @Override
+    @Transactional(
+            rollbackFor = Exception.class,
+            propagation = Propagation.SUPPORTS,
+            readOnly = true,
+            timeout = 10
+    )
+    public List<MeetingRecordDO> listByStatusWithWecomMeetingId(String status) {
+        return meetingRecordMapper.selectList(new LambdaQueryWrapper<MeetingRecordDO>()
+                .eq(MeetingRecordDO::getStatus, status)
+                .isNotNull(MeetingRecordDO::getWecomMeetingId)
+                .ne(MeetingRecordDO::getWecomMeetingId, "")
+                .isNotNull(MeetingRecordDO::getRecordId)
+                .ne(MeetingRecordDO::getRecordId, ""));
+    }
 }

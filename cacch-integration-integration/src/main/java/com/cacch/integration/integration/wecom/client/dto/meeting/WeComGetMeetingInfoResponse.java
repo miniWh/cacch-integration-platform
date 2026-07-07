@@ -24,6 +24,10 @@ public class WeComGetMeetingInfoResponse extends WeComBaseResponse {
 
     private String title;
 
+    private String description;
+
+    private String location;
+
     @JsonProperty("meeting_start")
     private Long meetingStart;
 
@@ -31,4 +35,6 @@ public class WeComGetMeetingInfoResponse extends WeComBaseResponse {
     private Integer meetingDuration;
 
     private Integer status;
+
+    private WeComMeetingAttendeesInfo attendees;
 }
