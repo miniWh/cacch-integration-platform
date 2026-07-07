@@ -457,40 +457,40 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
      */
     private boolean isEligibleForMeetingCreation(MeetingRecordDO record) {
         if (!StringUtils.hasText(record.getStatus())) {
-            log.debug("【MeetingSync】跳过建会: 未选择会议状态, recordId={}", record.getRecordId());
+            log.info("【MeetingSync】跳过建会: 未选择会议状态, recordId={}", record.getRecordId());
             return false;
         }
         if (MeetingRecordStatusEnum.SCHEDULED.getCode().equals(record.getStatus())
                 || StringUtils.hasText(record.getWecomMeetingId())) {
-            log.debug("【MeetingSync】跳过建会: 会议已是已创建, recordId={}", record.getRecordId());
+            log.info("【MeetingSync】跳过建会: 会议已是已创建, recordId={}", record.getRecordId());
             return false;
         }
         if (!MeetingRecordStatusEnum.PENDING.getCode().equals(record.getStatus())) {
-            log.debug("【MeetingSync】跳过建会: 会议状态非待发起, status={}, recordId={}",
+            log.info("【MeetingSync】跳过建会: 会议状态非待发起, status={}, recordId={}",
                     record.getStatus(), record.getRecordId());
             return false;
         }
         if (!StringUtils.hasText(record.getMeetingTitle())) {
-            log.debug("【MeetingSync】跳过建会: 会议主题为空, recordId={}", record.getRecordId());
+            log.info("【MeetingSync】跳过建会: 会议主题为空, recordId={}", record.getRecordId());
             return false;
         }
         if (record.getMeetingDate() == null || record.getStartTime() == null) {
-            log.debug("【MeetingSync】跳过建会: 开始时间为空, recordId={}", record.getRecordId());
+            log.info("【MeetingSync】跳过建会: 开始时间为空, recordId={}", record.getRecordId());
             return false;
         }
         LocalDateTime startDateTime = LocalDateTime.of(record.getMeetingDate(), record.getStartTime());
         if (!startDateTime.isAfter(LocalDateTime.now())) {
-            log.debug("【MeetingSync】跳过建会: 开始时间不晚于当前时间, recordId={}", record.getRecordId());
+            log.info("【MeetingSync】跳过建会: 开始时间不晚于当前时间, recordId={}", record.getRecordId());
             return false;
         }
         if (record.getDuration() == null
                 || record.getDuration() < MeetingConstants.MIN_MEETING_DURATION_MINUTES) {
-            log.debug("【MeetingSync】跳过建会: 会议时长不足{}分钟, recordId={}",
+            log.info("【MeetingSync】跳过建会: 会议时长不足{}分钟, recordId={}",
                     MeetingConstants.MIN_MEETING_DURATION_MINUTES, record.getRecordId());
             return false;
         }
         if (record.getAttendees() == null || record.getAttendees().isEmpty()) {
-            log.debug("【MeetingSync】跳过建会: 参会人为空, recordId={}", record.getRecordId());
+            log.info("【MeetingSync】跳过建会: 参会人为空, recordId={}", record.getRecordId());
             return false;
         }
         return true;
@@ -545,15 +545,18 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
     private Map<String, String> ensureTitleBasedMapping(SmartTableDO table, String sheetId,
                                                         Map<String, String> mapping, boolean meetingMapping) {
         if (mapping == null || mapping.isEmpty() || !StringUtils.hasText(sheetId)) {
+            log.info("【MeetingSync】列映射为空, smartTableId={}, sheetId={}", table.getId(), sheetId);
             return mapping;
         }
         boolean needsResolve = mapping.values().stream().anyMatch(WeComSmartSheetCellAdapter::looksLikeFieldId);
         if (!needsResolve) {
+            log.info("【MeetingSync】列映射中无 fieldId, smartTableId={}, sheetId={}", table.getId(), sheetId);
             return mapping;
         }
         WeComGetFieldsResponse fieldsResponse = weComSmartSheetManager.getFields(
                 table.getDocId(), sheetId, 0, 100);
         if (fieldsResponse.getFields() == null || fieldsResponse.getFields().isEmpty()) {
+            log.info("【MeetingSync】企微列为空为空, smartTableId={}, sheetId={}", table.getId(), sheetId);
             return mapping;
         }
         Map<String, String> idToTitle = new HashMap<>();

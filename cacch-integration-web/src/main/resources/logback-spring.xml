@@ -54,12 +54,12 @@
 
     <!-- ========== 测试 / 开发环境（spring.profiles.active=test） ========== -->
     <springProfile name="test">
-        <logger name="com.cacch.integration" level="DEBUG"/>
+        <logger name="com.cacch.integration" level="INFO"/>
         <!-- MyBatis SQL 走 SLF4J，禁止 application.yml 中使用 StdOutImpl -->
         <logger name="com.cacch.integration.mapper" level="DEBUG"/>
         <logger name="org.apache.ibatis" level="DEBUG"/>
 
-        <root level="DEBUG">
+        <root level="INFO">
             <appender-ref ref="CONSOLE"/>
             <appender-ref ref="FILE"/>
         </root>

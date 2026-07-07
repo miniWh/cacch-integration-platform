@@ -32,7 +32,7 @@ public class WeComWebhookServiceImpl implements IWeComWebhookService {
     @Override
     public void sendMarkdown(String dedupKey, String markdownContent) {
         if (!webhookProperties.isReady()) {
-            log.debug("【WeComWebhook】未启用或未配置 key，跳过发送");
+            log.info("【WeComWebhook】未启用或未配置 key，跳过发送");
             return;
         }
         if (isDuplicate(dedupKey)) {
@@ -54,7 +54,7 @@ public class WeComWebhookServiceImpl implements IWeComWebhookService {
     @Override
     public void sendText(String dedupKey, String textContent, List<String> mentionMobiles) {
         if (!webhookProperties.isReady()) {
-            log.debug("【WeComWebhook】未启用或未配置 key，跳过发送");
+            log.info("【WeComWebhook】未启用或未配置 key，跳过发送");
             return;
         }
         if (isDuplicate(dedupKey)) {

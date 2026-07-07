@@ -104,7 +104,7 @@ public class WeComSmartSheetManagerImpl implements IWeComSmartSheetManager {
     private String resolveAccessToken() {
         WeComAppConfig appConfig = weComProperties.findSelfBuiltApp()
                 .orElseThrow(() -> new BizException(ResultCode.PARAM_INVALID, "未配置企微自建应用（wecom.apps）"));
-        log.debug("【WeComSmartSheet】使用自建应用鉴权, corpid={}, appKey={}",
+        log.info("【WeComSmartSheet】使用自建应用鉴权, corpid={}, appKey={}",
                 appConfig.getCorpid(), appConfig.getAppKey());
         return weComTokenManager.getAccessToken(appConfig.getCorpid(), appConfig.getAppKey());
     }

@@ -42,7 +42,7 @@ public class WeComWebhookManagerImpl implements IWeComWebhookManager {
     @Override
     public void sendAlert(WeComAlertCommand command) {
         if (!webhookProperties.isReady()) {
-            log.debug("【WeComWebhook】未启用，跳过告警, biz={}, title={}", command.getBiz(), command.getTitle());
+            log.info("【WeComWebhook】未启用，跳过告警, biz={}, title={}", command.getBiz(), command.getTitle());
             return;
         }
         String dedupKey = resolveDedupKey(command);
