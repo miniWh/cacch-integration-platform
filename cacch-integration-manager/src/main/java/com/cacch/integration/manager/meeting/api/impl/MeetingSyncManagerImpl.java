@@ -638,10 +638,10 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
             if (!localStart.truncatedTo(ChronoUnit.MINUTES).equals(wecomStart.truncatedTo(ChronoUnit.MINUTES))) {
                 changedKeys.add("start_time");
             }
-        } else if (wecomStart != null && (record.getMeetingDate() == null || record.getStartTime() == null)) {
+        } else if (wecomStart != null) {
             changedKeys.add("start_time");
         }
-        Integer wecomDurationMinutes = durationMinutesFromWeCom(info.getMeetingDuration());
+        Integer wecomDurationMinutes = resolveDurationMinutes(info);
         if (!integerEquals(record.getDuration(), wecomDurationMinutes)) {
             changedKeys.add("duration");
         }
@@ -650,6 +650,9 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
                 : List.of();
         if (!attendeesEquals(record.getAttendees(), wecomAttendees)) {
             changedKeys.add("attendees");
+        }
+        if (changedKeys.contains("start_time") && resolveDurationMinutes(info) != null) {
+            changedKeys.add("duration");
         }
         return changedKeys;
     }
@@ -665,7 +668,7 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
             record.setMeetingDate(start.toLocalDate());
             record.setStartTime(start.toLocalTime());
         }
-        Integer durationMinutes = durationMinutesFromWeCom(info.getMeetingDuration());
+        Integer durationMinutes = resolveDurationMinutes(info);
         if (durationMinutes != null) {
             record.setDuration(durationMinutes);
         }
@@ -675,6 +678,28 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
                 record.setAttendees(attendees);
             }
         }
+    }
+
+    /**
+     * 根据企微开始/结束时间计算会议时长（分钟）。客户端编辑只有结束时间，无独立时长字段。
+     */
+    private Integer resolveDurationMinutes(WeComGetMeetingInfoResponse info) {
+        Long startEpoch = info.getMeetingStart();
+        Long endEpoch = resolveMeetingEndEpoch(info);
+        if (startEpoch != null && endEpoch != null && endEpoch > startEpoch) {
+            return (int) ((endEpoch - startEpoch) / 60);
+        }
+        return durationMinutesFromWeCom(info.getMeetingDuration());
+    }
+
+    private Long resolveMeetingEndEpoch(WeComGetMeetingInfoResponse info) {
+        if (info.getMeetingEnd() != null && info.getMeetingEnd() > 0) {
+            return info.getMeetingEnd();
+        }
+        if (info.getMeetingStart() != null && info.getMeetingDuration() != null && info.getMeetingDuration() > 0) {
+            return info.getMeetingStart() + info.getMeetingDuration();
+        }
+        return null;
     }
 
     private Integer durationMinutesFromWeCom(Integer meetingDurationSec) {
@@ -740,9 +765,8 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
         if (changedKeys.contains("start_time")
                 && record.getMeetingDate() != null
                 && record.getStartTime() != null) {
-            String startDateTime = record.getMeetingDate() + " "
-                    + record.getStartTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
-            putDateTimeValue(values, mapping, "start_time", startDateTime);
+            putDateTimeValue(values, mapping, "start_time",
+                    formatSheetDateTime(record.getMeetingDate(), record.getStartTime()));
         }
         if (changedKeys.contains("duration")) {
             putNumberValue(values, mapping, "duration", record.getDuration());
@@ -870,9 +894,8 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
                 putTextValue(values, mapping, "meeting_title", meeting.getMeetingTitle());
                 putTextValue(values, mapping, "wecom_meeting_code", meeting.getWecomMeetingCode());
                 if (meeting.getMeetingDate() != null && meeting.getStartTime() != null) {
-                    String startDateTime = meeting.getMeetingDate() + " "
-                            + meeting.getStartTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
-                    putDateTimeValue(values, mapping, "start_time", startDateTime);
+                    putDateTimeValue(values, mapping, "start_time",
+                            formatSheetDateTime(meeting.getMeetingDate(), meeting.getStartTime()));
                 }
             }
         }
@@ -952,6 +975,13 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
         if (fieldTitle != null) {
             values.put(fieldTitle, number);
         }
+    }
+
+    private String formatSheetDateTime(LocalDate date, LocalTime time) {
+        if (date == null || time == null) {
+            return null;
+        }
+        return LocalDateTime.of(date, time).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
     }
 
     private String resolveFirstSheetId(WeComGetSheetResponse sheetResponse) {
