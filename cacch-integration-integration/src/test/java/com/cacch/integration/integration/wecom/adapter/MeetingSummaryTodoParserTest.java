@@ -58,6 +58,19 @@ class MeetingSummaryTodoParserTest {
     }
 
     @Test
+    void parseTodos_plainLinesWithoutBullets() {
+        String content = """
+                会议待办
+                帮助受灾群众
+                展示了中国的军事实力
+                """;
+        List<String> todos = MeetingSummaryTodoParser.parseTodos(content);
+        assertEquals(2, todos.size());
+        assertEquals("帮助受灾群众", todos.get(0));
+        assertEquals("展示了中国的军事实力", todos.get(1));
+    }
+
+    @Test
     void parseTodos_emptyWhenNoItems() {
         assertTrue(MeetingSummaryTodoParser.parseTodos("").isEmpty());
         assertTrue(MeetingSummaryTodoParser.parseTodos("只有摘要，没有待办").isEmpty());

@@ -1,6 +1,9 @@
 package com.cacch.integration.integration.wecom.adapter;
 
 import com.cacch.integration.common.constant.wecom.WeComConstants;
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.text.PDFTextStripper;
 import org.springframework.util.StringUtils;
 
 import java.io.ByteArrayInputStream;
@@ -12,7 +15,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 /**
- * 企微会议纪要文件文本提取（TXT / DOCX）
+ * 企微会议纪要文件文本提取（TXT / DOCX / PDF）
  *
  * @author hongfu_zhou@cacch.com
  */
@@ -22,13 +25,15 @@ public final class MeetingSummaryDocumentExtractor {
 
     private static final Pattern DOCX_TEXT = Pattern.compile("<w:t(?:[^>]*)>([^<]*)</w:t>");
 
+    private static final Pattern TODO_MARKER = Pattern.compile("会议待办|待办事项|待办清单");
+
     private MeetingSummaryDocumentExtractor() {
     }
 
     /**
      * 按文件类型从二进制内容提取纯文本
      *
-     * @param fileType 文件类型（txt/docx）
+     * @param fileType 文件类型（txt/docx/pdf）
      * @param bytes    文件字节
      * @return 提取后的文本，不支持的类型返回 null
      */
@@ -37,13 +42,15 @@ public final class MeetingSummaryDocumentExtractor {
             return null;
         }
         String normalizedType = fileType.trim().toLowerCase();
-        if (WeComConstants.MEETING_SUMMARY_FILE_TYPE_TXT.equals(normalizedType)) {
-            return new String(bytes, StandardCharsets.UTF_8);
-        }
-        if (WeComConstants.MEETING_SUMMARY_FILE_TYPE_DOCX.equals(normalizedType)) {
-            return extractDocxText(bytes);
-        }
-        return null;
+        return switch (normalizedType) {
+            case String s when WeComConstants.MEETING_SUMMARY_FILE_TYPE_TXT.equals(s) ->
+                    new String(bytes, StandardCharsets.UTF_8);
+            case String s when WeComConstants.MEETING_SUMMARY_FILE_TYPE_DOCX.equals(s) ->
+                    extractDocxText(bytes);
+            case String s when WeComConstants.MEETING_SUMMARY_FILE_TYPE_PDF.equals(s) ->
+                    extractPdfText(bytes);
+            default -> null;
+        };
     }
 
     /**
@@ -54,6 +61,9 @@ public final class MeetingSummaryDocumentExtractor {
      */
     public static boolean isTranscriptLike(String content) {
         if (!StringUtils.hasText(content)) {
+            return false;
+        }
+        if (TODO_MARKER.matcher(content).find()) {
             return false;
         }
         int transcriptLines = 0;
@@ -101,5 +111,15 @@ public final class MeetingSummaryDocumentExtractor {
             }
         }
         return document.toString().trim();
+    }
+
+    private static String extractPdfText(byte[] bytes) {
+        try (PDDocument document = Loader.loadPDF(bytes)) {
+            PDFTextStripper stripper = new PDFTextStripper();
+            stripper.setSortByPosition(true);
+            return stripper.getText(document).trim();
+        } catch (IOException e) {
+            throw new IllegalStateException("解析 PDF 纪要失败", e);
+        }
     }
 }

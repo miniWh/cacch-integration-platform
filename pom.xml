@@ -43,6 +43,7 @@
         <bcrypt.version>0.10.2</bcrypt.version>
         <lombok.version>1.18.36</lombok.version>
         <postgresql.version>42.7.7</postgresql.version>
+        <pdfbox.version>3.0.3</pdfbox.version>
     </properties>
 
     <dependencyManagement>
@@ -133,6 +134,13 @@
                 <groupId>org.postgresql</groupId>
                 <artifactId>postgresql</artifactId>
                 <version>${postgresql.version}</version>
+            </dependency>
+
+            <!-- Apache PDFBox（企微会议纪要 PDF 文本提取） -->
+            <dependency>
+                <groupId>org.apache.pdfbox</groupId>
+                <artifactId>pdfbox</artifactId>
+                <version>${pdfbox.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
