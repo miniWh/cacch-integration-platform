@@ -766,7 +766,7 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
                 && record.getMeetingDate() != null
                 && record.getStartTime() != null) {
             putDateTimeValue(values, mapping, "start_time",
-                    formatSheetDateTime(record.getMeetingDate(), record.getStartTime()));
+                    LocalDateTime.of(record.getMeetingDate(), record.getStartTime()));
         }
         if (changedKeys.contains("duration")) {
             putNumberValue(values, mapping, "duration", record.getDuration());
@@ -895,7 +895,7 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
                 putTextValue(values, mapping, "wecom_meeting_code", meeting.getWecomMeetingCode());
                 if (meeting.getMeetingDate() != null && meeting.getStartTime() != null) {
                     putDateTimeValue(values, mapping, "start_time",
-                            formatSheetDateTime(meeting.getMeetingDate(), meeting.getStartTime()));
+                            LocalDateTime.of(meeting.getMeetingDate(), meeting.getStartTime()));
                 }
             }
         }
@@ -934,13 +934,17 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
     }
 
     private void putDateTimeValue(Map<String, Object> values, Map<String, String> mapping,
-                                  String logicalKey, String dateTime) {
-        if (mapping == null || !StringUtils.hasText(dateTime)) {
+                                  String logicalKey, LocalDateTime dateTime) {
+        if (mapping == null || dateTime == null) {
+            return;
+        }
+        String dateTimeValue = WeComSmartSheetCellAdapter.dateTimeValue(dateTime);
+        if (!StringUtils.hasText(dateTimeValue)) {
             return;
         }
         String fieldTitle = mapping.get(logicalKey);
         if (fieldTitle != null) {
-            values.put(fieldTitle, dateTime);
+            values.put(fieldTitle, dateTimeValue);
         }
     }
 
@@ -975,13 +979,6 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
         if (fieldTitle != null) {
             values.put(fieldTitle, number);
         }
-    }
-
-    private String formatSheetDateTime(LocalDate date, LocalTime time) {
-        if (date == null || time == null) {
-            return null;
-        }
-        return LocalDateTime.of(date, time).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
     }
 
     private String resolveFirstSheetId(WeComGetSheetResponse sheetResponse) {

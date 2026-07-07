@@ -175,6 +175,21 @@ public final class WeComSmartSheetCellAdapter {
     }
 
     /**
+     * 构建日期时间类型单元格值（企微要求以毫秒为单位的 Unix 时间戳字符串）
+     *
+     * @param dateTime 本地日期时间，null 时返回 null
+     * @return 毫秒时间戳字符串
+     */
+    public static String dateTimeValue(java.time.LocalDateTime dateTime) {
+        if (dateTime == null) {
+            return null;
+        }
+        java.time.LocalDateTime truncated = dateTime.truncatedTo(java.time.temporal.ChronoUnit.MINUTES);
+        long epochMilli = truncated.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
+        return String.valueOf(epochMilli);
+    }
+
+    /**
      * 从日期时间列原始值解析为 LocalDateTime（企微返回毫秒时间戳字符串或数字）
      */
     public static java.time.LocalDateTime extractDateTime(Object cellValue) {
