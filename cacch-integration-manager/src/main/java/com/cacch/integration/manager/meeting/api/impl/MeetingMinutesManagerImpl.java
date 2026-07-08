@@ -239,8 +239,8 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
                     continue;
                 }
                 long startTime = fileInfo.getRecordStartTime() != null ? fileInfo.getRecordStartTime() : 0L;
-                files.add(new SessionRecordFile(fileInfo.getRecordFileId(), startTime, transcoding,
-                        meetingRecord.getState(), 0));
+                files.add(new SessionRecordFile(fileInfo.getRecordFileId(), meetingRecord.getMeetingRecordId(),
+                        startTime, transcoding, meetingRecord.getState(), 0));
             }
         }
         return files;
@@ -254,7 +254,8 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
         for (int i = 0; i < sorted.size(); i++) {
             SessionRecordFile file = sorted.get(i);
             indexed.add(new SessionRecordFile(
-                    file.recordFileId(), file.startTime(), file.transcoding(), file.recordState(), i + 1));
+                    file.recordFileId(), file.meetingRecordId(), file.startTime(), file.transcoding(),
+                    file.recordState(), i + 1));
         }
         return indexed;
     }
@@ -279,13 +280,35 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
             return SummaryParseResult.empty();
         }
         log.info("【MeetingMinutes】调用腾讯会议智能纪要, meetingCode={}, meetingTitle={}, meetingId={}, recordId={}, "
-                        + "sessionIndex={}, recordFileId={}, wecomOperatorId={}",
+                        + "sessionIndex={}, meetingRecordId={}, wecomRecordFileId={}, wecomOperatorId={}",
                 resolveMeetingCode(record, info), resolveMeetingTitle(record, info),
-                meetingId, record.getRecordId(), sessionFile.sessionIndex(), sessionFile.recordFileId(), wecomOperatorId);
+                meetingId, record.getRecordId(), sessionFile.sessionIndex(), sessionFile.meetingRecordId(),
+                sessionFile.recordFileId(), wecomOperatorId);
+
+        String txRecordFileId;
+        try {
+            txRecordFileId = tencentMeetingManager.resolveTencentRecordFileId(
+                    sessionFile.meetingRecordId(), sessionFile.recordFileId(), sessionFile.sessionIndex(), wecomOperatorId);
+        } catch (BizException e) {
+            if (e.getMessage() != null && e.getMessage().contains("未找到企微用户对应的腾讯会议 userid")) {
+                log.info("【MeetingMinutes】跳过，企微用户未映射腾讯会议 userid, recordId={}, meetingId={}, "
+                                + "sessionIndex={}, wecomOperatorId={}, reason={}",
+                        record.getRecordId(), meetingId, sessionFile.sessionIndex(), wecomOperatorId, e.getMessage());
+                return SummaryParseResult.empty();
+            }
+            throw e;
+        }
+        if (!StringUtils.hasText(txRecordFileId)) {
+            log.info("【MeetingMinutes】跳过，未解析到腾讯会议 record_file_id, recordId={}, meetingId={}, "
+                            + "sessionIndex={}, meetingRecordId={}, wecomRecordFileId={}",
+                    record.getRecordId(), meetingId, sessionFile.sessionIndex(), sessionFile.meetingRecordId(),
+                    sessionFile.recordFileId());
+            return SummaryParseResult.empty();
+        }
 
         TencentMeetingSmartMinutesResponse response;
         try {
-            response = tencentMeetingManager.getSmartMinutes(sessionFile.recordFileId(), wecomOperatorId);
+            response = tencentMeetingManager.getSmartMinutes(txRecordFileId, wecomOperatorId);
         } catch (BizException e) {
             if (e.getMessage() != null && e.getMessage().contains("未找到企微用户对应的腾讯会议 userid")) {
                 log.info("【MeetingMinutes】跳过，企微用户未映射腾讯会议 userid, recordId={}, meetingId={}, "
@@ -395,7 +418,7 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
                 record.getRecordId(), record.getWecomMeetingId(), reason);
     }
 
-    private record SessionRecordFile(String recordFileId, long startTime, boolean transcoding,
+    private record SessionRecordFile(String recordFileId, String meetingRecordId, long startTime, boolean transcoding,
                                      Integer recordState, int sessionIndex) {
     }
 

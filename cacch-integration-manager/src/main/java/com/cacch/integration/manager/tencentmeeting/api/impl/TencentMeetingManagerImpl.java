@@ -2,6 +2,8 @@ package com.cacch.integration.manager.tencentmeeting.api.impl;
 
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.ResultCode;
+import com.cacch.integration.integration.tencentmeeting.adapter.TencentMeetingRecordFileResolver;
+import com.cacch.integration.integration.tencentmeeting.client.dto.TencentMeetingRecordAddressesResponse;
 import com.cacch.integration.integration.tencentmeeting.client.dto.TencentMeetingSmartMinutesResponse;
 import com.cacch.integration.manager.tencentmeeting.api.ITencentMeetingManager;
 import com.cacch.integration.service.tencentmeeting.api.ITencentMeetingService;
@@ -28,6 +30,31 @@ public class TencentMeetingManagerImpl implements ITencentMeetingManager {
     public TencentMeetingSmartMinutesResponse getSmartMinutes(String recordFileId, String wecomOperatorId) {
         String txOperatorId = resolveTxMeetingUserId(wecomOperatorId);
         return tencentMeetingService.getSmartMinutes(recordFileId, txOperatorId);
+    }
+
+    @Override
+    public String resolveTencentRecordFileId(String meetingRecordId, String wecomRecordFileId, int sessionIndex,
+                                             String wecomOperatorId) {
+        if (!StringUtils.hasText(meetingRecordId)) {
+            log.info("【TencentMeeting】跳过 record_file_id 解析, meetingRecordId 为空, wecomRecordFileId={}",
+                    wecomRecordFileId);
+            return null;
+        }
+        String txOperatorId = resolveTxMeetingUserId(wecomOperatorId);
+        TencentMeetingRecordAddressesResponse addresses =
+                tencentMeetingService.listRecordAddresses(meetingRecordId, txOperatorId);
+        String txRecordFileId = TencentMeetingRecordFileResolver.resolveTencentRecordFileId(
+                addresses, wecomRecordFileId, sessionIndex);
+        if (!StringUtils.hasText(txRecordFileId)) {
+            log.info("【TencentMeeting】未解析到腾讯会议 record_file_id, meetingRecordId={}, wecomRecordFileId={}, "
+                            + "sessionIndex={}",
+                    meetingRecordId, wecomRecordFileId, sessionIndex);
+            return null;
+        }
+        log.info("【TencentMeeting】record_file_id 映射, meetingRecordId={}, wecomRecordFileId={}, "
+                        + "txRecordFileId={}, sessionIndex={}",
+                meetingRecordId, wecomRecordFileId, txRecordFileId, sessionIndex);
+        return txRecordFileId;
     }
 
     /**

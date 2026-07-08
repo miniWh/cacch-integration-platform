@@ -19,6 +19,18 @@ public interface ITencentMeetingManager {
     TencentMeetingSmartMinutesResponse getSmartMinutes(String recordFileId, String wecomOperatorId);
 
     /**
+     * 将企微录制标识解析为腾讯会议 record_file_id
+     *
+     * @param meetingRecordId   企微 meeting_record_id
+     * @param wecomRecordFileId 企微 record_file_id
+     * @param sessionIndex      场次序号（从 1 开始）
+     * @param wecomOperatorId   企微 userid
+     * @return 腾讯会议 record_file_id；无法解析时返回 null
+     */
+    String resolveTencentRecordFileId(String meetingRecordId, String wecomRecordFileId, int sessionIndex,
+                                      String wecomOperatorId);
+
+    /**
      * 将企微 userid 映射为腾讯会议 userid
      *
      * @param wecomUserId 企微 userid

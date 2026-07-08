@@ -1,6 +1,7 @@
 package com.cacch.integration.integration.tencentmeeting.client;
 
 import com.cacch.integration.common.config.tencentmeeting.TencentMeetingProperties;
+import com.cacch.integration.integration.tencentmeeting.client.dto.TencentMeetingRecordAddressesResponse;
 import com.cacch.integration.integration.tencentmeeting.client.dto.TencentMeetingSmartMinutesResponse;
 import com.tencentcloudapi.wemeet.Client;
 import com.tencentcloudapi.wemeet.core.Config;
@@ -48,6 +49,42 @@ public class TencentMeetingClient {
     }
 
     /**
+     * 查询会议录制地址，获取腾讯会议侧 record_file_id
+     *
+     * @param meetingRecordId 会议录制 ID（来自企微 meeting_record_id）
+     * @param operatorId      腾讯会议 userid
+     * @return 录制地址响应
+     */
+    public TencentMeetingRecordAddressesResponse listRecordAddresses(String meetingRecordId, String operatorId)
+            throws ClientException, ServiceException {
+        ensureReady();
+        if (!StringUtils.hasText(meetingRecordId)) {
+            throw new IllegalArgumentException("meetingRecordId 不能为空");
+        }
+        if (!StringUtils.hasText(operatorId)) {
+            throw new IllegalArgumentException("operatorId 不能为空");
+        }
+        log.info("【TencentMeeting】查询录制地址, meetingRecordId={}, operatorId={}", meetingRecordId, operatorId);
+
+        ApiRequest apiReq = new ApiRequest.Builder("/v1/addresses").build();
+        apiReq.getQueryParams().set("meeting_record_id", meetingRecordId);
+        apiReq.getQueryParams().set("operator_id", operatorId);
+        apiReq.getQueryParams().set("operator_id_type", String.valueOf(properties.getOperatorIdType()));
+        apiReq.getAuthenticators().add(Constants.DEFAULT_AUTHENTICATOR);
+        apiReq.getAuthenticators().add(buildJwtAuthenticator());
+
+        ApiResponse apiRsp = executeGet(apiReq);
+        if (apiRsp.getStatusCode() >= 300) {
+            throw new ServiceException(apiRsp);
+        }
+        try {
+            return apiRsp.translate(TencentMeetingRecordAddressesResponse.class, Constants.JSON_SERIALIZER);
+        } catch (Exception e) {
+            throw new ClientException("解析录制地址响应失败", e);
+        }
+    }
+
+    /**
      * 查询单个云录制的智能纪要
      *
      * @param recordFileId 录制文件 ID（来自企微 record/list）
@@ -77,12 +114,7 @@ public class TencentMeetingClient {
         apiReq.getAuthenticators().add(Constants.DEFAULT_AUTHENTICATOR);
         apiReq.getAuthenticators().add(buildJwtAuthenticator());
 
-        ApiResponse apiRsp;
-        try {
-            apiRsp = config.getClt().get(apiReq);
-        } catch (Exception e) {
-            throw new ClientException("调用腾讯会议智能纪要接口失败", e);
-        }
+        ApiResponse apiRsp = executeGet(apiReq);
         if (apiRsp.getStatusCode() >= 300) {
             throw new ServiceException(apiRsp);
         }
@@ -90,6 +122,14 @@ public class TencentMeetingClient {
             return apiRsp.translate(TencentMeetingSmartMinutesResponse.class, Constants.JSON_SERIALIZER);
         } catch (Exception e) {
             throw new ClientException("解析智能纪要响应失败", e);
+        }
+    }
+
+    private ApiResponse executeGet(ApiRequest apiReq) throws ClientException {
+        try {
+            return config.getClt().get(apiReq);
+        } catch (Exception e) {
+            throw new ClientException("调用腾讯会议 API 失败", e);
         }
     }
 
