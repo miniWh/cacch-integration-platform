@@ -1,20 +1,21 @@
 package com.cacch.integration.manager.meeting.api.impl;
 
+import com.cacch.integration.common.config.tencentmeeting.TencentMeetingProperties;
 import com.cacch.integration.common.constant.meeting.MeetingConstants;
 import com.cacch.integration.common.constant.wecom.WeComConstants;
 import com.cacch.integration.common.enums.meeting.MeetingMinutesStatusEnum;
 import com.cacch.integration.common.enums.meeting.MeetingRecordStatusEnum;
 import com.cacch.integration.entity.meeting.MeetingRecordDO;
 import com.cacch.integration.entity.meeting.SmartTableDO;
-import com.cacch.integration.integration.wecom.adapter.MeetingSummaryDocumentExtractor;
+import com.cacch.integration.integration.tencentmeeting.adapter.TencentMeetingSmartMinutesAdapter;
+import com.cacch.integration.integration.tencentmeeting.client.dto.TencentMeetingSmartMinutesResponse;
 import com.cacch.integration.integration.wecom.adapter.MeetingSummaryTodoParser;
 import com.cacch.integration.integration.wecom.client.dto.meeting.WeComGetMeetingInfoResponse;
-import com.cacch.integration.integration.wecom.client.dto.meeting.WeComGetRecordFileResponse;
 import com.cacch.integration.integration.wecom.client.dto.meeting.WeComListRecordResponse;
-import com.cacch.integration.integration.wecom.client.dto.meeting.WeComMeetingSummaryFileInfo;
 import com.cacch.integration.integration.wecom.client.dto.meeting.WeComRecordFileInfo;
 import com.cacch.integration.integration.wecom.client.dto.meeting.WeComRecordMeetingInfo;
 import com.cacch.integration.manager.meeting.api.IMeetingMinutesManager;
+import com.cacch.integration.manager.tencentmeeting.api.ITencentMeetingManager;
 import com.cacch.integration.manager.wecom.api.IWeComMeetingManager;
 import com.cacch.integration.service.meeting.api.ISmartTableService;
 import lombok.RequiredArgsConstructor;
@@ -22,8 +23,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
-import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.client.RestClientException;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -48,6 +47,8 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
 
     private final ISmartTableService smartTableService;
     private final IWeComMeetingManager weComMeetingManager;
+    private final ITencentMeetingManager tencentMeetingManager;
+    private final TencentMeetingProperties tencentMeetingProperties;
     private final MeetingMinutesTxSupport meetingMinutesTxSupport;
 
     @Value("${meeting.sync.minutes-end-buffer-minutes:5}")
@@ -61,6 +62,10 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
         String skipReason = checkEligibility(record);
         if (skipReason != null) {
             logSkip(record, skipReason);
+            return 0;
+        }
+        if (!tencentMeetingProperties.isEnabled()) {
+            logSkip(record, "腾讯会议 API 未启用（tencent-meeting.enabled=false）");
             return 0;
         }
         SmartTableDO table = smartTableService.getById(record.getSmartTableId());
@@ -110,12 +115,12 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
             }
             List<SessionRecordFile> readyFiles = assignSessionIndexes(sessionFiles);
             int sessionCount = readyFiles.size();
-            log.info("【MeetingMinutes】开始解析纪要, recordId={}, meetingId={}, sessionCount={}",
+            log.info("【MeetingMinutes】开始拉取腾讯会议智能纪要, recordId={}, meetingId={}, sessionCount={}",
                     record.getRecordId(), record.getWecomMeetingId(), sessionCount);
             List<String> allTodos = new ArrayList<>();
             StringBuilder rawContent = new StringBuilder();
             for (SessionRecordFile sessionFile : readyFiles) {
-                SummaryParseResult parseResult = fetchTodosFromSummaryFiles(
+                SummaryParseResult parseResult = fetchTodosFromTencentSmartMinutes(
                         record, info, sessionFile, sessionCount);
                 if (StringUtils.hasText(parseResult.content())) {
                     if (!rawContent.isEmpty()) {
@@ -261,87 +266,65 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
                 .atZone(ZoneId.systemDefault()).toEpochSecond();
     }
 
-    private SummaryParseResult fetchTodosFromSummaryFiles(MeetingRecordDO record, WeComGetMeetingInfoResponse info,
-                                                        SessionRecordFile sessionFile, int sessionCount) {
+    private SummaryParseResult fetchTodosFromTencentSmartMinutes(MeetingRecordDO record,
+                                                                 WeComGetMeetingInfoResponse info,
+                                                                 SessionRecordFile sessionFile,
+                                                                 int sessionCount) {
         String meetingId = record.getWecomMeetingId();
-        WeComGetRecordFileResponse fileResponse = weComMeetingManager.getRecordFile(
-                meetingId, sessionFile.recordFileId());
-        List<WeComMeetingSummaryFileInfo> summaryFiles = fileResponse.resolveMeetingSummaryFiles();
-        List<WeComMeetingSummaryFileInfo> transcriptFiles = fileResponse.resolveAiMeetingTranscriptFiles();
-        logSummaryDownloadLinks(record, info, fileResponse, sessionFile, summaryFiles);
-        log.info("【MeetingMinutes】录制文件详情, recordId={}, meetingId={}, sessionIndex={}, recordFileId={}, "
-                        + "summaryFiles={}, transcriptFiles={}",
-                record.getRecordId(), meetingId, sessionFile.sessionIndex(), sessionFile.recordFileId(),
-                describeSummaryFiles(summaryFiles), describeSummaryFiles(transcriptFiles));
-        if (summaryFiles.isEmpty()) {
-            log.info("【MeetingMinutes】跳过，无 meeting_summary 文件, recordId={}, meetingId={}, sessionIndex={}, "
-                            + "recordFileId={}",
+        String operatorId = resolveOperatorId(record);
+        if (!StringUtils.hasText(operatorId)) {
+            log.info("【MeetingMinutes】跳过，无法解析 operatorId, recordId={}, meetingId={}, sessionIndex={}, recordFileId={}",
                     record.getRecordId(), meetingId, sessionFile.sessionIndex(), sessionFile.recordFileId());
             return SummaryParseResult.empty();
         }
-        List<WeComMeetingSummaryFileInfo> candidates = orderSummaryCandidates(summaryFiles);
-        for (WeComMeetingSummaryFileInfo summaryFile : candidates) {
-            if (!isSupportedSummaryType(summaryFile)) {
-                log.info("【MeetingMinutes】跳过不支持的纪要文件类型, recordId={}, meetingId={}, fileType={}",
-                        record.getRecordId(), meetingId, summaryFile.getFileType());
-                continue;
-            }
-            String content = downloadAndExtractSummary(record, meetingId, sessionFile.recordFileId(), summaryFile);
-            if (!StringUtils.hasText(content)) {
-                log.info("【MeetingMinutes】纪要文件内容为空, recordId={}, meetingId={}, fileType={}",
-                        record.getRecordId(), meetingId, summaryFile.getFileType());
-                continue;
-            }
-            if (WeComConstants.MEETING_SUMMARY_FILE_TYPE_TXT.equalsIgnoreCase(summaryFile.getFileType())
-                    && MeetingSummaryDocumentExtractor.isTranscriptLike(content)) {
-                log.info("【MeetingMinutes】跳过 meeting_summary 中的转写 TXT, recordId={}, meetingId={}, "
-                                + "sessionIndex={}, recordFileId={}, contentLength={}",
-                        record.getRecordId(), meetingId, sessionFile.sessionIndex(), sessionFile.recordFileId(),
-                        content.length());
-                continue;
-            }
-            List<String> todos = MeetingSummaryTodoParser.parseTodos(content);
-            if (todos.isEmpty()) {
-                log.info("【MeetingMinutes】纪要文件未解析出待办, recordId={}, meetingId={}, fileType={}, "
-                                + "contentLength={}, preview={}",
-                        record.getRecordId(), meetingId, summaryFile.getFileType(), content.length(),
-                        previewContent(content));
-                continue;
-            }
-            List<String> normalizedTodos = applySessionPrefix(todos, sessionFile.sessionIndex(), sessionCount);
-            log.info("【MeetingMinutes】场次待办解析完成, recordId={}, meetingId={}, sessionIndex={}, fileType={}, "
-                            + "todoCount={}",
-                    record.getRecordId(), meetingId, sessionFile.sessionIndex(), summaryFile.getFileType(),
-                    normalizedTodos.size());
-            return new SummaryParseResult(content, normalizedTodos);
+        log.info("【MeetingMinutes】调用腾讯会议智能纪要, meetingCode={}, meetingTitle={}, meetingId={}, recordId={}, "
+                        + "sessionIndex={}, recordFileId={}, operatorId={}",
+                resolveMeetingCode(record, info), resolveMeetingTitle(record, info),
+                meetingId, record.getRecordId(), sessionFile.sessionIndex(), sessionFile.recordFileId(), operatorId);
+
+        TencentMeetingSmartMinutesResponse response = tencentMeetingManager.getSmartMinutes(
+                sessionFile.recordFileId(), operatorId);
+        if (response == null) {
+            log.info("【MeetingMinutes】智能纪要未就绪, recordId={}, meetingId={}, sessionIndex={}, recordFileId={}",
+                    record.getRecordId(), meetingId, sessionFile.sessionIndex(), sessionFile.recordFileId());
+            return SummaryParseResult.empty();
         }
-        log.info("【MeetingMinutes】全部纪要文件均未解析到待办, recordId={}, meetingId={}, sessionIndex={}, recordFileId={}",
-                record.getRecordId(), meetingId, sessionFile.sessionIndex(), sessionFile.recordFileId());
-        return SummaryParseResult.empty();
+        String minuteText = TencentMeetingSmartMinutesAdapter.resolveMinuteText(response);
+        String todoSource = TencentMeetingSmartMinutesAdapter.resolveTodoSourceText(response);
+        if (!StringUtils.hasText(todoSource)) {
+            log.info("【MeetingMinutes】智能纪要无待办文本, recordId={}, meetingId={}, sessionIndex={}, recordFileId={}, "
+                            + "minutePreview={}",
+                    record.getRecordId(), meetingId, sessionFile.sessionIndex(), sessionFile.recordFileId(),
+                    previewContent(minuteText));
+            return new SummaryParseResult(minuteText, List.of());
+        }
+        List<String> todos = MeetingSummaryTodoParser.parseTodos(todoSource);
+        if (todos.isEmpty()) {
+            log.info("【MeetingMinutes】智能纪要未解析出待办, recordId={}, meetingId={}, sessionIndex={}, recordFileId={}, "
+                            + "todoSourcePreview={}",
+                    record.getRecordId(), meetingId, sessionFile.sessionIndex(), sessionFile.recordFileId(),
+                    previewContent(todoSource));
+            return new SummaryParseResult(minuteText, List.of());
+        }
+        List<String> normalizedTodos = applySessionPrefix(todos, sessionFile.sessionIndex(), sessionCount);
+        log.info("【MeetingMinutes】场次待办解析完成, recordId={}, meetingId={}, sessionIndex={}, source=tencent-smart-minutes, "
+                        + "todoCount={}",
+                record.getRecordId(), meetingId, sessionFile.sessionIndex(), normalizedTodos.size());
+        return new SummaryParseResult(minuteText, normalizedTodos);
     }
 
-    private List<WeComMeetingSummaryFileInfo> orderSummaryCandidates(List<WeComMeetingSummaryFileInfo> summaryFiles) {
-        List<WeComMeetingSummaryFileInfo> ordered = new ArrayList<>();
-        summaryFiles.stream()
-                .filter(file -> WeComConstants.MEETING_SUMMARY_FILE_TYPE_PDF.equalsIgnoreCase(file.getFileType()))
-                .forEach(ordered::add);
-        summaryFiles.stream()
-                .filter(file -> WeComConstants.MEETING_SUMMARY_FILE_TYPE_DOCX.equalsIgnoreCase(file.getFileType()))
-                .forEach(ordered::add);
-        summaryFiles.stream()
-                .filter(file -> WeComConstants.MEETING_SUMMARY_FILE_TYPE_TXT.equalsIgnoreCase(file.getFileType()))
-                .forEach(ordered::add);
-        return ordered;
-    }
-
-    private boolean isSupportedSummaryType(WeComMeetingSummaryFileInfo fileInfo) {
-        if (fileInfo == null || !StringUtils.hasText(fileInfo.getFileType())) {
-            return false;
+    private String resolveOperatorId(MeetingRecordDO record) {
+        if (record.getAttendees() != null) {
+            for (String attendee : record.getAttendees()) {
+                if (StringUtils.hasText(attendee)) {
+                    return attendee.trim();
+                }
+            }
         }
-        String fileType = fileInfo.getFileType().trim();
-        return WeComConstants.MEETING_SUMMARY_FILE_TYPE_PDF.equalsIgnoreCase(fileType)
-                || WeComConstants.MEETING_SUMMARY_FILE_TYPE_DOCX.equalsIgnoreCase(fileType)
-                || WeComConstants.MEETING_SUMMARY_FILE_TYPE_TXT.equalsIgnoreCase(fileType);
+        if (StringUtils.hasText(tencentMeetingProperties.getDefaultOperatorId())) {
+            return tencentMeetingProperties.getDefaultOperatorId().trim();
+        }
+        return null;
     }
 
     private String previewContent(String content) {
@@ -356,37 +339,12 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
         return normalized.substring(0, maxLen) + "...";
     }
 
-    private void logSummaryDownloadLinks(MeetingRecordDO record, WeComGetMeetingInfoResponse info,
-                                         WeComGetRecordFileResponse fileResponse, SessionRecordFile sessionFile,
-                                         List<WeComMeetingSummaryFileInfo> summaryFiles) {
-        String meetingCode = resolveMeetingCode(record, info, fileResponse);
-        String meetingTitle = resolveMeetingTitle(record, info);
-        if (summaryFiles == null || summaryFiles.isEmpty()) {
-            log.info("【MeetingMinutes】纪要下载链接, meetingCode={}, meetingTitle={}, meetingId={}, recordId={}, "
-                            + "sessionIndex={}, recordFileId={}, fileType=none, downloadUrl=none",
-                    meetingCode, meetingTitle, record.getWecomMeetingId(), record.getRecordId(),
-                    sessionFile.sessionIndex(), sessionFile.recordFileId());
-            return;
-        }
-        for (WeComMeetingSummaryFileInfo summaryFile : summaryFiles) {
-            log.info("【MeetingMinutes】纪要下载链接, meetingCode={}, meetingTitle={}, meetingId={}, recordId={}, "
-                            + "sessionIndex={}, recordFileId={}, fileType={}, downloadUrl={}",
-                    meetingCode, meetingTitle, record.getWecomMeetingId(), record.getRecordId(),
-                    sessionFile.sessionIndex(), sessionFile.recordFileId(),
-                    summaryFile.getFileType(), summaryFile.getDownloadAddress());
-        }
-    }
-
-    private String resolveMeetingCode(MeetingRecordDO record, WeComGetMeetingInfoResponse info,
-                                      WeComGetRecordFileResponse fileResponse) {
+    private String resolveMeetingCode(MeetingRecordDO record, WeComGetMeetingInfoResponse info) {
         if (record != null && StringUtils.hasText(record.getWecomMeetingCode())) {
             return record.getWecomMeetingCode();
         }
         if (info != null && StringUtils.hasText(info.getMeetingCode())) {
             return info.getMeetingCode();
-        }
-        if (fileResponse != null && StringUtils.hasText(fileResponse.getMeetingCode())) {
-            return fileResponse.getMeetingCode();
         }
         return "-";
     }
@@ -399,15 +357,6 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
             return info.getTitle();
         }
         return "-";
-    }
-
-    private String describeSummaryFiles(List<WeComMeetingSummaryFileInfo> files) {
-        if (files == null || files.isEmpty()) {
-            return "none";
-        }
-        return files.stream()
-                .map(file -> file.getFileType() != null ? file.getFileType() : "unknown")
-                .collect(Collectors.joining(","));
     }
 
     private List<String> applySessionPrefix(List<String> todos, int sessionIndex, int sessionCount) {
@@ -423,50 +372,6 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
             prefixed.add(todo.startsWith(prefix) ? todo : prefix + todo);
         }
         return prefixed;
-    }
-
-    private String downloadAndExtractSummary(MeetingRecordDO record, String meetingId, String recordFileId,
-                                             WeComMeetingSummaryFileInfo summaryFile) {
-        byte[] bytes = downloadSummaryBytes(record, meetingId, recordFileId, summaryFile);
-        return MeetingSummaryDocumentExtractor.extractText(summaryFile.getFileType(), bytes);
-    }
-
-    /**
-     * 下载纪要文件；403 时重新调用 get_file 获取新签名 URL 后重试一次
-     */
-    private byte[] downloadSummaryBytes(MeetingRecordDO record, String meetingId, String recordFileId,
-                                        WeComMeetingSummaryFileInfo summaryFile) {
-        try {
-            return weComMeetingManager.downloadBytes(summaryFile.getDownloadAddress());
-        } catch (RestClientException e) {
-            if (!(e instanceof HttpClientErrorException.Forbidden)) {
-                throw e;
-            }
-            log.info("【MeetingMinutes】纪要下载403，重新获取下载地址后重试, recordId={}, meetingId={}, recordFileId={}, "
-                            + "fileType={}",
-                    record.getRecordId(), meetingId, recordFileId, summaryFile.getFileType());
-            WeComGetRecordFileResponse refreshed = weComMeetingManager.getRecordFile(meetingId, recordFileId);
-            WeComMeetingSummaryFileInfo refreshedFile = findSameTypeSummaryFile(
-                    refreshed.resolveMeetingSummaryFiles(), summaryFile.getFileType());
-            if (refreshedFile == null || !StringUtils.hasText(refreshedFile.getDownloadAddress())) {
-                log.info("【MeetingMinutes】重试失败，刷新后无可用纪要下载地址, recordId={}, meetingId={}, "
-                                + "recordFileId={}, fileType={}",
-                        record.getRecordId(), meetingId, recordFileId, summaryFile.getFileType());
-                throw e;
-            }
-            return weComMeetingManager.downloadBytes(refreshedFile.getDownloadAddress());
-        }
-    }
-
-    private WeComMeetingSummaryFileInfo findSameTypeSummaryFile(List<WeComMeetingSummaryFileInfo> files,
-                                                                String fileType) {
-        if (files == null || !StringUtils.hasText(fileType)) {
-            return null;
-        }
-        return files.stream()
-                .filter(file -> fileType.equalsIgnoreCase(file.getFileType()))
-                .findFirst()
-                .orElse(null);
     }
 
     private void logSkip(MeetingRecordDO record, String reason) {

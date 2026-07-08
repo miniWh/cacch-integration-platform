@@ -26,7 +26,7 @@ public class MinutesSyncTask {
     private final IWeComWebhookManager weComWebhookManager;
 
     /**
-     * 定时拉取已结束会议的 TXT 智能纪要并解析待办
+     * 定时拉取已结束会议的腾讯会议智能纪要并解析待办
      */
     @Scheduled(cron = "${meeting.sync.minutes-cron:0 */3 * * * ?}")
     public void syncMinutes() {

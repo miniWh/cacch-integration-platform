@@ -33,10 +33,10 @@
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
 
-        <!-- 企微会议纪要 PDF 文本提取 -->
+        <!-- 腾讯会议 OpenAPI SDK（智能纪要等 REST API） -->
         <dependency>
-            <groupId>org.apache.pdfbox</groupId>
-            <artifactId>pdfbox</artifactId>
+            <groupId>com.tencentcloudapi.wemeet</groupId>
+            <artifactId>wemeet-openapi-sdk</artifactId>
         </dependency>
     </dependencies>
 

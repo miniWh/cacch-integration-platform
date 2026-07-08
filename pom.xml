@@ -43,7 +43,7 @@
         <bcrypt.version>0.10.2</bcrypt.version>
         <lombok.version>1.18.36</lombok.version>
         <postgresql.version>42.7.7</postgresql.version>
-        <pdfbox.version>3.0.3</pdfbox.version>
+        <wemeet-openapi-sdk.version>v1.0.12</wemeet-openapi-sdk.version>
     </properties>
 
     <dependencyManagement>
@@ -136,11 +136,11 @@
                 <version>${postgresql.version}</version>
             </dependency>
 
-            <!-- Apache PDFBox（企微会议纪要 PDF 文本提取） -->
+            <!-- 腾讯会议 OpenAPI SDK -->
             <dependency>
-                <groupId>org.apache.pdfbox</groupId>
-                <artifactId>pdfbox</artifactId>
-                <version>${pdfbox.version}</version>
+                <groupId>com.tencentcloudapi.wemeet</groupId>
+                <artifactId>wemeet-openapi-sdk</artifactId>
+                <version>${wemeet-openapi-sdk.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

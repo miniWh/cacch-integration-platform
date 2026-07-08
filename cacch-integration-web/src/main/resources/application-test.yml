@@ -50,8 +50,21 @@ wecom:
   webhook:
     enabled: true
     key: "4432e2bc-1a69-4fc3-945a-5acb52e399c5"
-    mention-mobiles: []
+    mention-mobiles: [ ]
     alert-interval-seconds: 1800
+
+# ---------- 腾讯会议 REST API（智能纪要） ----------
+tencent-meeting:
+  enabled: true
+  app-id: "311670505"
+  sdk-id: "32470112674"
+  secret-id: "fGwpRaVWxDNY1DYuRTki6OFHdMDNyIT3"
+  secret-key: "gEKLMzKjWSRQPr9gZZGEIHZHa6jQBXFlCNMMqtp47YjE3NhC"
+  operator-id-type: 1
+  smart-minutes:
+    text-type: 2
+    llm: 3
+    lang: default
 
 # ---------- Actuator 健康监控 ----------
 management:

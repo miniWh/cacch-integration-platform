@@ -47,6 +47,20 @@ meeting:
     minutes-end-buffer-minutes: 5
     minutes-max-wait-hours: 48
 
+# ==================== 腾讯会议 REST API（智能纪要） ====================
+tencent-meeting:
+  enabled: false
+  app-id: placeholder
+  sdk-id: placeholder
+  secret-id: placeholder
+  secret-key: placeholder
+  operator-id-type: 1
+  default-operator-id:
+  smart-minutes:
+    text-type: 2
+    llm: 3
+    lang: default
+
 # ==================== 企业微信多应用配置（公共占位） ====================
 # 实际值请在 application-{profile}.yml 中覆盖
 # 配置格式：List of App Config，一个 (corpid, app-key) 唯一标识一个 token 槽位
@@ -59,5 +73,5 @@ wecom:
   webhook:
     enabled: false
     key: "4432e2bc-1a69-4fc3-945a-5acb52e399c5"
-    mention-mobiles: []
+    mention-mobiles: [ ]
     alert-interval-seconds: 1800

@@ -1,0 +1,61 @@
+package com.cacch.integration.common.config.tencentmeeting;
+
+import lombok.Getter;
+import lombok.Setter;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+
+/**
+ * 腾讯会议 REST API 配置
+ *
+ * @author hongfu_zhou@cacch.com
+ */
+@Getter
+@Setter
+@ConfigurationProperties(prefix = "tencent-meeting")
+public class TencentMeetingProperties {
+
+    private boolean enabled = false;
+
+    private String appId;
+
+    private String sdkId;
+
+    private String secretId;
+
+    private String secretKey;
+
+    /**
+     * 操作者 ID 类型：1=userid，2=openid
+     */
+    private int operatorIdType = 1;
+
+    /**
+     * 无会议主持人时的兜底 operator_id
+     */
+    private String defaultOperatorId;
+
+    private final SmartMinutes smartMinutes = new SmartMinutes();
+
+    /**
+     * 智能纪要接口参数
+     */
+    @Getter
+    @Setter
+    public static class SmartMinutes {
+
+        /**
+         * 返回文本类型：1=纯文本，2=markdown
+         */
+        private int textType = 2;
+
+        /**
+         * 纪要模型：1=混元，2=DeepSeek，3=元宝纪要（默认）
+         */
+        private int llm = 3;
+
+        /**
+         * 翻译类型：default/zh/en/ja
+         */
+        private String lang = "default";
+    }
+}
