@@ -150,7 +150,8 @@ public class TencentMeetingClient {
         if (!StringUtils.hasText(operatorId)) {
             throw new IllegalArgumentException("operatorId 不能为空");
         }
-        log.info("【TencentMeeting】获取智能纪要, recordFileId={}, operatorId={}", recordFileId, operatorId);
+        log.info("【TencentMeeting】获取智能纪要, recordFileId={}, operatorId={}, llm={}, minuteType={}",
+                recordFileId, operatorId, properties.getSmartMinutes().getLlm(), properties.getSmartMinutes().getMinuteType());
 
         ApiRequest apiReq = new ApiRequest.Builder("/v1/smart/minutes/{record_file_id}").build();
         apiReq.getPathParams().set("record_file_id", recordFileId);
@@ -158,6 +159,7 @@ public class TencentMeetingClient {
         apiReq.getQueryParams().set("operator_id_type", String.valueOf(properties.getOperatorIdType()));
         apiReq.getQueryParams().set("text_type", String.valueOf(properties.getSmartMinutes().getTextType()));
         apiReq.getQueryParams().set("llm", String.valueOf(properties.getSmartMinutes().getLlm()));
+        apiReq.getQueryParams().set("minute_type", String.valueOf(properties.getSmartMinutes().getMinuteType()));
         if (StringUtils.hasText(properties.getSmartMinutes().getLang())) {
             apiReq.getQueryParams().set("lang", properties.getSmartMinutes().getLang());
         }

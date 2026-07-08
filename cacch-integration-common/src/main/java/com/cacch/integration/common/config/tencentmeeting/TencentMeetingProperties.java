@@ -54,9 +54,14 @@ public class TencentMeetingProperties {
         private int textType = 2;
 
         /**
-         * 纪要模型：1=混元，2=DeepSeek，3=元宝纪要（默认）
+         * 纪要模型：1=混元，2=DeepSeek，3=元宝纪要
          */
-        private int llm = 3;
+        private int llm = 1;
+
+        /**
+         * 会议摘要返回类别（llm=1 时生效）：1=按章节，2=按主题，3=按发言人
+         */
+        private int minuteType = 1;
 
         /**
          * 翻译类型：default/zh/en/ja

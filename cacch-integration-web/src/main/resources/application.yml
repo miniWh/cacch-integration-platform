@@ -58,7 +58,8 @@ tencent-meeting:
   default-operator-id:
   smart-minutes:
     text-type: 2
-    llm: 3
+    llm: 1
+    minute-type: 1
     lang: default
 
 # ==================== 企业微信多应用配置（公共占位） ====================
