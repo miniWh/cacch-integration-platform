@@ -80,6 +80,7 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
     private final ISmartTableService smartTableService;
     private final IMeetingRecordService meetingRecordService;
     private final ITodoItemService todoItemService;
+    private final TodoSheetWriteSupport todoSheetWriteSupport;
     private final IWeComSmartSheetManager weComSmartSheetManager;
     private final IWeComDocManager weComDocManager;
     private final IWeComMeetingManager weComMeetingManager;
@@ -176,19 +177,25 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
     @Override
     public void syncTodosToSheet() {
         List<SmartTableDO> meetingTables = smartTableService.listEnabledMeetingTables();
+        int totalPending = 0;
+        int totalSynced = 0;
         for (SmartTableDO table : meetingTables) {
             if (!StringUtils.hasText(table.getTodoSheetId()) || table.getTodoColumnMapping() == null) {
+                log.info("【MeetingSync】跳过待办回写, smartTableId={}, reason=待办子表未配置, todoSheetId={}, "
+                                + "todoColumnMapping={}",
+                        table.getId(), table.getTodoSheetId(), table.getTodoColumnMapping());
                 continue;
             }
-            List<TodoItemDO> todos = todoItemService.listPendingBySmartTableId(table.getId());
-            Map<String, String> todoMapping = ensureTodoColumnMapping(table);
-            for (TodoItemDO todo : todos) {
-                if (StringUtils.hasText(todo.getRecordId())) {
-                    continue;
-                }
-                writeTodoToSheet(table, todoMapping, todo);
+            List<TodoItemDO> todos = todoItemService.listPendingBySmartTableId(table.getId()).stream()
+                    .filter(todo -> !StringUtils.hasText(todo.getRecordId()))
+                    .toList();
+            if (todos.isEmpty()) {
+                continue;
             }
+            totalPending += todos.size();
+            totalSynced += todoSheetWriteSupport.writeTodosToSheet(table, todos);
         }
+        log.info("【MeetingSync】待办回写完成, pending={}, synced={}", totalPending, totalSynced);
     }
 
     @Override
@@ -221,6 +228,7 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
         }
         log.info("【MeetingSync】纪要拉取完成, scanned={}, processed={}, skipped={}, failed={}",
                 scanned, processed, skipped, failed);
+        syncTodosToSheet();
     }
 
     private void provisionEmployeeTable(SmartTableDO master, Map<String, String> mapping, WeComRecordInfo record) {
@@ -829,10 +837,6 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
         return ensureTitleBasedMapping(table, table.getMeetingSheetId(), table.getMeetingColumnMapping(), true);
     }
 
-    private Map<String, String> ensureTodoColumnMapping(SmartTableDO table) {
-        return ensureTitleBasedMapping(table, table.getTodoSheetId(), table.getTodoColumnMapping(), false);
-    }
-
     /**
      * 将历史 fieldId 映射自动解析为列标题并回写 DB，便于用户删列重建后列名不变即可继续同步。
      */
@@ -918,30 +922,6 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
                 .values(values)
                 .build();
         weComSmartSheetManager.updateRecords(table.getDocId(), table.getMeetingSheetId(), List.of(item));
-    }
-
-    private void writeTodoToSheet(SmartTableDO table, Map<String, String> mapping, TodoItemDO todo) {
-        Map<String, Object> values = new HashMap<>();
-        if (todo.getMeetingId() != null) {
-            MeetingRecordDO meeting = meetingRecordService.getById(todo.getMeetingId());
-            if (meeting != null) {
-                putTextValue(values, mapping, "meeting_title", meeting.getMeetingTitle());
-                putTextValue(values, mapping, "wecom_meeting_code", meeting.getWecomMeetingCode());
-                if (meeting.getMeetingDate() != null && meeting.getStartTime() != null) {
-                    putDateTimeValue(values, mapping, "start_time",
-                            LocalDateTime.of(meeting.getMeetingDate(), meeting.getStartTime()));
-                }
-            }
-        }
-        putTextValue(values, mapping, "todo_item", todo.getTodoTitle());
-        putUserValue(values, mapping, "assignee", todo.getAssignee());
-
-        WeComRecordWriteItem item = WeComRecordWriteItem.builder().values(values).build();
-        var response = weComSmartSheetManager.addRecords(table.getDocId(), table.getTodoSheetId(), List.of(item));
-        if (response.getRecords() != null && !response.getRecords().isEmpty()) {
-            todo.setRecordId(response.getRecords().getFirst().getRecordId());
-            todoItemService.updateById(todo);
-        }
     }
 
     private void putTextValue(Map<String, Object> values, Map<String, String> mapping,

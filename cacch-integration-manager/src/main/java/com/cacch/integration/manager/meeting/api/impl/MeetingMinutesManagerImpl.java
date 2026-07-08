@@ -7,6 +7,7 @@ import com.cacch.integration.common.enums.meeting.MeetingMinutesStatusEnum;
 import com.cacch.integration.common.enums.meeting.MeetingRecordStatusEnum;
 import com.cacch.integration.entity.meeting.MeetingRecordDO;
 import com.cacch.integration.entity.meeting.SmartTableDO;
+import com.cacch.integration.entity.meeting.TodoItemDO;
 import com.cacch.integration.integration.tencentmeeting.adapter.TencentMeetingRecordsAdapter;
 import com.cacch.integration.integration.tencentmeeting.adapter.TencentMeetingSmartMinutesAdapter;
 import com.cacch.integration.integration.tencentmeeting.client.dto.TencentMeetingSmartMinutesResponse;
@@ -15,6 +16,7 @@ import com.cacch.integration.manager.meeting.api.IMeetingMinutesManager;
 import com.cacch.integration.manager.tencentmeeting.api.ITencentMeetingManager;
 import com.cacch.integration.manager.tencentmeeting.dto.TencentSessionRecordFile;
 import com.cacch.integration.service.meeting.api.ISmartTableService;
+import com.cacch.integration.service.meeting.api.ITodoItemService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -46,6 +48,8 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
     private final ITencentMeetingManager tencentMeetingManager;
     private final TencentMeetingProperties tencentMeetingProperties;
     private final MeetingMinutesTxSupport meetingMinutesTxSupport;
+    private final TodoSheetWriteSupport todoSheetWriteSupport;
+    private final ITodoItemService todoItemService;
 
     @Value("${meeting.sync.minutes-end-buffer-minutes:5}")
     private int minutesEndBufferMinutes;
@@ -131,6 +135,7 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
             }
             int createdCount = meetingMinutesTxSupport.persistMinutesAndTodos(
                     record, table, rawContent.toString(), allTodos);
+            syncPendingTodosToSheet(record, table);
             log.info("【MeetingMinutes】纪要待办已入库, recordId={}, meetingCode={}, todoCount={}, created={}",
                     record.getRecordId(), resolveMeetingCode(record), allTodos.size(), createdCount);
             return 1;
@@ -324,6 +329,18 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
                         + "todoCount={}",
                 record.getRecordId(), sessionFile.sessionIndex(), normalizedTodos.size());
         return new SummaryParseResult(minuteText, normalizedTodos);
+    }
+
+    private void syncPendingTodosToSheet(MeetingRecordDO record, SmartTableDO table) {
+        List<TodoItemDO> pendingTodos = todoItemService.listByMeetingId(record.getId()).stream()
+                .filter(todo -> !StringUtils.hasText(todo.getRecordId()))
+                .toList();
+        if (pendingTodos.isEmpty()) {
+            return;
+        }
+        int syncedCount = todoSheetWriteSupport.writeTodosToSheet(table, pendingTodos);
+        log.info("【MeetingMinutes】待办回写子表, recordId={}, meetingCode={}, pending={}, synced={}",
+                record.getRecordId(), resolveMeetingCode(record), pendingTodos.size(), syncedCount);
     }
 
     private String resolveWecomOperatorId(MeetingRecordDO record) {
