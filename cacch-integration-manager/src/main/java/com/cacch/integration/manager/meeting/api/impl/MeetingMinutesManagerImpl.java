@@ -7,14 +7,13 @@ import com.cacch.integration.common.enums.meeting.MeetingMinutesStatusEnum;
 import com.cacch.integration.common.enums.meeting.MeetingRecordStatusEnum;
 import com.cacch.integration.entity.meeting.MeetingRecordDO;
 import com.cacch.integration.entity.meeting.SmartTableDO;
+import com.cacch.integration.integration.tencentmeeting.adapter.TencentMeetingRecordsAdapter;
 import com.cacch.integration.integration.tencentmeeting.adapter.TencentMeetingSmartMinutesAdapter;
 import com.cacch.integration.integration.tencentmeeting.client.dto.TencentMeetingSmartMinutesResponse;
 import com.cacch.integration.integration.wecom.adapter.MeetingSummaryTodoParser;
-import com.cacch.integration.integration.wecom.client.dto.meeting.WeComGetMeetingInfoResponse;
 import com.cacch.integration.manager.meeting.api.IMeetingMinutesManager;
 import com.cacch.integration.manager.tencentmeeting.api.ITencentMeetingManager;
 import com.cacch.integration.manager.tencentmeeting.dto.TencentSessionRecordFile;
-import com.cacch.integration.manager.wecom.api.IWeComMeetingManager;
 import com.cacch.integration.service.meeting.api.ISmartTableService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -44,7 +43,6 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
     private static final long SECONDS_PER_DAY = 24 * 60 * 60L;
 
     private final ISmartTableService smartTableService;
-    private final IWeComMeetingManager weComMeetingManager;
     private final ITencentMeetingManager tencentMeetingManager;
     private final TencentMeetingProperties tencentMeetingProperties;
     private final MeetingMinutesTxSupport meetingMinutesTxSupport;
@@ -76,9 +74,8 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
             return 0;
         }
         try {
-            WeComGetMeetingInfoResponse info = weComMeetingManager.getMeetingInfo(record.getWecomMeetingId());
-            if (!isMeetingEnded(info, record)) {
-                Long endEpochSec = resolveMeetingEndEpochSec(info, record);
+            if (!isMeetingEnded(record)) {
+                Long endEpochSec = resolveMeetingEndEpochSec(record);
                 if (endEpochSec == null) {
                     logSkip(record, "无法解析会议结束时间，暂不拉取纪要");
                 } else {
@@ -89,12 +86,12 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
                 }
                 return 0;
             }
-            List<SessionRecordFile> sessionFiles = listSessionFiles(info, record);
+            List<SessionRecordFile> sessionFiles = listSessionFiles(record);
             if (sessionFiles.isEmpty()) {
-                if (shouldStopWaiting(info, record)) {
+                if (shouldStopWaiting(record)) {
                     meetingMinutesTxSupport.finalizeWithoutTodos(record, table, "录制未就绪且已超过等待窗口");
-                    log.info("【MeetingMinutes】等待窗口结束，标记纪要已生成（无待办）, recordId={}, meetingId={}, maxWaitHours={}",
-                            record.getRecordId(), record.getWecomMeetingId(), minutesMaxWaitHours);
+                    log.info("【MeetingMinutes】等待窗口结束，标记纪要已生成（无待办）, recordId={}, meetingCode={}, maxWaitHours={}",
+                            record.getRecordId(), resolveMeetingCode(record), minutesMaxWaitHours);
                     return 1;
                 }
                 logSkip(record, String.format(
@@ -113,13 +110,13 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
             }
             List<SessionRecordFile> readyFiles = assignSessionIndexes(sessionFiles);
             int sessionCount = readyFiles.size();
-            log.info("【MeetingMinutes】开始拉取腾讯会议智能纪要, recordId={}, meetingId={}, sessionCount={}",
-                    record.getRecordId(), record.getWecomMeetingId(), sessionCount);
+            log.info("【MeetingMinutes】开始拉取腾讯会议智能纪要, recordId={}, meetingCode={}, txMeetingId={}, sessionCount={}",
+                    record.getRecordId(), resolveMeetingCode(record), resolveTxMeetingId(record), sessionCount);
             List<String> allTodos = new ArrayList<>();
             StringBuilder rawContent = new StringBuilder();
             for (SessionRecordFile sessionFile : readyFiles) {
                 SummaryParseResult parseResult = fetchTodosFromTencentSmartMinutes(
-                        record, info, sessionFile, sessionCount);
+                        record, sessionFile, sessionCount);
                 if (StringUtils.hasText(parseResult.content())) {
                     if (!rawContent.isEmpty()) {
                         rawContent.append("\n\n");
@@ -129,17 +126,17 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
                 allTodos.addAll(parseResult.todos());
             }
             if (allTodos.isEmpty()) {
-                log.info("【MeetingMinutes】全部场次均未解析到待办, recordId={}, meetingId={}, sessionCount={}",
-                        record.getRecordId(), record.getWecomMeetingId(), sessionCount);
+                log.info("【MeetingMinutes】全部场次均未解析到待办, recordId={}, meetingCode={}, sessionCount={}",
+                        record.getRecordId(), resolveMeetingCode(record), sessionCount);
             }
             int createdCount = meetingMinutesTxSupport.persistMinutesAndTodos(
                     record, table, rawContent.toString(), allTodos);
-            log.info("【MeetingMinutes】纪要待办已入库, recordId={}, meetingId={}, todoCount={}, created={}",
-                    record.getRecordId(), record.getWecomMeetingId(), allTodos.size(), createdCount);
+            log.info("【MeetingMinutes】纪要待办已入库, recordId={}, meetingCode={}, todoCount={}, created={}",
+                    record.getRecordId(), resolveMeetingCode(record), allTodos.size(), createdCount);
             return 1;
         } catch (Exception e) {
-            log.error("【MeetingMinutes】纪要拉取失败, recordId={}, meetingId={}",
-                    record.getRecordId(), record.getWecomMeetingId(), e);
+            log.error("【MeetingMinutes】纪要拉取失败, recordId={}, meetingCode={}, txMeetingId={}",
+                    record.getRecordId(), resolveMeetingCode(record), resolveTxMeetingId(record), e);
             return -1;
         }
     }
@@ -154,11 +151,11 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
         if (!MeetingRecordStatusEnum.SCHEDULED.getCode().equals(record.getStatus())) {
             return "会议状态非已创建(SCHEDULED), status=" + record.getStatus();
         }
-        if (!StringUtils.hasText(record.getWecomMeetingId())) {
-            return "缺少企微会议ID";
-        }
         if (!StringUtils.hasText(record.getRecordId())) {
             return "缺少智能表格行 recordId";
+        }
+        if (!hasTencentMeetingLookupKey(record)) {
+            return "缺少会议号或腾讯 meeting_id";
         }
         String minutesStatus = record.getMinutesStatus();
         if (StringUtils.hasText(minutesStatus)
@@ -168,8 +165,13 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
         return null;
     }
 
-    private boolean isMeetingEnded(WeComGetMeetingInfoResponse info, MeetingRecordDO record) {
-        Long endEpochSec = resolveMeetingEndEpochSec(info, record);
+    private boolean hasTencentMeetingLookupKey(MeetingRecordDO record) {
+        return StringUtils.hasText(record.getWecomMeetingCode())
+                || TencentMeetingRecordsAdapter.isTencentMeetingId(record.getWecomMeetingId());
+    }
+
+    private boolean isMeetingEnded(MeetingRecordDO record) {
+        Long endEpochSec = resolveMeetingEndEpochSec(record);
         if (endEpochSec == null) {
             return false;
         }
@@ -177,8 +179,8 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
         return Instant.now().getEpochSecond() >= endEpochSec + bufferSec;
     }
 
-    private boolean shouldStopWaiting(WeComGetMeetingInfoResponse info, MeetingRecordDO record) {
-        Long endEpochSec = resolveMeetingEndEpochSec(info, record);
+    private boolean shouldStopWaiting(MeetingRecordDO record) {
+        Long endEpochSec = resolveMeetingEndEpochSec(record);
         if (endEpochSec == null) {
             return false;
         }
@@ -186,13 +188,7 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
         return Instant.now().getEpochSecond() >= endEpochSec + maxWaitSec;
     }
 
-    private Long resolveMeetingEndEpochSec(WeComGetMeetingInfoResponse info, MeetingRecordDO record) {
-        if (info.getMeetingEnd() != null && info.getMeetingEnd() > 0) {
-            return info.getMeetingEnd();
-        }
-        if (info.getMeetingStart() != null && info.getMeetingDuration() != null && info.getMeetingDuration() > 0) {
-            return info.getMeetingStart() + info.getMeetingDuration();
-        }
+    private Long resolveMeetingEndEpochSec(MeetingRecordDO record) {
         if (record.getMeetingDate() != null && record.getStartTime() != null && record.getDuration() != null) {
             LocalDateTime start = LocalDateTime.of(record.getMeetingDate(), record.getStartTime());
             return start.plusMinutes(record.getDuration()).atZone(ZoneId.systemDefault()).toEpochSecond();
@@ -200,25 +196,23 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
         return null;
     }
 
-    private List<SessionRecordFile> listSessionFiles(WeComGetMeetingInfoResponse info, MeetingRecordDO record) {
-        String meetingCode = resolveMeetingCode(record, info);
-        if (!StringUtils.hasText(meetingCode) || "-".equals(meetingCode)) {
-            log.info("【MeetingMinutes】缺少会议号，无法查询腾讯录制, recordId={}, meetingId={}",
-                    record.getRecordId(), record.getWecomMeetingId());
+    private List<SessionRecordFile> listSessionFiles(MeetingRecordDO record) {
+        String meetingCode = resolveMeetingCode(record);
+        String txMeetingId = resolveTxMeetingId(record);
+        if (!hasTencentMeetingLookupKey(record)) {
+            log.info("【MeetingMinutes】缺少会议号/腾讯 meeting_id，无法查询腾讯录制, recordId={}",
+                    record.getRecordId());
             return List.of();
         }
         String wecomOperatorId = resolveWecomOperatorId(record);
         if (!StringUtils.hasText(wecomOperatorId)) {
-            log.info("【MeetingMinutes】无法解析 operatorId，无法查询腾讯录制, recordId={}, meetingId={}, meetingCode={}",
-                    record.getRecordId(), record.getWecomMeetingId(), meetingCode);
+            log.info("【MeetingMinutes】无法解析 operatorId，无法查询腾讯录制, recordId={}, meetingCode={}, txMeetingId={}",
+                    record.getRecordId(), meetingCode, txMeetingId);
             return List.of();
         }
 
         long endSec = Instant.now().getEpochSecond();
-        Long meetingStartSec = info.getMeetingStart();
-        long startSec = meetingStartSec != null && meetingStartSec > 0
-                ? meetingStartSec - SECONDS_PER_DAY
-                : resolveLocalStartEpochSec(record) - SECONDS_PER_DAY;
+        long startSec = resolveLocalStartEpochSec(record) - SECONDS_PER_DAY;
         if (startSec < 0) {
             startSec = 0;
         }
@@ -229,20 +223,20 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
         List<TencentSessionRecordFile> txFiles;
         try {
             txFiles = tencentMeetingManager.listSessionRecordFiles(
-                    meetingCode, startSec, endSec, wecomOperatorId);
+                    meetingCode, txMeetingId, startSec, endSec, wecomOperatorId);
         } catch (BizException e) {
             if (e.getMessage() != null && e.getMessage().contains("未找到企微用户对应的腾讯会议 userid")) {
-                log.info("【MeetingMinutes】跳过，企微用户未映射腾讯会议 userid, recordId={}, meetingId={}, meetingCode={}, "
+                log.info("【MeetingMinutes】跳过，企微用户未映射腾讯会议 userid, recordId={}, meetingCode={}, txMeetingId={}, "
                                 + "wecomOperatorId={}, reason={}",
-                        record.getRecordId(), record.getWecomMeetingId(), meetingCode, wecomOperatorId, e.getMessage());
+                        record.getRecordId(), meetingCode, txMeetingId, wecomOperatorId, e.getMessage());
                 return List.of();
             }
             throw e;
         }
         if (txFiles.isEmpty()) {
-            log.info("【MeetingMinutes】腾讯录制列表查询无结果, recordId={}, meetingId={}, meetingCode={}, "
+            log.info("【MeetingMinutes】腾讯录制列表查询无结果, recordId={}, meetingCode={}, txMeetingId={}, "
                             + "startEpochSec={}, endEpochSec={}",
-                    record.getRecordId(), record.getWecomMeetingId(), meetingCode, startSec, endSec);
+                    record.getRecordId(), meetingCode, txMeetingId, startSec, endSec);
             return List.of();
         }
         List<SessionRecordFile> files = new ArrayList<>(txFiles.size());
@@ -276,20 +270,18 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
     }
 
     private SummaryParseResult fetchTodosFromTencentSmartMinutes(MeetingRecordDO record,
-                                                                 WeComGetMeetingInfoResponse info,
                                                                  SessionRecordFile sessionFile,
                                                                  int sessionCount) {
-        String meetingId = record.getWecomMeetingId();
         String wecomOperatorId = resolveWecomOperatorId(record);
         if (!StringUtils.hasText(wecomOperatorId)) {
-            log.info("【MeetingMinutes】跳过，无法解析企微 operatorId, recordId={}, meetingId={}, sessionIndex={}, recordFileId={}",
-                    record.getRecordId(), meetingId, sessionFile.sessionIndex(), sessionFile.recordFileId());
+            log.info("【MeetingMinutes】跳过，无法解析企微 operatorId, recordId={}, sessionIndex={}, recordFileId={}",
+                    record.getRecordId(), sessionFile.sessionIndex(), sessionFile.recordFileId());
             return SummaryParseResult.empty();
         }
-        log.info("【MeetingMinutes】调用腾讯会议智能纪要, meetingCode={}, meetingTitle={}, meetingId={}, recordId={}, "
+        log.info("【MeetingMinutes】调用腾讯会议智能纪要, meetingCode={}, meetingTitle={}, txMeetingId={}, recordId={}, "
                         + "sessionIndex={}, txRecordFileId={}, wecomOperatorId={}",
-                resolveMeetingCode(record, info), resolveMeetingTitle(record, info),
-                meetingId, record.getRecordId(), sessionFile.sessionIndex(),
+                resolveMeetingCode(record), resolveMeetingTitle(record), resolveTxMeetingId(record),
+                record.getRecordId(), sessionFile.sessionIndex(),
                 sessionFile.recordFileId(), wecomOperatorId);
 
         TencentMeetingSmartMinutesResponse response;
@@ -297,40 +289,40 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
             response = tencentMeetingManager.getSmartMinutes(sessionFile.recordFileId(), wecomOperatorId);
         } catch (BizException e) {
             if (e.getMessage() != null && e.getMessage().contains("未找到企微用户对应的腾讯会议 userid")) {
-                log.info("【MeetingMinutes】跳过，企微用户未映射腾讯会议 userid, recordId={}, meetingId={}, "
-                                + "sessionIndex={}, recordFileId={}, wecomOperatorId={}, reason={}",
-                        record.getRecordId(), meetingId, sessionFile.sessionIndex(), sessionFile.recordFileId(),
+                log.info("【MeetingMinutes】跳过，企微用户未映射腾讯会议 userid, recordId={}, sessionIndex={}, "
+                                + "recordFileId={}, wecomOperatorId={}, reason={}",
+                        record.getRecordId(), sessionFile.sessionIndex(), sessionFile.recordFileId(),
                         wecomOperatorId, e.getMessage());
                 return SummaryParseResult.empty();
             }
             throw e;
         }
         if (response == null) {
-            log.info("【MeetingMinutes】智能纪要未就绪, recordId={}, meetingId={}, sessionIndex={}, recordFileId={}",
-                    record.getRecordId(), meetingId, sessionFile.sessionIndex(), sessionFile.recordFileId());
+            log.info("【MeetingMinutes】智能纪要未就绪, recordId={}, sessionIndex={}, recordFileId={}",
+                    record.getRecordId(), sessionFile.sessionIndex(), sessionFile.recordFileId());
             return SummaryParseResult.empty();
         }
         String minuteText = TencentMeetingSmartMinutesAdapter.resolveMinuteText(response);
         String todoSource = TencentMeetingSmartMinutesAdapter.resolveTodoSourceText(response);
         if (!StringUtils.hasText(todoSource)) {
-            log.info("【MeetingMinutes】智能纪要无待办文本, recordId={}, meetingId={}, sessionIndex={}, recordFileId={}, "
+            log.info("【MeetingMinutes】智能纪要无待办文本, recordId={}, sessionIndex={}, recordFileId={}, "
                             + "minutePreview={}",
-                    record.getRecordId(), meetingId, sessionFile.sessionIndex(), sessionFile.recordFileId(),
+                    record.getRecordId(), sessionFile.sessionIndex(), sessionFile.recordFileId(),
                     previewContent(minuteText));
             return new SummaryParseResult(minuteText, List.of());
         }
         List<String> todos = MeetingSummaryTodoParser.parseTodos(todoSource);
         if (todos.isEmpty()) {
-            log.info("【MeetingMinutes】智能纪要未解析出待办, recordId={}, meetingId={}, sessionIndex={}, recordFileId={}, "
+            log.info("【MeetingMinutes】智能纪要未解析出待办, recordId={}, sessionIndex={}, recordFileId={}, "
                             + "todoSourcePreview={}",
-                    record.getRecordId(), meetingId, sessionFile.sessionIndex(), sessionFile.recordFileId(),
+                    record.getRecordId(), sessionFile.sessionIndex(), sessionFile.recordFileId(),
                     previewContent(todoSource));
             return new SummaryParseResult(minuteText, List.of());
         }
         List<String> normalizedTodos = applySessionPrefix(todos, sessionFile.sessionIndex(), sessionCount);
-        log.info("【MeetingMinutes】场次待办解析完成, recordId={}, meetingId={}, sessionIndex={}, source=tencent-smart-minutes, "
+        log.info("【MeetingMinutes】场次待办解析完成, recordId={}, sessionIndex={}, source=tencent-smart-minutes, "
                         + "todoCount={}",
-                record.getRecordId(), meetingId, sessionFile.sessionIndex(), normalizedTodos.size());
+                record.getRecordId(), sessionFile.sessionIndex(), normalizedTodos.size());
         return new SummaryParseResult(minuteText, normalizedTodos);
     }
 
@@ -360,22 +352,23 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
         return normalized.substring(0, maxLen) + "...";
     }
 
-    private String resolveMeetingCode(MeetingRecordDO record, WeComGetMeetingInfoResponse info) {
+    private String resolveMeetingCode(MeetingRecordDO record) {
         if (record != null && StringUtils.hasText(record.getWecomMeetingCode())) {
-            return record.getWecomMeetingCode();
+            return TencentMeetingRecordsAdapter.normalizeMeetingCode(record.getWecomMeetingCode());
         }
-        if (info != null && StringUtils.hasText(info.getMeetingCode())) {
-            return info.getMeetingCode();
-        }
-        return "-";
+        return null;
     }
 
-    private String resolveMeetingTitle(MeetingRecordDO record, WeComGetMeetingInfoResponse info) {
+    private String resolveTxMeetingId(MeetingRecordDO record) {
+        if (record != null && TencentMeetingRecordsAdapter.isTencentMeetingId(record.getWecomMeetingId())) {
+            return record.getWecomMeetingId().trim();
+        }
+        return null;
+    }
+
+    private String resolveMeetingTitle(MeetingRecordDO record) {
         if (record != null && StringUtils.hasText(record.getMeetingTitle())) {
             return record.getMeetingTitle();
-        }
-        if (info != null && StringUtils.hasText(info.getTitle())) {
-            return info.getTitle();
         }
         return "-";
     }
@@ -400,8 +393,8 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
             log.info("【MeetingMinutes】跳过纪要拉取, reason={}", reason);
             return;
         }
-        log.info("【MeetingMinutes】跳过纪要拉取, recordId={}, meetingId={}, reason={}",
-                record.getRecordId(), record.getWecomMeetingId(), reason);
+        log.info("【MeetingMinutes】跳过纪要拉取, recordId={}, meetingCode={}, txMeetingId={}, reason={}",
+                record.getRecordId(), resolveMeetingCode(record), resolveTxMeetingId(record), reason);
     }
 
     private record SessionRecordFile(String recordFileId, long startTimeMs, boolean transcoding,

@@ -32,28 +32,48 @@ public class TencentMeetingManagerImpl implements ITencentMeetingManager {
     private final ITencentMeetingUserMappingService tencentMeetingUserMappingService;
 
     @Override
-    public List<TencentSessionRecordFile> listSessionRecordFiles(String meetingCode, long startTimeSec,
-                                                                 long endTimeSec, String wecomOperatorId) {
+    public List<TencentSessionRecordFile> listSessionRecordFiles(String meetingCode, String txMeetingId,
+                                                                 long startTimeSec, long endTimeSec,
+                                                                 String wecomOperatorId) {
         String normalizedMeetingCode = TencentMeetingRecordsAdapter.normalizeMeetingCode(meetingCode);
-        if (!StringUtils.hasText(normalizedMeetingCode)) {
-            log.info("【TencentMeeting】会议号为空，无法查询录制列表");
+        String normalizedTxMeetingId = StringUtils.hasText(txMeetingId) ? txMeetingId.trim() : null;
+        if (!StringUtils.hasText(normalizedMeetingCode)
+                && !TencentMeetingRecordsAdapter.isTencentMeetingId(normalizedTxMeetingId)) {
+            log.info("【TencentMeeting】会议号和 meeting_id 均为空，无法查询录制列表");
             return List.of();
         }
         String txOperatorId = resolveTxMeetingUserId(wecomOperatorId);
 
-        TencentMeetingQueryResponse meetingResponse =
-                tencentMeetingService.getMeetingByCode(normalizedMeetingCode, txOperatorId);
-        String meetingId = TencentMeetingRecordsAdapter.resolveMeetingId(meetingResponse, normalizedMeetingCode);
+        String meetingId = resolveTencentMeetingId(normalizedMeetingCode, normalizedTxMeetingId, txOperatorId);
         if (!StringUtils.hasText(meetingId)) {
-            log.info("【TencentMeeting】通过会议号未查询到 meeting_id, meetingCode={}", normalizedMeetingCode);
+            log.info("【TencentMeeting】未解析到 meeting_id, meetingCode={}, txMeetingId={}",
+                    normalizedMeetingCode, normalizedTxMeetingId);
             return List.of();
         }
-        log.info("【TencentMeeting】会议号映射 meeting_id, meetingCode={}, meetingId={}",
+        log.info("【TencentMeeting】查询录制列表, meetingCode={}, meetingId={}",
                 normalizedMeetingCode, meetingId);
 
         TencentMeetingRecordsResponse recordsResponse = tencentMeetingService.listRecords(
                 meetingId, normalizedMeetingCode, startTimeSec, endTimeSec, txOperatorId);
         return toSessionRecordFiles(recordsResponse);
+    }
+
+    private String resolveTencentMeetingId(String meetingCode, String txMeetingId, String txOperatorId) {
+        if (TencentMeetingRecordsAdapter.isTencentMeetingId(txMeetingId)) {
+            log.info("【TencentMeeting】使用已有 meeting_id, meetingId={}", txMeetingId);
+            return txMeetingId;
+        }
+        if (!StringUtils.hasText(meetingCode)) {
+            return null;
+        }
+        TencentMeetingQueryResponse meetingResponse =
+                tencentMeetingService.getMeetingByCode(meetingCode, txOperatorId);
+        String meetingId = TencentMeetingRecordsAdapter.resolveMeetingId(meetingResponse, meetingCode);
+        if (StringUtils.hasText(meetingId)) {
+            log.info("【TencentMeeting】会议号映射 meeting_id, meetingCode={}, meetingId={}",
+                    meetingCode, meetingId);
+        }
+        return meetingId;
     }
 
     @Override

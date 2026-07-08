@@ -55,6 +55,13 @@ class TencentMeetingRecordsAdapterTest {
     }
 
     @Test
+    void isTencentMeetingId() {
+        assertTrue(TencentMeetingRecordsAdapter.isTencentMeetingId("13249031592854508695"));
+        assertFalse(TencentMeetingRecordsAdapter.isTencentMeetingId("hy7eCtkGAAFYJxoYuwCBH1dgPK7L1_kO"));
+        assertFalse(TencentMeetingRecordsAdapter.isTencentMeetingId(null));
+    }
+
+    @Test
     void isTranscoding() {
         assertTrue(TencentMeetingRecordsAdapter.isTranscoding(2));
         assertFalse(TencentMeetingRecordsAdapter.isTranscoding(3));

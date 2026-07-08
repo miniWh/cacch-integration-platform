@@ -81,6 +81,28 @@ public final class TencentMeetingRecordsAdapter {
     }
 
     /**
+     * 判断是否为腾讯会议 meeting_id（纯数字长 ID）
+     *
+     * @param meetingId 会议 ID
+     * @return true 表示符合腾讯 meeting_id 格式
+     */
+    public static boolean isTencentMeetingId(String meetingId) {
+        if (!StringUtils.hasText(meetingId)) {
+            return false;
+        }
+        String normalized = meetingId.trim();
+        if (normalized.length() < 10) {
+            return false;
+        }
+        for (int i = 0; i < normalized.length(); i++) {
+            if (!Character.isDigit(normalized.charAt(i))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
      * 规范化会议号：去除空格和连字符
      *
      * @param meetingCode 原始会议号
