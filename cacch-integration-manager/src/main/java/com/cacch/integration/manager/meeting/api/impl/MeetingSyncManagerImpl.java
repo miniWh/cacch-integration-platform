@@ -228,7 +228,6 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
         }
         log.info("【MeetingSync】纪要拉取完成, scanned={}, processed={}, skipped={}, failed={}",
                 scanned, processed, skipped, failed);
-        syncTodosToSheet();
     }
 
     private void provisionEmployeeTable(SmartTableDO master, Map<String, String> mapping, WeComRecordInfo record) {

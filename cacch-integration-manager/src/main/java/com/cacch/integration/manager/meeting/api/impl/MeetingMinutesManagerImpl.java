@@ -93,23 +93,31 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
             List<SessionRecordFile> sessionFiles = listSessionFiles(record);
             if (sessionFiles.isEmpty()) {
                 if (shouldStopWaiting(record)) {
-                    meetingMinutesTxSupport.finalizeWithoutTodos(record, table, "录制未就绪且已超过等待窗口");
-                    log.info("【MeetingMinutes】等待窗口结束，标记纪要已生成（无待办）, recordId={}, meetingCode={}, maxWaitHours={}",
+                    meetingMinutesTxSupport.markMinutesNotObtained(record, table, "录制未就绪且已超过等待窗口");
+                    log.info("【MeetingMinutes】等待窗口结束，未获取到纪要, recordId={}, meetingCode={}, maxWaitHours={}",
                             record.getRecordId(), resolveMeetingCode(record), minutesMaxWaitHours);
                     return 1;
                 }
                 logSkip(record, String.format(
                         "腾讯录制列表为空，继续等待, maxWaitHours=%d", minutesMaxWaitHours));
+                markMinutesPending(record, table, "腾讯录制列表为空");
                 return 0;
             }
             List<SessionRecordFile> transcodingFiles = sessionFiles.stream()
                     .filter(SessionRecordFile::transcoding)
                     .toList();
             if (!transcodingFiles.isEmpty()) {
+                if (shouldStopWaiting(record)) {
+                    meetingMinutesTxSupport.markMinutesNotObtained(record, table, "录制转码超时");
+                    log.info("【MeetingMinutes】等待窗口结束，录制仍在转码, recordId={}, meetingCode={}, transcodingCount={}",
+                            record.getRecordId(), resolveMeetingCode(record), transcodingFiles.size());
+                    return 1;
+                }
                 logSkip(record, String.format(
                         "存在转码中的录制, transcodingCount=%d, recordFileIds=%s",
                         transcodingFiles.size(),
                         transcodingFiles.stream().map(SessionRecordFile::recordFileId).collect(Collectors.joining(","))));
+                markMinutesPending(record, table, "录制转码中");
                 return 0;
             }
             List<SessionRecordFile> readyFiles = assignSessionIndexes(sessionFiles);
@@ -132,6 +140,17 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
             if (allTodos.isEmpty()) {
                 log.info("【MeetingMinutes】全部场次均未解析到待办, recordId={}, meetingCode={}, sessionCount={}",
                         record.getRecordId(), resolveMeetingCode(record), sessionCount);
+            }
+            if (!StringUtils.hasText(rawContent.toString())) {
+                if (shouldStopWaiting(record)) {
+                    meetingMinutesTxSupport.markMinutesNotObtained(record, table, "智能纪要未生成且已超过等待窗口");
+                    log.info("【MeetingMinutes】等待窗口结束，未获取到智能纪要, recordId={}, meetingCode={}",
+                            record.getRecordId(), resolveMeetingCode(record));
+                    return 1;
+                }
+                logSkip(record, String.format("智能纪要未就绪，继续等待, maxWaitHours=%d", minutesMaxWaitHours));
+                markMinutesPending(record, table, "智能纪要未就绪");
+                return 0;
             }
             int createdCount = meetingMinutesTxSupport.persistMinutesAndTodos(
                     record, table, rawContent.toString(), allTodos);
@@ -164,8 +183,9 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
         }
         String minutesStatus = record.getMinutesStatus();
         if (StringUtils.hasText(minutesStatus)
-                && !MeetingMinutesStatusEnum.NONE.getCode().equals(minutesStatus)) {
-            return "纪要状态非空/无, minutesStatus=" + minutesStatus;
+                && !MeetingMinutesStatusEnum.NONE.getCode().equals(minutesStatus)
+                && !MeetingMinutesStatusEnum.PENDING.getCode().equals(minutesStatus)) {
+            return "纪要状态非无/待解析, minutesStatus=" + minutesStatus;
         }
         return null;
     }
@@ -403,6 +423,10 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
             prefixed.add(todo.startsWith(prefix) ? todo : prefix + todo);
         }
         return prefixed;
+    }
+
+    private void markMinutesPending(MeetingRecordDO record, SmartTableDO table, String reason) {
+        meetingMinutesTxSupport.markMinutesPending(record, table, reason);
     }
 
     private void logSkip(MeetingRecordDO record, String reason) {

@@ -42,6 +42,23 @@ public interface ITodoItemService {
     void updateById(TodoItemDO todoItem);
 
     /**
+     * 按主键查询待办
+     *
+     * @param id 待办主键
+     * @return 待办实体；不存在时返回 null
+     */
+    TodoItemDO getById(Long id);
+
+    /**
+     * 在 recordId 仍为空时写入子表 recordId，用于防重复回写
+     *
+     * @param id       待办主键
+     * @param recordId 智能表格行 recordId
+     * @return 更新成功时返回 true
+     */
+    boolean updateRecordIdIfAbsent(Long id, String recordId);
+
+    /**
      * 判断会议下是否已存在相同标题的待办（用于纪要解析去重）
      *
      * @param meetingId 会议记录主键

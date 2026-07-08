@@ -1,6 +1,7 @@
 package com.cacch.integration.service.meeting.api.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.cacch.integration.common.enums.meeting.TodoStatusEnum;
 import com.cacch.integration.entity.meeting.TodoItemDO;
 import com.cacch.integration.mapper.meeting.TodoItemMapper;
@@ -68,6 +69,39 @@ public class TodoItemServiceImpl implements ITodoItemService {
     )
     public void updateById(TodoItemDO todoItem) {
         todoItemMapper.updateById(todoItem);
+    }
+
+    @Override
+    @Transactional(
+            rollbackFor = Exception.class,
+            propagation = Propagation.SUPPORTS,
+            readOnly = true,
+            timeout = 10
+    )
+    public TodoItemDO getById(Long id) {
+        if (id == null) {
+            return null;
+        }
+        return todoItemMapper.selectById(id);
+    }
+
+    @Override
+    @Transactional(
+            rollbackFor = Exception.class,
+            propagation = Propagation.REQUIRED,
+            readOnly = false,
+            timeout = 30
+    )
+    public boolean updateRecordIdIfAbsent(Long id, String recordId) {
+        if (id == null || recordId == null || recordId.isBlank()) {
+            return false;
+        }
+        return todoItemMapper.update(null, new LambdaUpdateWrapper<TodoItemDO>()
+                .eq(TodoItemDO::getId, id)
+                .and(wrapper -> wrapper.isNull(TodoItemDO::getRecordId)
+                        .or()
+                        .eq(TodoItemDO::getRecordId, ""))
+                .set(TodoItemDO::getRecordId, recordId.trim())) > 0;
     }
 
     @Override

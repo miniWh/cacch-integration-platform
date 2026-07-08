@@ -4,6 +4,7 @@ import com.cacch.integration.entity.meeting.MeetingRecordDO;
 import com.cacch.integration.entity.meeting.SmartTableDO;
 import com.cacch.integration.entity.meeting.TodoItemDO;
 import com.cacch.integration.integration.wecom.adapter.WeComSmartSheetCellAdapter;
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComAddRecordsResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComFieldInfo;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComGetFieldsResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComRecordWriteItem;
@@ -59,9 +60,6 @@ class TodoSheetWriteSupport {
         }
         int synced = 0;
         for (TodoItemDO todo : todos) {
-            if (StringUtils.hasText(todo.getRecordId())) {
-                continue;
-            }
             if (writeTodoToSheet(table, mapping, todo)) {
                 synced++;
             }
@@ -80,9 +78,20 @@ class TodoSheetWriteSupport {
     }
 
     private boolean writeTodoToSheet(SmartTableDO table, Map<String, String> mapping, TodoItemDO todo) {
+        TodoItemDO latest = todoItemService.getById(todo.getId());
+        if (latest == null) {
+            log.info("【TodoSheet】跳过待办回写, todoId={}, reason=待办不存在", todo.getId());
+            return false;
+        }
+        if (StringUtils.hasText(latest.getRecordId())) {
+            log.info("【TodoSheet】跳过待办回写, todoId={}, reason=已同步, sheetRecordId={}",
+                    latest.getId(), latest.getRecordId());
+            return false;
+        }
+
         Map<String, Object> values = new HashMap<>();
-        if (todo.getMeetingId() != null) {
-            MeetingRecordDO meeting = meetingRecordService.getById(todo.getMeetingId());
+        if (latest.getMeetingId() != null) {
+            MeetingRecordDO meeting = meetingRecordService.getById(latest.getMeetingId());
             if (meeting != null) {
                 putTextValue(values, mapping, "meeting_title", meeting.getMeetingTitle());
                 putTextValue(values, mapping, "wecom_meeting_code", meeting.getWecomMeetingCode());
@@ -92,25 +101,36 @@ class TodoSheetWriteSupport {
                 }
             }
         }
-        putTextValue(values, mapping, "todo_item", todo.getTodoTitle());
-        putUserValue(values, mapping, "assignee", todo.getAssignee());
+        putTextValue(values, mapping, "todo_item", latest.getTodoTitle());
+        putUserValue(values, mapping, "assignee", latest.getAssignee());
         if (values.isEmpty()) {
-            log.info("【TodoSheet】跳过待办回写, todoId={}, reason=无有效单元格值", todo.getId());
+            log.info("【TodoSheet】跳过待办回写, todoId={}, reason=无有效单元格值", latest.getId());
             return false;
         }
 
         WeComRecordWriteItem item = WeComRecordWriteItem.builder().values(values).build();
         var response = weComSmartSheetManager.addRecords(table.getDocId(), table.getTodoSheetId(), List.of(item));
-        if (response.getRecords() != null && !response.getRecords().isEmpty()) {
-            todo.setRecordId(response.getRecords().getFirst().getRecordId());
-            todoItemService.updateById(todo);
-            log.info("【TodoSheet】待办已写入子表, smartTableId={}, todoId={}, sheetRecordId={}, todoTitle={}",
-                    table.getId(), todo.getId(), todo.getRecordId(), todo.getTodoTitle());
-            return true;
+        String sheetRecordId = resolveSheetRecordId(response);
+        if (!StringUtils.hasText(sheetRecordId)) {
+            log.warn("【TodoSheet】待办写入子表无返回 recordId, smartTableId={}, todoId={}, todoTitle={}",
+                    table.getId(), latest.getId(), latest.getTodoTitle());
+            return false;
         }
-        log.warn("【TodoSheet】待办写入子表无返回 recordId, smartTableId={}, todoId={}, todoTitle={}",
-                table.getId(), todo.getId(), todo.getTodoTitle());
-        return false;
+        if (!todoItemService.updateRecordIdIfAbsent(latest.getId(), sheetRecordId)) {
+            log.info("【TodoSheet】待办已被其他流程同步, todoId={}, sheetRecordId={}",
+                    latest.getId(), sheetRecordId);
+            return false;
+        }
+        log.info("【TodoSheet】待办已写入子表, smartTableId={}, todoId={}, sheetRecordId={}, todoTitle={}",
+                table.getId(), latest.getId(), sheetRecordId, latest.getTodoTitle());
+        return true;
+    }
+
+    private String resolveSheetRecordId(WeComAddRecordsResponse response) {
+        if (response == null || response.getRecords() == null || response.getRecords().isEmpty()) {
+            return null;
+        }
+        return response.getRecords().getFirst().getRecordId();
     }
 
     private Map<String, String> resolveTodoColumnMapping(SmartTableDO table) {
