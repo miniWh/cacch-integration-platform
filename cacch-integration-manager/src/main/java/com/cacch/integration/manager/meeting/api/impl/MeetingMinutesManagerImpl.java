@@ -1,5 +1,6 @@
 package com.cacch.integration.manager.meeting.api.impl;
 
+import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.config.tencentmeeting.TencentMeetingProperties;
 import com.cacch.integration.common.constant.meeting.MeetingConstants;
 import com.cacch.integration.common.constant.wecom.WeComConstants;
@@ -271,19 +272,30 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
                                                                  SessionRecordFile sessionFile,
                                                                  int sessionCount) {
         String meetingId = record.getWecomMeetingId();
-        String operatorId = resolveOperatorId(record);
-        if (!StringUtils.hasText(operatorId)) {
-            log.info("【MeetingMinutes】跳过，无法解析 operatorId, recordId={}, meetingId={}, sessionIndex={}, recordFileId={}",
+        String wecomOperatorId = resolveWecomOperatorId(record);
+        if (!StringUtils.hasText(wecomOperatorId)) {
+            log.info("【MeetingMinutes】跳过，无法解析企微 operatorId, recordId={}, meetingId={}, sessionIndex={}, recordFileId={}",
                     record.getRecordId(), meetingId, sessionFile.sessionIndex(), sessionFile.recordFileId());
             return SummaryParseResult.empty();
         }
         log.info("【MeetingMinutes】调用腾讯会议智能纪要, meetingCode={}, meetingTitle={}, meetingId={}, recordId={}, "
-                        + "sessionIndex={}, recordFileId={}, operatorId={}",
+                        + "sessionIndex={}, recordFileId={}, wecomOperatorId={}",
                 resolveMeetingCode(record, info), resolveMeetingTitle(record, info),
-                meetingId, record.getRecordId(), sessionFile.sessionIndex(), sessionFile.recordFileId(), operatorId);
+                meetingId, record.getRecordId(), sessionFile.sessionIndex(), sessionFile.recordFileId(), wecomOperatorId);
 
-        TencentMeetingSmartMinutesResponse response = tencentMeetingManager.getSmartMinutes(
-                sessionFile.recordFileId(), operatorId);
+        TencentMeetingSmartMinutesResponse response;
+        try {
+            response = tencentMeetingManager.getSmartMinutes(sessionFile.recordFileId(), wecomOperatorId);
+        } catch (BizException e) {
+            if (e.getMessage() != null && e.getMessage().contains("未找到企微用户对应的腾讯会议 userid")) {
+                log.info("【MeetingMinutes】跳过，企微用户未映射腾讯会议 userid, recordId={}, meetingId={}, "
+                                + "sessionIndex={}, recordFileId={}, wecomOperatorId={}, reason={}",
+                        record.getRecordId(), meetingId, sessionFile.sessionIndex(), sessionFile.recordFileId(),
+                        wecomOperatorId, e.getMessage());
+                return SummaryParseResult.empty();
+            }
+            throw e;
+        }
         if (response == null) {
             log.info("【MeetingMinutes】智能纪要未就绪, recordId={}, meetingId={}, sessionIndex={}, recordFileId={}",
                     record.getRecordId(), meetingId, sessionFile.sessionIndex(), sessionFile.recordFileId());
@@ -313,7 +325,7 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
         return new SummaryParseResult(minuteText, normalizedTodos);
     }
 
-    private String resolveOperatorId(MeetingRecordDO record) {
+    private String resolveWecomOperatorId(MeetingRecordDO record) {
         if (record.getAttendees() != null) {
             for (String attendee : record.getAttendees()) {
                 if (StringUtils.hasText(attendee)) {

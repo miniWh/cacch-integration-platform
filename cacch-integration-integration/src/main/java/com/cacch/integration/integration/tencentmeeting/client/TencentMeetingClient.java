@@ -51,7 +51,7 @@ public class TencentMeetingClient {
      * 查询单个云录制的智能纪要
      *
      * @param recordFileId 录制文件 ID（来自企微 record/list）
-     * @param operatorId   操作者 userid
+     * @param operatorId   腾讯会议 userid（operator_id 传参）
      * @return 智能纪要响应
      */
     public TencentMeetingSmartMinutesResponse getSmartMinutes(String recordFileId, String operatorId)
