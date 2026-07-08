@@ -15,8 +15,9 @@
     <property name="TOTAL_SIZE_CAP" value="2GB"/>
 
     <!-- TraceId 来自 MDC（TraceIdFilter 注入）；无 TraceId 时显示 - -->
+    <!-- %file:%line 输出源码文件名与行号（需采集调用栈，有轻微性能开销） -->
     <property name="LOG_PATTERN"
-              value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] [traceId:%X{traceId:-}] %-5level %logger{50} - %msg%n"/>
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] [traceId:%X{traceId:-}] %-5level %logger{50} [%file:%line] - %msg%n"/>
 
     <!-- 按环境区分日志目录 -->
     <springProfile name="prod">
