@@ -1,6 +1,7 @@
 package com.cacch.integration.service.tencentmeeting.api;
 
-import com.cacch.integration.integration.tencentmeeting.client.dto.TencentMeetingRecordAddressesResponse;
+import com.cacch.integration.integration.tencentmeeting.client.dto.TencentMeetingQueryResponse;
+import com.cacch.integration.integration.tencentmeeting.client.dto.TencentMeetingRecordsResponse;
 import com.cacch.integration.integration.tencentmeeting.client.dto.TencentMeetingSmartMinutesResponse;
 
 /**
@@ -11,6 +12,28 @@ import com.cacch.integration.integration.tencentmeeting.client.dto.TencentMeetin
 public interface ITencentMeetingService {
 
     /**
+     * 通过会议 Code 查询会议详情
+     *
+     * @param meetingCode     会议号
+     * @param txMeetingUserId 腾讯会议 userid（已完成映射）
+     * @return 会议查询响应
+     */
+    TencentMeetingQueryResponse getMeetingByCode(String meetingCode, String txMeetingUserId);
+
+    /**
+     * 查询会议录制列表
+     *
+     * @param meetingId       腾讯会议 meeting_id
+     * @param meetingCode     会议号
+     * @param startTimeSec    查询起始时间（秒）
+     * @param endTimeSec      查询结束时间（秒）
+     * @param txMeetingUserId 腾讯会议 userid（已完成映射）
+     * @return 录制列表响应
+     */
+    TencentMeetingRecordsResponse listRecords(String meetingId, String meetingCode,
+                                              long startTimeSec, long endTimeSec, String txMeetingUserId);
+
+    /**
      * 查询单个云录制的智能纪要
      *
      * @param recordFileId    录制文件 ID
@@ -18,13 +41,4 @@ public interface ITencentMeetingService {
      * @return 智能纪要响应；纪要未就绪时返回 null
      */
     TencentMeetingSmartMinutesResponse getSmartMinutes(String recordFileId, String txMeetingUserId);
-
-    /**
-     * 查询会议录制地址
-     *
-     * @param meetingRecordId 会议录制 ID
-     * @param txMeetingUserId 腾讯会议 userid
-     * @return 录制地址响应
-     */
-    TencentMeetingRecordAddressesResponse listRecordAddresses(String meetingRecordId, String txMeetingUserId);
 }

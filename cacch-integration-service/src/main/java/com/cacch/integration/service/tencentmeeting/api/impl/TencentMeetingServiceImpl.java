@@ -3,7 +3,8 @@ package com.cacch.integration.service.tencentmeeting.api.impl;
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.ResultCode;
 import com.cacch.integration.integration.tencentmeeting.client.TencentMeetingClient;
-import com.cacch.integration.integration.tencentmeeting.client.dto.TencentMeetingRecordAddressesResponse;
+import com.cacch.integration.integration.tencentmeeting.client.dto.TencentMeetingQueryResponse;
+import com.cacch.integration.integration.tencentmeeting.client.dto.TencentMeetingRecordsResponse;
 import com.cacch.integration.integration.tencentmeeting.client.dto.TencentMeetingSmartMinutesResponse;
 import com.cacch.integration.service.tencentmeeting.api.ITencentMeetingService;
 import com.tencentcloudapi.wemeet.core.exception.ClientException;
@@ -26,6 +27,43 @@ public class TencentMeetingServiceImpl implements ITencentMeetingService {
     private final TencentMeetingClient tencentMeetingClient;
 
     @Override
+    public TencentMeetingQueryResponse getMeetingByCode(String meetingCode, String operatorId) {
+        if (!tencentMeetingClient.isEnabled()) {
+            throw new BizException(ResultCode.PARAM_INVALID, "腾讯会议 API 未启用");
+        }
+        try {
+            return tencentMeetingClient.getMeetingByCode(meetingCode, operatorId);
+        } catch (ServiceException e) {
+            log.error("【TencentMeeting】通过会议号查询失败, meetingCode={}, operatorId={}, detail={}",
+                    meetingCode, operatorId, summarizeError(e));
+            throw new BizException(ResultCode.INTEGRATION_ERROR, "腾讯会议查询失败: " + summarizeError(e), e);
+        } catch (ClientException e) {
+            log.error("【TencentMeeting】会议查询客户端异常, meetingCode={}, operatorId={}",
+                    meetingCode, operatorId, e);
+            throw new BizException(ResultCode.INTEGRATION_ERROR, "腾讯会议查询调用失败", e);
+        }
+    }
+
+    @Override
+    public TencentMeetingRecordsResponse listRecords(String meetingId, String meetingCode,
+                                                     long startTimeSec, long endTimeSec, String operatorId) {
+        if (!tencentMeetingClient.isEnabled()) {
+            throw new BizException(ResultCode.PARAM_INVALID, "腾讯会议 API 未启用");
+        }
+        try {
+            return tencentMeetingClient.listRecords(meetingId, meetingCode, startTimeSec, endTimeSec, operatorId);
+        } catch (ServiceException e) {
+            log.error("【TencentMeeting】查询录制列表失败, meetingId={}, meetingCode={}, operatorId={}, detail={}",
+                    meetingId, meetingCode, operatorId, summarizeError(e));
+            throw new BizException(ResultCode.INTEGRATION_ERROR, "腾讯会议录制列表查询失败: " + summarizeError(e), e);
+        } catch (ClientException e) {
+            log.error("【TencentMeeting】录制列表客户端异常, meetingId={}, meetingCode={}, operatorId={}",
+                    meetingId, meetingCode, operatorId, e);
+            throw new BizException(ResultCode.INTEGRATION_ERROR, "腾讯会议录制列表调用失败", e);
+        }
+    }
+
+    @Override
     public TencentMeetingSmartMinutesResponse getSmartMinutes(String recordFileId, String operatorId) {
         if (!tencentMeetingClient.isEnabled()) {
             throw new BizException(ResultCode.PARAM_INVALID, "腾讯会议 API 未启用");
@@ -45,24 +83,6 @@ public class TencentMeetingServiceImpl implements ITencentMeetingService {
             log.error("【TencentMeeting】智能纪要客户端异常, recordFileId={}, operatorId={}",
                     recordFileId, operatorId, e);
             throw new BizException(ResultCode.INTEGRATION_ERROR, "腾讯会议智能纪要调用失败", e);
-        }
-    }
-
-    @Override
-    public TencentMeetingRecordAddressesResponse listRecordAddresses(String meetingRecordId, String operatorId) {
-        if (!tencentMeetingClient.isEnabled()) {
-            throw new BizException(ResultCode.PARAM_INVALID, "腾讯会议 API 未启用");
-        }
-        try {
-            return tencentMeetingClient.listRecordAddresses(meetingRecordId, operatorId);
-        } catch (ServiceException e) {
-            log.error("【TencentMeeting】查询录制地址失败, meetingRecordId={}, operatorId={}, detail={}",
-                    meetingRecordId, operatorId, summarizeError(e));
-            throw new BizException(ResultCode.INTEGRATION_ERROR, "腾讯会议录制地址查询失败: " + summarizeError(e), e);
-        } catch (ClientException e) {
-            log.error("【TencentMeeting】录制地址客户端异常, meetingRecordId={}, operatorId={}",
-                    meetingRecordId, operatorId, e);
-            throw new BizException(ResultCode.INTEGRATION_ERROR, "腾讯会议录制地址调用失败", e);
         }
     }
 

@@ -1,7 +1,8 @@
 package com.cacch.integration.integration.tencentmeeting.client;
 
 import com.cacch.integration.common.config.tencentmeeting.TencentMeetingProperties;
-import com.cacch.integration.integration.tencentmeeting.client.dto.TencentMeetingRecordAddressesResponse;
+import com.cacch.integration.integration.tencentmeeting.client.dto.TencentMeetingQueryResponse;
+import com.cacch.integration.integration.tencentmeeting.client.dto.TencentMeetingRecordsResponse;
 import com.cacch.integration.integration.tencentmeeting.client.dto.TencentMeetingSmartMinutesResponse;
 import com.tencentcloudapi.wemeet.Client;
 import com.tencentcloudapi.wemeet.core.Config;
@@ -49,25 +50,26 @@ public class TencentMeetingClient {
     }
 
     /**
-     * 查询会议录制地址，获取腾讯会议侧 record_file_id
+     * 通过会议 Code 查询会议详情，获取 meeting_id
      *
-     * @param meetingRecordId 会议录制 ID（来自企微 meeting_record_id）
-     * @param operatorId      腾讯会议 userid
-     * @return 录制地址响应
+     * @param meetingCode 9 位会议号
+     * @param operatorId  腾讯会议 userid
+     * @return 会议查询响应
      */
-    public TencentMeetingRecordAddressesResponse listRecordAddresses(String meetingRecordId, String operatorId)
+    public TencentMeetingQueryResponse getMeetingByCode(String meetingCode, String operatorId)
             throws ClientException, ServiceException {
         ensureReady();
-        if (!StringUtils.hasText(meetingRecordId)) {
-            throw new IllegalArgumentException("meetingRecordId 不能为空");
+        if (!StringUtils.hasText(meetingCode)) {
+            throw new IllegalArgumentException("meetingCode 不能为空");
         }
         if (!StringUtils.hasText(operatorId)) {
             throw new IllegalArgumentException("operatorId 不能为空");
         }
-        log.info("【TencentMeeting】查询录制地址, meetingRecordId={}, operatorId={}", meetingRecordId, operatorId);
+        log.info("【TencentMeeting】通过会议号查询会议, meetingCode={}, operatorId={}", meetingCode, operatorId);
 
-        ApiRequest apiReq = new ApiRequest.Builder("/v1/addresses").build();
-        apiReq.getQueryParams().set("meeting_record_id", meetingRecordId);
+        ApiRequest apiReq = new ApiRequest.Builder("/v1/meetings").build();
+        apiReq.getQueryParams().set("meeting_code", meetingCode);
+        apiReq.getQueryParams().set("instanceid", String.valueOf(properties.getInstanceId()));
         apiReq.getQueryParams().set("operator_id", operatorId);
         apiReq.getQueryParams().set("operator_id_type", String.valueOf(properties.getOperatorIdType()));
         apiReq.getAuthenticators().add(Constants.DEFAULT_AUTHENTICATOR);
@@ -78,9 +80,57 @@ public class TencentMeetingClient {
             throw new ServiceException(apiRsp);
         }
         try {
-            return apiRsp.translate(TencentMeetingRecordAddressesResponse.class, Constants.JSON_SERIALIZER);
+            return apiRsp.translate(TencentMeetingQueryResponse.class, Constants.JSON_SERIALIZER);
         } catch (Exception e) {
-            throw new ClientException("解析录制地址响应失败", e);
+            throw new ClientException("解析会议查询响应失败", e);
+        }
+    }
+
+    /**
+     * 查询会议录制列表
+     *
+     * @param meetingId    腾讯会议 meeting_id
+     * @param meetingCode  会议号（可选补充条件）
+     * @param startTimeSec 查询起始时间（秒）
+     * @param endTimeSec   查询结束时间（秒）
+     * @param operatorId   腾讯会议 userid
+     * @return 录制列表响应
+     */
+    public TencentMeetingRecordsResponse listRecords(String meetingId, String meetingCode,
+                                                     long startTimeSec, long endTimeSec, String operatorId)
+            throws ClientException, ServiceException {
+        ensureReady();
+        if (!StringUtils.hasText(meetingId)) {
+            throw new IllegalArgumentException("meetingId 不能为空");
+        }
+        if (!StringUtils.hasText(operatorId)) {
+            throw new IllegalArgumentException("operatorId 不能为空");
+        }
+        log.info("【TencentMeeting】查询录制列表, meetingId={}, meetingCode={}, startTimeSec={}, endTimeSec={}, operatorId={}",
+                meetingId, meetingCode, startTimeSec, endTimeSec, operatorId);
+
+        ApiRequest apiReq = new ApiRequest.Builder("/v1/records").build();
+        apiReq.getQueryParams().set("meeting_id", meetingId);
+        if (StringUtils.hasText(meetingCode)) {
+            apiReq.getQueryParams().set("meeting_code", meetingCode);
+        }
+        apiReq.getQueryParams().set("start_time", String.valueOf(startTimeSec));
+        apiReq.getQueryParams().set("end_time", String.valueOf(endTimeSec));
+        apiReq.getQueryParams().set("page_size", "20");
+        apiReq.getQueryParams().set("page", "1");
+        apiReq.getQueryParams().set("operator_id", operatorId);
+        apiReq.getQueryParams().set("operator_id_type", String.valueOf(properties.getOperatorIdType()));
+        apiReq.getAuthenticators().add(Constants.DEFAULT_AUTHENTICATOR);
+        apiReq.getAuthenticators().add(buildJwtAuthenticator());
+
+        ApiResponse apiRsp = executeGet(apiReq);
+        if (apiRsp.getStatusCode() >= 300) {
+            throw new ServiceException(apiRsp);
+        }
+        try {
+            return apiRsp.translate(TencentMeetingRecordsResponse.class, Constants.JSON_SERIALIZER);
+        } catch (Exception e) {
+            throw new ClientException("解析录制列表响应失败", e);
         }
     }
 

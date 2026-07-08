@@ -2,16 +2,21 @@ package com.cacch.integration.manager.tencentmeeting.api.impl;
 
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.ResultCode;
-import com.cacch.integration.integration.tencentmeeting.adapter.TencentMeetingRecordFileResolver;
-import com.cacch.integration.integration.tencentmeeting.client.dto.TencentMeetingRecordAddressesResponse;
+import com.cacch.integration.integration.tencentmeeting.adapter.TencentMeetingRecordsAdapter;
+import com.cacch.integration.integration.tencentmeeting.client.dto.TencentMeetingQueryResponse;
+import com.cacch.integration.integration.tencentmeeting.client.dto.TencentMeetingRecordsResponse;
 import com.cacch.integration.integration.tencentmeeting.client.dto.TencentMeetingSmartMinutesResponse;
 import com.cacch.integration.manager.tencentmeeting.api.ITencentMeetingManager;
+import com.cacch.integration.manager.tencentmeeting.dto.TencentSessionRecordFile;
 import com.cacch.integration.service.tencentmeeting.api.ITencentMeetingService;
 import com.cacch.integration.service.tencentmeeting.api.ITencentMeetingUserMappingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 腾讯会议编排实现
@@ -27,42 +32,36 @@ public class TencentMeetingManagerImpl implements ITencentMeetingManager {
     private final ITencentMeetingUserMappingService tencentMeetingUserMappingService;
 
     @Override
+    public List<TencentSessionRecordFile> listSessionRecordFiles(String meetingCode, long startTimeSec,
+                                                                 long endTimeSec, String wecomOperatorId) {
+        String normalizedMeetingCode = TencentMeetingRecordsAdapter.normalizeMeetingCode(meetingCode);
+        if (!StringUtils.hasText(normalizedMeetingCode)) {
+            log.info("【TencentMeeting】会议号为空，无法查询录制列表");
+            return List.of();
+        }
+        String txOperatorId = resolveTxMeetingUserId(wecomOperatorId);
+
+        TencentMeetingQueryResponse meetingResponse =
+                tencentMeetingService.getMeetingByCode(normalizedMeetingCode, txOperatorId);
+        String meetingId = TencentMeetingRecordsAdapter.resolveMeetingId(meetingResponse, normalizedMeetingCode);
+        if (!StringUtils.hasText(meetingId)) {
+            log.info("【TencentMeeting】通过会议号未查询到 meeting_id, meetingCode={}", normalizedMeetingCode);
+            return List.of();
+        }
+        log.info("【TencentMeeting】会议号映射 meeting_id, meetingCode={}, meetingId={}",
+                normalizedMeetingCode, meetingId);
+
+        TencentMeetingRecordsResponse recordsResponse = tencentMeetingService.listRecords(
+                meetingId, normalizedMeetingCode, startTimeSec, endTimeSec, txOperatorId);
+        return toSessionRecordFiles(recordsResponse);
+    }
+
+    @Override
     public TencentMeetingSmartMinutesResponse getSmartMinutes(String recordFileId, String wecomOperatorId) {
         String txOperatorId = resolveTxMeetingUserId(wecomOperatorId);
         return tencentMeetingService.getSmartMinutes(recordFileId, txOperatorId);
     }
 
-    @Override
-    public String resolveTencentRecordFileId(String meetingRecordId, String wecomRecordFileId, int sessionIndex,
-                                             String wecomOperatorId) {
-        if (!StringUtils.hasText(meetingRecordId)) {
-            log.info("【TencentMeeting】跳过 record_file_id 解析, meetingRecordId 为空, wecomRecordFileId={}",
-                    wecomRecordFileId);
-            return null;
-        }
-        String txOperatorId = resolveTxMeetingUserId(wecomOperatorId);
-        TencentMeetingRecordAddressesResponse addresses =
-                tencentMeetingService.listRecordAddresses(meetingRecordId, txOperatorId);
-        String txRecordFileId = TencentMeetingRecordFileResolver.resolveTencentRecordFileId(
-                addresses, wecomRecordFileId, sessionIndex);
-        if (!StringUtils.hasText(txRecordFileId)) {
-            log.info("【TencentMeeting】未解析到腾讯会议 record_file_id, meetingRecordId={}, wecomRecordFileId={}, "
-                            + "sessionIndex={}",
-                    meetingRecordId, wecomRecordFileId, sessionIndex);
-            return null;
-        }
-        log.info("【TencentMeeting】record_file_id 映射, meetingRecordId={}, wecomRecordFileId={}, "
-                        + "txRecordFileId={}, sessionIndex={}",
-                meetingRecordId, wecomRecordFileId, txRecordFileId, sessionIndex);
-        return txRecordFileId;
-    }
-
-    /**
-     * 将企微 userid 映射为腾讯会议 userid（所有腾讯会议 API 传参统一走此方法）
-     *
-     * @param wecomUserId 企微 userid
-     * @return 腾讯会议 userid
-     */
     @Override
     public String resolveTxMeetingUserId(String wecomUserId) {
         if (!StringUtils.hasText(wecomUserId)) {
@@ -77,5 +76,31 @@ public class TencentMeetingManagerImpl implements ITencentMeetingManager {
         log.info("【TencentMeeting】用户ID映射, wecomUserId={}, txMeetingUserId={}",
                 normalizedWecomUserId, txMeetingUserId);
         return txMeetingUserId;
+    }
+
+    private List<TencentSessionRecordFile> toSessionRecordFiles(TencentMeetingRecordsResponse recordsResponse) {
+        if (recordsResponse == null || recordsResponse.getRecordMeetings() == null) {
+            return List.of();
+        }
+        List<TencentSessionRecordFile> sessionFiles = new ArrayList<>();
+        for (TencentMeetingRecordsResponse.RecordMeeting recordMeeting : recordsResponse.getRecordMeetings()) {
+            Integer state = recordMeeting.getState();
+            boolean transcoding = TencentMeetingRecordsAdapter.isTranscoding(state);
+            if (recordMeeting.getRecordFiles() == null || recordMeeting.getRecordFiles().isEmpty()) {
+                log.info("【TencentMeeting】录制项无文件列表, meetingRecordId={}, state={}",
+                        recordMeeting.getMeetingRecordId(), state);
+                continue;
+            }
+            for (TencentMeetingRecordsResponse.RecordFile recordFile : recordMeeting.getRecordFiles()) {
+                if (!StringUtils.hasText(recordFile.getRecordFileId())) {
+                    continue;
+                }
+                long startTimeMs = recordFile.getRecordStartTime() != null ? recordFile.getRecordStartTime() : 0L;
+                sessionFiles.add(new TencentSessionRecordFile(
+                        recordFile.getRecordFileId(), startTimeMs, transcoding, state));
+            }
+        }
+        log.info("【TencentMeeting】录制文件解析完成, fileCount={}", sessionFiles.size());
+        return sessionFiles;
     }
 }

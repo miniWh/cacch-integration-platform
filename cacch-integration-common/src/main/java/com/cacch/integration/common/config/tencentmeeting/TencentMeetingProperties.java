@@ -30,6 +30,11 @@ public class TencentMeetingProperties {
     private int operatorIdType = 1;
 
     /**
+     * 终端设备类型，查询会议接口必填
+     */
+    private int instanceId = 1;
+
+    /**
      * 无会议主持人时的兜底 operator_id（企微 userid，调用腾讯会议 API 前会映射）
      */
     private String defaultOperatorId;
