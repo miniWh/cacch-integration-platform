@@ -15,6 +15,9 @@ import java.util.List;
 @Builder
 public class WeComCreateMeetingRequest {
 
+    /**
+     * 会议管理员 userid（企微侧会议管理身份，对应业务上的会议创建人）
+     */
     @JsonProperty("admin_userid")
     private String adminUserid;
 
@@ -34,9 +37,28 @@ public class WeComCreateMeetingRequest {
 
     private WeComMeetingInvitees invitees;
 
+    private WeComMeetingSettings settings;
+
     @Data
     @Builder
     public static class WeComMeetingInvitees {
+
+        private List<String> userid;
+    }
+
+    @Data
+    @Builder
+    public static class WeComMeetingSettings {
+
+        /**
+         * 会议主持人列表；若含 admin_userid，企微会自动过滤
+         */
+        private WeComMeetingHosts hosts;
+    }
+
+    @Data
+    @Builder
+    public static class WeComMeetingHosts {
 
         private List<String> userid;
     }

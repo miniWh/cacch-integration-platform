@@ -881,9 +881,12 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
         }
         LocalDateTime startDateTime = LocalDateTime.of(record.getMeetingDate(), record.getStartTime());
         long epochSec = startDateTime.atZone(ZoneId.systemDefault()).toEpochSecond();
-        String hostUserId = record.getAttendees().getFirst();
+        // 会议创建人 = 会议管理表「参会人」列第一人（admin_userid），不再使用表格归属人
+        String creatorUserId = resolveMeetingCreatorUserId(record);
+        log.info("【MeetingSync】准备创建企微会议, recordId={}, creator={}, attendees={}, tableOwner={}",
+                record.getRecordId(), creatorUserId, record.getAttendees(), table.getUserId());
         WeComCreateMeetingResponse meetingResponse = weComMeetingManager.createMeeting(
-                hostUserId,
+                creatorUserId,
                 record.getMeetingTitle(),
                 epochSec,
                 record.getDuration(),
@@ -897,8 +900,26 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
         meetingSyncTxSupport.markMeetingCreated(
                 record, meetingResponse.getMeetingid(), meetingCode, meetingLink);
         writeBackMeetingStatus(table, record);
-        log.info("【MeetingSync】创建企微会议成功, recordId={}, meetingId={}, host={}",
-                record.getId(), meetingResponse.getMeetingid(), hostUserId);
+        log.info("【MeetingSync】创建企微会议成功, recordId={}, meetingId={}, creator={}",
+                record.getId(), meetingResponse.getMeetingid(), creatorUserId);
+    }
+
+    /**
+     * 解析会议创建人：取参会人列表第一人。
+     *
+     * @param record 会议记录，参会人不可为空
+     * @return 创建人 userid
+     */
+    private String resolveMeetingCreatorUserId(MeetingRecordDO record) {
+        if (record.getAttendees() == null || record.getAttendees().isEmpty()) {
+            throw new BizException(ResultCode.PARAM_INVALID, "参会人为空，无法确定会议创建人");
+        }
+        for (String userId : record.getAttendees()) {
+            if (StringUtils.hasText(userId)) {
+                return userId.trim();
+            }
+        }
+        throw new BizException(ResultCode.PARAM_INVALID, "参会人无效，无法确定会议创建人");
     }
 
     /**

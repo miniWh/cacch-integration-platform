@@ -19,11 +19,13 @@ public interface IWeComMeetingService {
      * 创建企微预约会议
      *
      * @param accessToken           企微 access_token
-     * @param adminUserid           会议管理员 userid
+     * @param adminUserid           会议管理员 userid（业务上的会议创建人，取自参会人第一人）
      * @param title                 会议主题
      * @param meetingStartEpochSec  会议开始时间（Unix 秒）
      * @param durationMinutes       会议时长（分钟）
      * @param attendeeUserIds       参会人 userid 列表，可为空
+     * @param description           会议描述，可为空
+     * @param location              会议地点，可为空
      * @return 企微创建会议响应
      */
     WeComCreateMeetingResponse createMeeting(String accessToken, String adminUserid, String title,

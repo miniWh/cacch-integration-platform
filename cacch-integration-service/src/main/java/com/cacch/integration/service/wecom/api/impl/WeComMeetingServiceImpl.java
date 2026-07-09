@@ -42,12 +42,19 @@ public class WeComMeetingServiceImpl implements IWeComMeetingService {
                                                       List<String> attendeeUserIds, String description,
                                                       String location) {
         int durationSec = Math.max(durationMinutes * 60, WeComConstants.MEETING_MIN_DURATION_SECONDS);
+        List<String> inviteeUserIds = orderInviteesWithCreatorFirst(adminUserid, attendeeUserIds);
         WeComCreateMeetingRequest.WeComMeetingInvitees invitees = null;
-        if (attendeeUserIds != null && !attendeeUserIds.isEmpty()) {
+        if (!inviteeUserIds.isEmpty()) {
             invitees = WeComCreateMeetingRequest.WeComMeetingInvitees.builder()
-                    .userid(attendeeUserIds)
+                    .userid(inviteeUserIds)
                     .build();
         }
+        // 将参会人第一人同时设为管理员与主持人，确保企微侧会议创建人/管理身份正确
+        WeComCreateMeetingRequest.WeComMeetingSettings settings = WeComCreateMeetingRequest.WeComMeetingSettings.builder()
+                .hosts(WeComCreateMeetingRequest.WeComMeetingHosts.builder()
+                        .userid(List.of(adminUserid))
+                        .build())
+                .build();
         WeComCreateMeetingRequest request = WeComCreateMeetingRequest.builder()
                 .adminUserid(adminUserid)
                 .title(title)
@@ -56,10 +63,36 @@ public class WeComMeetingServiceImpl implements IWeComMeetingService {
                 .description(description)
                 .location(location)
                 .invitees(invitees)
+                .settings(settings)
                 .build();
+        log.info("【WeComMeeting】组装建会请求, admin={}, invitees={}, hosts={}",
+                adminUserid, inviteeUserIds, adminUserid);
         WeComCreateMeetingResponse response = weComMeetingClient.createMeeting(accessToken, request);
         assertWeComSuccess(response, "创建预约会议");
         return response;
+    }
+
+    /**
+     * 邀请人列表保序去重，并将会议创建人（admin）置于首位。
+     */
+    private List<String> orderInviteesWithCreatorFirst(String adminUserid, List<String> attendeeUserIds) {
+        List<String> ordered = new ArrayList<>();
+        if (adminUserid != null && !adminUserid.isBlank()) {
+            ordered.add(adminUserid.trim());
+        }
+        if (attendeeUserIds == null) {
+            return ordered;
+        }
+        for (String userId : attendeeUserIds) {
+            if (userId == null || userId.isBlank()) {
+                continue;
+            }
+            String normalized = userId.trim();
+            if (!ordered.contains(normalized)) {
+                ordered.add(normalized);
+            }
+        }
+        return ordered;
     }
 
     @Override
