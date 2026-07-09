@@ -278,7 +278,9 @@ public final class WeComSmartSheetCellAdapter {
     }
 
     /**
-     * 从成员列原始值中解析 userId 列表
+     * 从成员列原始值中解析 userId 列表（保序）
+     *
+     * <p>兼容企微返回的 {@code user_id} / {@code userid} / {@code id} 字段名。</p>
      */
     public static List<String> extractUserIds(Object cellValue) {
         if (!(cellValue instanceof List<?> list) || list.isEmpty()) {
@@ -291,9 +293,14 @@ public final class WeComSmartSheetCellAdapter {
                 if (userId == null) {
                     userId = map.get("userid");
                 }
-                if (userId != null && !userId.toString().isBlank()) {
-                    userIds.add(userId.toString());
+                if (userId == null) {
+                    userId = map.get("id");
                 }
+                if (userId != null && !userId.toString().isBlank()) {
+                    userIds.add(userId.toString().trim());
+                }
+            } else if (item instanceof String text && !text.isBlank()) {
+                userIds.add(text.trim());
             }
         }
         return userIds;

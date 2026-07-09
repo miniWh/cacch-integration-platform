@@ -16,6 +16,12 @@ public class WeComGetMeetingInfoResponse extends WeComBaseResponse {
 
     private String meetingid;
 
+    /**
+     * 会议管理员 userid（业务上的会议创建人；接口创建时应用仍会显示为创建者）
+     */
+    @JsonProperty("admin_userid")
+    private String adminUserid;
+
     @JsonProperty("meeting_code")
     private String meetingCode;
 

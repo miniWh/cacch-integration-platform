@@ -780,8 +780,12 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
         record.setDuration(WeComSmartSheetCellAdapter.getMappedNumber(values, mapping, "duration"));
         record.setMeetingLink(WeComSmartSheetCellAdapter.getMappedText(values, mapping, "meeting_link"));
         List<String> attendees = WeComSmartSheetCellAdapter.getMappedUserIds(values, mapping, "attendees");
+        // 始终以表格当前参会人为准（含清空），避免沿用历史/反向同步后的乱序列表
+        record.setAttendees(attendees.isEmpty() ? null : attendees);
         if (!attendees.isEmpty()) {
-            record.setAttendees(attendees);
+            log.info("【MeetingSync】解析参会人, smartTableId={}, recordId={}, attendees={}, rawCell={}",
+                    table.getId(), row.getRecordId(), attendees,
+                    values.get(mapping.get("attendees")));
         }
         String sheetStatus = WeComSmartSheetCellAdapter.getMappedSelectText(values, mapping, "status");
         String sheetMinutesStatus = WeComSmartSheetCellAdapter.getMappedSelectText(values, mapping, "minutes_status");
@@ -881,8 +885,15 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
         }
         LocalDateTime startDateTime = LocalDateTime.of(record.getMeetingDate(), record.getStartTime());
         long epochSec = startDateTime.atZone(ZoneId.systemDefault()).toEpochSecond();
-        // 会议创建人 = 会议管理表「参会人」列第一人（admin_userid），不再使用表格归属人
+        // 会议管理员（业务创建人）= 会议管理表「参会人」列第一人；企微 UI「创建者」仍可能显示为应用
         String creatorUserId = resolveMeetingCreatorUserId(record);
+        if (StringUtils.hasText(table.getUserId()) && table.getUserId().equals(creatorUserId)) {
+            log.info("【MeetingSync】会议管理员与表格归属人相同, recordId={}, creator={}, tableOwner={}",
+                    record.getRecordId(), creatorUserId, table.getUserId());
+        } else if (StringUtils.hasText(table.getUserId())) {
+            log.info("【MeetingSync】会议管理员取参会人第一人（非表格归属人）, recordId={}, creator={}, tableOwner={}",
+                    record.getRecordId(), creatorUserId, table.getUserId());
+        }
         log.info("【MeetingSync】准备创建企微会议, recordId={}, creator={}, attendees={}, tableOwner={}",
                 record.getRecordId(), creatorUserId, record.getAttendees(), table.getUserId());
         WeComCreateMeetingResponse meetingResponse = weComMeetingManager.createMeeting(
@@ -895,13 +906,25 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
                 record.getLocation());
 
         WeComGetMeetingInfoResponse info = weComMeetingManager.getMeetingInfo(meetingResponse.getMeetingid());
+        String actualAdmin = info.getAdminUserid();
+        if (StringUtils.hasText(actualAdmin) && !actualAdmin.equals(creatorUserId)) {
+            log.info("【MeetingSync】建会后管理员与预期不一致, recordId={}, expected={}, actualAdmin={}, attendees={}",
+                    record.getRecordId(), creatorUserId, actualAdmin, record.getAttendees());
+            log.error("【MeetingSync】企微返回的 admin_userid 与参会人第一人不一致, meetingId={}, expected={}, actual={}",
+                    meetingResponse.getMeetingid(), creatorUserId, actualAdmin);
+        } else {
+            log.info("【MeetingSync】建会后管理员校验通过, recordId={}, admin={}, meetingId={}",
+                    record.getRecordId(),
+                    StringUtils.hasText(actualAdmin) ? actualAdmin : creatorUserId,
+                    meetingResponse.getMeetingid());
+        }
         String meetingCode = firstNonBlank(meetingResponse.getMeetingCode(), info.getMeetingCode());
         String meetingLink = firstNonBlank(meetingResponse.getMeetingLink(), info.getMeetingLink());
         meetingSyncTxSupport.markMeetingCreated(
                 record, meetingResponse.getMeetingid(), meetingCode, meetingLink);
         writeBackMeetingStatus(table, record);
-        log.info("【MeetingSync】创建企微会议成功, recordId={}, meetingId={}, creator={}",
-                record.getId(), meetingResponse.getMeetingid(), creatorUserId);
+        log.info("【MeetingSync】创建企微会议成功, recordId={}, meetingId={}, creator={}, wecomAdmin={}",
+                record.getId(), meetingResponse.getMeetingid(), creatorUserId, actualAdmin);
     }
 
     /**
@@ -1025,11 +1048,45 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
             record.setDuration(durationMinutes);
         }
         if (info.getAttendees() != null) {
-            List<String> attendees = info.getAttendees().extractMemberUserIds();
-            if (!attendees.isEmpty()) {
-                record.setAttendees(attendees);
+            List<String> wecomAttendees = info.getAttendees().extractMemberUserIds();
+            if (!wecomAttendees.isEmpty()) {
+                // 成员集合变化时才更新；保序合并，避免企微返回顺序覆盖表格「第一人」语义
+                record.setAttendees(mergeAttendeesPreserveLocalOrder(record.getAttendees(), wecomAttendees));
             }
         }
+    }
+
+    /**
+     * 合并参会人：保留本地已有成员的相对顺序，再追加企微新增成员。
+     */
+    private List<String> mergeAttendeesPreserveLocalOrder(List<String> local, List<String> wecom) {
+        if (local == null || local.isEmpty()) {
+            return wecom;
+        }
+        if (attendeesEquals(local, wecom)) {
+            return local;
+        }
+        List<String> merged = new ArrayList<>();
+        for (String userId : local) {
+            if (userId != null && !userId.isBlank() && containsIgnoreCase(wecom, userId.trim())) {
+                merged.add(userId.trim());
+            }
+        }
+        for (String userId : wecom) {
+            if (userId != null && !userId.isBlank() && !containsIgnoreCase(merged, userId.trim())) {
+                merged.add(userId.trim());
+            }
+        }
+        return merged;
+    }
+
+    private boolean containsIgnoreCase(List<String> userIds, String target) {
+        for (String userId : userIds) {
+            if (userId != null && userId.equalsIgnoreCase(target)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

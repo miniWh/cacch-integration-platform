@@ -49,12 +49,7 @@ public class WeComMeetingServiceImpl implements IWeComMeetingService {
                     .userid(inviteeUserIds)
                     .build();
         }
-        // 将参会人第一人同时设为管理员与主持人，确保企微侧会议创建人/管理身份正确
-        WeComCreateMeetingRequest.WeComMeetingSettings settings = WeComCreateMeetingRequest.WeComMeetingSettings.builder()
-                .hosts(WeComCreateMeetingRequest.WeComMeetingHosts.builder()
-                        .userid(List.of(adminUserid))
-                        .build())
-                .build();
+        // 不在 hosts 中重复填 admin：企微会自动过滤，且创建者已隐式为主持人
         WeComCreateMeetingRequest request = WeComCreateMeetingRequest.builder()
                 .adminUserid(adminUserid)
                 .title(title)
@@ -63,10 +58,9 @@ public class WeComMeetingServiceImpl implements IWeComMeetingService {
                 .description(description)
                 .location(location)
                 .invitees(invitees)
-                .settings(settings)
                 .build();
-        log.info("【WeComMeeting】组装建会请求, admin={}, invitees={}, hosts={}",
-                adminUserid, inviteeUserIds, adminUserid);
+        log.info("【WeComMeeting】组装建会请求, admin_userid={}, invitees={}",
+                adminUserid, inviteeUserIds);
         WeComCreateMeetingResponse response = weComMeetingClient.createMeeting(accessToken, request);
         assertWeComSuccess(response, "创建预约会议");
         return response;
