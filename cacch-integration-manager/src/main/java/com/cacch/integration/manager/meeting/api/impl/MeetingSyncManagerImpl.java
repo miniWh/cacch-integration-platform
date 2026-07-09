@@ -392,7 +392,8 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
         String meetingSheetId = resolveFirstSheetId(sheetResponse);
         weComSmartSheetManager.updateSheet(docResponse.getDocid(), meetingSheetId, MeetingConstants.MEETING_SHEET_TITLE);
 
-        // 文档创建后尽早落库，避免后续列初始化瞬时失败时重复建文档
+        // 文档创建后尽早落库，避免后续列初始化瞬时失败时重复建文档。
+        // meeting_column_mapping 为 NOT NULL，先写空映射，列初始化成功后再更新真实 fieldId。
         SmartTableDO meetingTable = new SmartTableDO();
         meetingTable.setTableType(SmartTableTypeEnum.MEETING.getCode());
         meetingTable.setUserId(userId);
@@ -400,6 +401,7 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
         meetingTable.setDocId(docResponse.getDocid());
         meetingTable.setDocUrl(docResponse.getUrl());
         meetingTable.setMeetingSheetId(meetingSheetId);
+        meetingTable.setMeetingColumnMapping(new HashMap<>());
         meetingTable.setStatus(MeetingConstants.SMART_TABLE_STATUS_ENABLED);
         smartTableService.saveNew(meetingTable);
 
