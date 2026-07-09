@@ -400,9 +400,12 @@ Result.fail(BizException)
 - 格式：`log.info("【ApiKey】创建成功，keyId={}", keyId);`（`【】` 后直接接中文描述，无需额外空格）。
 - 日志级别（在 logback-spring.xml 按 profile 配置）：
   - `DEBUG`：调试信息 / 测试环境 SQL，生产环境不开启
-  - `INFO`：正常业务流程节点
+  - `INFO`：正常业务流程节点；**逻辑提前终止（跳过/中断/条件不满足 return）与异常处理路径也必须打 INFO**，说明原因与关键业务键，禁止静默终止或吞异常
   - `WARN`：可恢复的异常情况（含 BizException）
   - `ERROR`：需要介入处理的错误，必须附带异常堆栈
+- **逻辑终止 / 异常 INFO 强制要求**（细则见 `.cursor/rules/java-info-logging-on-exit.mdc`）：
+  - 前置条件不满足提前返回、跳过当前记录/批次、业务中断不再继续后续步骤，均须 `log.info` 提示
+  - `catch` 或异常分支终止本条/本批处理时，须先/同时打 INFO 说明业务影响；技术细节仍用 `WARN`/`ERROR` 并附堆栈
 - **禁止在日志中打印敏感信息**（API Key 明文、密码、Token、secret 等），须脱敏后输出。
 
 ```java

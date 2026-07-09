@@ -1,0 +1,57 @@
+---
+description: 业务逻辑提前终止或异常时必须打印 INFO 日志
+globs: **/*.java
+alwaysApply: false
+---
+
+# 逻辑终止 / 异常 INFO 日志规范
+
+编写或修改 Java 业务代码时：凡**逻辑提前终止**或**进入异常处理路径**，必须打印 **INFO** 级别日志，说明原因与关键上下文，禁止静默 return / continue / 吞异常。
+
+## 必须打 INFO 的场景
+
+| 场景 | 说明 |
+|------|------|
+| 前置条件不满足提前返回 | 配置缺失、状态不符、字段为空、已处理过等 |
+| 跳过当前记录 / 批次 | `continue`、过滤跳过、幂等跳过 |
+| 业务中断不再继续后续步骤 | 等待窗口未到、超时放弃、无数据可处理等 |
+| catch / 异常分支 | 捕获后终止本条/本批处理，或向上抛出前 |
+
+## 日志要求
+
+- 使用 `log.info`，前缀遵循 `【业务标识】`（见 `.cursorrules` 第十一节）
+- 必须写清：**为何终止/异常** + **关键业务键**（如 `recordId`、`userId`、`docId`、`meetingId`）
+- 异常路径：INFO 说明业务影响；技术细节仍按既有规范用 `WARN`/`ERROR` 并附堆栈（可与 INFO 并存）
+- 禁止打印敏感信息（Token、secret、完整请求体等）
+
+## 正确示例
+
+```java
+if (master == null) {
+    log.info("【MeetingSync】未配置启用的总控表，跳过扫描");
+    return;
+}
+if (!StringUtils.hasText(userId)) {
+    log.info("【MeetingSync】总控行缺少申请人，跳过建表, recordId={}", record.getRecordId());
+    return;
+}
+try {
+    process(record);
+} catch (Exception e) {
+    log.info("【MeetingSync】单条处理终止, recordId={}, reason={}", record.getRecordId(), e.getMessage());
+    log.error("【MeetingSync】单条处理失败, recordId={}", record.getRecordId(), e);
+}
+```
+
+## 错误示例（禁止）
+
+```java
+if (master == null) {
+    return; // 静默终止
+}
+try {
+    process(record);
+} catch (Exception e) {
+    // 吞掉且无任何日志
+}
+```
