@@ -25,6 +25,17 @@ public final class MeetingConstants {
     public static final String APPLY_STATUS_APPROVED = "已批准";
 
     /**
+     * 总控表列定义（有序，从左到右）。
+     * 「申请人」为人员列，从企微通讯录选择；不再单独维护申请人姓名列。
+     */
+    public static final List<MeetingSheetColumnDef> MASTER_SHEET_COLUMNS = List.of(
+            new MeetingSheetColumnDef("applicant", "申请人", WeComConstants.FIELD_TYPE_USER),
+            new MeetingSheetColumnDef("apply_status", "申请状态", WeComConstants.FIELD_TYPE_TEXT),
+            new MeetingSheetColumnDef("created_doc_id", "已创建文档ID", WeComConstants.FIELD_TYPE_TEXT),
+            new MeetingSheetColumnDef("created_doc_url", "已创建文档链接", WeComConstants.FIELD_TYPE_URL)
+    );
+
+    /**
      * 智能表格配置默认启用状态
      */
     public static final int SMART_TABLE_STATUS_ENABLED = 1;
@@ -98,6 +109,17 @@ public final class MeetingConstants {
 
     private static List<String> meetingTopicOptions() {
         return List.of("进度同步", "方案讨论", "问题排查", "决策评审", "其他");
+    }
+
+    /**
+     * 构建总控表逻辑 key → 列标题 映射（用于 DB 存储及列映射校验）
+     */
+    public static Map<String, String> buildMasterColumnTitleMapping() {
+        Map<String, String> mapping = new LinkedHashMap<>();
+        for (MeetingSheetColumnDef column : MASTER_SHEET_COLUMNS) {
+            mapping.put(column.logicalKey(), column.title());
+        }
+        return mapping;
     }
 
     /**

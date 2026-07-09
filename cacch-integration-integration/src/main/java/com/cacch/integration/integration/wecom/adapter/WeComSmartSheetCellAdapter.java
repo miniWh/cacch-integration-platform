@@ -350,6 +350,38 @@ public final class WeComSmartSheetCellAdapter {
     }
 
     /**
+     * 从成员列原始值中取首位成员的展示名称（企微返回 name 字段时可用）
+     */
+    public static String extractFirstUserDisplayName(Object cellValue) {
+        if (!(cellValue instanceof List<?> list) || list.isEmpty()) {
+            return "";
+        }
+        Object item = list.get(0);
+        if (item instanceof Map<?, ?> map) {
+            Object name = map.get("name");
+            if (name != null && !name.toString().isBlank()) {
+                return name.toString();
+            }
+        }
+        return "";
+    }
+
+    /**
+     * 按列映射 key 从 record values 中取首位成员的展示名称
+     */
+    public static String getMappedFirstUserDisplayName(Map<String, Object> values, Map<String, String> columnMapping,
+                                                       String logicalKey) {
+        if (values == null || columnMapping == null) {
+            return "";
+        }
+        String fieldTitle = columnMapping.get(logicalKey);
+        if (fieldTitle == null) {
+            return "";
+        }
+        return extractFirstUserDisplayName(values.get(fieldTitle));
+    }
+
+    /**
      * 判断映射值是否为企微 fieldId（历史数据兼容，fieldId 为短字母数字串）。
      * 映射已改为列标题时返回 false 属正常现象，不代表无法读取表格数据。
      */

@@ -240,13 +240,13 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
         if (StringUtils.hasText(createdDocId)) {
             return;
         }
-        String userId = WeComSmartSheetCellAdapter.getMappedText(values, mapping, "user_id");
+        String userId = resolveMasterApplicantUserId(values, mapping);
         if (!StringUtils.hasText(userId)) {
-            log.warn("【MeetingSync】总控行缺少 user_id, recordId={}", record.getRecordId());
+            log.warn("【MeetingSync】总控行缺少申请人, recordId={}", record.getRecordId());
             return;
         }
-        String userName = WeComSmartSheetCellAdapter.getMappedText(values, mapping, "user_name");
-        String docName = StringUtils.hasText(userName) ? userName + "的会议管理" : userId + "的会议管理";
+        String displayName = resolveMasterApplicantDisplayName(values, mapping);
+        String docName = StringUtils.hasText(displayName) ? displayName + "的会议管理" : userId + "的会议管理";
 
         SmartTableDO existingMeeting = smartTableService.getEnabledMeetingByUserId(userId);
         if (existingMeeting != null) {
@@ -885,6 +885,34 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
                     table.getId(), meetingMapping);
         }
         return resolved;
+    }
+
+    /**
+     * 从总控表行解析申请人 userId（人员列）；兼容旧映射 user_id 文本列。
+     */
+    private String resolveMasterApplicantUserId(Map<String, Object> values, Map<String, String> mapping) {
+        List<String> userIds = WeComSmartSheetCellAdapter.getMappedUserIds(values, mapping, "applicant");
+        if (!userIds.isEmpty()) {
+            return userIds.get(0);
+        }
+        if (mapping != null && mapping.containsKey("user_id")) {
+            return WeComSmartSheetCellAdapter.getMappedText(values, mapping, "user_id");
+        }
+        return null;
+    }
+
+    /**
+     * 从总控表行解析申请人展示名；优先人员列 name，兼容旧 user_name 文本列。
+     */
+    private String resolveMasterApplicantDisplayName(Map<String, Object> values, Map<String, String> mapping) {
+        String name = WeComSmartSheetCellAdapter.getMappedFirstUserDisplayName(values, mapping, "applicant");
+        if (StringUtils.hasText(name)) {
+            return name;
+        }
+        if (mapping != null && mapping.containsKey("user_name")) {
+            return WeComSmartSheetCellAdapter.getMappedText(values, mapping, "user_name");
+        }
+        return null;
     }
 
     private void writeBackMasterProvision(SmartTableDO master, Map<String, String> mapping,
