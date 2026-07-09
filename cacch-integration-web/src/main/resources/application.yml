@@ -37,6 +37,13 @@ mybatis-plus:
 
 # 日志统一由 logback-spring.xml 管理，请勿在此配置 logging.level / logging.file
 
+# ==================== 应用运行角色（API / 调度分离） ====================
+# api       — 仅 HTTP 接口，不启动 @Scheduled（测试环境默认，避免与正式抢跑企微任务）
+# all       — HTTP + 定时任务（正式单实例推荐）
+# scheduler — 与 all 相同，开启定时任务
+app:
+  role: api
+
 # ==================== 会议同步定时任务 Cron（公共占位） ====================
 meeting:
   sync:
