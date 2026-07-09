@@ -39,6 +39,7 @@ import com.cacch.integration.manager.meeting.api.IMeetingSyncManager;
 import com.cacch.integration.manager.wecom.api.IWeComDocManager;
 import com.cacch.integration.manager.wecom.api.IWeComMeetingManager;
 import com.cacch.integration.manager.wecom.api.IWeComSmartSheetManager;
+import com.cacch.integration.manager.wecom.api.IWeComUserManager;
 import com.cacch.integration.manager.wecom.api.IWeComWebhookManager;
 import com.cacch.integration.service.meeting.api.IMeetingRecordService;
 import com.cacch.integration.service.meeting.api.ISmartTableService;
@@ -84,6 +85,7 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
     private final IWeComSmartSheetManager weComSmartSheetManager;
     private final IWeComDocManager weComDocManager;
     private final IWeComMeetingManager weComMeetingManager;
+    private final IWeComUserManager weComUserManager;
     private final IWeComWebhookManager weComWebhookManager;
     private final IMeetingMinutesManager meetingMinutesManager;
 
@@ -91,7 +93,7 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
     public void scanMasterAndProvision() {
         SmartTableDO master = smartTableService.getEnabledMaster();
         if (master == null) {
-            log.warn("【MeetingSync】未配置启用的总控表(MASTER)，跳过扫描");
+            log.info("【MeetingSync】未配置启用的总控表(MASTER)，跳过扫描");
             return;
         }
         log.info("【MeetingSync】开始扫描总控表, docId={}", master.getDocId());
@@ -99,7 +101,7 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
             WeComGetRecordsResponse recordsResponse = weComSmartSheetManager.getRecords(
                     master.getDocId(), master.getMeetingSheetId(), 0, RECORD_PAGE_SIZE);
             if (recordsResponse.getRecords() == null) {
-                log.warn("【MeetingSync】未填写已批准申请的总控表(MASTER)，跳过扫描");
+                log.info("【MeetingSync】总控表无记录数据，跳过扫描, docId={}", master.getDocId());
                 return;
             }
             Map<String, String> mapping = ensureMeetingColumnMapping(master);
@@ -109,6 +111,10 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
             smartTableService.markSyncSuccess(master.getId());
         } catch (Exception e) {
             smartTableService.markSyncError(master.getId(), e.getMessage());
+            log.info("【MeetingSync】总控表扫描异常终止, masterId={}, docId={}, reason={}",
+                    master.getId(), master.getDocId(), e.getMessage());
+            log.error("【MeetingSync】总控表扫描失败, masterId={}, docId={}",
+                    master.getId(), master.getDocId(), e);
             throw e;
         }
     }
@@ -166,6 +172,8 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
                 }
             } catch (Exception e) {
                 failed++;
+                log.info("【MeetingSync】单条反向同步终止, recordId={}, meetingId={}, reason={}",
+                        record.getRecordId(), record.getWecomMeetingId(), e.getMessage());
                 log.error("【MeetingSync】企微会议详情反向同步失败, recordId={}, meetingId={}",
                         record.getRecordId(), record.getWecomMeetingId(), e);
             }
@@ -222,6 +230,8 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
                 }
             } catch (Exception e) {
                 failed++;
+                log.info("【MeetingSync】单条纪要拉取终止, recordId={}, meetingId={}, reason={}",
+                        record.getRecordId(), record.getWecomMeetingId(), e.getMessage());
                 log.error("【MeetingSync】纪要拉取失败, recordId={}, meetingId={}",
                         record.getRecordId(), record.getWecomMeetingId(), e);
             }
@@ -234,18 +244,22 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
         Map<String, Object> values = record.getValues();
         String applyStatus = WeComSmartSheetCellAdapter.getMappedText(values, mapping, "apply_status");
         if (!MeetingConstants.APPLY_STATUS_APPROVED.equals(applyStatus)) {
+            log.info("【MeetingSync】跳过总控行建表, recordId={}, applyStatus={}, reason=申请未批准",
+                    record.getRecordId(), applyStatus);
             return;
         }
         String createdDocId = WeComSmartSheetCellAdapter.getMappedText(values, mapping, "created_doc_id");
         if (StringUtils.hasText(createdDocId)) {
+            log.info("【MeetingSync】跳过总控行建表, recordId={}, createdDocId={}, reason=已创建会议管理表",
+                    record.getRecordId(), createdDocId);
             return;
         }
         String userId = resolveMasterApplicantUserId(values, mapping);
         if (!StringUtils.hasText(userId)) {
-            log.warn("【MeetingSync】总控行缺少申请人, recordId={}", record.getRecordId());
+            log.info("【MeetingSync】总控行缺少申请人，跳过建表, recordId={}", record.getRecordId());
             return;
         }
-        String displayName = resolveMasterApplicantDisplayName(values, mapping);
+        String displayName = resolveMasterApplicantDisplayName(values, mapping, userId);
         String docName = StringUtils.hasText(displayName) ? displayName + "的会议管理" : userId + "的会议管理";
 
         SmartTableDO existingMeeting = smartTableService.getEnabledMeetingByUserId(userId);
@@ -302,6 +316,8 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
                 doInitializeMeetingSheetColumns(table);
             } catch (Exception e) {
                 smartTableService.markSyncError(table.getId(), e.getMessage());
+                log.info("【MeetingSync】初始化列终止, smartTableId={}, docId={}, reason={}",
+                        table.getId(), table.getDocId(), e.getMessage());
                 log.error("【MeetingSync】手动初始化会议表列失败, smartTableId={}, docId={}",
                         table.getId(), table.getDocId(), e);
             }
@@ -461,6 +477,8 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
                     .dedupType("table")
                     .dedupId(String.valueOf(table.getId()))
                     .build());
+            log.info("【MeetingSync】扫描建会批次终止, smartTableId={}, docId={}, reason={}",
+                    table.getId(), table.getDocId(), e.getMessage());
             log.error("【MeetingSync】扫描建会失败, smartTableId={}", table.getId(), e);
             throw e;
         }
@@ -473,7 +491,8 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
         Map<String, Object> values = row.getValues();
         String title = WeComSmartSheetCellAdapter.getMappedText(values, mapping, "meeting_title");
         if (!StringUtils.hasText(title)) {
-            log.warn("【MeetingSync】会议标题为空, smartTableId={}, recordId={}", table.getId(), row.getRecordId());
+            log.info("【MeetingSync】跳过会议行同步, smartTableId={}, recordId={}, reason=会议标题为空",
+                    table.getId(), row.getRecordId());
             return null;
         }
         MeetingRecordDO existing = meetingRecordService.getBySmartTableIdAndRecordId(table.getId(), row.getRecordId());
@@ -538,6 +557,8 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
             createWeComMeetingForRecord(table, record);
             return 1;
         } catch (Exception e) {
+            log.info("【MeetingSync】单条建会终止, smartTableId={}, recordId={}, reason={}",
+                    table.getId(), record.getRecordId(), e.getMessage());
             log.error("【MeetingSync】创建企微会议失败, smartTableId={}, recordId={}",
                     table.getId(), record.getRecordId(), e);
             return -1;
@@ -590,7 +611,7 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
 
     private void createWeComMeetingForRecord(SmartTableDO table, MeetingRecordDO record) {
         if (table == null) {
-            log.warn("【MeetingSync】创建企微会议失败, 未配置智能表格, recordId={}", record.getRecordId());
+            log.info("【MeetingSync】建会终止, recordId={}, reason=智能表格配置为空", record.getRecordId());
             return;
         }
         LocalDateTime startDateTime = LocalDateTime.of(record.getMeetingDate(), record.getStartTime());
@@ -624,19 +645,25 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
         SmartTableDO table = smartTableService.getById(record.getSmartTableId());
         if (table == null
                 || !Integer.valueOf(MeetingConstants.SMART_TABLE_STATUS_ENABLED).equals(table.getStatus())) {
+            log.info("【MeetingSync】跳过反向同步, recordId={}, smartTableId={}, reason=表格不存在或未启用",
+                    record.getRecordId(), record.getSmartTableId());
             return 0;
         }
         if (!StringUtils.hasText(record.getRecordId()) || !StringUtils.hasText(record.getWecomMeetingId())) {
+            log.info("【MeetingSync】跳过反向同步, recordId={}, meetingId={}, reason=缺少行ID或企微会议ID",
+                    record.getRecordId(), record.getWecomMeetingId());
             return 0;
         }
         WeComGetMeetingInfoResponse info = weComMeetingManager.getMeetingInfo(record.getWecomMeetingId());
         if (isMeetingStarted(info, record)) {
-            log.debug("【MeetingSync】跳过已开始会议, recordId={}, meetingId={}",
+            log.info("【MeetingSync】跳过已开始会议, recordId={}, meetingId={}",
                     record.getRecordId(), record.getWecomMeetingId());
             return -2;
         }
         Set<String> changedKeys = detectMeetingDetailChanges(record, info);
         if (changedKeys.isEmpty()) {
+            log.info("【MeetingSync】跳过反向同步, recordId={}, meetingId={}, reason=企微详情无变更",
+                    record.getRecordId(), record.getWecomMeetingId());
             return 0;
         }
         applyWeComMeetingDetails(record, info);
@@ -791,6 +818,8 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
     private void writeBackMeetingDetails(SmartTableDO table, MeetingRecordDO record, Set<String> changedKeys) {
         Map<String, String> mapping = ensureMeetingColumnMapping(table);
         if (mapping == null || changedKeys.isEmpty()) {
+            log.info("【MeetingSync】跳过会议详情回写, recordId={}, reason=列映射为空或无变更字段",
+                    record.getRecordId());
             return;
         }
         Map<String, Object> values = new HashMap<>();
@@ -816,6 +845,8 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
             putUsersValue(values, mapping, "attendees", record.getAttendees());
         }
         if (values.isEmpty()) {
+            log.info("【MeetingSync】跳过会议详情回写, recordId={}, changedKeys={}, reason=无有效单元格值",
+                    record.getRecordId(), changedKeys);
             return;
         }
         WeComRecordWriteItem item = WeComRecordWriteItem.builder()
@@ -902,17 +933,30 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
     }
 
     /**
-     * 从总控表行解析申请人展示名；优先人员列 name，兼容旧 user_name 文本列。
+     * 解析申请人展示名：人员列 name → 旧 user_name 文本列 → 通讯录 user/get。
+     *
+     * @param values  总控行单元格值
+     * @param mapping 总控列映射
+     * @param userId  申请人 userid，用于通讯录兜底查询
+     * @return 员工姓名；均不可用时返回 null（建表名回退为 userid）
      */
-    private String resolveMasterApplicantDisplayName(Map<String, Object> values, Map<String, String> mapping) {
+    private String resolveMasterApplicantDisplayName(Map<String, Object> values, Map<String, String> mapping,
+                                                     String userId) {
         String name = WeComSmartSheetCellAdapter.getMappedFirstUserDisplayName(values, mapping, "applicant");
         if (StringUtils.hasText(name)) {
             return name;
         }
         if (mapping != null && mapping.containsKey("user_name")) {
-            return WeComSmartSheetCellAdapter.getMappedText(values, mapping, "user_name");
+            String legacyName = WeComSmartSheetCellAdapter.getMappedText(values, mapping, "user_name");
+            if (StringUtils.hasText(legacyName)) {
+                return legacyName;
+            }
         }
-        return null;
+        String contactName = weComUserManager.getUserName(userId);
+        if (!StringUtils.hasText(contactName)) {
+            log.info("【MeetingSync】无法解析申请人姓名，建表名将使用userid, recordUserId={}", userId);
+        }
+        return contactName;
     }
 
     private void writeBackMasterProvision(SmartTableDO master, Map<String, String> mapping,
@@ -931,6 +975,8 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
     private void writeBackMeetingStatus(SmartTableDO table, MeetingRecordDO record) {
         Map<String, String> mapping = ensureMeetingColumnMapping(table);
         if (mapping == null) {
+            log.info("【MeetingSync】跳过会议状态回写, recordId={}, meetingId={}, reason=列映射为空",
+                    record.getRecordId(), record.getWecomMeetingId());
             return;
         }
         Map<String, Object> values = new HashMap<>();

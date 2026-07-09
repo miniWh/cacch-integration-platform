@@ -112,8 +112,8 @@ class TodoSheetWriteSupport {
         var response = weComSmartSheetManager.addRecords(table.getDocId(), table.getTodoSheetId(), List.of(item));
         String sheetRecordId = resolveSheetRecordId(response);
         if (!StringUtils.hasText(sheetRecordId)) {
-            log.warn("【TodoSheet】待办写入子表无返回 recordId, smartTableId={}, todoId={}, todoTitle={}",
-                    table.getId(), latest.getId(), latest.getTodoTitle());
+            log.info("【TodoSheet】待办回写终止, todoId={}, smartTableId={}, reason=企微未返回recordId",
+                    latest.getId(), table.getId());
             return false;
         }
         if (!todoItemService.updateRecordIdIfAbsent(latest.getId(), sheetRecordId)) {

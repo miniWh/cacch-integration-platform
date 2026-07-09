@@ -35,6 +35,7 @@ public class TodoSyncTask {
             try {
                 meetingSyncManager.syncTodosToSheet();
             } catch (Exception e) {
+                log.info("【MeetingTask】{}异常终止, reason={}", TASK_NAME, e.getMessage());
                 log.error("【MeetingTask】{}失败", TASK_NAME, e);
                 weComWebhookManager.sendAlert(WeComAlertCommand.builder()
                         .biz(BIZ)

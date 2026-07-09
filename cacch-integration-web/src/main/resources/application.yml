@@ -70,6 +70,9 @@ wecom:
     - corpid: placeholder
       app-key: self-built
       secret: placeholder
+    - corpid: placeholder
+      app-key: address-book
+      secret: placeholder
   # 群机器人 Webhook — 定时同步异常告警（key 从企微群机器人 Webhook 地址中获取）
   webhook:
     enabled: false

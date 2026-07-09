@@ -23,7 +23,7 @@ public final class TencentMeetingSmartMinutesAdapter {
      */
     public static String resolveMinuteText(TencentMeetingSmartMinutesResponse response) {
         if (response == null || response.getMeetingMinute() == null) {
-            log.warn("【TencentMeeting】智能纪要响应为空");
+            log.info("【TencentMeeting】智能纪要无数据, reason=响应或meetingMinute为空");
             return null;
         }
         String minute = response.getMeetingMinute().getMinute();
@@ -38,7 +38,7 @@ public final class TencentMeetingSmartMinutesAdapter {
      */
     public static String resolveTodoSourceText(TencentMeetingSmartMinutesResponse response) {
         if (response == null || response.getMeetingMinute() == null) {
-            log.warn("【TencentMeeting】智能纪要响应为空");
+            log.info("【TencentMeeting】智能纪要无数据, reason=响应或meetingMinute为空");
             return null;
         }
         TencentMeetingSmartMinutesResponse.MeetingMinute meetingMinute = response.getMeetingMinute();
@@ -50,6 +50,7 @@ public final class TencentMeetingSmartMinutesAdapter {
             log.info("【TencentMeeting】纪要摘要正文: {}", meetingMinute.getMinute());
             return meetingMinute.getMinute().trim();
         }
+        log.info("【TencentMeeting】智能纪要无数据, reason=todo与minute均为空");
         return null;
     }
 }

@@ -58,7 +58,7 @@ public class WeComTokenRefreshTask {
         List<WeComAppConfig> allApps = weComProperties.getAllApps();
 
         if (allApps.isEmpty()) {
-            log.warn("【WeComRefresh】未配置任何企业微信应用，跳过刷新");
+            log.info("【WeComRefresh】未配置任何企业微信应用，跳过刷新");
             return;
         }
 
@@ -76,10 +76,14 @@ public class WeComTokenRefreshTask {
                         corpid, appKey, maskToken(token));
                 successCount++;
             } catch (BizException e) {
+                log.info("【WeComRefresh】单应用刷新终止, corpid={}, appKey={}, reason={}",
+                        corpid, appKey, e.getMessage());
                 log.error("【WeComRefresh】刷新失败, corpid={}, appKey={}, errCode={}, errMsg={}",
                         corpid, appKey, e.getCode(), e.getMessage());
                 failCount++;
             } catch (Exception e) {
+                log.info("【WeComRefresh】单应用刷新终止, corpid={}, appKey={}, reason={}",
+                        corpid, appKey, e.getMessage());
                 log.error("【WeComRefresh】刷新发生未知异常, corpid={}, appKey={}", corpid, appKey, e);
                 failCount++;
             }

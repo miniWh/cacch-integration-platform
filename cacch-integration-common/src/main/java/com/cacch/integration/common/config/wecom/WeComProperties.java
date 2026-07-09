@@ -51,4 +51,15 @@ public class WeComProperties {
         }
         return apps.isEmpty() ? Optional.empty() : Optional.of(apps.getFirst());
     }
+
+    /**
+     * 获取通讯录应用配置：匹配 {@link WeComConstants#ADDRESS_BOOK_APP_KEY}
+     *
+     * @return 通讯录应用配置；未配置时为空
+     */
+    public Optional<WeComAppConfig> findAddressBookApp() {
+        return apps.stream()
+                .filter(a -> WeComConstants.ADDRESS_BOOK_APP_KEY.equals(a.getAppKey()))
+                .findFirst();
+    }
 }

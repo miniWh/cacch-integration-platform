@@ -18,6 +18,11 @@ public final class WeComConstants {
     public static final String SELF_BUILT_APP_KEY = "self-built";
 
     /**
+     * 通讯录应用默认 app-key（对应 wecom.apps 配置项，用于读取成员详情等）
+     */
+    public static final String ADDRESS_BOOK_APP_KEY = "address-book";
+
+    /**
      * access_token 缓存有效期（秒），设为 7000s（企微返回 7200s，提前 200s 刷新防过期窗口）
      */
     public static final long TOKEN_TTL_SECONDS = 7000L;
@@ -131,6 +136,12 @@ public final class WeComConstants {
      * 超链接字段展示样式 — 纯文字
      */
     public static final String URL_LINK_TYPE_PURE_TEXT = "LINK_TYPE_PURE_TEXT";
+
+    /**
+     * 通讯录 — 读取成员详情 API 地址
+     */
+    public static final String USER_GET_URL =
+            "https://qyapi.weixin.qq.com/cgi-bin/user/get?access_token=%s&userid=%s";
 
     /**
      * 文档 — 新建文档/智能表格 API 地址

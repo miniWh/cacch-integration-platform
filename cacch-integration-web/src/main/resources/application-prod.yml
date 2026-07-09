@@ -53,6 +53,10 @@ wecom:
     - corpid: ww0ae0c799548c75bd
       app-key: self-built
       secret: rJ4TpwlW7s1Z64xBHgUd35zNOUIQ14figIs5sfgqgaI
+    # 泰禾 — 通讯录（读取成员姓名等）
+    - corpid: ww0ae0c799548c75bd
+      app-key: address-book
+      secret: _V82sWWijuUgDVsNcssQcwbFQIyu9FKr1L_xH6L2Q-0
 
 # ---------- Actuator 健康监控 ----------
 management:

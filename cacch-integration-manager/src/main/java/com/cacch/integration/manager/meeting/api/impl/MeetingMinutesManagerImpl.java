@@ -159,6 +159,8 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
                     record.getRecordId(), resolveMeetingCode(record), allTodos.size(), createdCount);
             return 1;
         } catch (Exception e) {
+            log.info("【MeetingMinutes】单条纪要拉取终止, recordId={}, meetingCode={}, reason={}",
+                    record.getRecordId(), resolveMeetingCode(record), e.getMessage());
             log.error("【MeetingMinutes】纪要拉取失败, recordId={}, meetingCode={}, txMeetingId={}",
                     record.getRecordId(), resolveMeetingCode(record), resolveTxMeetingId(record), e);
             return -1;

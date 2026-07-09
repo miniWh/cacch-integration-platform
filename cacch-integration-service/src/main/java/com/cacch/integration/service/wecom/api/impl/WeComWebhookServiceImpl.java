@@ -43,6 +43,8 @@ public class WeComWebhookServiceImpl implements IWeComWebhookService {
                 webhookProperties.getKey(),
                 WeComWebhookMarkdownRequest.of(markdownContent));
         if (!response.isSuccess()) {
+            log.info("【WeComWebhook】消息发送终止, dedupKey={}, errcode={}, reason={}",
+                    dedupKey, response.getErrCode(), response.getErrMsg());
             log.error("【WeComWebhook】发送失败, errcode={}, errmsg={}",
                     response.getErrCode(), response.getErrMsg());
             return;
@@ -65,6 +67,8 @@ public class WeComWebhookServiceImpl implements IWeComWebhookService {
                 webhookProperties.getKey(),
                 WeComWebhookTextRequest.of(textContent, mentionMobiles));
         if (!response.isSuccess()) {
+            log.info("【WeComWebhook】消息发送终止, dedupKey={}, errcode={}, reason={}",
+                    dedupKey, response.getErrCode(), response.getErrMsg());
             log.error("【WeComWebhook】发送失败, errcode={}, errmsg={}",
                     response.getErrCode(), response.getErrMsg());
             return;
