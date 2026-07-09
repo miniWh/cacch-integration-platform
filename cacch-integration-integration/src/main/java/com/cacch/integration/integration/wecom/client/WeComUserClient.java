@@ -1,6 +1,7 @@
 package com.cacch.integration.integration.wecom.client;
 
 import com.cacch.integration.common.constant.wecom.WeComConstants;
+import com.cacch.integration.integration.support.ThirdPartyHttpLogSupport;
 import com.cacch.integration.integration.wecom.client.dto.user.WeComGetUserResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +22,9 @@ import java.nio.charset.StandardCharsets;
 @RequiredArgsConstructor
 public class WeComUserClient {
 
+    private static final String BIZ = "WeComUser";
+    private static final String ACTION = "读取成员详情";
+
     private final RestTemplate restTemplate;
 
     /**
@@ -34,9 +38,11 @@ public class WeComUserClient {
     public WeComGetUserResponse getUser(String accessToken, String userid) {
         String encodedUserId = UriUtils.encodeQueryParam(userid, StandardCharsets.UTF_8);
         String url = String.format(WeComConstants.USER_GET_URL, accessToken, encodedUserId);
-        log.info("【WeComUser】读取成员详情, userid={}", userid);
+        ThirdPartyHttpLogSupport.logRequest(BIZ, ACTION, url,
+                ThirdPartyHttpLogSupport.queryParams("userid", userid));
         try {
             WeComGetUserResponse response = restTemplate.getForObject(url, WeComGetUserResponse.class);
+            ThirdPartyHttpLogSupport.logResponse(BIZ, ACTION, response);
             if (response == null) {
                 log.info("【WeComUser】读取成员详情终止, userid={}, reason=接口返回null", userid);
                 throw new RestClientException("企业微信读取成员详情返回 null");

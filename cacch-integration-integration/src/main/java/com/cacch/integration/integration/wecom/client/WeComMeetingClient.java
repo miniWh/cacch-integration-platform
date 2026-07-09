@@ -1,6 +1,7 @@
 package com.cacch.integration.integration.wecom.client;
 
 import com.cacch.integration.common.constant.wecom.WeComConstants;
+import com.cacch.integration.integration.support.ThirdPartyHttpLogSupport;
 import com.cacch.integration.integration.wecom.client.dto.meeting.WeComCreateMeetingRequest;
 import com.cacch.integration.integration.wecom.client.dto.meeting.WeComCreateMeetingResponse;
 import com.cacch.integration.integration.wecom.client.dto.meeting.WeComGetMeetingInfoRequest;
@@ -24,6 +25,7 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URI;
+import java.util.Map;
 
 /**
  * 企业微信会议 HTTP 客户端
@@ -34,6 +36,8 @@ import java.net.URI;
 @Component
 @RequiredArgsConstructor
 public class WeComMeetingClient {
+
+    private static final String BIZ = "WeComMeeting";
 
     private final RestTemplate restTemplate;
 
@@ -47,7 +51,6 @@ public class WeComMeetingClient {
      */
     public WeComCreateMeetingResponse createMeeting(String accessToken, WeComCreateMeetingRequest request) {
         String url = String.format(WeComConstants.MEETING_CREATE_URL, accessToken);
-        log.info("【WeComMeeting】创建预约会议, title={}, admin={}", request.getTitle(), request.getAdminUserid());
         return post(url, request, WeComCreateMeetingResponse.class, "创建预约会议");
     }
 
@@ -61,7 +64,6 @@ public class WeComMeetingClient {
      */
     public WeComGetMeetingInfoResponse getMeetingInfo(String accessToken, WeComGetMeetingInfoRequest request) {
         String url = String.format(WeComConstants.MEETING_GET_INFO_URL, accessToken);
-        log.info("【WeComMeeting】获取会议详情, meetingId={}", request.getMeetingid());
         return post(url, request, WeComGetMeetingInfoResponse.class, "获取会议详情");
     }
 
@@ -75,7 +77,6 @@ public class WeComMeetingClient {
      */
     public WeComGetTranscriptResponse getTranscriptDetail(String accessToken, WeComGetTranscriptRequest request) {
         String url = String.format(WeComConstants.MEETING_TRANSCRIPT_GET_DETAIL_URL, accessToken);
-        log.info("【WeComMeeting】获取录制转写, meetingId={}", request.getMeetingid());
         return post(url, request, WeComGetTranscriptResponse.class, "获取录制转写");
     }
 
@@ -89,7 +90,6 @@ public class WeComMeetingClient {
      */
     public WeComListRecordResponse listRecords(String accessToken, WeComListRecordRequest request) {
         String url = String.format(WeComConstants.MEETING_RECORD_LIST_URL, accessToken);
-        log.info("【WeComMeeting】获取录制列表, meetingId={}", request.getMeetingid());
         return post(url, request, WeComListRecordResponse.class, "获取录制列表");
     }
 
@@ -103,8 +103,6 @@ public class WeComMeetingClient {
      */
     public WeComGetRecordFileResponse getRecordFile(String accessToken, WeComGetRecordFileRequest request) {
         String url = String.format(WeComConstants.MEETING_RECORD_GET_FILE_URL, accessToken);
-        log.info("【WeComMeeting】获取录制文件详情, meetingId={}, recordFileId={}",
-                request.getMeetingid(), request.getRecordFileId());
         return post(url, request, WeComGetRecordFileResponse.class, "获取录制文件详情");
     }
 
@@ -120,6 +118,8 @@ public class WeComMeetingClient {
             throw new RestClientException("企业微信纪要下载地址为空");
         }
         String normalizedUrl = downloadUrl.trim();
+        String action = "下载纪要文件";
+        ThirdPartyHttpLogSupport.logRequest(BIZ, action, normalizedUrl, Map.of("method", "GET"));
         try {
             URI uri = UriComponentsBuilder.fromUriString(normalizedUrl).build(true).toUri();
             RequestEntity<Void> request = RequestEntity.get(uri)
@@ -127,19 +127,23 @@ public class WeComMeetingClient {
                     .header(HttpHeaders.USER_AGENT, "Mozilla/5.0 (compatible; CacchIntegration/1.0)")
                     .build();
             ResponseEntity<byte[]> response = restTemplate.exchange(request, byte[].class);
-            return response.getBody() != null ? response.getBody() : new byte[0];
+            byte[] body = response.getBody() != null ? response.getBody() : new byte[0];
+            ThirdPartyHttpLogSupport.logResponse(BIZ, action,
+                    Map.of("statusCode", response.getStatusCode().value(), "byteLength", body.length));
+            return body;
         } catch (IllegalArgumentException e) {
             log.info("【WeComMeeting】纪要下载终止, reason=下载地址非法");
-            log.error("【WeComMeeting】纪要下载地址非法, url={}", normalizedUrl, e);
+            log.error("【WeComMeeting】纪要下载地址非法, url={}", ThirdPartyHttpLogSupport.maskUrl(normalizedUrl), e);
             throw new RestClientException("企业微信纪要下载地址非法", e);
         } catch (RestClientException e) {
             if (e instanceof HttpClientErrorException.Forbidden) {
                 log.info("【WeComMeeting】纪要下载终止, reason=403签名URL可能已过期");
                 log.error("【WeComMeeting】下载纪要文件403（签名URL可能已过期或被二次编码破坏）, url={}",
-                        normalizedUrl, e);
+                        ThirdPartyHttpLogSupport.maskUrl(normalizedUrl), e);
             } else {
                 log.info("【WeComMeeting】纪要下载终止, reason={}", e.getMessage());
-                log.error("【WeComMeeting】下载纪要文件失败, url={}", normalizedUrl, e);
+                log.error("【WeComMeeting】下载纪要文件失败, url={}",
+                        ThirdPartyHttpLogSupport.maskUrl(normalizedUrl), e);
             }
             throw e;
         }
@@ -161,8 +165,10 @@ public class WeComMeetingClient {
     }
 
     private <T> T post(String url, Object request, Class<T> responseType, String action) {
+        ThirdPartyHttpLogSupport.logRequest(BIZ, action, url, request);
         try {
             T response = restTemplate.postForObject(url, request, responseType);
+            ThirdPartyHttpLogSupport.logResponse(BIZ, action, response);
             if (response == null) {
                 log.info("【WeComMeeting】{}终止, reason=接口返回null", action);
                 log.error("【WeComMeeting】{} 返回 null", action);

@@ -1,6 +1,7 @@
 package com.cacch.integration.integration.wecom.client;
 
 import com.cacch.integration.common.constant.wecom.WeComConstants;
+import com.cacch.integration.integration.support.ThirdPartyHttpLogSupport;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComAddSheetRequest;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComAddSheetResponse;
 import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComUpdateSheetRequest;
@@ -37,6 +38,8 @@ import org.springframework.web.client.RestTemplate;
 @RequiredArgsConstructor
 public class WeComSmartSheetClient {
 
+    private static final String BIZ = "WeComSmartSheet";
+
     private final RestTemplate restTemplate;
 
     /**
@@ -49,7 +52,6 @@ public class WeComSmartSheetClient {
      */
     public WeComGetSheetResponse getSheets(String accessToken, WeComGetSheetRequest request) {
         String url = String.format(WeComConstants.SMARTSHEET_GET_SHEET_URL, accessToken);
-        log.info("【WeComSmartSheet】查询子表, docid={}", request.getDocid());
         return post(url, request, WeComGetSheetResponse.class, "查询子表");
     }
 
@@ -63,7 +65,6 @@ public class WeComSmartSheetClient {
      */
     public WeComGetFieldsResponse getFields(String accessToken, WeComGetFieldsRequest request) {
         String url = String.format(WeComConstants.SMARTSHEET_GET_FIELDS_URL, accessToken);
-        log.info("【WeComSmartSheet】查询字段, docid={}, sheetId={}", request.getDocid(), request.getSheetId());
         return post(url, request, WeComGetFieldsResponse.class, "查询字段");
     }
 
@@ -77,7 +78,6 @@ public class WeComSmartSheetClient {
      */
     public WeComGetRecordsResponse getRecords(String accessToken, WeComGetRecordsRequest request) {
         String url = String.format(WeComConstants.SMARTSHEET_GET_RECORDS_URL, accessToken);
-        log.info("【WeComSmartSheet】查询记录, docid={}, sheetId={}", request.getDocid(), request.getSheetId());
         return post(url, request, WeComGetRecordsResponse.class, "查询记录");
     }
 
@@ -91,8 +91,6 @@ public class WeComSmartSheetClient {
      */
     public WeComAddRecordsResponse addRecords(String accessToken, WeComAddRecordsRequest request) {
         String url = String.format(WeComConstants.SMARTSHEET_ADD_RECORDS_URL, accessToken);
-        log.info("【WeComSmartSheet】添加记录, docid={}, sheetId={}, count={}",
-                request.getDocid(), request.getSheetId(), request.getRecords().size());
         return post(url, request, WeComAddRecordsResponse.class, "添加记录");
     }
 
@@ -106,8 +104,6 @@ public class WeComSmartSheetClient {
      */
     public WeComDeleteFieldsResponse deleteFields(String accessToken, WeComDeleteFieldsRequest request) {
         String url = String.format(WeComConstants.SMARTSHEET_DELETE_FIELDS_URL, accessToken);
-        log.info("【WeComSmartSheet】删除字段, docid={}, sheetId={}, count={}",
-                request.getDocid(), request.getSheetId(), request.getFieldIds().size());
         return post(url, request, WeComDeleteFieldsResponse.class, "删除字段");
     }
 
@@ -121,8 +117,6 @@ public class WeComSmartSheetClient {
      */
     public WeComAddSheetResponse addSheet(String accessToken, WeComAddSheetRequest request) {
         String url = String.format(WeComConstants.SMARTSHEET_ADD_SHEET_URL, accessToken);
-        log.info("【WeComSmartSheet】添加子表, docid={}, title={}",
-                request.getDocid(), request.getProperties() != null ? request.getProperties().getTitle() : null);
         return post(url, request, WeComAddSheetResponse.class, "添加子表");
     }
 
@@ -136,9 +130,6 @@ public class WeComSmartSheetClient {
      */
     public WeComUpdateSheetResponse updateSheet(String accessToken, WeComUpdateSheetRequest request) {
         String url = String.format(WeComConstants.SMARTSHEET_UPDATE_SHEET_URL, accessToken);
-        log.info("【WeComSmartSheet】更新子表, docid={}, sheetId={}",
-                request.getDocid(),
-                request.getProperties() != null ? request.getProperties().getSheetId() : null);
         return post(url, request, WeComUpdateSheetResponse.class, "更新子表");
     }
 
@@ -152,8 +143,6 @@ public class WeComSmartSheetClient {
      */
     public WeComAddFieldsResponse addFields(String accessToken, WeComAddFieldsRequest request) {
         String url = String.format(WeComConstants.SMARTSHEET_ADD_FIELDS_URL, accessToken);
-        log.info("【WeComSmartSheet】添加字段, docid={}, sheetId={}, count={}",
-                request.getDocid(), request.getSheetId(), request.getFields().size());
         return post(url, request, WeComAddFieldsResponse.class, "添加字段");
     }
 
@@ -167,8 +156,6 @@ public class WeComSmartSheetClient {
      */
     public WeComUpdateFieldsResponse updateFields(String accessToken, WeComUpdateFieldsRequest request) {
         String url = String.format(WeComConstants.SMARTSHEET_UPDATE_FIELDS_URL, accessToken);
-        log.info("【WeComSmartSheet】更新字段, docid={}, sheetId={}, count={}",
-                request.getDocid(), request.getSheetId(), request.getFields().size());
         return post(url, request, WeComUpdateFieldsResponse.class, "更新字段");
     }
 
@@ -182,14 +169,14 @@ public class WeComSmartSheetClient {
      */
     public WeComUpdateRecordsResponse updateRecords(String accessToken, WeComUpdateRecordsRequest request) {
         String url = String.format(WeComConstants.SMARTSHEET_UPDATE_RECORDS_URL, accessToken);
-        log.info("【WeComSmartSheet】更新记录, docid={}, sheetId={}, count={}",
-                request.getDocid(), request.getSheetId(), request.getRecords().size());
         return post(url, request, WeComUpdateRecordsResponse.class, "更新记录");
     }
 
     private <T> T post(String url, Object request, Class<T> responseType, String action) {
+        ThirdPartyHttpLogSupport.logRequest(BIZ, action, url, request);
         try {
             T response = restTemplate.postForObject(url, request, responseType);
+            ThirdPartyHttpLogSupport.logResponse(BIZ, action, response);
             if (response == null) {
                 log.info("【WeComSmartSheet】{}终止, reason=接口返回null", action);
                 log.error("【WeComSmartSheet】{} 返回 null", action);

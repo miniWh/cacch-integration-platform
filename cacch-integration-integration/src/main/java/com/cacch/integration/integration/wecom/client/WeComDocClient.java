@@ -1,6 +1,7 @@
 package com.cacch.integration.integration.wecom.client;
 
 import com.cacch.integration.common.constant.wecom.WeComConstants;
+import com.cacch.integration.integration.support.ThirdPartyHttpLogSupport;
 import com.cacch.integration.integration.wecom.client.dto.doc.WeComCreateDocRequest;
 import com.cacch.integration.integration.wecom.client.dto.doc.WeComCreateDocResponse;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +19,8 @@ import org.springframework.web.client.RestTemplate;
 @RequiredArgsConstructor
 public class WeComDocClient {
 
+    private static final String BIZ = "WeComDoc";
+
     private final RestTemplate restTemplate;
 
     /**
@@ -25,13 +28,14 @@ public class WeComDocClient {
      */
     public WeComCreateDocResponse createDoc(String accessToken, WeComCreateDocRequest request) {
         String url = String.format(WeComConstants.DOC_CREATE_URL, accessToken);
-        log.info("【WeComDoc】新建文档, docName={}, docType={}", request.getDocName(), request.getDocType());
         return post(url, request, WeComCreateDocResponse.class, "新建文档");
     }
 
     private <T> T post(String url, Object request, Class<T> responseType, String action) {
+        ThirdPartyHttpLogSupport.logRequest(BIZ, action, url, request);
         try {
             T response = restTemplate.postForObject(url, request, responseType);
+            ThirdPartyHttpLogSupport.logResponse(BIZ, action, response);
             if (response == null) {
                 log.info("【WeComDoc】{}终止, reason=接口返回null", action);
                 log.error("【WeComDoc】{} 返回 null", action);

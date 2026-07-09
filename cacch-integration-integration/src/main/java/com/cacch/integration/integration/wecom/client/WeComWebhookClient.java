@@ -1,6 +1,7 @@
 package com.cacch.integration.integration.wecom.client;
 
 import com.cacch.integration.common.constant.wecom.WeComConstants;
+import com.cacch.integration.integration.support.ThirdPartyHttpLogSupport;
 import com.cacch.integration.integration.wecom.client.dto.webhook.WeComWebhookMarkdownRequest;
 import com.cacch.integration.integration.wecom.client.dto.webhook.WeComWebhookResponse;
 import com.cacch.integration.integration.wecom.client.dto.webhook.WeComWebhookTextRequest;
@@ -19,23 +20,25 @@ import org.springframework.web.client.RestTemplate;
 @RequiredArgsConstructor
 public class WeComWebhookClient {
 
+    private static final String BIZ = "WeComWebhook";
+
     private final RestTemplate restTemplate;
 
     public WeComWebhookResponse sendMarkdown(String webhookKey, WeComWebhookMarkdownRequest request) {
         String url = String.format(WeComConstants.WEBHOOK_SEND_URL, webhookKey);
-        log.info("【WeComWebhook】发送 Markdown 消息");
-        return post(url, request);
+        return post(url, request, "发送 Markdown 消息");
     }
 
     public WeComWebhookResponse sendText(String webhookKey, WeComWebhookTextRequest request) {
         String url = String.format(WeComConstants.WEBHOOK_SEND_URL, webhookKey);
-        log.info("【WeComWebhook】发送文本消息");
-        return post(url, request);
+        return post(url, request, "发送文本消息");
     }
 
-    private WeComWebhookResponse post(String url, Object request) {
+    private WeComWebhookResponse post(String url, Object request, String action) {
+        ThirdPartyHttpLogSupport.logRequest(BIZ, action, url, request);
         try {
             WeComWebhookResponse response = restTemplate.postForObject(url, request, WeComWebhookResponse.class);
+            ThirdPartyHttpLogSupport.logResponse(BIZ, action, response);
             if (response == null) {
                 log.info("【WeComWebhook】消息发送终止, reason=接口返回null");
                 log.error("【WeComWebhook】发送消息返回 null");

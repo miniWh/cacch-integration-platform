@@ -1,6 +1,7 @@
 package com.cacch.integration.integration.wecom.client;
 
 import com.cacch.integration.common.constant.wecom.WeComConstants;
+import com.cacch.integration.integration.support.ThirdPartyHttpLogSupport;
 import com.cacch.integration.integration.wecom.client.dto.WeComTokenResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,6 +19,9 @@ import org.springframework.web.client.RestTemplate;
 @RequiredArgsConstructor
 public class WeComTokenClient {
 
+    private static final String BIZ = "WeComToken";
+    private static final String ACTION = "获取 access_token";
+
     private final RestTemplate restTemplate;
 
     /**
@@ -30,11 +34,12 @@ public class WeComTokenClient {
      */
     public WeComTokenResponse fetchToken(String corpid, String corpsecret) {
         String url = String.format(WeComConstants.TOKEN_URL, corpid, corpsecret);
-
-        log.info("【WeComToken】开始获取 access_token, corpid={}", maskString(corpid, 6));
+        ThirdPartyHttpLogSupport.logRequest(BIZ, ACTION, url,
+                ThirdPartyHttpLogSupport.queryParams("corpid", corpid, "corpsecret", "****"));
 
         try {
             WeComTokenResponse response = restTemplate.getForObject(url, WeComTokenResponse.class);
+            ThirdPartyHttpLogSupport.logResponse(BIZ, ACTION, response);
 
             if (response == null) {
                 log.info("【WeComToken】获取 token 终止, corpid={}, reason=接口返回null", maskString(corpid, 6));
@@ -56,7 +61,7 @@ public class WeComTokenClient {
         } catch (RestClientException e) {
             log.info("【WeComToken】获取 token 终止, corpid={}, reason={}",
                     maskString(corpid, 6), e.getMessage());
-            log.error("【WeComToken】HTTP 调用失败, url={}", maskUrl(url), e);
+            log.error("【WeComToken】HTTP 调用失败, url={}", ThirdPartyHttpLogSupport.maskUrl(url), e);
             throw e;
         }
     }
@@ -69,12 +74,5 @@ public class WeComTokenClient {
             return "****";
         }
         return value.substring(0, keepLength) + "****";
-    }
-
-    /**
-     * URL 脱敏：隐藏 corpsecret 参数值
-     */
-    private String maskUrl(String url) {
-        return url.replaceAll("corpsecret=[^&]+", "corpsecret=****");
     }
 }

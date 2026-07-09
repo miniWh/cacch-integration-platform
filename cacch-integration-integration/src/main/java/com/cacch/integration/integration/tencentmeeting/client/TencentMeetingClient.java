@@ -1,6 +1,7 @@
 package com.cacch.integration.integration.tencentmeeting.client;
 
 import com.cacch.integration.common.config.tencentmeeting.TencentMeetingProperties;
+import com.cacch.integration.integration.support.ThirdPartyHttpLogSupport;
 import com.cacch.integration.integration.tencentmeeting.client.dto.TencentMeetingQueryResponse;
 import com.cacch.integration.integration.tencentmeeting.client.dto.TencentMeetingRecordsResponse;
 import com.cacch.integration.integration.tencentmeeting.client.dto.TencentMeetingSmartMinutesResponse;
@@ -22,7 +23,10 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /**
  * 腾讯会议 OpenAPI 客户端（基于官方 wemeet-openapi-sdk）
@@ -33,6 +37,8 @@ import java.security.SecureRandom;
 @Component
 @RequiredArgsConstructor
 public class TencentMeetingClient {
+
+    private static final String BIZ = "TencentMeeting";
 
     private final TencentMeetingProperties properties;
 
@@ -77,15 +83,8 @@ public class TencentMeetingClient {
         apiReq.getAuthenticators().add(Constants.DEFAULT_AUTHENTICATOR);
         apiReq.getAuthenticators().add(buildJwtAuthenticator());
 
-        ApiResponse apiRsp = executeGet(apiReq);
-        if (apiRsp.getStatusCode() >= 300) {
-            throw new ServiceException(apiRsp);
-        }
-        try {
-            return apiRsp.translate(TencentMeetingQueryResponse.class, Constants.JSON_SERIALIZER);
-        } catch (Exception e) {
-            throw new ClientException("解析会议查询响应失败", e);
-        }
+        return executeGetAndTranslate(
+                "通过会议号查询会议", apiReq, TencentMeetingQueryResponse.class);
     }
 
     /**
@@ -127,15 +126,7 @@ public class TencentMeetingClient {
         apiReq.getAuthenticators().add(Constants.DEFAULT_AUTHENTICATOR);
         apiReq.getAuthenticators().add(buildJwtAuthenticator());
 
-        ApiResponse apiRsp = executeGet(apiReq);
-        if (apiRsp.getStatusCode() >= 300) {
-            throw new ServiceException(apiRsp);
-        }
-        try {
-            return apiRsp.translate(TencentMeetingRecordsResponse.class, Constants.JSON_SERIALIZER);
-        } catch (Exception e) {
-            throw new ClientException("解析录制列表响应失败", e);
-        }
+        return executeGetAndTranslate("查询录制列表", apiReq, TencentMeetingRecordsResponse.class);
     }
 
     /**
@@ -172,14 +163,29 @@ public class TencentMeetingClient {
         apiReq.getAuthenticators().add(Constants.DEFAULT_AUTHENTICATOR);
         apiReq.getAuthenticators().add(buildJwtAuthenticator());
 
+        return executeGetAndTranslate("获取智能纪要", apiReq, TencentMeetingSmartMinutesResponse.class);
+    }
+
+    private <T> T executeGetAndTranslate(String action, ApiRequest apiReq, Class<T> responseType)
+            throws ClientException, ServiceException {
+        Map<String, Object> requestLog = new LinkedHashMap<>();
+        requestLog.put("apiPath", apiReq.getApiPath());
+        requestLog.put("query", apiReq.getQueryParams().encode());
+        ThirdPartyHttpLogSupport.logRequest(BIZ, action, apiReq.getApiPath(), requestLog);
         ApiResponse apiRsp = executeGet(apiReq);
+        String rawBody = apiRsp.getRawBody() == null
+                ? "null"
+                : new String(apiRsp.getRawBody(), StandardCharsets.UTF_8);
+        ThirdPartyHttpLogSupport.logResponse(BIZ, action, Map.of(
+                "statusCode", apiRsp.getStatusCode(),
+                "body", rawBody));
         if (apiRsp.getStatusCode() >= 300) {
             throw new ServiceException(apiRsp);
         }
         try {
-            return apiRsp.translate(TencentMeetingSmartMinutesResponse.class, Constants.JSON_SERIALIZER);
+            return apiRsp.translate(responseType, Constants.JSON_SERIALIZER);
         } catch (Exception e) {
-            throw new ClientException("解析智能纪要响应失败", e);
+            throw new ClientException("解析" + action + "响应失败", e);
         }
     }
 
