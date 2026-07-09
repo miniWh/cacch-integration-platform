@@ -266,7 +266,9 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
 
         SmartTableDO existingMeeting = smartTableService.getEnabledMeetingByUserId(userId);
         if (existingMeeting != null) {
-            writeBackMasterProvision(master, mapping, record.getRecordId(), docName,
+            ensureEmployeeTableColumns(existingMeeting);
+            writeBackMasterProvision(master, mapping, record.getRecordId(),
+                    existingMeeting.getTableName() != null ? existingMeeting.getTableName() : docName,
                     existingMeeting.getDocId(), existingMeeting.getDocUrl());
             log.info("【MeetingSync】总控回写重试（本地已有会议表）, userId={}, docId={}",
                     userId, existingMeeting.getDocId());
@@ -276,16 +278,9 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
         WeComCreateDocResponse docResponse = weComDocManager.createSmartSheetDoc(docName, List.of(userId));
         WeComGetSheetResponse sheetResponse = weComSmartSheetManager.getSheets(docResponse.getDocid(), null, false);
         String meetingSheetId = resolveFirstSheetId(sheetResponse);
-
         weComSmartSheetManager.updateSheet(docResponse.getDocid(), meetingSheetId, MeetingConstants.MEETING_SHEET_TITLE);
-        Map<String, String> meetingColumnMapping = setupMeetingSheetColumns(
-                docResponse.getDocid(), meetingSheetId);
 
-        WeComAddSheetResponse todoSheetResponse = weComSmartSheetManager.addSheet(
-                docResponse.getDocid(), MeetingConstants.TODO_SHEET_TITLE, null);
-        String todoSheetId = resolveTodoSheetId(todoSheetResponse);
-        Map<String, String> todoColumnMapping = setupTodoSheetColumns(docResponse.getDocid(), todoSheetId);
-
+        // 文档创建后尽早落库，避免后续列初始化瞬时失败时重复建文档
         SmartTableDO meetingTable = new SmartTableDO();
         meetingTable.setTableType(SmartTableTypeEnum.MEETING.getCode());
         meetingTable.setUserId(userId);
@@ -293,15 +288,83 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
         meetingTable.setDocId(docResponse.getDocid());
         meetingTable.setDocUrl(docResponse.getUrl());
         meetingTable.setMeetingSheetId(meetingSheetId);
-        meetingTable.setMeetingColumnMapping(meetingColumnMapping);
-        meetingTable.setTodoSheetId(todoSheetId);
-        meetingTable.setTodoColumnMapping(todoColumnMapping);
         meetingTable.setStatus(MeetingConstants.SMART_TABLE_STATUS_ENABLED);
         smartTableService.saveNew(meetingTable);
+
+        try {
+            Map<String, String> meetingColumnMapping = setupMeetingSheetColumns(
+                    docResponse.getDocid(), meetingSheetId);
+
+            WeComAddSheetResponse todoSheetResponse = weComSmartSheetManager.addSheet(
+                    docResponse.getDocid(), MeetingConstants.TODO_SHEET_TITLE, null);
+            String todoSheetId = resolveTodoSheetId(todoSheetResponse);
+            Map<String, String> todoColumnMapping = setupTodoSheetColumns(docResponse.getDocid(), todoSheetId);
+
+            SmartTableDO update = new SmartTableDO();
+            update.setId(meetingTable.getId());
+            update.setMeetingColumnMapping(meetingColumnMapping);
+            update.setTodoSheetId(todoSheetId);
+            update.setTodoColumnMapping(todoColumnMapping);
+            smartTableService.updateById(update);
+            smartTableService.markSyncSuccess(meetingTable.getId());
+        } catch (Exception e) {
+            smartTableService.markSyncError(meetingTable.getId(), e.getMessage());
+            log.info("【MeetingSync】员工会议表列初始化终止, userId={}, docId={}, reason={}",
+                    userId, docResponse.getDocid(), e.getMessage());
+            throw e;
+        }
 
         writeBackMasterProvision(master, mapping, record.getRecordId(), docName,
                 docResponse.getDocid(), docResponse.getUrl());
         log.info("【MeetingSync】为员工创建会议管理表, userId={}, docId={}", userId, docResponse.getDocid());
+    }
+
+    /**
+     * 本地已有会议表但列映射缺失时，补齐会议/待办子表列（用于上次建表中途失败后的重试）。
+     *
+     * @param table 员工会议表配置，不可为空
+     */
+    private void ensureEmployeeTableColumns(SmartTableDO table) {
+        boolean needMeetingColumns = table.getMeetingColumnMapping() == null
+                || table.getMeetingColumnMapping().isEmpty();
+        boolean needTodoSheet = !StringUtils.hasText(table.getTodoSheetId())
+                || table.getTodoColumnMapping() == null
+                || table.getTodoColumnMapping().isEmpty();
+        if (!needMeetingColumns && !needTodoSheet) {
+            return;
+        }
+        log.info("【MeetingSync】补齐员工会议表列, smartTableId={}, docId={}, needMeetingColumns={}, needTodoSheet={}",
+                table.getId(), table.getDocId(), needMeetingColumns, needTodoSheet);
+        try {
+            SmartTableDO update = new SmartTableDO();
+            update.setId(table.getId());
+            if (needMeetingColumns) {
+                Map<String, String> meetingColumnMapping = setupMeetingSheetColumns(
+                        table.getDocId(), table.getMeetingSheetId());
+                update.setMeetingColumnMapping(meetingColumnMapping);
+                table.setMeetingColumnMapping(meetingColumnMapping);
+            }
+            if (needTodoSheet) {
+                String todoSheetId = table.getTodoSheetId();
+                if (!StringUtils.hasText(todoSheetId)) {
+                    WeComAddSheetResponse todoSheetResponse = weComSmartSheetManager.addSheet(
+                            table.getDocId(), MeetingConstants.TODO_SHEET_TITLE, null);
+                    todoSheetId = resolveTodoSheetId(todoSheetResponse);
+                    update.setTodoSheetId(todoSheetId);
+                    table.setTodoSheetId(todoSheetId);
+                }
+                Map<String, String> todoColumnMapping = setupTodoSheetColumns(table.getDocId(), todoSheetId);
+                update.setTodoColumnMapping(todoColumnMapping);
+                table.setTodoColumnMapping(todoColumnMapping);
+            }
+            smartTableService.updateById(update);
+            smartTableService.markSyncSuccess(table.getId());
+        } catch (Exception e) {
+            smartTableService.markSyncError(table.getId(), e.getMessage());
+            log.info("【MeetingSync】补齐员工会议表列终止, smartTableId={}, docId={}, reason={}",
+                    table.getId(), table.getDocId(), e.getMessage());
+            throw e;
+        }
     }
 
     @Override
@@ -367,8 +430,12 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
                 MeetingConstants.buildTodoColumnTitleMapping());
     }
 
+    private static final int WECOM_TRANSIENT_MAX_ATTEMPTS = 3;
+    private static final long WECOM_TRANSIENT_RETRY_BASE_MS = 800L;
+
     /**
      * 初始化子表列：先遍历收集原始列，再按业务标题逆序新增列，最后删除原始列。
+     * 删除默认列时对企微瞬时错误（errcode=-1）自动重试。
      */
     private Map<String, String> setupSheetColumns(String docId, String sheetId,
                                                   List<MeetingSheetColumnDef> columns,
@@ -377,25 +444,104 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
         List<WeComFieldInfo> existingFields = fieldsResponse.getFields() != null
                 ? fieldsResponse.getFields()
                 : List.of();
+        Set<String> desiredTitles = columns.stream()
+                .map(MeetingSheetColumnDef::title)
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+        // 仅删除非业务列（新建文档默认列）；已存在的业务列保留，避免重试时重复新增
         List<String> originalFieldIds = existingFields.stream()
+                .filter(field -> field.getFieldTitle() == null || !desiredTitles.contains(field.getFieldTitle()))
                 .map(WeComFieldInfo::getFieldId)
                 .toList();
-        log.info("【MeetingSync】子表列初始化, docId={}, sheetId={}, 原始列数={}", docId, sheetId, originalFieldIds.size());
+        Set<String> existingTitles = existingFields.stream()
+                .map(WeComFieldInfo::getFieldTitle)
+                .filter(StringUtils::hasText)
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+        log.info("【MeetingSync】子表列初始化, docId={}, sheetId={}, 原始列数={}, 待删默认列数={}, 已有业务列数={}",
+                docId, sheetId, existingFields.size(), originalFieldIds.size(), existingTitles.size());
 
         List<WeComFieldAddItem> toAdd = columns.reversed().stream()
+                .filter(column -> !existingTitles.contains(column.title()))
                 .map(this::toFieldAddItem)
                 .toList();
-        WeComAddFieldsResponse addResponse = weComSmartSheetManager.addFields(docId, sheetId, toAdd);
-        if (addResponse.getFields() == null || addResponse.getFields().size() != columns.size()) {
-            throw new BizException(ResultCode.INTEGRATION_ERROR, "添加子表字段返回不完整");
+        if (!toAdd.isEmpty()) {
+            WeComAddFieldsResponse addResponse = weComSmartSheetManager.addFields(docId, sheetId, toAdd);
+            if (addResponse.getFields() == null || addResponse.getFields().size() != toAdd.size()) {
+                throw new BizException(ResultCode.INTEGRATION_ERROR, "添加子表字段返回不完整");
+            }
+        } else {
+            log.info("【MeetingSync】子表业务列已齐全，跳过新增, docId={}, sheetId={}", docId, sheetId);
         }
 
         if (!originalFieldIds.isEmpty()) {
-            weComSmartSheetManager.deleteFields(docId, sheetId, originalFieldIds);
+            deleteFieldsWithRetry(docId, sheetId, originalFieldIds);
         }
 
         log.info("【MeetingSync】子表列初始化完成, docId={}, sheetId={}, columns={}", docId, sheetId, mapping.keySet());
         return mapping;
+    }
+
+    /**
+     * 删除字段，对企微瞬时不可用（errcode=-1 / temporarily unavailable）做有限次重试。
+     *
+     * @param docId    文档 ID
+     * @param sheetId  子表 ID
+     * @param fieldIds 待删除字段 ID 列表
+     */
+    private void deleteFieldsWithRetry(String docId, String sheetId, List<String> fieldIds) {
+        BizException lastError = null;
+        for (int attempt = 1; attempt <= WECOM_TRANSIENT_MAX_ATTEMPTS; attempt++) {
+            try {
+                weComSmartSheetManager.deleteFields(docId, sheetId, fieldIds);
+                if (attempt > 1) {
+                    log.info("【MeetingSync】删除默认列重试成功, docId={}, sheetId={}, attempt={}",
+                            docId, sheetId, attempt);
+                }
+                return;
+            } catch (BizException e) {
+                lastError = e;
+                if (!isTransientWeComError(e) || attempt == WECOM_TRANSIENT_MAX_ATTEMPTS) {
+                    log.info("【MeetingSync】删除默认列终止, docId={}, sheetId={}, attempt={}, reason={}",
+                            docId, sheetId, attempt, e.getMessage());
+                    throw e;
+                }
+                long sleepMs = WECOM_TRANSIENT_RETRY_BASE_MS * attempt;
+                log.info("【MeetingSync】删除默认列遇企微瞬时错误，准备重试, docId={}, sheetId={}, attempt={}/{}, sleepMs={}, reason={}",
+                        docId, sheetId, attempt, WECOM_TRANSIENT_MAX_ATTEMPTS, sleepMs, e.getMessage());
+                sleepQuietly(sleepMs);
+            }
+        }
+        if (lastError != null) {
+            throw lastError;
+        }
+    }
+
+    /**
+     * 判断是否为企微可重试的瞬时错误（如 errcode=-1 service temporarily unavailable）。
+     *
+     * @param e 业务异常
+     * @return true 表示可重试
+     */
+    private boolean isTransientWeComError(BizException e) {
+        String message = e.getMessage();
+        if (!StringUtils.hasText(message)) {
+            return false;
+        }
+        String normalized = message.toLowerCase();
+        return normalized.contains("errcode=-1")
+                || normalized.contains("temporarily unavailable")
+                || normalized.contains("retry later")
+                || normalized.contains("system busy")
+                || normalized.contains("系统繁忙");
+    }
+
+    private void sleepQuietly(long sleepMs) {
+        try {
+            Thread.sleep(sleepMs);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            log.info("【MeetingSync】重试等待被中断, sleepMs={}", sleepMs);
+            throw new BizException(ResultCode.SYSTEM_ERROR, "企微操作重试等待被中断", ie);
+        }
     }
 
     private WeComFieldAddItem toFieldAddItem(MeetingSheetColumnDef column) {
