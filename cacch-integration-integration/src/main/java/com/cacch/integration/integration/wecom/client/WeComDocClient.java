@@ -33,11 +33,13 @@ public class WeComDocClient {
         try {
             T response = restTemplate.postForObject(url, request, responseType);
             if (response == null) {
+                log.info("【WeComDoc】{}终止, reason=接口返回null", action);
                 log.error("【WeComDoc】{} 返回 null", action);
                 throw new RestClientException("企业微信" + action + "返回 null");
             }
             return response;
         } catch (RestClientException e) {
+            log.info("【WeComDoc】{}终止, reason={}", action, e.getMessage());
             log.error("【WeComDoc】{} HTTP 调用失败", action, e);
             throw e;
         }

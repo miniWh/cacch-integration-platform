@@ -89,12 +89,15 @@ public class WeComMeetingManagerImpl implements IWeComMeetingManager {
         try {
             return call.run();
         } catch (BizException e) {
+            log.info("【WeComMeeting】编排层{}终止, reason={}", action, e.getMessage());
             log.error("【WeComMeeting】编排层{}失败, errCode={}, errMsg={}", action, e.getCode(), e.getMessage());
             throw e;
         } catch (RestClientException e) {
+            log.info("【WeComMeeting】编排层{}终止, reason={}", action, e.getMessage());
             log.error("【WeComMeeting】编排层{} HTTP 异常", action, e);
             throw new BizException(ResultCode.INTEGRATION_TIMEOUT, "企业微信" + action + "超时", e);
         } catch (Exception e) {
+            log.info("【WeComMeeting】编排层{}终止, reason={}", action, e.getMessage());
             log.error("【WeComMeeting】编排层{}发生未知异常", action, e);
             throw new BizException(ResultCode.SYSTEM_ERROR, "企业微信" + action + "失败", e);
         }

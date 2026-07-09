@@ -34,10 +34,14 @@ public class TencentMeetingServiceImpl implements ITencentMeetingService {
         try {
             return tencentMeetingClient.getMeetingByCode(meetingCode, operatorId);
         } catch (ServiceException e) {
+            log.info("【TencentMeeting】会议号查询终止, meetingCode={}, operatorId={}, reason={}",
+                    meetingCode, operatorId, summarizeError(e));
             log.error("【TencentMeeting】通过会议号查询失败, meetingCode={}, operatorId={}, detail={}",
                     meetingCode, operatorId, summarizeError(e));
             throw new BizException(ResultCode.INTEGRATION_ERROR, "腾讯会议查询失败: " + summarizeError(e), e);
         } catch (ClientException e) {
+            log.info("【TencentMeeting】会议号查询终止, meetingCode={}, operatorId={}, reason={}",
+                    meetingCode, operatorId, e.getMessage());
             log.error("【TencentMeeting】会议查询客户端异常, meetingCode={}, operatorId={}",
                     meetingCode, operatorId, e);
             throw new BizException(ResultCode.INTEGRATION_ERROR, "腾讯会议查询调用失败", e);
@@ -53,10 +57,14 @@ public class TencentMeetingServiceImpl implements ITencentMeetingService {
         try {
             return tencentMeetingClient.listRecords(meetingId, meetingCode, startTimeSec, endTimeSec, operatorId);
         } catch (ServiceException e) {
+            log.info("【TencentMeeting】录制列表查询终止, meetingId={}, meetingCode={}, operatorId={}, reason={}",
+                    meetingId, meetingCode, operatorId, summarizeError(e));
             log.error("【TencentMeeting】查询录制列表失败, meetingId={}, meetingCode={}, operatorId={}, detail={}",
                     meetingId, meetingCode, operatorId, summarizeError(e));
             throw new BizException(ResultCode.INTEGRATION_ERROR, "腾讯会议录制列表查询失败: " + summarizeError(e), e);
         } catch (ClientException e) {
+            log.info("【TencentMeeting】录制列表查询终止, meetingId={}, meetingCode={}, operatorId={}, reason={}",
+                    meetingId, meetingCode, operatorId, e.getMessage());
             log.error("【TencentMeeting】录制列表客户端异常, meetingId={}, meetingCode={}, operatorId={}",
                     meetingId, meetingCode, operatorId, e);
             throw new BizException(ResultCode.INTEGRATION_ERROR, "腾讯会议录制列表调用失败", e);
@@ -76,10 +84,14 @@ public class TencentMeetingServiceImpl implements ITencentMeetingService {
                         recordFileId, e.getErrorInfo().getMessage());
                 return null;
             }
+            log.info("【TencentMeeting】智能纪要获取终止, recordFileId={}, operatorId={}, reason={}",
+                    recordFileId, operatorId, summarizeError(e));
             log.error("【TencentMeeting】获取智能纪要失败, recordFileId={}, operatorId={}, detail={}",
                     recordFileId, operatorId, summarizeError(e));
             throw new BizException(ResultCode.INTEGRATION_ERROR, "腾讯会议智能纪要获取失败: " + summarizeError(e), e);
         } catch (ClientException e) {
+            log.info("【TencentMeeting】智能纪要获取终止, recordFileId={}, operatorId={}, reason={}",
+                    recordFileId, operatorId, e.getMessage());
             log.error("【TencentMeeting】智能纪要客户端异常, recordFileId={}, operatorId={}",
                     recordFileId, operatorId, e);
             throw new BizException(ResultCode.INTEGRATION_ERROR, "腾讯会议智能纪要调用失败", e);
@@ -99,13 +111,31 @@ public class TencentMeetingServiceImpl implements ITencentMeetingService {
                 || normalized.contains("未生成");
     }
 
+    /**
+     * 汇总腾讯会议业务异常信息；禁止输出完整 raw body，避免敏感字段入日志。
+     *
+     * @param e 腾讯会议 ServiceException
+     * @return 可读错误摘要（优先 errorInfo.message，其次截断后的 raw body）
+     */
     private String summarizeError(ServiceException e) {
         if (e.getErrorInfo() != null && StringUtils.hasText(e.getErrorInfo().getMessage())) {
             return e.getErrorInfo().getMessage();
         }
         if (e.getApiResp() != null && e.getApiResp().getRawBody() != null) {
-            return new String(e.getApiResp().getRawBody());
+            String raw = new String(e.getApiResp().getRawBody());
+            return truncateForLog(raw, 200);
         }
         return e.getMessage();
+    }
+
+    private String truncateForLog(String value, int maxLen) {
+        if (!StringUtils.hasText(value)) {
+            return value;
+        }
+        String trimmed = value.trim().replaceAll("\\s+", " ");
+        if (trimmed.length() <= maxLen) {
+            return trimmed;
+        }
+        return trimmed.substring(0, maxLen) + "...(truncated)";
     }
 }

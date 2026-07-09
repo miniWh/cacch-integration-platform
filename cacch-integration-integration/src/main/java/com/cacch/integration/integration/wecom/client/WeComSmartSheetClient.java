@@ -141,11 +141,13 @@ public class WeComSmartSheetClient {
         try {
             T response = restTemplate.postForObject(url, request, responseType);
             if (response == null) {
+                log.info("【WeComSmartSheet】{}终止, reason=接口返回null", action);
                 log.error("【WeComSmartSheet】{} 返回 null", action);
                 throw new RestClientException("企业微信智能表格" + action + "返回 null");
             }
             return response;
         } catch (RestClientException e) {
+            log.info("【WeComSmartSheet】{}终止, reason={}", action, e.getMessage());
             log.error("【WeComSmartSheet】{} HTTP 调用失败", action, e);
             throw e;
         }

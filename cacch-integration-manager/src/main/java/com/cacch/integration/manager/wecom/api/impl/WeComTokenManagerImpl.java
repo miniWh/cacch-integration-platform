@@ -29,6 +29,8 @@ public class WeComTokenManagerImpl implements IWeComTokenManager {
         // 1. 从配置中解析 secret（调用方无需接触 secret）
         WeComAppConfig appConfig = weComProperties.findByCorpidAndAppKey(corpid, appKey)
                 .orElseThrow(() -> {
+                    log.info("【WeComToken】获取 token 终止, corpid={}, appKey={}, reason=未找到应用配置",
+                            corpid, appKey);
                     log.error("【WeComToken】未找到匹配的企业微信应用配置, corpid={}, appKey={}", corpid, appKey);
                     return new BizException(ResultCode.PARAM_INVALID,
                             String.format("未找到企业微信应用配置: corpid=%s, appKey=%s", corpid, appKey));
@@ -40,13 +42,19 @@ public class WeComTokenManagerImpl implements IWeComTokenManager {
             log.info("【WeComToken】编排层获取 token 成功, corpid={}, appKey={}", corpid, appKey);
             return token;
         } catch (BizException e) {
+            log.info("【WeComToken】获取 token 终止, corpid={}, appKey={}, reason={}",
+                    corpid, appKey, e.getMessage());
             log.error("【WeComToken】编排层获取 token 失败, corpid={}, appKey={}, errCode={}, errMsg={}",
                     corpid, appKey, e.getCode(), e.getMessage());
             throw e;
         } catch (RestClientException e) {
+            log.info("【WeComToken】获取 token 终止, corpid={}, appKey={}, reason={}",
+                    corpid, appKey, e.getMessage());
             log.error("【WeComToken】HTTP 调用异常, corpid={}, appKey={}", corpid, appKey, e);
             throw new BizException(ResultCode.INTEGRATION_TIMEOUT, "企业微信接口超时", e);
         } catch (Exception e) {
+            log.info("【WeComToken】获取 token 终止, corpid={}, appKey={}, reason={}",
+                    corpid, appKey, e.getMessage());
             log.error("【WeComToken】获取 token 发生未知异常, corpid={}, appKey={}", corpid, appKey, e);
             throw new BizException(ResultCode.SYSTEM_ERROR, "获取企业微信 access_token 失败", e);
         }

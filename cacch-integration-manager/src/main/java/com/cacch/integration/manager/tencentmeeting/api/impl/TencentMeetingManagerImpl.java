@@ -113,6 +113,8 @@ public class TencentMeetingManagerImpl implements ITencentMeetingManager {
             }
             for (TencentMeetingRecordsResponse.RecordFile recordFile : recordMeeting.getRecordFiles()) {
                 if (!StringUtils.hasText(recordFile.getRecordFileId())) {
+                    log.info("【TencentMeeting】跳过空 recordFileId, meetingRecordId={}, state={}",
+                            recordMeeting.getMeetingRecordId(), state);
                     continue;
                 }
                 long startTimeMs = recordFile.getRecordStartTime() != null ? recordFile.getRecordStartTime() : 0L;

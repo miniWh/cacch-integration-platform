@@ -34,12 +34,15 @@ public class WeComDocManagerImpl implements IWeComDocManager {
         try {
             return weComDocService.createSmartSheetDoc(resolveAccessToken(), docName, adminUsers);
         } catch (BizException e) {
+            log.info("【WeComDoc】编排层新建智能表格终止, docName={}, reason={}", docName, e.getMessage());
             log.error("【WeComDoc】编排层新建智能表格失败, errCode={}, errMsg={}", e.getCode(), e.getMessage());
             throw e;
         } catch (RestClientException e) {
+            log.info("【WeComDoc】编排层新建智能表格终止, docName={}, reason={}", docName, e.getMessage());
             log.error("【WeComDoc】编排层新建智能表格 HTTP 异常", e);
             throw new BizException(ResultCode.INTEGRATION_TIMEOUT, "企业微信新建智能表格超时", e);
         } catch (Exception e) {
+            log.info("【WeComDoc】编排层新建智能表格终止, docName={}, reason={}", docName, e.getMessage());
             log.error("【WeComDoc】编排层新建智能表格发生未知异常", e);
             throw new BizException(ResultCode.SYSTEM_ERROR, "企业微信新建智能表格失败", e);
         }

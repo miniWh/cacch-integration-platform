@@ -87,13 +87,16 @@ public class WeComMeetingClient {
             ResponseEntity<byte[]> response = restTemplate.exchange(request, byte[].class);
             return response.getBody() != null ? response.getBody() : new byte[0];
         } catch (IllegalArgumentException e) {
+            log.info("【WeComMeeting】纪要下载终止, reason=下载地址非法");
             log.error("【WeComMeeting】纪要下载地址非法, url={}", normalizedUrl, e);
             throw new RestClientException("企业微信纪要下载地址非法", e);
         } catch (RestClientException e) {
             if (e instanceof HttpClientErrorException.Forbidden) {
+                log.info("【WeComMeeting】纪要下载终止, reason=403签名URL可能已过期");
                 log.error("【WeComMeeting】下载纪要文件403（签名URL可能已过期或被二次编码破坏）, url={}",
                         normalizedUrl, e);
             } else {
+                log.info("【WeComMeeting】纪要下载终止, reason={}", e.getMessage());
                 log.error("【WeComMeeting】下载纪要文件失败, url={}", normalizedUrl, e);
             }
             throw e;
@@ -118,11 +121,13 @@ public class WeComMeetingClient {
         try {
             T response = restTemplate.postForObject(url, request, responseType);
             if (response == null) {
+                log.info("【WeComMeeting】{}终止, reason=接口返回null", action);
                 log.error("【WeComMeeting】{} 返回 null", action);
                 throw new RestClientException("企业微信" + action + "返回 null");
             }
             return response;
         } catch (RestClientException e) {
+            log.info("【WeComMeeting】{}终止, reason={}", action, e.getMessage());
             log.error("【WeComMeeting】{} HTTP 调用失败", action, e);
             throw e;
         }

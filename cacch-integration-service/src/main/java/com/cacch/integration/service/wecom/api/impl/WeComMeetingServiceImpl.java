@@ -137,6 +137,8 @@ public class WeComMeetingServiceImpl implements IWeComMeetingService {
 
     private void assertWeComSuccess(WeComBaseResponse response, String action) {
         if (!response.isSuccess()) {
+            log.info("【WeComMeeting】{}终止, errcode={}, reason={}",
+                    action, response.getErrCode(), response.getErrMsg());
             log.error("【WeComMeeting】{}失败, errcode={}, errmsg={}",
                     action, response.getErrCode(), response.getErrMsg());
             throw new BizException(ResultCode.INTEGRATION_ERROR,

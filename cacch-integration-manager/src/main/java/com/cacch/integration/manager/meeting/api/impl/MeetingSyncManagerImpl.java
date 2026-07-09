@@ -198,6 +198,7 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
                     .filter(todo -> !StringUtils.hasText(todo.getRecordId()))
                     .toList();
             if (todos.isEmpty()) {
+                log.info("【MeetingSync】跳过待办回写, smartTableId={}, reason=无待同步待办", table.getId());
                 continue;
             }
             totalPending += todos.size();
@@ -464,6 +465,9 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
                         default -> skippedCount++;
                     }
                 }
+            } else {
+                log.info("【MeetingSync】会议子表无记录数据，跳过扫描, smartTableId={}, docId={}",
+                        table.getId(), table.getDocId());
             }
             smartTableService.markSyncSuccess(table.getId());
         } catch (Exception e) {

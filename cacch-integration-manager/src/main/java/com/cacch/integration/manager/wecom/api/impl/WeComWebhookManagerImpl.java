@@ -81,6 +81,7 @@ public class WeComWebhookManagerImpl implements IWeComWebhookManager {
 
     private void sendMentionText(WeComAlertCommand command, String dedupKey) {
         if (webhookProperties.getMentionMobiles().isEmpty()) {
+            log.info("【WeComWebhook】跳过 @提醒, reason=未配置 mentionMobiles");
             return;
         }
         String textDedupKey = command.isSkipDedup() ? null : dedupKey + ":text";

@@ -358,6 +358,8 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
                 .filter(todo -> !StringUtils.hasText(todo.getRecordId()))
                 .toList();
         if (pendingTodos.isEmpty()) {
+            log.info("【MeetingMinutes】跳过待办回写, recordId={}, meetingCode={}, reason=无待回写待办",
+                    record.getRecordId(), resolveMeetingCode(record));
             return;
         }
         int syncedCount = todoSheetWriteSupport.writeTodosToSheet(table, pendingTodos);

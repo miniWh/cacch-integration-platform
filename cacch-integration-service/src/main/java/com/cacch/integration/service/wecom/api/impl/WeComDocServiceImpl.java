@@ -40,6 +40,8 @@ public class WeComDocServiceImpl implements IWeComDocService {
 
     private void assertWeComSuccess(WeComBaseResponse response, String action) {
         if (!response.isSuccess()) {
+            log.info("【WeComDoc】{}终止, errcode={}, reason={}",
+                    action, response.getErrCode(), response.getErrMsg());
             log.error("【WeComDoc】{}失败, errcode={}, errmsg={}",
                     action, response.getErrCode(), response.getErrMsg());
             throw new BizException(ResultCode.INTEGRATION_ERROR,

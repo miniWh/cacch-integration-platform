@@ -104,7 +104,7 @@ public class WeComSmartSheetManagerImpl implements IWeComSmartSheetManager {
     private String resolveAccessToken() {
         WeComAppConfig appConfig = weComProperties.findSelfBuiltApp()
                 .orElseThrow(() -> new BizException(ResultCode.PARAM_INVALID, "未配置企微自建应用（wecom.apps）"));
-        log.info("【WeComSmartSheet】使用自建应用鉴权, corpid={}, appKey={}",
+        log.debug("【WeComSmartSheet】使用自建应用鉴权, corpid={}, appKey={}",
                 appConfig.getCorpid(), appConfig.getAppKey());
         return weComTokenManager.getAccessToken(appConfig.getCorpid(), appConfig.getAppKey());
     }
@@ -113,12 +113,15 @@ public class WeComSmartSheetManagerImpl implements IWeComSmartSheetManager {
         try {
             return call.run();
         } catch (BizException e) {
+            log.info("【WeComSmartSheet】编排层{}终止, reason={}", action, e.getMessage());
             log.error("【WeComSmartSheet】编排层{}失败, errCode={}, errMsg={}", action, e.getCode(), e.getMessage());
             throw e;
         } catch (RestClientException e) {
+            log.info("【WeComSmartSheet】编排层{}终止, reason={}", action, e.getMessage());
             log.error("【WeComSmartSheet】编排层{} HTTP 异常", action, e);
             throw new BizException(ResultCode.INTEGRATION_TIMEOUT, "企业微信智能表格" + action + "超时", e);
         } catch (Exception e) {
+            log.info("【WeComSmartSheet】编排层{}终止, reason={}", action, e.getMessage());
             log.error("【WeComSmartSheet】编排层{}发生未知异常", action, e);
             throw new BizException(ResultCode.SYSTEM_ERROR, "企业微信智能表格" + action + "失败", e);
         }

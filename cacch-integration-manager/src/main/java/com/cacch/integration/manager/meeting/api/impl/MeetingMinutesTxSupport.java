@@ -131,6 +131,8 @@ class MeetingMinutesTxSupport {
     )
     public void markMinutesPending(MeetingRecordDO record, SmartTableDO table, String reason) {
         if (MeetingMinutesStatusEnum.PENDING.getCode().equals(record.getMinutesStatus())) {
+            log.info("【MeetingMinutes】跳过重复标记待解析, recordId={}, meetingId={}",
+                    record.getRecordId(), record.getWecomMeetingId());
             return;
         }
         log.info("【MeetingMinutes】纪要等待解析, recordId={}, meetingId={}, reason={}",

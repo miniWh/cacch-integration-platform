@@ -37,6 +37,7 @@ public class WeComTokenClient {
             WeComTokenResponse response = restTemplate.getForObject(url, WeComTokenResponse.class);
 
             if (response == null) {
+                log.info("【WeComToken】获取 token 终止, corpid={}, reason=接口返回null", maskString(corpid, 6));
                 log.error("【WeComToken】接口返回 null");
                 throw new RestClientException("企业微信 /gettoken 返回 null");
             }
@@ -44,6 +45,8 @@ public class WeComTokenClient {
             if (response.isSuccess()) {
                 log.info("【WeComToken】access_token 获取成功, expires_in={}s", response.getExpiresIn());
             } else {
+                log.info("【WeComToken】获取 token 终止, corpid={}, errcode={}, reason={}",
+                        maskString(corpid, 6), response.getErrCode(), response.getErrMsg());
                 log.error("【WeComToken】企微返回错误, errcode={}, errmsg={}",
                         response.getErrCode(), response.getErrMsg());
             }
@@ -51,6 +54,8 @@ public class WeComTokenClient {
             return response;
 
         } catch (RestClientException e) {
+            log.info("【WeComToken】获取 token 终止, corpid={}, reason={}",
+                    maskString(corpid, 6), e.getMessage());
             log.error("【WeComToken】HTTP 调用失败, url={}", maskUrl(url), e);
             throw e;
         }

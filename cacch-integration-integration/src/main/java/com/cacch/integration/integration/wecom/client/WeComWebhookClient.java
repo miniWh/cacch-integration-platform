@@ -37,11 +37,13 @@ public class WeComWebhookClient {
         try {
             WeComWebhookResponse response = restTemplate.postForObject(url, request, WeComWebhookResponse.class);
             if (response == null) {
+                log.info("【WeComWebhook】消息发送终止, reason=接口返回null");
                 log.error("【WeComWebhook】发送消息返回 null");
                 throw new RestClientException("企微 Webhook 返回 null");
             }
             return response;
         } catch (RestClientException e) {
+            log.info("【WeComWebhook】消息发送终止, reason={}", e.getMessage());
             log.error("【WeComWebhook】HTTP 调用失败", e);
             throw e;
         }
