@@ -29,9 +29,10 @@ public class MinutesSyncTask {
     private final AtomicBoolean running = new AtomicBoolean();
 
     /**
-     * 定时拉取已结束会议的腾讯会议智能纪要并解析待办。
+     * 定时拉取腾讯会议智能纪要并解析待办。
      *
      * <p>触发频率由 {@code meeting.sync.minutes-cron} 配置，默认每 3 分钟；
+     * 会议已开始后即可查询，以录制/纪要就绪为真正触发条件；
      * 上一轮未结束则跳过本次；异常时发送 Webhook 告警，不向上抛出以免影响调度线程。</p>
      */
     @Scheduled(cron = "${meeting.sync.minutes-cron:0 */3 * * * ?}")

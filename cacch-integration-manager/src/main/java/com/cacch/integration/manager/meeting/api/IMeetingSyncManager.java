@@ -52,7 +52,9 @@ public interface IMeetingSyncManager {
     void syncTodosToSheet();
 
     /**
-     * 拉取已结束会议的 TXT 智能纪要，解析待办并入库
+     * 拉取会议智能纪要并解析待办入库。
+     *
+     * <p>会议已开始后即可查询；以录制/纪要就绪为真正触发条件，不依赖计划结束时间。</p>
      */
     void syncMeetingMinutesFromWeCom();
 

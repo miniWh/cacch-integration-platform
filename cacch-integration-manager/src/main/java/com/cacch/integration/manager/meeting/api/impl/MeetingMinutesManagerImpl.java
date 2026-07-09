@@ -65,7 +65,7 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
             logSkip(record, skipReason);
             return 0;
         }
-        log.info("【MeetingMinutes】尝试拉取已结束会议的 TXT 智能纪要并解析待办入库, recordId={}, meetingId={}, meetingTitle={}",
+        log.info("【MeetingMinutes】尝试拉取智能纪要并解析待办入库, recordId={}, meetingId={}, meetingTitle={}",
                 record.getRecordId(), record.getWecomMeetingId(), record.getMeetingTitle());
         if (!tencentMeetingProperties.isEnabled()) {
             logSkip(record, "腾讯会议 API 未启用（tencent-meeting.enabled=false）");
@@ -81,15 +81,17 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
             return 0;
         }
         try {
-            if (!isMeetingEnded(record)) {
-                Long endEpochSec = resolveMeetingEndEpochSec(record);
-                if (endEpochSec == null) {
-                    logSkip(record, "无法解析会议结束时间，暂不拉取纪要");
+            // 不再等待「计划结束时间」；仅要求已过开始时间（+可选宽限），真正触发以录制/纪要就绪为准
+            if (!isReadyToQueryMinutes(record)) {
+                Long startEpochSec = resolveMeetingStartEpochSec(record);
+                if (startEpochSec == null) {
+                    logSkip(record, "无法解析会议开始时间，暂不拉取纪要");
                 } else {
-                    long readyAt = endEpochSec + meetingSyncProperties.getMinutesEndBufferMinutes() * 60L;
+                    long readyAt = startEpochSec + meetingSyncProperties.getMinutesStartGraceMinutes() * 60L;
                     logSkip(record, String.format(
-                            "会议尚未结束或未过缓冲期, endEpochSec=%d, bufferMinutes=%d, readyAtEpochSec=%d, nowEpochSec=%d",
-                            endEpochSec, meetingSyncProperties.getMinutesEndBufferMinutes(), readyAt, Instant.now().getEpochSecond()));
+                            "会议尚未到可查询窗口, startEpochSec=%d, graceMinutes=%d, readyAtEpochSec=%d, nowEpochSec=%d",
+                            startEpochSec, meetingSyncProperties.getMinutesStartGraceMinutes(),
+                            readyAt, Instant.now().getEpochSecond()));
                 }
                 return 0;
             }
@@ -204,30 +206,44 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
                 || TencentMeetingRecordsAdapter.isTencentMeetingId(record.getWecomMeetingId());
     }
 
-    private boolean isMeetingEnded(MeetingRecordDO record) {
-        Long endEpochSec = resolveMeetingEndEpochSec(record);
-        if (endEpochSec == null) {
+    /**
+     * 弱门槛：会议已开始（含可选宽限分钟）后才查询录制/纪要，避免会前空跑。
+     * 提前结束的会议只要已过开始时间即可进入查询，不再等待计划结束时间。
+     */
+    private boolean isReadyToQueryMinutes(MeetingRecordDO record) {
+        Long startEpochSec = resolveMeetingStartEpochSec(record);
+        if (startEpochSec == null) {
+            log.info("【MeetingMinutes】无法解析会议开始时间, recordId={}, meetingId={}",
+                    record.getRecordId(), record.getWecomMeetingId());
             return false;
         }
-        long bufferSec = meetingSyncProperties.getMinutesEndBufferMinutes() * 60L;
-        return Instant.now().getEpochSecond() >= endEpochSec + bufferSec;
+        long graceSec = Math.max(0, meetingSyncProperties.getMinutesStartGraceMinutes()) * 60L;
+        long readyAt = startEpochSec + graceSec;
+        boolean ready = Instant.now().getEpochSecond() >= readyAt;
+        log.info("【MeetingMinutes】检查可查询窗口, recordId={}, startEpochSec={}, graceMinutes={}, ready={}, nowEpochSec={}",
+                record.getRecordId(), startEpochSec, meetingSyncProperties.getMinutesStartGraceMinutes(),
+                ready, Instant.now().getEpochSecond());
+        return ready;
     }
 
+    /**
+     * 等待窗口超时：自会议开始时间起算，超过 maxWaitHours 则放弃。
+     */
     private boolean shouldStopWaiting(MeetingRecordDO record) {
-        Long endEpochSec = resolveMeetingEndEpochSec(record);
-        if (endEpochSec == null) {
+        Long startEpochSec = resolveMeetingStartEpochSec(record);
+        if (startEpochSec == null) {
             return false;
         }
         long maxWaitSec = meetingSyncProperties.getMinutesMaxWaitHours() * 3600L;
-        return Instant.now().getEpochSecond() >= endEpochSec + maxWaitSec;
+        return Instant.now().getEpochSecond() >= startEpochSec + maxWaitSec;
     }
 
-    private Long resolveMeetingEndEpochSec(MeetingRecordDO record) {
-        if (record.getMeetingDate() != null && record.getStartTime() != null && record.getDuration() != null) {
-            LocalDateTime start = LocalDateTime.of(record.getMeetingDate(), record.getStartTime());
-            return start.plusMinutes(record.getDuration()).atZone(ZoneId.systemDefault()).toEpochSecond();
+    private Long resolveMeetingStartEpochSec(MeetingRecordDO record) {
+        if (record.getMeetingDate() == null || record.getStartTime() == null) {
+            return null;
         }
-        return null;
+        return LocalDateTime.of(record.getMeetingDate(), record.getStartTime())
+                .atZone(ZoneId.systemDefault()).toEpochSecond();
     }
 
     private List<SessionRecordFile> listSessionFiles(MeetingRecordDO record) {
@@ -296,11 +312,8 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
     }
 
     private long resolveLocalStartEpochSec(MeetingRecordDO record) {
-        if (record.getMeetingDate() == null || record.getStartTime() == null) {
-            return Instant.now().getEpochSecond();
-        }
-        return LocalDateTime.of(record.getMeetingDate(), record.getStartTime())
-                .atZone(ZoneId.systemDefault()).toEpochSecond();
+        Long startEpochSec = resolveMeetingStartEpochSec(record);
+        return startEpochSec != null ? startEpochSec : Instant.now().getEpochSecond();
     }
 
     private SummaryParseResult fetchTodosFromTencentSmartMinutes(MeetingRecordDO record,

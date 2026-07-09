@@ -13,12 +13,12 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class MeetingSyncProperties {
 
     /**
-     * 会议结束后再等待多少分钟才开始拉取纪要，默认 5
+     * 会议开始后延迟多少分钟才开始查询录制/纪要（弱门槛，避免会前空跑），默认 0
      */
-    private int minutesEndBufferMinutes = 5;
+    private int minutesStartGraceMinutes = 0;
 
     /**
-     * 纪要最大等待小时数，超时后标记为未获取，默认 48
+     * 纪要最大等待小时数（自会议开始时间起算），超时后标记为未获取，默认 48
      */
     private int minutesMaxWaitHours = 48;
 

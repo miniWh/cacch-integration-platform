@@ -51,7 +51,9 @@ meeting:
     meeting-cron: "0 */3 * * * ?"
     todo-cron: "0 */3 * * * ?"
     minutes-cron: "0 */3 * * * ?"
-    minutes-end-buffer-minutes: 5
+    # 会议开始后延迟多少分钟才查录制/纪要（弱门槛）；真正触发以录制/纪要就绪为准
+    minutes-start-grace-minutes: 0
+    # 自会议开始起最长等待小时数，超时标记未获取
     minutes-max-wait-hours: 48
     # 单次批次上限（<=0 表示不限制）；与 max-run-seconds 配合防止单次撑爆调度窗口
     master-record-batch-size: 50
