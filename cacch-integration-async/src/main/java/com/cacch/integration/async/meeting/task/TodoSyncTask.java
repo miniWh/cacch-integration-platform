@@ -26,7 +26,10 @@ public class TodoSyncTask {
     private final IWeComWebhookManager weComWebhookManager;
 
     /**
-     * 定时将待办事项回写到智能表格子表
+     * 定时将待办事项回写到智能表格子表。
+     *
+     * <p>触发频率由 {@code meeting.sync.todo-cron} 配置，默认每 3 分钟；
+     * 异常时发送 Webhook 告警，不向上抛出以免影响调度线程。</p>
      */
     @Scheduled(cron = "${meeting.sync.todo-cron:0 */3 * * * ?}")
     public void syncTodos() {

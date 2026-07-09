@@ -99,8 +99,8 @@ public class MeetingController {
     /**
      * 按状态查询会议记录
      *
-     * @param status 会议状态码，为空时返回空列表
-     * @return 会议记录视图列表
+     * @param status 会议状态码（如 PENDING/SCHEDULED），为空时返回空列表
+     * @return 会议记录视图列表；无匹配时返回空列表
      */
     @GetMapping("/records")
     public Result<List<MeetingRecordVO>> listRecordsByStatus(String status) {

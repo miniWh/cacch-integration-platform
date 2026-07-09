@@ -28,6 +28,9 @@ public class WeComWebhookController {
      * 手动触发 Webhook 测试告警（验证群机器人配置）
      *
      * <p>请求体可省略，省略时使用默认测试内容。</p>
+     *
+     * @param request 告警请求体，可为空；为空时使用默认字段
+     * @return 统一成功结果，data 为 null
      */
     @PostMapping("/test")
     public Result<Void> sendTestAlert(@RequestBody(required = false) @Valid SendWebhookAlertRequest request) {
@@ -38,6 +41,9 @@ public class WeComWebhookController {
 
     /**
      * 发送自定义 Webhook 告警（供运维或联调使用）
+     *
+     * @param request 告警请求体，不可为空
+     * @return 统一成功结果，data 为 null
      */
     @PostMapping("/alert")
     public Result<Void> sendAlert(@Valid @RequestBody SendWebhookAlertRequest request) {

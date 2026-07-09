@@ -41,6 +41,11 @@ public class WeComSmartSheetClient {
 
     /**
      * 查询智能表格子表列表
+     *
+     * @param accessToken 企微 access_token，禁止写入日志
+     * @param request     查询请求（含 docid），不可为空
+     * @return 子表列表响应
+     * @throws RestClientException 网络错误或接口返回 null
      */
     public WeComGetSheetResponse getSheets(String accessToken, WeComGetSheetRequest request) {
         String url = String.format(WeComConstants.SMARTSHEET_GET_SHEET_URL, accessToken);
@@ -50,6 +55,11 @@ public class WeComSmartSheetClient {
 
     /**
      * 查询智能表格字段列表
+     *
+     * @param accessToken 企微 access_token，禁止写入日志
+     * @param request     查询请求（含 docid、sheetId），不可为空
+     * @return 字段列表响应
+     * @throws RestClientException 网络错误或接口返回 null
      */
     public WeComGetFieldsResponse getFields(String accessToken, WeComGetFieldsRequest request) {
         String url = String.format(WeComConstants.SMARTSHEET_GET_FIELDS_URL, accessToken);
@@ -59,6 +69,11 @@ public class WeComSmartSheetClient {
 
     /**
      * 查询智能表格记录列表
+     *
+     * @param accessToken 企微 access_token，禁止写入日志
+     * @param request     查询请求（含 docid、sheetId、分页），不可为空
+     * @return 记录列表响应；无数据时 records 可能为 null
+     * @throws RestClientException 网络错误或接口返回 null
      */
     public WeComGetRecordsResponse getRecords(String accessToken, WeComGetRecordsRequest request) {
         String url = String.format(WeComConstants.SMARTSHEET_GET_RECORDS_URL, accessToken);
@@ -68,6 +83,11 @@ public class WeComSmartSheetClient {
 
     /**
      * 添加智能表格记录
+     *
+     * @param accessToken 企微 access_token，禁止写入日志
+     * @param request     添加记录请求，不可为空
+     * @return 添加结果（含新建 recordId）
+     * @throws RestClientException 网络错误或接口返回 null
      */
     public WeComAddRecordsResponse addRecords(String accessToken, WeComAddRecordsRequest request) {
         String url = String.format(WeComConstants.SMARTSHEET_ADD_RECORDS_URL, accessToken);
@@ -78,6 +98,11 @@ public class WeComSmartSheetClient {
 
     /**
      * 删除智能表格字段
+     *
+     * @param accessToken 企微 access_token，禁止写入日志
+     * @param request     删除字段请求，不可为空
+     * @return 删除结果响应
+     * @throws RestClientException 网络错误或接口返回 null
      */
     public WeComDeleteFieldsResponse deleteFields(String accessToken, WeComDeleteFieldsRequest request) {
         String url = String.format(WeComConstants.SMARTSHEET_DELETE_FIELDS_URL, accessToken);
@@ -88,6 +113,11 @@ public class WeComSmartSheetClient {
 
     /**
      * 添加智能表格子表
+     *
+     * @param accessToken 企微 access_token，禁止写入日志
+     * @param request     添加子表请求，不可为空
+     * @return 添加结果（含 sheetId）
+     * @throws RestClientException 网络错误或接口返回 null
      */
     public WeComAddSheetResponse addSheet(String accessToken, WeComAddSheetRequest request) {
         String url = String.format(WeComConstants.SMARTSHEET_ADD_SHEET_URL, accessToken);
@@ -98,6 +128,11 @@ public class WeComSmartSheetClient {
 
     /**
      * 更新智能表格子表（重命名等）
+     *
+     * @param accessToken 企微 access_token，禁止写入日志
+     * @param request     更新子表请求，不可为空
+     * @return 更新结果响应
+     * @throws RestClientException 网络错误或接口返回 null
      */
     public WeComUpdateSheetResponse updateSheet(String accessToken, WeComUpdateSheetRequest request) {
         String url = String.format(WeComConstants.SMARTSHEET_UPDATE_SHEET_URL, accessToken);
@@ -109,6 +144,11 @@ public class WeComSmartSheetClient {
 
     /**
      * 添加智能表格字段
+     *
+     * @param accessToken 企微 access_token，禁止写入日志
+     * @param request     添加字段请求，不可为空
+     * @return 添加结果响应
+     * @throws RestClientException 网络错误或接口返回 null
      */
     public WeComAddFieldsResponse addFields(String accessToken, WeComAddFieldsRequest request) {
         String url = String.format(WeComConstants.SMARTSHEET_ADD_FIELDS_URL, accessToken);
@@ -119,6 +159,11 @@ public class WeComSmartSheetClient {
 
     /**
      * 更新智能表格字段（重命名列等）
+     *
+     * @param accessToken 企微 access_token，禁止写入日志
+     * @param request     更新字段请求，不可为空
+     * @return 更新结果响应
+     * @throws RestClientException 网络错误或接口返回 null
      */
     public WeComUpdateFieldsResponse updateFields(String accessToken, WeComUpdateFieldsRequest request) {
         String url = String.format(WeComConstants.SMARTSHEET_UPDATE_FIELDS_URL, accessToken);
@@ -129,6 +174,11 @@ public class WeComSmartSheetClient {
 
     /**
      * 更新智能表格记录
+     *
+     * @param accessToken 企微 access_token，禁止写入日志
+     * @param request     更新记录请求，不可为空
+     * @return 更新结果响应
+     * @throws RestClientException 网络错误或接口返回 null
      */
     public WeComUpdateRecordsResponse updateRecords(String accessToken, WeComUpdateRecordsRequest request) {
         String url = String.format(WeComConstants.SMARTSHEET_UPDATE_RECORDS_URL, accessToken);

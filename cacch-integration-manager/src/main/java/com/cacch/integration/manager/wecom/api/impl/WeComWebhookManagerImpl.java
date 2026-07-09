@@ -10,7 +10,7 @@ import com.cacch.integration.service.wecom.api.IWeComWebhookService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -35,9 +35,7 @@ public class WeComWebhookManagerImpl implements IWeComWebhookManager {
 
     private final IWeComWebhookService weComWebhookService;
     private final WeComWebhookProperties webhookProperties;
-
-    @Value("${spring.profiles.active:unknown}")
-    private String activeProfile;
+    private final Environment environment;
 
     @Override
     public void sendAlert(WeComAlertCommand command) {
@@ -111,7 +109,7 @@ public class WeComWebhookManagerImpl implements IWeComWebhookManager {
         }
         sb.append("> **对象**: <font color=\"warning\">")
                 .append(escapeMarkdown(command.getSubject())).append("</font>\n");
-        sb.append("> **环境**: ").append(activeProfile).append("\n");
+        sb.append("> **环境**: ").append(resolveActiveProfile()).append("\n");
         sb.append("> **时间**: ").append(LocalDateTime.now().format(TIME_FMT)).append("\n");
         if (StringUtils.hasText(traceId)) {
             sb.append("> **TraceId**: ").append(traceId).append("\n");
@@ -150,6 +148,15 @@ public class WeComWebhookManagerImpl implements IWeComWebhookManager {
             return "";
         }
         return text.length() <= maxLen ? text : text.substring(0, maxLen) + "...";
+    }
+
+    private String resolveActiveProfile() {
+        String[] profiles = environment.getActiveProfiles();
+        if (profiles.length > 0) {
+            return String.join(",", profiles);
+        }
+        String[] defaults = environment.getDefaultProfiles();
+        return defaults.length > 0 ? String.join(",", defaults) : "unknown";
     }
 
     private String escapeMarkdown(String text) {

@@ -27,6 +27,7 @@ import java.net.URI;
 
 /**
  * 企业微信会议 HTTP 客户端
+ *
  * @author hongfu_zhou@cacch.com
  */
 @Slf4j
@@ -36,30 +37,70 @@ public class WeComMeetingClient {
 
     private final RestTemplate restTemplate;
 
+    /**
+     * 创建企微预约会议
+     *
+     * @param accessToken 企微 access_token，禁止写入日志
+     * @param request     创建会议请求体，不可为空
+     * @return 创建会议响应（含 meetingid、会议号、链接）
+     * @throws RestClientException 网络错误或接口返回 null
+     */
     public WeComCreateMeetingResponse createMeeting(String accessToken, WeComCreateMeetingRequest request) {
         String url = String.format(WeComConstants.MEETING_CREATE_URL, accessToken);
         log.info("【WeComMeeting】创建预约会议, title={}, admin={}", request.getTitle(), request.getAdminUserid());
         return post(url, request, WeComCreateMeetingResponse.class, "创建预约会议");
     }
 
+    /**
+     * 获取企微会议详情
+     *
+     * @param accessToken 企微 access_token，禁止写入日志
+     * @param request     查询请求（含 meetingid），不可为空
+     * @return 会议详情响应
+     * @throws RestClientException 网络错误或接口返回 null
+     */
     public WeComGetMeetingInfoResponse getMeetingInfo(String accessToken, WeComGetMeetingInfoRequest request) {
         String url = String.format(WeComConstants.MEETING_GET_INFO_URL, accessToken);
         log.info("【WeComMeeting】获取会议详情, meetingId={}", request.getMeetingid());
         return post(url, request, WeComGetMeetingInfoResponse.class, "获取会议详情");
     }
 
+    /**
+     * 获取会议录制转写详情
+     *
+     * @param accessToken 企微 access_token，禁止写入日志
+     * @param request     转写查询请求，不可为空
+     * @return 转写详情响应
+     * @throws RestClientException 网络错误或接口返回 null
+     */
     public WeComGetTranscriptResponse getTranscriptDetail(String accessToken, WeComGetTranscriptRequest request) {
         String url = String.format(WeComConstants.MEETING_TRANSCRIPT_GET_DETAIL_URL, accessToken);
         log.info("【WeComMeeting】获取录制转写, meetingId={}", request.getMeetingid());
         return post(url, request, WeComGetTranscriptResponse.class, "获取录制转写");
     }
 
+    /**
+     * 获取会议录制列表
+     *
+     * @param accessToken 企微 access_token，禁止写入日志
+     * @param request     录制列表查询请求，不可为空
+     * @return 录制列表响应
+     * @throws RestClientException 网络错误或接口返回 null
+     */
     public WeComListRecordResponse listRecords(String accessToken, WeComListRecordRequest request) {
         String url = String.format(WeComConstants.MEETING_RECORD_LIST_URL, accessToken);
         log.info("【WeComMeeting】获取录制列表, meetingId={}", request.getMeetingid());
         return post(url, request, WeComListRecordResponse.class, "获取录制列表");
     }
 
+    /**
+     * 获取单个录制文件详情
+     *
+     * @param accessToken 企微 access_token，禁止写入日志
+     * @param request     录制文件查询请求，不可为空
+     * @return 录制文件详情响应
+     * @throws RestClientException 网络错误或接口返回 null
+     */
     public WeComGetRecordFileResponse getRecordFile(String accessToken, WeComGetRecordFileRequest request) {
         String url = String.format(WeComConstants.MEETING_RECORD_GET_FILE_URL, accessToken);
         log.info("【WeComMeeting】获取录制文件详情, meetingId={}, recordFileId={}",
@@ -70,8 +111,9 @@ public class WeComMeetingClient {
     /**
      * 下载二进制文件（用于 DOCX 纪要）
      *
-     * @param downloadUrl 下载地址
-     * @return 文件字节
+     * @param downloadUrl 下载地址，不可为空
+     * @return 文件字节；响应体为空时返回空数组
+     * @throws RestClientException 地址非法、403 或网络错误
      */
     public byte[] downloadBytes(String downloadUrl) {
         if (downloadUrl == null || downloadUrl.isBlank()) {
@@ -109,8 +151,9 @@ public class WeComMeetingClient {
      * <p>腾讯云 COS 预签名 URL 对 query 参数编码敏感，必须使用已编码 URI 发起请求，
      * 否则 RestTemplate 二次编码会导致签名校验失败（403 AccessDenied / Request has expired）。</p>
      *
-     * @param downloadUrl 下载地址
-     * @return 文件文本内容
+     * @param downloadUrl 下载地址，不可为空
+     * @return 文件文本内容（UTF-8）
+     * @throws RestClientException 地址非法、403 或网络错误
      */
     public String downloadText(String downloadUrl) {
         byte[] bytes = downloadBytes(downloadUrl);

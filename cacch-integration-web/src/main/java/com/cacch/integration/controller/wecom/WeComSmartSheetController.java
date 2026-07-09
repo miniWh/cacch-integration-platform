@@ -40,9 +40,10 @@ public class WeComSmartSheetController {
     /**
      * 查询智能表格子表列表
      *
-     * @param docId            文档 docid
+     * @param docId            文档 docid，不可为空
      * @param sheetId          可选，指定子表 ID
      * @param needAllTypeSheet 可选，是否返回全部类型子表（含仪表盘、说明页）
+     * @return 子表视图列表；无子表时返回空列表
      */
     @GetMapping("/{docId}/sheets")
     public Result<List<SmartSheetVO>> getSheets(
@@ -56,10 +57,11 @@ public class WeComSmartSheetController {
     /**
      * 查询智能表格字段列表
      *
-     * @param docId   文档 docid
-     * @param sheetId 子表 ID
+     * @param docId   文档 docid，不可为空
+     * @param sheetId 子表 ID，不可为空
      * @param offset  偏移量，默认 0
      * @param limit   分页大小，默认 100
+     * @return 字段列表视图
      */
     @GetMapping("/{docId}/sheets/{sheetId}/fields")
     public Result<SmartFieldListVO> getFields(
@@ -74,10 +76,11 @@ public class WeComSmartSheetController {
     /**
      * 查询智能表格记录列表
      *
-     * @param docId   文档 docid
-     * @param sheetId 子表 ID
+     * @param docId   文档 docid，不可为空
+     * @param sheetId 子表 ID，不可为空
      * @param offset  偏移量，默认 0
      * @param limit   分页大小，默认 100
+     * @return 记录列表视图；无记录时 records 为空集合
      */
     @GetMapping("/{docId}/sheets/{sheetId}/records")
     public Result<SmartRecordListVO> getRecords(
@@ -91,6 +94,11 @@ public class WeComSmartSheetController {
 
     /**
      * 更新智能表格记录（回写会议状态、总控表 doc_id 等）
+     *
+     * @param docId   文档 docid，不可为空
+     * @param sheetId 子表 ID，不可为空
+     * @param request 更新记录请求体，不可为空
+     * @return 更新后的记录列表视图
      */
     @PostMapping("/{docId}/sheets/{sheetId}/records/update")
     public Result<SmartRecordListVO> updateRecords(

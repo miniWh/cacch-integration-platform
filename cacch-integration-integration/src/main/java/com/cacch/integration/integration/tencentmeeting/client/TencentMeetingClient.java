@@ -52,9 +52,11 @@ public class TencentMeetingClient {
     /**
      * 通过会议 Code 查询会议详情，获取 meeting_id
      *
-     * @param meetingCode 9 位会议号
-     * @param operatorId  腾讯会议 userid
+     * @param meetingCode 9 位会议号，不可为空
+     * @param operatorId  腾讯会议 userid，不可为空
      * @return 会议查询响应
+     * @throws ClientException  客户端/解析异常
+     * @throws ServiceException 腾讯会议业务错误（HTTP 非 2xx 或业务码失败）
      */
     public TencentMeetingQueryResponse getMeetingByCode(String meetingCode, String operatorId)
             throws ClientException, ServiceException {
@@ -89,12 +91,14 @@ public class TencentMeetingClient {
     /**
      * 查询会议录制列表
      *
-     * @param meetingId    腾讯会议 meeting_id
+     * @param meetingId    腾讯会议 meeting_id，不可为空
      * @param meetingCode  会议号（可选补充条件）
      * @param startTimeSec 查询起始时间（秒）
      * @param endTimeSec   查询结束时间（秒）
-     * @param operatorId   腾讯会议 userid
+     * @param operatorId   腾讯会议 userid，不可为空
      * @return 录制列表响应
+     * @throws ClientException  客户端/解析异常
+     * @throws ServiceException 腾讯会议业务错误（HTTP 非 2xx 或业务码失败）
      */
     public TencentMeetingRecordsResponse listRecords(String meetingId, String meetingCode,
                                                      long startTimeSec, long endTimeSec, String operatorId)
@@ -137,9 +141,11 @@ public class TencentMeetingClient {
     /**
      * 查询单个云录制的智能纪要
      *
-     * @param recordFileId 录制文件 ID（来自企微 record/list）
-     * @param operatorId   腾讯会议 userid（operator_id 传参）
+     * @param recordFileId 录制文件 ID，不可为空
+     * @param operatorId   腾讯会议 userid，不可为空
      * @return 智能纪要响应
+     * @throws ClientException  客户端/解析异常
+     * @throws ServiceException 腾讯会议业务错误（HTTP 非 2xx 或业务码失败）
      */
     public TencentMeetingSmartMinutesResponse getSmartMinutes(String recordFileId, String operatorId)
             throws ClientException, ServiceException {

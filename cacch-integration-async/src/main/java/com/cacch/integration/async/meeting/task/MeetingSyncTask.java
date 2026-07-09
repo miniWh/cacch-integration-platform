@@ -27,7 +27,10 @@ public class MeetingSyncTask {
     private final IWeComWebhookManager weComWebhookManager;
 
     /**
-     * 定时扫描会议管理子表：同步行数据、按规则自动创建企微会议，并反向同步已创建会议详情
+     * 定时扫描会议管理子表：同步行数据、按规则自动创建企微会议，并反向同步已创建会议详情。
+     *
+     * <p>触发频率由 {@code meeting.sync.meeting-cron} 配置，默认每 3 分钟；
+     * 异常时发送 Webhook 告警，不阻断同一次调度中的反向同步步骤。</p>
      */
     @Scheduled(cron = "${meeting.sync.meeting-cron:0 */3 * * * ?}")
     public void syncMeetings() {

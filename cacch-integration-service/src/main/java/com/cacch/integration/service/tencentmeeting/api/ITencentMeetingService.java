@@ -17,6 +17,7 @@ public interface ITencentMeetingService {
      * @param meetingCode     会议号
      * @param txMeetingUserId 腾讯会议 userid（已完成映射）
      * @return 会议查询响应
+     * @throws com.cacch.integration.common.exception.BizException API 未启用或集成调用失败时抛出
      */
     TencentMeetingQueryResponse getMeetingByCode(String meetingCode, String txMeetingUserId);
 
@@ -29,6 +30,7 @@ public interface ITencentMeetingService {
      * @param endTimeSec      查询结束时间（秒）
      * @param txMeetingUserId 腾讯会议 userid（已完成映射）
      * @return 录制列表响应
+     * @throws com.cacch.integration.common.exception.BizException API 未启用或集成调用失败时抛出
      */
     TencentMeetingRecordsResponse listRecords(String meetingId, String meetingCode,
                                               long startTimeSec, long endTimeSec, String txMeetingUserId);
@@ -39,6 +41,7 @@ public interface ITencentMeetingService {
      * @param recordFileId    录制文件 ID
      * @param txMeetingUserId 腾讯会议 userid（已完成映射）
      * @return 智能纪要响应；纪要未就绪时返回 null
+     * @throws com.cacch.integration.common.exception.BizException API 未启用或集成调用失败时抛出
      */
     TencentMeetingSmartMinutesResponse getSmartMinutes(String recordFileId, String txMeetingUserId);
 }

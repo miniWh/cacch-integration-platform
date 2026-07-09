@@ -26,7 +26,10 @@ public class MinutesSyncTask {
     private final IWeComWebhookManager weComWebhookManager;
 
     /**
-     * 定时拉取已结束会议的腾讯会议智能纪要并解析待办
+     * 定时拉取已结束会议的腾讯会议智能纪要并解析待办。
+     *
+     * <p>触发频率由 {@code meeting.sync.minutes-cron} 配置，默认每 3 分钟；
+     * 异常时发送 Webhook 告警，不向上抛出以免影响调度线程。</p>
      */
     @Scheduled(cron = "${meeting.sync.minutes-cron:0 */3 * * * ?}")
     public void syncMinutes() {

@@ -2,6 +2,7 @@ package com.cacch.integration.manager.meeting.api.impl;
 
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.config.tencentmeeting.TencentMeetingProperties;
+import com.cacch.integration.common.config.meeting.MeetingSyncProperties;
 import com.cacch.integration.common.constant.meeting.MeetingConstants;
 import com.cacch.integration.common.enums.meeting.MeetingMinutesStatusEnum;
 import com.cacch.integration.common.enums.meeting.MeetingRecordStatusEnum;
@@ -12,14 +13,16 @@ import com.cacch.integration.integration.tencentmeeting.adapter.TencentMeetingRe
 import com.cacch.integration.integration.tencentmeeting.adapter.TencentMeetingSmartMinutesAdapter;
 import com.cacch.integration.integration.tencentmeeting.client.dto.TencentMeetingSmartMinutesResponse;
 import com.cacch.integration.integration.wecom.adapter.MeetingSummaryTodoParser;
+import com.cacch.integration.integration.wecom.adapter.WeComSmartSheetCellAdapter;
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComRecordWriteItem;
 import com.cacch.integration.manager.meeting.api.IMeetingMinutesManager;
 import com.cacch.integration.manager.tencentmeeting.api.ITencentMeetingManager;
 import com.cacch.integration.manager.tencentmeeting.dto.TencentSessionRecordFile;
+import com.cacch.integration.manager.wecom.api.IWeComSmartSheetManager;
 import com.cacch.integration.service.meeting.api.ISmartTableService;
 import com.cacch.integration.service.meeting.api.ITodoItemService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -28,7 +31,9 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -50,12 +55,8 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
     private final MeetingMinutesTxSupport meetingMinutesTxSupport;
     private final TodoSheetWriteSupport todoSheetWriteSupport;
     private final ITodoItemService todoItemService;
-
-    @Value("${meeting.sync.minutes-end-buffer-minutes:5}")
-    private int minutesEndBufferMinutes;
-
-    @Value("${meeting.sync.minutes-max-wait-hours:48}")
-    private int minutesMaxWaitHours;
+    private final IWeComSmartSheetManager weComSmartSheetManager;
+    private final MeetingSyncProperties meetingSyncProperties;
 
     @Override
     public int trySyncMinutes(MeetingRecordDO record) {
@@ -83,23 +84,24 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
                 if (endEpochSec == null) {
                     logSkip(record, "无法解析会议结束时间，暂不拉取纪要");
                 } else {
-                    long readyAt = endEpochSec + minutesEndBufferMinutes * 60L;
+                    long readyAt = endEpochSec + meetingSyncProperties.getMinutesEndBufferMinutes() * 60L;
                     logSkip(record, String.format(
                             "会议尚未结束或未过缓冲期, endEpochSec=%d, bufferMinutes=%d, readyAtEpochSec=%d, nowEpochSec=%d",
-                            endEpochSec, minutesEndBufferMinutes, readyAt, Instant.now().getEpochSecond()));
+                            endEpochSec, meetingSyncProperties.getMinutesEndBufferMinutes(), readyAt, Instant.now().getEpochSecond()));
                 }
                 return 0;
             }
             List<SessionRecordFile> sessionFiles = listSessionFiles(record);
             if (sessionFiles.isEmpty()) {
                 if (shouldStopWaiting(record)) {
-                    meetingMinutesTxSupport.markMinutesNotObtained(record, table, "录制未就绪且已超过等待窗口");
+                    meetingMinutesTxSupport.markMinutesNotObtained(record, "录制未就绪且已超过等待窗口");
+                    writeBackMinutesStatus(table, record, MeetingMinutesStatusEnum.NONE);
                     log.info("【MeetingMinutes】等待窗口结束，未获取到纪要, recordId={}, meetingCode={}, maxWaitHours={}",
-                            record.getRecordId(), resolveMeetingCode(record), minutesMaxWaitHours);
+                            record.getRecordId(), resolveMeetingCode(record), meetingSyncProperties.getMinutesMaxWaitHours());
                     return 1;
                 }
                 logSkip(record, String.format(
-                        "腾讯录制列表为空，继续等待, maxWaitHours=%d", minutesMaxWaitHours));
+                        "腾讯录制列表为空，继续等待, maxWaitHours=%d", meetingSyncProperties.getMinutesMaxWaitHours()));
                 markMinutesPending(record, table, "腾讯录制列表为空");
                 return 0;
             }
@@ -108,7 +110,8 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
                     .toList();
             if (!transcodingFiles.isEmpty()) {
                 if (shouldStopWaiting(record)) {
-                    meetingMinutesTxSupport.markMinutesNotObtained(record, table, "录制转码超时");
+                    meetingMinutesTxSupport.markMinutesNotObtained(record, "录制转码超时");
+                    writeBackMinutesStatus(table, record, MeetingMinutesStatusEnum.NONE);
                     log.info("【MeetingMinutes】等待窗口结束，录制仍在转码, recordId={}, meetingCode={}, transcodingCount={}",
                             record.getRecordId(), resolveMeetingCode(record), transcodingFiles.size());
                     return 1;
@@ -143,17 +146,19 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
             }
             if (!StringUtils.hasText(rawContent.toString())) {
                 if (shouldStopWaiting(record)) {
-                    meetingMinutesTxSupport.markMinutesNotObtained(record, table, "智能纪要未生成且已超过等待窗口");
+                    meetingMinutesTxSupport.markMinutesNotObtained(record, "智能纪要未生成且已超过等待窗口");
+                    writeBackMinutesStatus(table, record, MeetingMinutesStatusEnum.NONE);
                     log.info("【MeetingMinutes】等待窗口结束，未获取到智能纪要, recordId={}, meetingCode={}",
                             record.getRecordId(), resolveMeetingCode(record));
                     return 1;
                 }
-                logSkip(record, String.format("智能纪要未就绪，继续等待, maxWaitHours=%d", minutesMaxWaitHours));
+                logSkip(record, String.format("智能纪要未就绪，继续等待, maxWaitHours=%d", meetingSyncProperties.getMinutesMaxWaitHours()));
                 markMinutesPending(record, table, "智能纪要未就绪");
                 return 0;
             }
             int createdCount = meetingMinutesTxSupport.persistMinutesAndTodos(
-                    record, table, rawContent.toString(), allTodos);
+                    record, rawContent.toString(), allTodos);
+            writeBackMinutesStatus(table, record, MeetingMinutesStatusEnum.GENERATED);
             syncPendingTodosToSheet(record, table);
             log.info("【MeetingMinutes】纪要待办已入库, recordId={}, meetingCode={}, todoCount={}, created={}",
                     record.getRecordId(), resolveMeetingCode(record), allTodos.size(), createdCount);
@@ -202,7 +207,7 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
         if (endEpochSec == null) {
             return false;
         }
-        long bufferSec = minutesEndBufferMinutes * 60L;
+        long bufferSec = meetingSyncProperties.getMinutesEndBufferMinutes() * 60L;
         return Instant.now().getEpochSecond() >= endEpochSec + bufferSec;
     }
 
@@ -211,7 +216,7 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
         if (endEpochSec == null) {
             return false;
         }
-        long maxWaitSec = minutesMaxWaitHours * 3600L;
+        long maxWaitSec = meetingSyncProperties.getMinutesMaxWaitHours() * 3600L;
         return Instant.now().getEpochSecond() >= endEpochSec + maxWaitSec;
     }
 
@@ -430,7 +435,53 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
     }
 
     private void markMinutesPending(MeetingRecordDO record, SmartTableDO table, String reason) {
-        meetingMinutesTxSupport.markMinutesPending(record, table, reason);
+        if (meetingMinutesTxSupport.markMinutesPending(record, reason)) {
+            writeBackMinutesStatus(table, record, MeetingMinutesStatusEnum.PENDING);
+        }
+    }
+
+    /**
+     * 事务外回写子表纪要状态；失败仅记日志，不影响已提交的 DB 状态。
+     *
+     * @param table          智能表格配置
+     * @param record         会议记录
+     * @param minutesStatus  要回写的纪要状态
+     */
+    private void writeBackMinutesStatus(SmartTableDO table, MeetingRecordDO record,
+                                        MeetingMinutesStatusEnum minutesStatus) {
+        try {
+            Map<String, String> mapping = table.getMeetingColumnMapping();
+            if (mapping == null) {
+                log.info("【MeetingMinutes】跳过纪要状态回写, recordId={}, meetingId={}, reason=列映射为空",
+                        record.getRecordId(), record.getWecomMeetingId());
+                return;
+            }
+            String fieldTitle = mapping.get("minutes_status");
+            if (!StringUtils.hasText(fieldTitle)) {
+                log.info("【MeetingMinutes】跳过纪要状态回写, recordId={}, meetingId={}, reason=未配置 minutes_status 列",
+                        record.getRecordId(), record.getWecomMeetingId());
+                return;
+            }
+            if (!StringUtils.hasText(table.getDocId()) || !StringUtils.hasText(table.getMeetingSheetId())) {
+                log.info("【MeetingMinutes】跳过纪要状态回写, recordId={}, meetingId={}, reason=docId 或 meetingSheetId 为空",
+                        record.getRecordId(), record.getWecomMeetingId());
+                return;
+            }
+            Map<String, Object> values = new HashMap<>();
+            values.put(fieldTitle, WeComSmartSheetCellAdapter.textCell(minutesStatus.getDesc()));
+            WeComRecordWriteItem item = WeComRecordWriteItem.builder()
+                    .recordId(record.getRecordId())
+                    .values(values)
+                    .build();
+            weComSmartSheetManager.updateRecords(table.getDocId(), table.getMeetingSheetId(), List.of(item));
+            log.info("【MeetingMinutes】纪要状态已回写表格, recordId={}, meetingId={}, status={}",
+                    record.getRecordId(), record.getWecomMeetingId(), minutesStatus.getDesc());
+        } catch (Exception e) {
+            log.info("【MeetingMinutes】纪要状态回写终止, recordId={}, meetingId={}, status={}, reason={}",
+                    record.getRecordId(), record.getWecomMeetingId(), minutesStatus.getDesc(), e.getMessage());
+            log.error("【MeetingMinutes】纪要状态回写失败, recordId={}, meetingId={}, status={}",
+                    record.getRecordId(), record.getWecomMeetingId(), minutesStatus.getDesc(), e);
+        }
     }
 
     private void logSkip(MeetingRecordDO record, String reason) {

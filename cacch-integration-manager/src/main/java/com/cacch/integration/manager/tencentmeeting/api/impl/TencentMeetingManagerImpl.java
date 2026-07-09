@@ -100,6 +100,7 @@ public class TencentMeetingManagerImpl implements ITencentMeetingManager {
 
     private List<TencentSessionRecordFile> toSessionRecordFiles(TencentMeetingRecordsResponse recordsResponse) {
         if (recordsResponse == null || recordsResponse.getRecordMeetings() == null) {
+            log.info("【TencentMeeting】录制响应为空, reason=recordsResponse或recordMeetings为null");
             return List.of();
         }
         List<TencentSessionRecordFile> sessionFiles = new ArrayList<>();

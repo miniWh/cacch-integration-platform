@@ -88,6 +88,7 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
     private final IWeComUserManager weComUserManager;
     private final IWeComWebhookManager weComWebhookManager;
     private final IMeetingMinutesManager meetingMinutesManager;
+    private final MeetingSyncTxSupport meetingSyncTxSupport;
 
     @Override
     public void scanMasterAndProvision() {
@@ -631,12 +632,10 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
                 record.getLocation());
 
         WeComGetMeetingInfoResponse info = weComMeetingManager.getMeetingInfo(meetingResponse.getMeetingid());
-        record.setWecomMeetingId(meetingResponse.getMeetingid());
-        record.setWecomMeetingCode(firstNonBlank(meetingResponse.getMeetingCode(), info.getMeetingCode()));
-        record.setMeetingLink(firstNonBlank(meetingResponse.getMeetingLink(), info.getMeetingLink()));
-        record.setStatus(MeetingRecordStatusEnum.SCHEDULED.getCode());
-        meetingRecordService.updateById(record);
-
+        String meetingCode = firstNonBlank(meetingResponse.getMeetingCode(), info.getMeetingCode());
+        String meetingLink = firstNonBlank(meetingResponse.getMeetingLink(), info.getMeetingLink());
+        meetingSyncTxSupport.markMeetingCreated(
+                record, meetingResponse.getMeetingid(), meetingCode, meetingLink);
         writeBackMeetingStatus(table, record);
         log.info("【MeetingSync】创建企微会议成功, recordId={}, meetingId={}, host={}",
                 record.getId(), meetingResponse.getMeetingid(), hostUserId);
@@ -671,7 +670,7 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
             return 0;
         }
         applyWeComMeetingDetails(record, info);
-        meetingRecordService.updateById(record);
+        meetingSyncTxSupport.updateMeetingAfterReverseSync(record);
         writeBackMeetingDetails(table, record, changedKeys);
         log.info("【MeetingSync】企微会议详情已回写表格, recordId={}, meetingId={}, fields={}",
                 record.getRecordId(), record.getWecomMeetingId(), changedKeys);
@@ -1120,6 +1119,8 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
             record.setMeetingDate(dateTime.toLocalDate());
             record.setStartTime(dateTime.toLocalTime());
         } catch (DateTimeParseException | NumberFormatException e) {
+            log.info("【MeetingSync】时间字段解析失败，使用兜底解析, raw={}, reason={}",
+                    startText, e.getMessage());
             record.setMeetingDate(parseDate(normalized));
             record.setStartTime(parseTime(normalized));
         }

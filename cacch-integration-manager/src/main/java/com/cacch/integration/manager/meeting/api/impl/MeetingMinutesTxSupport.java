@@ -6,11 +6,7 @@ import com.cacch.integration.common.enums.meeting.TodoSourceEnum;
 import com.cacch.integration.common.enums.meeting.TodoStatusEnum;
 import com.cacch.integration.entity.meeting.MeetingMinutesDO;
 import com.cacch.integration.entity.meeting.MeetingRecordDO;
-import com.cacch.integration.entity.meeting.SmartTableDO;
 import com.cacch.integration.entity.meeting.TodoItemDO;
-import com.cacch.integration.integration.wecom.adapter.WeComSmartSheetCellAdapter;
-import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComRecordWriteItem;
-import com.cacch.integration.manager.wecom.api.IWeComSmartSheetManager;
 import com.cacch.integration.service.meeting.api.IMeetingMinutesService;
 import com.cacch.integration.service.meeting.api.IMeetingRecordService;
 import com.cacch.integration.service.meeting.api.ITodoItemService;
@@ -23,13 +19,12 @@ import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 /**
- * 会议纪要入库与表格回写（独立 Bean 保证事务生效）
+ * 会议纪要数据库写操作支持（独立 Bean 保证事务生效；不含 HTTP 回写）
  *
  * @author hongfu_zhou@cacch.com
  */
@@ -41,15 +36,13 @@ class MeetingMinutesTxSupport {
     private final IMeetingRecordService meetingRecordService;
     private final IMeetingMinutesService meetingMinutesService;
     private final ITodoItemService todoItemService;
-    private final IWeComSmartSheetManager weComSmartSheetManager;
 
     /**
-     * 持久化纪要解析结果并创建待办
+     * 持久化纪要解析结果并创建待办（仅 DB，不含表格回写）
      *
-     * @param record     会议记录
-     * @param table      智能表格配置
-     * @param rawContent 纪要原文
-     * @param todoTitles 待办标题列表
+     * @param record     会议记录，不可为空
+     * @param rawContent 纪要原文，可为空字符串
+     * @param todoTitles 待办标题列表，不可为 null；空白与重复项会跳过
      * @return 新创建的待办数量
      */
     @Transactional(
@@ -58,8 +51,7 @@ class MeetingMinutesTxSupport {
             readOnly = false,
             timeout = 60
     )
-    public int persistMinutesAndTodos(MeetingRecordDO record, SmartTableDO table,
-                                      String rawContent, List<String> todoTitles) {
+    public int persistMinutesAndTodos(MeetingRecordDO record, String rawContent, List<String> todoTitles) {
         MeetingMinutesDO minutes = meetingMinutesService.getByMeetingId(record.getId());
         if (minutes == null) {
             minutes = new MeetingMinutesDO();
@@ -112,16 +104,15 @@ class MeetingMinutesTxSupport {
         }
         record.setMinutesStatus(MeetingMinutesStatusEnum.GENERATED.getCode());
         meetingRecordService.updateById(record);
-        writeBackMinutesStatus(table, record, MeetingMinutesStatusEnum.GENERATED);
         return createdCount;
     }
 
     /**
-     * 等待期内标记纪要待解析，并回写子表纪要状态为「待解析」
+     * 等待期内标记纪要待解析（仅 DB）
      *
-     * @param record 会议记录
-     * @param table  智能表格配置
-     * @param reason 等待原因
+     * @param record 会议记录，不可为空
+     * @param reason 等待原因，用于日志
+     * @return true 表示状态已更新；false 表示已是 PENDING，跳过
      */
     @Transactional(
             rollbackFor = Exception.class,
@@ -129,25 +120,24 @@ class MeetingMinutesTxSupport {
             readOnly = false,
             timeout = 60
     )
-    public void markMinutesPending(MeetingRecordDO record, SmartTableDO table, String reason) {
+    public boolean markMinutesPending(MeetingRecordDO record, String reason) {
         if (MeetingMinutesStatusEnum.PENDING.getCode().equals(record.getMinutesStatus())) {
             log.info("【MeetingMinutes】跳过重复标记待解析, recordId={}, meetingId={}",
                     record.getRecordId(), record.getWecomMeetingId());
-            return;
+            return false;
         }
         log.info("【MeetingMinutes】纪要等待解析, recordId={}, meetingId={}, reason={}",
                 record.getRecordId(), record.getWecomMeetingId(), reason);
         record.setMinutesStatus(MeetingMinutesStatusEnum.PENDING.getCode());
         meetingRecordService.updateById(record);
-        writeBackMinutesStatus(table, record, MeetingMinutesStatusEnum.PENDING);
+        return true;
     }
 
     /**
-     * 纪要未获取到时标记处理完成，并回写子表纪要状态为「无」
+     * 纪要未获取到时标记处理完成（仅 DB，子表回写「无」由调用方在事务外执行）
      *
-     * @param record 会议记录
-     * @param table  智能表格配置
-     * @param reason 未获取到纪要的原因
+     * @param record 会议记录，不可为空
+     * @param reason 未获取到纪要的原因，用于日志
      */
     @Transactional(
             rollbackFor = Exception.class,
@@ -155,12 +145,11 @@ class MeetingMinutesTxSupport {
             readOnly = false,
             timeout = 60
     )
-    public void markMinutesNotObtained(MeetingRecordDO record, SmartTableDO table, String reason) {
+    public void markMinutesNotObtained(MeetingRecordDO record, String reason) {
         log.info("【MeetingMinutes】纪要未获取, recordId={}, meetingId={}, reason={}",
                 record.getRecordId(), record.getWecomMeetingId(), reason);
         record.setMinutesStatus(MeetingMinutesStatusEnum.GENERATED.getCode());
         meetingRecordService.updateById(record);
-        writeBackMinutesStatus(table, record, MeetingMinutesStatusEnum.NONE);
     }
 
     private List<Map<String, Object>> buildTodoJson(List<String> todoTitles) {
@@ -171,35 +160,5 @@ class MeetingMinutesTxSupport {
             todoList.add(item);
         }
         return todoList;
-    }
-
-    private void writeBackMinutesStatus(SmartTableDO table, MeetingRecordDO record,
-                                        MeetingMinutesStatusEnum minutesStatus) {
-        Map<String, String> mapping = table.getMeetingColumnMapping();
-        if (mapping == null) {
-            log.info("【MeetingMinutes】跳过纪要状态回写, recordId={}, meetingId={}, reason=列映射为空",
-                    record.getRecordId(), record.getWecomMeetingId());
-            return;
-        }
-        String fieldTitle = mapping.get("minutes_status");
-        if (!StringUtils.hasText(fieldTitle)) {
-            log.info("【MeetingMinutes】跳过纪要状态回写, recordId={}, meetingId={}, reason=未配置 minutes_status 列",
-                    record.getRecordId(), record.getWecomMeetingId());
-            return;
-        }
-        if (!StringUtils.hasText(table.getDocId()) || !StringUtils.hasText(table.getMeetingSheetId())) {
-            log.info("【MeetingMinutes】跳过纪要状态回写, recordId={}, meetingId={}, reason=docId 或 meetingSheetId 为空",
-                    record.getRecordId(), record.getWecomMeetingId());
-            return;
-        }
-        Map<String, Object> values = new HashMap<>();
-        values.put(fieldTitle, WeComSmartSheetCellAdapter.textCell(minutesStatus.getDesc()));
-        WeComRecordWriteItem item = WeComRecordWriteItem.builder()
-                .recordId(record.getRecordId())
-                .values(values)
-                .build();
-        weComSmartSheetManager.updateRecords(table.getDocId(), table.getMeetingSheetId(), List.of(item));
-        log.info("【MeetingMinutes】纪要状态已回写表格, recordId={}, meetingId={}, status={}",
-                record.getRecordId(), record.getWecomMeetingId(), minutesStatus.getDesc());
     }
 }
