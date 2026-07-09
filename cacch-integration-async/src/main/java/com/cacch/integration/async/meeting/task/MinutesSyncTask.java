@@ -1,6 +1,6 @@
 package com.cacch.integration.async.meeting.task;
 
-import com.cacch.integration.async.support.ScheduledTaskTraceSupport;
+import com.cacch.integration.async.support.ScheduledTaskGuard;
 import com.cacch.integration.common.dto.wecom.WeComAlertCommand;
 import com.cacch.integration.manager.meeting.api.IMeetingSyncManager;
 import com.cacch.integration.manager.wecom.api.IWeComWebhookManager;
@@ -8,6 +8,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * 会议纪要拉取与待办解析定时任务
@@ -24,16 +26,17 @@ public class MinutesSyncTask {
 
     private final IMeetingSyncManager meetingSyncManager;
     private final IWeComWebhookManager weComWebhookManager;
+    private final AtomicBoolean running = new AtomicBoolean();
 
     /**
      * 定时拉取已结束会议的腾讯会议智能纪要并解析待办。
      *
      * <p>触发频率由 {@code meeting.sync.minutes-cron} 配置，默认每 3 分钟；
-     * 异常时发送 Webhook 告警，不向上抛出以免影响调度线程。</p>
+     * 上一轮未结束则跳过本次；异常时发送 Webhook 告警，不向上抛出以免影响调度线程。</p>
      */
     @Scheduled(cron = "${meeting.sync.minutes-cron:0 */3 * * * ?}")
     public void syncMinutes() {
-        ScheduledTaskTraceSupport.runWithTraceId(() -> {
+        ScheduledTaskGuard.runExclusive(TASK_NAME, running, () -> {
             log.info("【MeetingTask】开始执行{}", TASK_NAME);
             try {
                 meetingSyncManager.syncMeetingMinutesFromWeCom();

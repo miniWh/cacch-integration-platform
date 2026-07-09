@@ -53,6 +53,12 @@ meeting:
     minutes-cron: "0 */3 * * * ?"
     minutes-end-buffer-minutes: 5
     minutes-max-wait-hours: 48
+    # 单次批次上限（<=0 表示不限制）；与 max-run-seconds 配合防止单次撑爆调度窗口
+    master-record-batch-size: 50
+    meeting-table-batch-size: 50
+    meeting-record-batch-size: 100
+    todo-batch-size: 100
+    max-run-seconds: 120
 
 # ==================== 腾讯会议 REST API（智能纪要） ====================
 tencent-meeting:

@@ -3,7 +3,7 @@
 # 联调同步请调用 /api/v1/meeting/sync/* 手动触发。
 
 app:
-  role: api
+  role: all
 
 spring:
   # ---------- PostgreSQL 数据源（与 prod 共用同一库 cdb） ----------

@@ -1,5 +1,6 @@
 package com.cacch.integration.manager.meeting.api.impl;
 
+import com.cacch.integration.common.config.meeting.MeetingSyncProperties;
 import com.cacch.integration.common.constant.meeting.MeetingConstants;
 import com.cacch.integration.common.constant.meeting.MeetingSheetColumnDef;
 import com.cacch.integration.common.constant.wecom.WeComConstants;
@@ -89,6 +90,7 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
     private final IWeComWebhookManager weComWebhookManager;
     private final IMeetingMinutesManager meetingMinutesManager;
     private final MeetingSyncTxSupport meetingSyncTxSupport;
+    private final MeetingSyncProperties meetingSyncProperties;
 
     @Override
     public void scanMasterAndProvision() {
@@ -98,18 +100,31 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
             return;
         }
         log.info("【MeetingSync】开始扫描总控表, docId={}", master.getDocId());
+        long deadlineMs = resolveDeadlineMs();
         try {
+            int pageSize = resolvePageSize(meetingSyncProperties.getMasterRecordBatchSize());
             WeComGetRecordsResponse recordsResponse = weComSmartSheetManager.getRecords(
-                    master.getDocId(), master.getMeetingSheetId(), 0, RECORD_PAGE_SIZE);
+                    master.getDocId(), master.getMeetingSheetId(), 0, pageSize);
             if (recordsResponse.getRecords() == null) {
                 log.info("【MeetingSync】总控表无记录数据，跳过扫描, docId={}", master.getDocId());
                 return;
             }
+            List<WeComRecordInfo> records = limitBatch(
+                    recordsResponse.getRecords(),
+                    meetingSyncProperties.getMasterRecordBatchSize(),
+                    "总控表扫描");
             Map<String, String> mapping = ensureMeetingColumnMapping(master);
-            for (WeComRecordInfo record : recordsResponse.getRecords()) {
+            int processed = 0;
+            for (WeComRecordInfo record : records) {
+                if (isBudgetExceeded(deadlineMs, "总控表扫描")) {
+                    break;
+                }
                 provisionEmployeeTable(master, mapping, record);
+                processed++;
             }
             smartTableService.markSyncSuccess(master.getId());
+            log.info("【MeetingSync】总控表扫描完成, docId={}, processed={}, fetched={}",
+                    master.getDocId(), processed, records.size());
         } catch (Exception e) {
             smartTableService.markSyncError(master.getId(), e.getMessage());
             log.info("【MeetingSync】总控表扫描异常终止, masterId={}, docId={}, reason={}",
@@ -128,8 +143,15 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
     @Override
     public MeetingCreateScanResult scanAndCreatePendingMeetings() {
         MeetingCreateScanResult total = MeetingCreateScanResult.empty();
-        List<SmartTableDO> meetingTables = smartTableService.listEnabledMeetingTables();
+        List<SmartTableDO> meetingTables = limitBatch(
+                smartTableService.listEnabledMeetingTables(),
+                meetingSyncProperties.getMeetingTableBatchSize(),
+                "会议表扫描建会");
+        long deadlineMs = resolveDeadlineMs();
         for (SmartTableDO table : meetingTables) {
+            if (isBudgetExceeded(deadlineMs, "会议表扫描建会")) {
+                break;
+            }
             total = total.merge(scanAndCreatePendingMeetingsForTable(table));
         }
         return total;
@@ -143,25 +165,50 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
 
     @Override
     public void createPendingWeComMeetings() {
-        List<SmartTableDO> meetingTables = smartTableService.listEnabledMeetingTables();
+        List<SmartTableDO> meetingTables = limitBatch(
+                smartTableService.listEnabledMeetingTables(),
+                meetingSyncProperties.getMeetingTableBatchSize(),
+                "待发起建会");
+        long deadlineMs = resolveDeadlineMs();
+        int recordBudget = meetingSyncProperties.getMeetingRecordBatchSize();
+        int processedRecords = 0;
         for (SmartTableDO table : meetingTables) {
+            if (isBudgetExceeded(deadlineMs, "待发起建会")) {
+                break;
+            }
             List<MeetingRecordDO> records = meetingRecordService.listBySmartTableId(table.getId());
             for (MeetingRecordDO record : records) {
+                if (recordBudget > 0 && processedRecords >= recordBudget) {
+                    log.info("【MeetingSync】待发起建会提前结束, reason=达到会议记录批次上限, batchSize={}",
+                            recordBudget);
+                    return;
+                }
+                if (isBudgetExceeded(deadlineMs, "待发起建会")) {
+                    return;
+                }
                 tryCreateWeComMeeting(table, record);
+                processedRecords++;
             }
         }
     }
 
     @Override
     public void syncScheduledMeetingsFromWeCom() {
-        List<MeetingRecordDO> records = meetingRecordService.listByStatusWithWecomMeetingId(
-                MeetingRecordStatusEnum.SCHEDULED.getCode());
+        List<MeetingRecordDO> records = limitBatch(
+                meetingRecordService.listByStatusWithWecomMeetingId(
+                        MeetingRecordStatusEnum.SCHEDULED.getCode()),
+                meetingSyncProperties.getMeetingRecordBatchSize(),
+                "企微会议详情反向同步");
+        long deadlineMs = resolveDeadlineMs();
         int scanned = 0;
         int updated = 0;
         int unchanged = 0;
         int skippedStarted = 0;
         int failed = 0;
         for (MeetingRecordDO record : records) {
+            if (isBudgetExceeded(deadlineMs, "企微会议详情反向同步")) {
+                break;
+            }
             scanned++;
             try {
                 int outcome = trySyncScheduledMeetingFromWeCom(record);
@@ -185,10 +232,22 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
 
     @Override
     public void syncTodosToSheet() {
-        List<SmartTableDO> meetingTables = smartTableService.listEnabledMeetingTables();
+        List<SmartTableDO> meetingTables = limitBatch(
+                smartTableService.listEnabledMeetingTables(),
+                meetingSyncProperties.getMeetingTableBatchSize(),
+                "待办回写");
+        long deadlineMs = resolveDeadlineMs();
+        int todoBudget = meetingSyncProperties.getTodoBatchSize();
         int totalPending = 0;
         int totalSynced = 0;
         for (SmartTableDO table : meetingTables) {
+            if (isBudgetExceeded(deadlineMs, "待办回写")) {
+                break;
+            }
+            if (todoBudget > 0 && totalSynced >= todoBudget) {
+                log.info("【MeetingSync】待办回写提前结束, reason=达到待办批次上限, batchSize={}", todoBudget);
+                break;
+            }
             if (!StringUtils.hasText(table.getTodoSheetId()) || table.getTodoColumnMapping() == null) {
                 log.info("【MeetingSync】跳过待办回写, smartTableId={}, reason=待办子表未配置, todoSheetId={}, "
                                 + "todoColumnMapping={}",
@@ -202,6 +261,17 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
                 log.info("【MeetingSync】跳过待办回写, smartTableId={}, reason=无待同步待办", table.getId());
                 continue;
             }
+            if (todoBudget > 0) {
+                int remain = todoBudget - totalSynced;
+                if (remain <= 0) {
+                    break;
+                }
+                if (todos.size() > remain) {
+                    log.info("【MeetingSync】待办回写批次截断, smartTableId={}, total={}, remain={}",
+                            table.getId(), todos.size(), remain);
+                    todos = todos.subList(0, remain);
+                }
+            }
             totalPending += todos.size();
             totalSynced += todoSheetWriteSupport.writeTodosToSheet(table, todos);
         }
@@ -210,18 +280,25 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
 
     @Override
     public void syncMeetingMinutesFromWeCom() {
-        List<MeetingRecordDO> records = meetingRecordService.listByStatusWithWecomMeetingId(
+        List<MeetingRecordDO> allRecords = meetingRecordService.listByStatusWithWecomMeetingId(
                 MeetingRecordStatusEnum.SCHEDULED.getCode());
-        if (records.isEmpty()) {
+        if (allRecords.isEmpty()) {
             log.info("【MeetingSync】纪要拉取跳过, reason=无 SCHEDULED 且含企微会议ID 的记录");
             return;
         }
-        log.info("【MeetingSync】开始纪要拉取, candidateCount={}", records.size());
+        List<MeetingRecordDO> records = limitBatch(
+                allRecords, meetingSyncProperties.getMeetingRecordBatchSize(), "纪要拉取");
+        log.info("【MeetingSync】开始纪要拉取, candidateCount={}, batchCount={}",
+                allRecords.size(), records.size());
+        long deadlineMs = resolveDeadlineMs();
         int scanned = 0;
         int processed = 0;
         int skipped = 0;
         int failed = 0;
         for (MeetingRecordDO record : records) {
+            if (isBudgetExceeded(deadlineMs, "纪要拉取")) {
+                break;
+            }
             scanned++;
             try {
                 int outcome = meetingMinutesManager.trySyncMinutes(record);
@@ -240,6 +317,41 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
         }
         log.info("【MeetingSync】纪要拉取完成, scanned={}, processed={}, skipped={}, failed={}",
                 scanned, processed, skipped, failed);
+    }
+
+    private long resolveDeadlineMs() {
+        int maxRunSeconds = meetingSyncProperties.getMaxRunSeconds();
+        if (maxRunSeconds <= 0) {
+            return 0L;
+        }
+        return System.currentTimeMillis() + maxRunSeconds * 1000L;
+    }
+
+    private boolean isBudgetExceeded(long deadlineMs, String phase) {
+        if (deadlineMs <= 0L || System.currentTimeMillis() < deadlineMs) {
+            return false;
+        }
+        log.info("【MeetingSync】{}提前结束, reason=达到单次时间预算, maxRunSeconds={}",
+                phase, meetingSyncProperties.getMaxRunSeconds());
+        return true;
+    }
+
+    private int resolvePageSize(int batchSize) {
+        if (batchSize <= 0) {
+            return RECORD_PAGE_SIZE;
+        }
+        return Math.min(RECORD_PAGE_SIZE, batchSize);
+    }
+
+    private <T> List<T> limitBatch(List<T> source, int batchSize, String phase) {
+        if (source == null || source.isEmpty()) {
+            return List.of();
+        }
+        if (batchSize <= 0 || source.size() <= batchSize) {
+            return source;
+        }
+        log.info("【MeetingSync】{}批次截断, total={}, batchSize={}", phase, source.size(), batchSize);
+        return source.subList(0, batchSize);
     }
 
     private void provisionEmployeeTable(SmartTableDO master, Map<String, String> mapping, WeComRecordInfo record) {
