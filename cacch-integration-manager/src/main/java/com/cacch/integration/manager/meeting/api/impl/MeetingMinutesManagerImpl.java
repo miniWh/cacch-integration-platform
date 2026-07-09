@@ -65,6 +65,8 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
             logSkip(record, skipReason);
             return 0;
         }
+        log.info("【MeetingMinutes】尝试拉取已结束会议的 TXT 智能纪要并解析待办入库, recordId={}, meetingId={}, meetingTitle={}",
+                record.getRecordId(), record.getWecomMeetingId(), record.getMeetingTitle());
         if (!tencentMeetingProperties.isEnabled()) {
             logSkip(record, "腾讯会议 API 未启用（tencent-meeting.enabled=false）");
             return 0;
@@ -443,9 +445,9 @@ public class MeetingMinutesManagerImpl implements IMeetingMinutesManager {
     /**
      * 事务外回写子表纪要状态；失败仅记日志，不影响已提交的 DB 状态。
      *
-     * @param table          智能表格配置
-     * @param record         会议记录
-     * @param minutesStatus  要回写的纪要状态
+     * @param table         智能表格配置
+     * @param record        会议记录
+     * @param minutesStatus 要回写的纪要状态
      */
     private void writeBackMinutesStatus(SmartTableDO table, MeetingRecordDO record,
                                         MeetingMinutesStatusEnum minutesStatus) {

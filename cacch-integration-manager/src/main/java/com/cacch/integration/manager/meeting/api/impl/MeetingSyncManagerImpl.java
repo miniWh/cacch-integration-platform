@@ -99,7 +99,7 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
             log.info("【MeetingSync】未配置启用的总控表(MASTER)，跳过扫描");
             return;
         }
-        log.info("【MeetingSync】开始扫描总控表, docId={}", master.getDocId());
+        log.info("【MeetingSync】开始扫描总控表, docId={}, 文档名称={}", master.getDocId(), master.getTableName());
         long deadlineMs = resolveDeadlineMs();
         try {
             int pageSize = resolvePageSize(meetingSyncProperties.getMasterRecordBatchSize());
@@ -283,12 +283,12 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
         List<MeetingRecordDO> allRecords = meetingRecordService.listByStatusWithWecomMeetingId(
                 MeetingRecordStatusEnum.SCHEDULED.getCode());
         if (allRecords.isEmpty()) {
-            log.info("【MeetingSync】纪要拉取跳过, reason=无 SCHEDULED 且含企微会议ID 的记录");
+            log.info("【MeetingSync】纪要拉取跳过, reason=无已创建且含企微会议ID的记录");
             return;
         }
         List<MeetingRecordDO> records = limitBatch(
                 allRecords, meetingSyncProperties.getMeetingRecordBatchSize(), "纪要拉取");
-        log.info("【MeetingSync】开始纪要拉取, candidateCount={}, batchCount={}",
+        log.info("【MeetingSync】开始纪要拉取, 已创建且含企微会议ID的会议数量={}, 符合批次要求数量={}",
                 allRecords.size(), records.size());
         long deadlineMs = resolveDeadlineMs();
         int scanned = 0;
@@ -296,6 +296,8 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
         int skipped = 0;
         int failed = 0;
         for (MeetingRecordDO record : records) {
+            log.info("【MeetingSync】开始逐条处理会议纪要, recordId={}, meetingId={}, meetingTitle={}",
+                    record.getRecordId(), record.getWecomMeetingId(), record.getMeetingTitle());
             if (isBudgetExceeded(deadlineMs, "纪要拉取")) {
                 break;
             }
@@ -331,7 +333,7 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
         if (deadlineMs <= 0L || System.currentTimeMillis() < deadlineMs) {
             return false;
         }
-        log.info("【MeetingSync】{}提前结束, reason=达到单次时间预算, maxRunSeconds={}",
+        log.info("【MeetingSync】{}提前结束, reason=达到单次时间预算, 单次同步最长运行秒数={}",
                 phase, meetingSyncProperties.getMaxRunSeconds());
         return true;
     }
@@ -345,9 +347,11 @@ public class MeetingSyncManagerImpl implements IMeetingSyncManager {
 
     private <T> List<T> limitBatch(List<T> source, int batchSize, String phase) {
         if (source == null || source.isEmpty()) {
+            log.info("【MeetingSync】{}批次为空, reason=无数据", phase);
             return List.of();
         }
         if (batchSize <= 0 || source.size() <= batchSize) {
+            log.info("【MeetingSync】{}批次无限制或数据量符合要求, batchSize={}, total={}", phase, batchSize, source.size());
             return source;
         }
         log.info("【MeetingSync】{}批次截断, total={}, batchSize={}", phase, source.size(), batchSize);
