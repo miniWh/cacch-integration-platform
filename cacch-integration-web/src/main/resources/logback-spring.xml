@@ -21,7 +21,7 @@
 
     <!-- 按环境区分日志目录 -->
     <springProfile name="prod">
-        <property name="LOG_PATH" value="/var/log/cacch-integration"/>
+        <property name="LOG_PATH" value="logs"/>
     </springProfile>
     <springProfile name="!prod">
         <property name="LOG_PATH" value="logs"/>
