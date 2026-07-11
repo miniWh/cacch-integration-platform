@@ -62,6 +62,13 @@ wecom:
     mention-mobiles: [ ]
     alert-interval-seconds: 1800
 
+# ---------- 勤策 CRM OpenAPI ----------
+crm:
+  base-url: https://crm.cacch.com:50001
+  open-id: "8858965636174056137"
+  app-key: "0H4aAHGY0htrsglQKm"
+  employee-base-url: https://openapi.qince.com
+
 # ---------- 腾讯会议 REST API（智能纪要） ----------
 tencent-meeting:
   enabled: true

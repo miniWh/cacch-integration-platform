@@ -63,6 +63,13 @@ wecom:
       app-key: address-book
       secret: _V82sWWijuUgDVsNcssQcwbFQIyu9FKr1L_xH6L2Q-0
 
+# ---------- 勤策 CRM OpenAPI ----------
+crm:
+  base-url: ${CRM_BASE_URL:https://crm.cacch.com:50001}
+  open-id: ${CRM_OPEN_ID:8858965636174056137}
+  app-key: ${CRM_APP_KEY:0H4aAHGY0htrsglQKm}
+  employee-base-url: ${CRM_EMPLOYEE_BASE_URL:https://openapi.qince.com}
+
 # ---------- Actuator 健康监控 ----------
 management:
   endpoints:

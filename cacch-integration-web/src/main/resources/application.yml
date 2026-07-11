@@ -94,3 +94,12 @@ wecom:
     key: "4432e2bc-1a69-4fc3-945a-5acb52e399c5"
     mention-mobiles: [ ]
     alert-interval-seconds: 1800
+
+# ==================== 勤策 CRM OpenAPI（公共占位） ====================
+# 实际值请在 application-{profile}.yml 中覆盖；签名算法为 MD5(json|appkey|timestamp)
+crm:
+  base-url: https://crm.cacch.com:50001
+  open-id: placeholder
+  app-key: placeholder
+  # 员工接口可与订单共用 base-url；若环境不同再单独配置
+  employee-base-url:
