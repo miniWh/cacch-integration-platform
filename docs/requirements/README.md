@@ -100,5 +100,5 @@ draft → reviewing → approved → in-progress → testing → done → closed
 
 | 编号 | 标题 | 系统 | 类型 | 状态 | 文件 |
 |------|------|------|------|------|------|
-| REQ-CRM-001 | CRM订单同步OA表单 | CRM | integration | approved | crm/integration/ (待迁入) |
+| REQ-CRM-001 | CRM订单同步OA表单 | CRM | integration | draft | [crm/integration/REQ-CRM-001-CRM订单同步OA表单.md](./crm/integration/REQ-CRM-001-CRM订单同步OA表单.md) |
 | REQ-WECOM-001 | 智能表格人员忙闲状态 | WECOM | feature | draft | wecom/feature/ (待创建) |
