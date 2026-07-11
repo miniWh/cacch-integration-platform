@@ -11,9 +11,10 @@ import java.util.Map;
 import java.util.regex.Pattern;
 
 /**
- * 三方 HTTP 入参/响应 INFO 日志工具。
+ * 三方 HTTP 入参/出参 INFO 日志工具。
  *
- * <p>打印完整业务报文，并对 Token、secret、密码等敏感字段脱敏。</p>
+ * <p>每个三方接口调用必须在 Client 层打印完整入参与出参，并对 Token、secret、密码等敏感字段脱敏。
+ * 业务层（Controller/Service/Manager）仍禁止打印完整请求体。</p>
  *
  * @author hongfu_zhou@cacch.com
  */
@@ -29,33 +30,33 @@ public final class ThirdPartyHttpLogSupport {
     private static final Pattern SECRET_IN_URL = Pattern.compile(
             "(?i)([?&](?:secret|secret_key|secretid|secret_id|key)=)[^&]*");
     private static final Pattern SENSITIVE_JSON_FIELD = Pattern.compile(
-            "(?i)(\"(?:access_token|token|corpsecret|secret|secret_id|secret_key|password|passwd|authorization)\"\\s*:\\s*\")([^\"]*)(\")");
+            "(?i)(\"(?:access_token|token|corpsecret|secret|secret_id|secret_key|app_key|appKey|password|passwd|authorization)\"\\s*:\\s*\")([^\"]*)(\")");
 
     private ThirdPartyHttpLogSupport() {
     }
 
     /**
-     * 打印三方请求入参（INFO）。
+     * 打印三方接口入参（INFO）。
      *
-     * @param bizTag  日志前缀业务标识，如 WeComMeeting
-     * @param action  接口动作说明
+     * @param bizTag  日志前缀业务标识，如 WeComMeeting、Crm
+     * @param action  接口动作说明，如「查询订单」
      * @param url     请求 URL（会脱敏）
-     * @param request 请求体或查询参数对象，可为 null
+     * @param request 请求体或查询参数对象，可为 null；优先传实际发出的报文
      */
     public static void logRequest(String bizTag, String action, String url, Object request) {
-        log.info("【{}】{}请求, url={}, request={}",
+        log.info("【{}】{}入参, url={}, 入参={}",
                 bizTag, action, maskUrl(url), toJson(request));
     }
 
     /**
-     * 打印三方响应报文（INFO）。
+     * 打印三方接口出参（INFO）。
      *
      * @param bizTag   日志前缀业务标识
      * @param action   接口动作说明
-     * @param response 响应对象，可为 null
+     * @param response 响应对象或原始响应体，可为 null；优先传实际收到的报文
      */
     public static void logResponse(String bizTag, String action, Object response) {
-        log.info("【{}】{}响应, response={}", bizTag, action, toJson(response));
+        log.info("【{}】{}出参, 出参={}", bizTag, action, toJson(response));
     }
 
     /**

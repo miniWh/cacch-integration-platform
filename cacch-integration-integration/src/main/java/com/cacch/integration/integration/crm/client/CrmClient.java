@@ -86,7 +86,8 @@ public class CrmClient {
                     .buildAndExpand(crmProperties.getOpenId(), timestamp, digest, msgId)
                     .toUriString();
 
-            ThirdPartyHttpLogSupport.logRequest(BIZ, action, url, body);
+            // 入参打印实际发出的 JSON（与签名一致），出参打印原始响应体
+            ThirdPartyHttpLogSupport.logRequest(BIZ, action, url, bodyJson);
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
@@ -95,12 +96,13 @@ public class CrmClient {
             ResponseEntity<String> responseEntity = restTemplate.postForEntity(url, entity, String.class);
             String responseBody = responseEntity.getBody();
             if (responseBody == null || responseBody.isBlank()) {
+                ThirdPartyHttpLogSupport.logResponse(BIZ, action, null);
                 log.info("【{}】{}终止, reason=响应体为空", BIZ, action);
                 throw new RestClientException("勤策 " + action + " 响应体为空");
             }
 
+            ThirdPartyHttpLogSupport.logResponse(BIZ, action, responseBody);
             CrmOpenApiResponse response = parseResponse(responseBody);
-            ThirdPartyHttpLogSupport.logResponse(BIZ, action, response);
 
             if (response.isSuccess()) {
                 log.info("【{}】{}成功, msgId={}", BIZ, action, response.getMsgId());

@@ -395,12 +395,13 @@ Result.fail(BizException)
 - **唯一配置入口**：`cacch-integration-web/src/main/resources/logback-spring.xml`，禁止在 `application*.yml` 中配置 `logging.level`、`logging.file` 等（避免与 logback 冲突）。
 - 使用 SLF4J + `@Slf4j`（Lombok），禁止直接使用 `System.out.println` 或 MyBatis `StdOutImpl`。
 - **TraceId**：HTTP 请求由 `TraceIdFilter` 写入 MDC（键名 `traceId`），logback 格式 `%X{traceId}` 自动输出；跨服务可通过请求头 `X-Trace-Id` 传递。
-- 关键业务节点必须打印日志，但**禁止打印完整请求体/敏感字段**。
+- 关键业务节点必须打印日志，但**业务层（Controller/Service/Manager）禁止打印完整请求体/敏感字段**。
+- **三方 Client 入参/出参（强制）**：`integration` 模块调用外部系统时，每个接口必须在 Client 内用 INFO 打印**完整入参与出参**（经 `ThirdPartyHttpLogSupport` 脱敏）。细则见 `.cursor/rules/java-third-party-http-io-logging.mdc`。
 - **日志前缀必须使用中文方括号 `【业务标识】`**，禁止使用英文方括号 `[业务标识]`。
 - 格式：`log.info("【ApiKey】创建成功，keyId={}", keyId);`（`【】` 后直接接中文描述，无需额外空格）。
 - 日志级别（在 logback-spring.xml 按 profile 配置）：
   - `DEBUG`：调试信息 / 测试环境 SQL，生产环境不开启
-  - `INFO`：正常业务流程节点；**逻辑提前终止（跳过/中断/条件不满足 return）与异常处理路径也必须打 INFO**，说明原因与关键业务键，禁止静默终止或吞异常
+  - `INFO`：正常业务流程节点；**逻辑提前终止（跳过/中断/条件不满足 return）与异常处理路径也必须打 INFO**，说明原因与关键业务键，禁止静默终止或吞异常；三方 Client 的入参/出参亦为 INFO
   - `WARN`：可恢复的异常情况（含 BizException）
   - `ERROR`：需要介入处理的错误，必须附带异常堆栈
 - **逻辑终止 / 异常 INFO 强制要求**（细则见 `.cursor/rules/java-info-logging-on-exit.mdc`）：
@@ -417,12 +418,14 @@ log.error("【WeComToken】获取 token 失败, corpid={}", corpid, e);
 System.out.println("创建成功");
 log.info("[ApiKey] 创建成功");           // 禁止使用英文方括号
 log.info("apiKey原文: {}", rawApiKey);
-log.info("request={}", request);  // request 可能含 secret
+log.info("request={}", request);  // 业务层禁止；三方 Client 须走 ThirdPartyHttpLogSupport
 ```
 
 日志输出示例：
 ```
 2026-04-20 10:00:00.123 [http-nio-8081-exec-1] [traceId:a1b2c3d4e5f6...] INFO  c.c.i.controller.wecom.WeComSmartSheetController - 【WeComSmartSheet】查询子表...
+2026-07-11 14:13:26.123 [http-nio-8081-exec-2] [traceId:...] INFO  c.c.i.i.crm.client.CrmClient - 【Crm】查询订单入参, url=https://..., 入参={...}
+2026-07-11 14:13:26.456 [http-nio-8081-exec-2] [traceId:...] INFO  c.c.i.i.crm.client.CrmClient - 【Crm】查询订单出参, 出参={...}
 ```
 
 ---

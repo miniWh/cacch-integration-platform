@@ -22,7 +22,7 @@ alwaysApply: false
 - 使用 `log.info`，前缀遵循 `【业务标识】`（见 `.cursorrules` 第十一节）
 - 必须写清：**为何终止/异常** + **关键业务键**（如 `recordId`、`userId`、`docId`、`meetingId`）
 - 异常路径：INFO 说明业务影响；技术细节仍按既有规范用 `WARN`/`ERROR` 并附堆栈（可与 INFO 并存）
-- 禁止打印敏感信息（Token、secret、完整请求体等）
+- 禁止打印敏感信息（Token、secret 等）；业务层禁止完整请求体。三方 Client 的入参/出参见 `java-third-party-http-io-logging.mdc`
 
 ## 正确示例
 
