@@ -8,6 +8,7 @@ import com.cacch.integration.integration.crm.client.CrmClient;
 import com.cacch.integration.integration.crm.client.dto.CrmEmployeeQueryRequest;
 import com.cacch.integration.integration.crm.client.dto.CrmOpenApiResponse;
 import com.cacch.integration.integration.crm.client.dto.CrmPageQueryRequest;
+import com.cacch.integration.integration.crm.support.CrmTimeSupport;
 import com.cacch.integration.service.crm.api.ICrmOpenApiService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -38,13 +39,19 @@ public class CrmOpenApiServiceImpl implements ICrmOpenApiService {
 
     @Override
     public CrmOpenApiResponse orderQueryByModifyTime(Integer page, Integer rows, String beginTime, String endTime) {
-        if (!StringUtils.hasText(beginTime) || !StringUtils.hasText(endTime)) {
-            log.info("【CrmOpenApi】按修改时间查订单终止, reason=时间范围为空");
-            throw new BizException(ResultCode.PARAM_MISSING, "beginTime/endTime 不能为空");
+        if (!StringUtils.hasText(beginTime)) {
+            log.info("【CrmOpenApi】按修改时间查订单终止, reason=beginTime为空");
+            throw new BizException(ResultCode.PARAM_MISSING, "beginTime 不能为空");
         }
         int p = page == null || page < 1 ? CrmConstants.DEFAULT_PAGE : page;
         int r = rows == null || rows < 1 ? CrmConstants.DEFAULT_ROWS : rows;
-        CrmPageQueryRequest request = CrmQueryRequestFactory.orderByModifyTime(p, r, beginTime.trim(), endTime.trim());
+        String beginMilli = CrmTimeSupport.toEpochMilliString(beginTime, "beginTime");
+        String endMilli = StringUtils.hasText(endTime)
+                ? CrmTimeSupport.toEpochMilliString(endTime, "endTime")
+                : null;
+        log.info("【CrmOpenApi】按修改时间查订单, beginTime={}, beginMilli={}, endTime={}, endMilli={}",
+                beginTime, beginMilli, endTime, endMilli);
+        CrmPageQueryRequest request = CrmQueryRequestFactory.orderByModifyTime(p, r, beginMilli, endMilli);
         return orderQuery(request);
     }
 

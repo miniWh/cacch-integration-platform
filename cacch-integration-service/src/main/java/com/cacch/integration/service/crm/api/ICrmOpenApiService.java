@@ -22,10 +22,12 @@ public interface ICrmOpenApiService {
     /**
      * 按 modify_time 区间查询订单
      *
+     * <p>调用 CRM 时会将时间转为毫秒时间戳，条件为 {@code modify_time GT begin}（可选再加 {@code LT end}）。</p>
+     *
      * @param page      页码，从 1 开始；空则默认 1
      * @param rows      每页条数；空则默认 100
-     * @param beginTime 开始时间 yyyy-MM-dd HH:mm:ss，不可为空
-     * @param endTime   结束时间 yyyy-MM-dd HH:mm:ss，不可为空
+     * @param beginTime 起始时间：毫秒时间戳或 yyyy-MM-dd HH:mm:ss，不可为空
+     * @param endTime   结束时间：毫秒时间戳或 yyyy-MM-dd HH:mm:ss，可空
      * @return 勤策响应
      */
     CrmOpenApiResponse orderQueryByModifyTime(Integer page, Integer rows, String beginTime, String endTime);

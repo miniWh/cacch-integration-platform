@@ -4,8 +4,8 @@ import com.cacch.integration.common.constant.crm.CrmConstants;
 import com.cacch.integration.integration.crm.client.dto.CrmPageQueryRequest;
 import com.cacch.integration.integration.crm.client.dto.CrmQueryFilter;
 import com.cacch.integration.integration.crm.client.dto.CrmQueryGroup;
-import com.cacch.integration.integration.crm.client.dto.CrmSortItem;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -19,36 +19,41 @@ public final class CrmQueryRequestFactory {
     }
 
     /**
-     * 按 modify_time 闭区间查询订单（默认按 create_time 倒序）
+     * 按 modify_time 查询订单（对齐现网可用参数）
      *
-     * @param page      页码，从 1 开始
-     * @param rows      每页条数
-     * @param beginTime 开始时间，格式建议 yyyy-MM-dd HH:mm:ss
-     * @param endTime   结束时间，格式建议 yyyy-MM-dd HH:mm:ss
+     * <p>modify_time 的 field_values 必须为<strong>毫秒时间戳字符串</strong>；
+     * 操作符使用 {@code GT}（大于起始时间）。若传入结束时间，再追加 {@code LT}。</p>
+     *
+     * @param page             页码，从 1 开始
+     * @param rows             每页条数
+     * @param beginEpochMilli  起始毫秒时间戳字符串（必填）
+     * @param endEpochMilli    结束毫秒时间戳字符串（可空；有值时与起始组成区间）
      * @return 分页查询请求
      */
-    public static CrmPageQueryRequest orderByModifyTime(int page, int rows, String beginTime, String endTime) {
+    public static CrmPageQueryRequest orderByModifyTime(int page, int rows,
+                                                        String beginEpochMilli,
+                                                        String endEpochMilli) {
+        List<CrmQueryFilter> filters = new ArrayList<>(2);
+        filters.add(CrmQueryFilter.builder()
+                .fieldKey(CrmConstants.FIELD_MODIFY_TIME)
+                .operator("GT")
+                .fieldValues(List.of(beginEpochMilli))
+                .build());
+        if (endEpochMilli != null && !endEpochMilli.isBlank()) {
+            filters.add(CrmQueryFilter.builder()
+                    .fieldKey(CrmConstants.FIELD_MODIFY_TIME)
+                    .operator("LT")
+                    .fieldValues(List.of(endEpochMilli))
+                    .build());
+        }
+        // 单条件时与现网 ESB 一致用 OR；双条件用 AND
+        String connector = filters.size() == 1 ? "OR" : "AND";
         return CrmPageQueryRequest.builder()
                 .page(String.valueOf(page))
                 .rows(String.valueOf(rows))
-                .sorts(List.of(CrmSortItem.builder()
-                        .fieldKey(CrmConstants.FIELD_CREATE_TIME)
-                        .type("desc")
-                        .build()))
                 .queryGroup(List.of(CrmQueryGroup.builder()
-                        .connector("AND")
-                        .filters(List.of(
-                                CrmQueryFilter.builder()
-                                        .fieldKey(CrmConstants.FIELD_MODIFY_TIME)
-                                        .operator("GE")
-                                        .fieldValues(List.of(beginTime))
-                                        .build(),
-                                CrmQueryFilter.builder()
-                                        .fieldKey(CrmConstants.FIELD_MODIFY_TIME)
-                                        .operator("LE")
-                                        .fieldValues(List.of(endTime))
-                                        .build()
-                        ))
+                        .connector(connector)
+                        .filters(filters)
                         .build()))
                 .build();
     }
@@ -65,12 +70,8 @@ public final class CrmQueryRequestFactory {
         return CrmPageQueryRequest.builder()
                 .page(String.valueOf(page))
                 .rows(String.valueOf(rows))
-                .sorts(List.of(CrmSortItem.builder()
-                        .fieldKey(CrmConstants.FIELD_CREATE_TIME)
-                        .type("desc")
-                        .build()))
                 .queryGroup(List.of(CrmQueryGroup.builder()
-                        .connector("AND")
+                        .connector("OR")
                         .filters(List.of(CrmQueryFilter.builder()
                                 .fieldKey(CrmConstants.FIELD_ORDER_ID)
                                 .operator("EQ")
