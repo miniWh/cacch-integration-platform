@@ -332,7 +332,7 @@
 | 接口Base URL | `https://api.waiqin365.com` |
 | **openId** | `8858965636174056137` |
 | **appKey** | `0H4aAHGY0htrsglQKm` |
-| 认证方式 | SHA256签名认证（openid + appkey + timestamp + msg_id），每次请求动态计算digest |
+| 认证方式 | MD5 签名：`digest=MD5(jsonBody\|appkey\|timestamp)`，URL 携带 openid/timestamp/digest/msg_id |
 | 订单查询接口 | `POST /api/ig/v1/orderQuery/{openid}/{timestamp}/{digest}/{msg_id}` |
 | 订单明细查询接口 | `POST /api/ig/v1/orderDetailQuery/{openid}/{timestamp}/{digest}/{msg_id}` |
 | 员工账号查询接口 | `POST /api/employee/v3/queryEmployee/{openid}/{timestamp}/{digest}/{msg_id}`（文档 Base：`https://openapi.qince.com`） |
