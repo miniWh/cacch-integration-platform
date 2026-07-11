@@ -7,8 +7,6 @@ import com.cacch.integration.integration.crm.client.dto.CrmOpenApiResponse;
 import com.cacch.integration.integration.crm.client.dto.CrmPageQueryRequest;
 import com.cacch.integration.integration.crm.support.CrmDigestSupport;
 import com.cacch.integration.integration.support.ThirdPartyHttpLogSupport;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpEntity;
@@ -19,11 +17,15 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * 勤策 CRM OpenAPI HTTP 客户端
  *
  * <p>签名与请求体使用同一份 JSON 字符串，避免序列化差异导致 digest 校验失败。</p>
+ * <p>使用本地 {@link JsonMapper}，不依赖 Spring 注入的 ObjectMapper（Boot4 默认无 com.fasterxml ObjectMapper Bean）。</p>
  *
  * @author hongfu_zhou@cacch.com
  */
@@ -34,8 +36,9 @@ public class CrmClient {
 
     private static final String BIZ = CrmConstants.LOG_BIZ;
 
+    private static final ObjectMapper OBJECT_MAPPER = JsonMapper.builder().build();
+
     private final RestTemplate restTemplate;
-    private final ObjectMapper objectMapper;
     private final CrmProperties crmProperties;
 
     /**
@@ -73,7 +76,7 @@ public class CrmClient {
 
     private CrmOpenApiResponse post(String baseUrl, String pathTemplate, Object body, String action) {
         try {
-            String bodyJson = objectMapper.writeValueAsString(body);
+            String bodyJson = OBJECT_MAPPER.writeValueAsString(body);
             String timestamp = CrmDigestSupport.currentTimestamp();
             String msgId = CrmDigestSupport.newMsgId();
             String digest = CrmDigestSupport.digest(bodyJson, crmProperties.getAppKey(), timestamp);
@@ -117,15 +120,14 @@ public class CrmClient {
         }
     }
 
-    private CrmOpenApiResponse parseResponse(String responseBody) throws Exception {
-        JsonNode root = objectMapper.readTree(responseBody);
-        CrmOpenApiResponse response = objectMapper.treeToValue(root, CrmOpenApiResponse.class);
+    private CrmOpenApiResponse parseResponse(String responseBody) {
+        CrmOpenApiResponse response = OBJECT_MAPPER.readValue(responseBody, CrmOpenApiResponse.class);
         // response_data 官方说明可能是 JSON 字符串，二次解析为节点便于调用方使用
-        JsonNode dataNode = root.get("response_data");
-        if (dataNode != null && dataNode.isTextual()) {
-            String text = dataNode.asText();
+        JsonNode dataNode = response.getResponseData();
+        if (dataNode != null && dataNode.isString()) {
+            String text = dataNode.asString();
             if (text != null && !text.isBlank() && !"null".equalsIgnoreCase(text)) {
-                response.setResponseData(objectMapper.readTree(text));
+                response.setResponseData(OBJECT_MAPPER.readTree(text));
             }
         }
         return response;

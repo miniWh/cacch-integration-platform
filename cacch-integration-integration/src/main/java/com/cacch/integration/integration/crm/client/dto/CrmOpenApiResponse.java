@@ -3,8 +3,8 @@ package com.cacch.integration.integration.crm.client.dto;
 import com.cacch.integration.common.constant.crm.CrmConstants;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.JsonNode;
 import lombok.Data;
+import tools.jackson.databind.JsonNode;
 
 /**
  * 勤策 OpenAPI 统一响应
