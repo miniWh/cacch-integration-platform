@@ -70,6 +70,16 @@ crm:
   app-key: ${CRM_APP_KEY:0H4aAHGY0htrsglQKm}
   employee-base-url: ${CRM_EMPLOYEE_BASE_URL:https://openapi.qince.com}
 
+# ---------- 致远 OA REST ----------
+# 密钥建议由环境变量注入：OA_BASE_URL / OA_REST_USER_NAME / OA_REST_PASSWORD
+oa:
+  base-url: ${OA_BASE_URL:http://10.80.64.18:900}
+  rest-user-name: ${OA_REST_USER_NAME:zhouhufu}
+  rest-password: ${OA_REST_PASSWORD:1a884fa3-affe-4533-8e1d-3af3c162361e}
+  default-login-name: ${OA_DEFAULT_LOGIN_NAME:zhouhongfu}
+  token-ttl-seconds: ${OA_TOKEN_TTL_SECONDS:840}
+  template-code: ${OA_TEMPLATE_CODE:CRM_ZYXS_001}
+
 # ---------- 腾讯会议 REST API（智能纪要） ----------
 # 未配置时会继承 application.yml 的 enabled=false，导致正式环境跳过纪要拉取。
 # 密钥建议由环境变量覆盖：TENCENT_MEETING_APP_ID / SDK_ID / SECRET_ID / SECRET_KEY

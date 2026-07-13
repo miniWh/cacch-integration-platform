@@ -103,3 +103,12 @@ crm:
   app-key: placeholder
   # 员工接口可与订单共用 base-url；若环境不同再单独配置
   employee-base-url:
+# ==================== 致远 OA REST（公共占位） ====================
+# 实际值请在 application-{profile}.yml 中覆盖；业务请求 Header 传 token
+oa:
+  base-url: http://10.80.64.18:900
+  rest-user-name: zhouhufu
+  rest-password: 1a884fa3-affe-4533-8e1d-3af3c162361e
+  default-login-name: zhouhongfu
+  token-ttl-seconds: 840
+  template-code: CRM_ZYXS_001
