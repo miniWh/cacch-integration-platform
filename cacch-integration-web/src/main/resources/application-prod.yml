@@ -70,6 +70,23 @@ crm:
   app-key: ${CRM_APP_KEY:0H4aAHGY0htrsglQKm}
   employee-base-url: ${CRM_EMPLOYEE_BASE_URL:https://openapi.qince.com}
 
+# ---------- 腾讯会议 REST API（智能纪要） ----------
+# 未配置时会继承 application.yml 的 enabled=false，导致正式环境跳过纪要拉取。
+# 密钥建议由环境变量覆盖：TENCENT_MEETING_APP_ID / SDK_ID / SECRET_ID / SECRET_KEY
+tencent-meeting:
+  enabled: ${TENCENT_MEETING_ENABLED:true}
+  app-id: ${TENCENT_MEETING_APP_ID:311670505}
+  sdk-id: ${TENCENT_MEETING_SDK_ID:32470112674}
+  secret-id: ${TENCENT_MEETING_SECRET_ID:fGwpRaVWxDNY1DYuRTki6OFHdMDNyIT3}
+  secret-key: ${TENCENT_MEETING_SECRET_KEY:gEKLMzKjWSRQPr9gZZGEIHZHa6jQBXFlCNMMqtp47YjE3NhC}
+  operator-id-type: 1
+  default-operator-id: ${TENCENT_MEETING_DEFAULT_OPERATOR_ID:}
+  smart-minutes:
+    text-type: 2
+    llm: 1
+    minute-type: 1
+    lang: default
+
 # ---------- Actuator 健康监控 ----------
 management:
   endpoints:
