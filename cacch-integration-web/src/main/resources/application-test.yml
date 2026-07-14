@@ -68,6 +68,11 @@ crm:
   open-id: "8858965636174056137"
   app-key: "0H4aAHGY0htrsglQKm"
   employee-base-url: https://openapi.qince.com
+  collect:
+    cron: "0 */5 * * * ?"
+    batch-size: 100
+    detail-page-size: 100
+    detail-retry-batch-size: 100
 
 # ---------- 致远 OA REST ----------
 # 部署前请替换为真实 OA 地址与 REST 账号

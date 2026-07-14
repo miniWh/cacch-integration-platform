@@ -69,6 +69,11 @@ crm:
   open-id: ${CRM_OPEN_ID:8858965636174056137}
   app-key: ${CRM_APP_KEY:0H4aAHGY0htrsglQKm}
   employee-base-url: ${CRM_EMPLOYEE_BASE_URL:https://openapi.qince.com}
+  collect:
+    cron: "0 */5 * * * ?"
+    batch-size: 100
+    detail-page-size: 100
+    detail-retry-batch-size: 100
 
 # ---------- 致远 OA REST ----------
 # 密钥建议由环境变量注入：OA_BASE_URL / OA_REST_USER_NAME / OA_REST_PASSWORD
