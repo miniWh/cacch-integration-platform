@@ -33,6 +33,56 @@ public final class OaResponseSupport {
         return MAPPER.convertValue(memberNode, OaOrgMember.class);
     }
 
+    /**
+     * 从发起流程响应中解析流程实例 ID
+     *
+     * <p>兼容：纯字符串、常见字段 {@code processId}/{@code id}/{@code summaryId} 及嵌套 {@code data}。</p>
+     *
+     * @param raw 原始响应，可空
+     * @return 流程实例 ID；无法解析时返回 null
+     */
+    public static String extractProcessId(JsonNode raw) {
+        if (raw == null || raw.isNull() || raw.isMissingNode()) {
+            return null;
+        }
+        if (raw.isValueNode()) {
+            String text = raw.asString();
+            return text == null || text.isBlank() ? null : text.trim();
+        }
+        String direct = firstNonBlankText(raw,
+                "processId", "process_id", "id", "summaryId", "affairId",
+                "app_bussiness_data", "appBussinessData");
+        if (direct != null) {
+            return direct;
+        }
+        for (String key : new String[]{"data", "result", "content"}) {
+            if (raw.has(key)) {
+                String nested = extractProcessId(raw.get(key));
+                if (nested != null) {
+                    return nested;
+                }
+            }
+        }
+        return null;
+    }
+
+    private static String firstNonBlankText(JsonNode node, String... fields) {
+        if (node == null || !node.isObject() || fields == null) {
+            return null;
+        }
+        for (String field : fields) {
+            JsonNode child = node.get(field);
+            if (child == null || child.isNull() || child.isMissingNode() || child.isObject() || child.isArray()) {
+                continue;
+            }
+            String text = child.asString();
+            if (text != null && !text.isBlank()) {
+                return text.trim();
+            }
+        }
+        return null;
+    }
+
     private static JsonNode unwrapMemberNode(JsonNode raw) {
         if (raw == null || raw.isNull() || raw.isMissingNode()) {
             return null;

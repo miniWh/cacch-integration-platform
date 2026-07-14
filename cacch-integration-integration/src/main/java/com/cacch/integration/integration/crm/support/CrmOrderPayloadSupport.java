@@ -113,6 +113,36 @@ public final class CrmOrderPayloadSupport {
         return MAPPER.convertValue(node, Object.class);
     }
 
+    /**
+     * 将入库的 raw_payload（Map/JSON 字符串等）转为 JsonNode
+     *
+     * @param raw 原始对象，可空
+     * @return JsonNode；无法转换时返回 missing node
+     */
+    public static JsonNode asJsonNode(Object raw) {
+        if (raw == null) {
+            return MAPPER.missingNode();
+        }
+        if (raw instanceof JsonNode node) {
+            return node;
+        }
+        if (raw instanceof String text) {
+            if (text.isBlank()) {
+                return MAPPER.missingNode();
+            }
+            try {
+                return MAPPER.readTree(text);
+            } catch (Exception e) {
+                return MAPPER.missingNode();
+            }
+        }
+        try {
+            return MAPPER.valueToTree(raw);
+        } catch (Exception e) {
+            return MAPPER.missingNode();
+        }
+    }
+
     private static JsonNode unwrapList(JsonNode raw) {
         if (raw == null || raw.isNull() || raw.isMissingNode()) {
             return null;

@@ -12,6 +12,14 @@ import java.util.List;
 public interface ICrmOrderService {
 
     /**
+     * 按主键查询
+     *
+     * @param id 订单主键
+     * @return 订单；不存在返回 null
+     */
+    CrmOrderDO getById(Long id);
+
+    /**
      * 按订单编号查询
      *
      * @param orderNo CRM 订单编号（name）

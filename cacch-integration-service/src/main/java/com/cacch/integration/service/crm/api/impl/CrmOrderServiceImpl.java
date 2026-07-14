@@ -33,6 +33,15 @@ public class CrmOrderServiceImpl implements ICrmOrderService {
 
     @Override
     @Transactional(propagation = Propagation.SUPPORTS, readOnly = true, timeout = 10, rollbackFor = Exception.class)
+    public CrmOrderDO getById(Long id) {
+        if (id == null) {
+            return null;
+        }
+        return crmOrderMapper.selectById(id);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.SUPPORTS, readOnly = true, timeout = 10, rollbackFor = Exception.class)
     public CrmOrderDO getByOrderNo(String orderNo) {
         if (!StringUtils.hasText(orderNo)) {
             return null;

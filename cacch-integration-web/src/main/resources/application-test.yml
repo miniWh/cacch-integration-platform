@@ -73,6 +73,10 @@ crm:
     batch-size: 100
     detail-page-size: 100
     detail-retry-batch-size: 100
+  sync:
+    cron: "0 */5 * * * ?"
+    batch-size: 100
+    max-retry: 3
 
 # ---------- 致远 OA REST ----------
 # 部署前请替换为真实 OA 地址与 REST 账号
