@@ -24,7 +24,7 @@ public class CrmOaUserMappingDO {
     private Long id;
 
     /**
-     * CRM 员工 ID（订单 owner.id），业务唯一键
+     * CRM 员工 ID（订单 creator_id.id），业务唯一键
      */
     private String crmEmployeeId;
 

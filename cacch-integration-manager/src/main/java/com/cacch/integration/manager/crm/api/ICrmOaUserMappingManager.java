@@ -16,7 +16,7 @@ public interface ICrmOaUserMappingManager {
     /**
      * 解析 OA 人员 ID（优先读库；未命中或无效则远程解析并落库）
      *
-     * @param crmEmployeeId CRM 员工 ID（订单 owner.id），不可为空
+     * @param crmEmployeeId CRM 员工 ID（订单 creator_id.id），不可为空
      * @return 映射结果；失败时 {@code success=false} 并带 errorMessage（不抛业务异常，便于同步记 RETRY）
      */
     CrmOaUserMappingResult resolve(String crmEmployeeId);

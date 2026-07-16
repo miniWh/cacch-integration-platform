@@ -61,7 +61,7 @@ public interface ICrmOpenApiService {
     /**
      * 按勤策员工 ID 查询员工帐号
      *
-     * @param employeeId 勤策员工唯一标识（对应订单 owner.id），不可为空
+     * @param employeeId 勤策员工唯一标识（对应订单 creator_id.id），不可为空
      * @return 勤策响应
      */
     CrmOpenApiResponse queryEmployeeById(String employeeId);

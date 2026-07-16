@@ -45,7 +45,7 @@ public class CrmOrderCollectManagerImpl implements ICrmOrderCollectManager {
     public CrmOrderCollectResult collectToday() {
         String[] window = CrmCollectTimeWindowSupport.todayWindowEpochMilli();
         log.info("【CrmCollect】开始当天采集, beginMilli={}, endMilli={}", window[0], window[1]);
-        return collectInternal(window[0], window[1]);
+        return collectInternal(window[0], null);
     }
 
     @Override
@@ -58,7 +58,7 @@ public class CrmOrderCollectManagerImpl implements ICrmOrderCollectManager {
         String[] window = CrmCollectTimeWindowSupport.toQueryWindow(beginTime, endTime);
         log.info("【CrmCollect】开始指定时间窗采集, beginTime={}, endTime={}, beginMilli={}, endMilli={}",
                 beginTime, endTime, window[0], window[1]);
-        return collectInternal(window[0], window[1]);
+        return collectInternal(window[0], null);
     }
 
     private CrmOrderCollectResult collectInternal(String beginEpochMilli, String endEpochMilli) {

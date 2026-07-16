@@ -12,7 +12,7 @@ import lombok.Data;
 public class CrmEmployeeByIdRequest {
 
     /**
-     * 勤策员工唯一标识（订单 owner.id）
+     * 勤策员工唯一标识（订单 creator_id.id）
      */
     @NotBlank(message = "employeeId 不能为空")
     private String employeeId;

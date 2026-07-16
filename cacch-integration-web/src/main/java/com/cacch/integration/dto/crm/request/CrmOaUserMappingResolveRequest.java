@@ -12,7 +12,7 @@ import lombok.Data;
 public class CrmOaUserMappingResolveRequest {
 
     /**
-     * CRM 员工 ID（订单 owner.id），必填
+     * CRM 员工 ID（订单 creator_id.id），必填
      */
     @NotBlank(message = "crmEmployeeId 不能为空")
     private String crmEmployeeId;

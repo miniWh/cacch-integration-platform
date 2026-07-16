@@ -133,14 +133,25 @@ public class CrmOrderOaSyncManagerImpl implements ICrmOrderOaSyncManager {
             return "SKIPPED";
         }
 
-        String ownerId = resolveOwnerId(order);
-        CrmOaUserMappingResult mapping = crmOaUserMappingManager.resolve(ownerId);
+        String creatorEmployeeId = resolveCreatorEmployeeId(order);
+        if (!StringUtils.hasText(creatorEmployeeId)) {
+            String err = "订单创建人CRM员工ID为空(creator_id.id)";
+            log.info("【{}】人员映射终止, detailId={}, crmDetailId={}, reason={}",
+                    CrmOaFormConstants.LOG_BIZ, detail.getId(), detail.getCrmDetailId(), err);
+            String status = crmOrderDetailService.markOaSyncFailure(detail.getId(), err, maxRetry);
+            if (CrmOaSyncStatusEnum.FAILED.getCode().equals(status)) {
+                alertFailed(detail, err);
+            }
+            return status;
+        }
+        CrmOaUserMappingResult mapping = crmOaUserMappingManager.resolve(creatorEmployeeId);
         if (!mapping.isSuccess() || !StringUtils.hasText(mapping.getOaUserId())) {
             String err = StringUtils.hasText(mapping.getErrorMessage())
                     ? mapping.getErrorMessage()
                     : "人员映射失败";
-            log.info("【{}】人员映射失败, detailId={}, crmDetailId={}, ownerId={}, reason={}",
-                    CrmOaFormConstants.LOG_BIZ, detail.getId(), detail.getCrmDetailId(), ownerId, err);
+            log.info("【{}】人员映射失败, detailId={}, crmDetailId={}, creatorEmployeeId={}, reason={}",
+                    CrmOaFormConstants.LOG_BIZ, detail.getId(), detail.getCrmDetailId(),
+                    creatorEmployeeId, err);
             String status = crmOrderDetailService.markOaSyncFailure(detail.getId(), err, maxRetry);
             if (CrmOaSyncStatusEnum.FAILED.getCode().equals(status)) {
                 alertFailed(detail, err);
@@ -192,12 +203,15 @@ public class CrmOrderOaSyncManagerImpl implements ICrmOrderOaSyncManager {
         }
     }
 
-    private String resolveOwnerId(CrmOrderDO order) {
-        if (StringUtils.hasText(order.getOwnerId())) {
-            return order.getOwnerId().trim();
-        }
+    /**
+     * 从订单原始报文解析创建人 CRM 员工 ID（{@code creator_id.id}）
+     *
+     * @param order 订单主表
+     * @return 员工 ID；无法解析时返回 null
+     */
+    private String resolveCreatorEmployeeId(CrmOrderDO order) {
         JsonNode raw = CrmOrderPayloadSupport.asJsonNode(order.getRawPayload());
-        return CrmOrderPayloadSupport.nestedText(raw, "owner", "id");
+        return CrmOrderPayloadSupport.nestedText(raw, "creator_id", "id");
     }
 
     private void alertFailed(CrmOrderDetailDO detail, String errorMessage) {
