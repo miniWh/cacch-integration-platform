@@ -34,7 +34,7 @@ public final class CrmOaFormMappingSupport {
         formmain.put("field0329", firstNonBlank(
                 CrmOrderPayloadSupport.text(raw, "field_FXfm3__c"),
                 asPlainText(raw.get("field_FXfm3__c"))));
-        formmain.put("field0003", CrmOaFormConstants.SALES_COMPANY_EMPTY);
+        formmain.put("field0003", CrmOrderPayloadSupport.nestedText(raw, "field_HVwgS__c", "label"));
         formmain.put("field0006", oaUserId);
         formmain.put("field0007", CrmOaFormConstants.SALES_ORG);
         formmain.put("field0008", firstNonBlank(

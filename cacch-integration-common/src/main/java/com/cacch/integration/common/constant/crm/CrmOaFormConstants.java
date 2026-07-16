@@ -56,11 +56,6 @@ public final class CrmOaFormConstants {
     public static final String SHIP_DATE_EMPTY = "";
 
     /**
-     * 销售公司 field0003（本期传空）
-     */
-    public static final String SALES_COMPANY_EMPTY = "";
-
-    /**
      * 是否需要盖章：是
      */
     public static final String SEAL_YES = "1";

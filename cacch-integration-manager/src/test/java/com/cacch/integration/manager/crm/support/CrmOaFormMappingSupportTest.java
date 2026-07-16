@@ -30,6 +30,7 @@ class CrmOaFormMappingSupportTest {
                 {
                   "name":"SO-001",
                   "field_FXfm3__c":"NC-9",
+                  "field_HVwgS__c":{"label":"上海泰禾"},
                   "customer":{"name":"客户A"},
                   "currency_type":{"label":"USD"},
                   "field_234i0__c":{"code":"1"},
@@ -40,7 +41,7 @@ class CrmOaFormMappingSupportTest {
 
         Map<String, Object> main = CrmOaFormMappingSupport.buildFormMain(order, "oa-user-1");
         assertEquals("NC-9", main.get("field0329"));
-        assertEquals(CrmOaFormConstants.SALES_COMPANY_EMPTY, main.get("field0003"));
+        assertEquals("上海泰禾", main.get("field0003"));
         assertEquals("oa-user-1", main.get("field0006"));
         assertEquals(CrmOaFormConstants.SALES_ORG, main.get("field0007"));
         assertEquals("客户A", main.get("field0008"));
