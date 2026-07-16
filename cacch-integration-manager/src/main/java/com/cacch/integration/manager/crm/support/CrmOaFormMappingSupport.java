@@ -53,10 +53,14 @@ public final class CrmOaFormMappingSupport {
         formmain.put("field0010", CrmOrderPayloadSupport.nestedText(raw, "field_TwmQQ__c", "label"));
         // field0011  目的地 ← field_NjupX__c.name
         formmain.put("field0011", CrmOrderPayloadSupport.nestedText(raw, "field_NjupX__c", "name"));
-        // field0012  运输方式 ← field_65xcf__c.label
-        formmain.put("field0012", CrmOrderPayloadSupport.nestedText(raw, "field_65xcf__c", "label"));
-        // field0013  收款方式 ← field_TZKmt__c.label
-        formmain.put("field0013", CrmOrderPayloadSupport.nestedText(raw, "field_TZKmt__c", "label"));
+        // field0012  运输方式 ← field_65xcf__c.label；空则默认 "-"
+        formmain.put("field0012", blankToDefault(
+                CrmOrderPayloadSupport.nestedText(raw, "field_65xcf__c", "label"),
+                CrmOaFormConstants.EMPTY_PLACEHOLDER));
+        // field0013  收款方式 ← field_TZKmt__c.label；空则默认 "-"
+        formmain.put("field0013", blankToDefault(
+                CrmOrderPayloadSupport.nestedText(raw, "field_TZKmt__c", "label"),
+                CrmOaFormConstants.EMPTY_PLACEHOLDER));
         // field0015  订单账期 ← field_9uwgg__c.label
         formmain.put("field0015", CrmOrderPayloadSupport.nestedText(raw, "field_9uwgg__c", "label"));
         // field0017  出运日期 ← field_X7vPP__c.value
@@ -160,6 +164,17 @@ public final class CrmOaFormMappingSupport {
             return CrmOaFormConstants.RETAIL_YES;
         }
         return CrmOaFormConstants.RETAIL_NO;
+    }
+
+    /**
+     * 空值回退默认值
+     *
+     * @param value        原始值，可空
+     * @param defaultValue 默认值
+     * @return 非空白原值，否则默认值
+     */
+    private static String blankToDefault(String value, String defaultValue) {
+        return StringUtils.hasText(value) ? value.trim() : defaultValue;
     }
 
     private static String asPlainText(JsonNode node) {

@@ -56,6 +56,11 @@ public final class CrmOaFormConstants {
     public static final String SHIP_DATE_EMPTY = "";
 
     /**
+     * CRM 空值时的 OA 占位（运输方式 / 收款方式等）
+     */
+    public static final String EMPTY_PLACEHOLDER = "-";
+
+    /**
      * 是否需要盖章：是
      */
     public static final String SEAL_YES = "1";
