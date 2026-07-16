@@ -64,7 +64,10 @@ public final class CrmOaFormMappingSupport {
         // field0015  订单账期 ← field_9uwgg__c.label
         formmain.put("field0015", CrmOrderPayloadSupport.nestedText(raw, "field_9uwgg__c", "label"));
         // field0017  出运日期 ← field_X7vPP__c.value
-        formmain.put("field0017", CrmOrderPayloadSupport.nestedText(raw, "field_X7vPP__c", "value"));
+        formmain.put("field0017", blankToDefault(
+                CrmOrderPayloadSupport.nestedText(raw, "field_X7vPP__c", "value"),
+                CrmOaFormConstants.EMPTY_PLACEHOLDER
+        ));
         // field0018  收款日期 ← field_Swpt6__c.value
         formmain.put("field0018", CrmOrderPayloadSupport.nestedText(raw, "field_Swpt6__c", "value"));
         // field0019  内外贸 ← 固定值（暂用默认）
