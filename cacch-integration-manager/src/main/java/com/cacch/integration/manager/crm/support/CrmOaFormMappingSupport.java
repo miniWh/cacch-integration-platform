@@ -31,10 +31,10 @@ public final class CrmOaFormMappingSupport {
         JsonNode raw = CrmOrderPayloadSupport.asJsonNode(order == null ? null : order.getRawPayload());
         Map<String, Object> formmain = new LinkedHashMap<>();
 
-        // field0329  NC销售订单号 ← field_FXfm3__c
-        formmain.put("field0329", firstNonBlank(
+        // field0329  NC销售订单号 ← field_FXfm3__c；空 → ""
+        formmain.put("field0329", blankToEmpty(firstNonBlank(
                 CrmOrderPayloadSupport.text(raw, "field_FXfm3__c"),
-                asPlainText(raw.get("field_FXfm3__c"))));
+                asPlainText(raw.get("field_FXfm3__c")))));
         // field0003  销售公司 ← field_HVwgS__c.label
         formmain.put("field0003", CrmOrderPayloadSupport.nestedText(raw, "field_HVwgS__c", "label"));
         // field0006  业务员 ← 人员映射 OA人员ID
@@ -53,23 +53,21 @@ public final class CrmOaFormMappingSupport {
         formmain.put("field0010", CrmOrderPayloadSupport.nestedText(raw, "field_TwmQQ__c", "label"));
         // field0011  目的地 ← field_NjupX__c.name
         formmain.put("field0011", CrmOrderPayloadSupport.nestedText(raw, "field_NjupX__c", "name"));
-        // field0012  运输方式 ← field_65xcf__c.label；空则默认 "-"
-        formmain.put("field0012", blankToDefault(
-                CrmOrderPayloadSupport.nestedText(raw, "field_65xcf__c", "label"),
-                CrmOaFormConstants.EMPTY_PLACEHOLDER));
-        // field0013  收款方式 ← field_TZKmt__c.label；空则默认 "-"
-        formmain.put("field0013", blankToDefault(
-                CrmOrderPayloadSupport.nestedText(raw, "field_TZKmt__c", "label"),
-                CrmOaFormConstants.EMPTY_PLACEHOLDER));
-        // field0015  订单账期 ← field_9uwgg__c.label
-        formmain.put("field0015", CrmOrderPayloadSupport.nestedText(raw, "field_9uwgg__c", "label"));
-        // field0017  出运日期 ← field_X7vPP__c.value
-        formmain.put("field0017", blankToDefault(
-                CrmOrderPayloadSupport.nestedText(raw, "field_X7vPP__c", "value"),
-                CrmOaFormConstants.EMPTY_PLACEHOLDER
-        ));
-        // field0018  收款日期 ← field_Swpt6__c.value
-        formmain.put("field0018", CrmOrderPayloadSupport.nestedText(raw, "field_Swpt6__c", "value"));
+        // field0012  运输方式 ← field_65xcf__c.label；空 → ""
+        formmain.put("field0012", blankToEmpty(
+                CrmOrderPayloadSupport.nestedText(raw, "field_65xcf__c", "label")));
+        // field0013  收款方式 ← field_TZKmt__c.label；空 → ""
+        formmain.put("field0013", blankToEmpty(
+                CrmOrderPayloadSupport.nestedText(raw, "field_TZKmt__c", "label")));
+        // field0015  订单账期 ← field_9uwgg__c.label；空 → ""
+        formmain.put("field0015", blankToEmpty(
+                CrmOrderPayloadSupport.nestedText(raw, "field_9uwgg__c", "label")));
+        // field0017  出运日期 ← field_X7vPP__c.value；空 → ""
+        formmain.put("field0017", blankToEmpty(
+                CrmOrderPayloadSupport.nestedText(raw, "field_X7vPP__c", "value")));
+        // field0018  收款日期 ← field_Swpt6__c.value；空 → ""
+        formmain.put("field0018", blankToEmpty(
+                CrmOrderPayloadSupport.nestedText(raw, "field_Swpt6__c", "value")));
         // field0019  内外贸 ← 固定值（暂用默认）
         formmain.put("field0019", CrmOaFormConstants.TRADE_TYPE);
         // field0020  是否集中采购 ← 固定值 "1"
@@ -78,7 +76,7 @@ public final class CrmOaFormMappingSupport {
         formmain.put("field0025", firstNonBlank(
                 CrmOrderPayloadSupport.text(raw, "name"),
                 order == null ? null : order.getOrderNo()));
-        // field0029  是否需要盖章 ← field_234i0__c.code（1→1，否则→2）
+        // field0029  是否需要盖章 ← field_234i0__c.code（1→1，否则→2；code 空 → ""）
         formmain.put("field0029", mapSealNeed(CrmOrderPayloadSupport.nestedText(raw, "field_234i0__c", "code")));
         // field0031  委托放行单 ← 固定值 "1"
         formmain.put("field0031", CrmOaFormConstants.ENTRUST_RELEASE);
@@ -96,8 +94,9 @@ public final class CrmOaFormMappingSupport {
         formmain.put("field0408", CrmOaFormConstants.CREDIT_LIMIT);
         // field0461  目的国 ← field_NjupX__c.name（与目的地同源）
         formmain.put("field0461", CrmOrderPayloadSupport.nestedText(raw, "field_NjupX__c", "name"));
-        // field0462  出口港 ← field_Z6A3J__c.name
-        formmain.put("field0462", CrmOrderPayloadSupport.nestedText(raw, "field_Z6A3J__c", "name"));
+        // field0462  出口港 ← field_Z6A3J__c.name；空 → ""
+        formmain.put("field0462", blankToEmpty(
+                CrmOrderPayloadSupport.nestedText(raw, "field_Z6A3J__c", "name")));
         return formmain;
     }
 
@@ -113,29 +112,30 @@ public final class CrmOaFormMappingSupport {
         JsonNode detailRaw = CrmOrderPayloadSupport.asJsonNode(detail == null ? null : detail.getRawPayload());
         Map<String, Object> formson = new LinkedHashMap<>();
 
-        // field0074  销售-数量 ← pd_count
-        formson.put("field0074", firstNonBlank(
+        // field0074  销售-数量 ← pd_count；空 → ""
+        formson.put("field0074", blankToEmpty(firstNonBlank(
                 CrmOrderPayloadSupport.text(detailRaw, "pd_count"),
-                detail == null ? null : detail.getPdCount()));
-        // field0089  物料编号 ← field_Mb25P__c
-        formson.put("field0089", firstNonBlank(
+                detail == null ? null : detail.getPdCount())));
+        // field0089  物料编号 ← field_Mb25P__c；空 → ""
+        formson.put("field0089", blankToEmpty(firstNonBlank(
                 CrmOrderPayloadSupport.text(detailRaw, "field_Mb25P__c"),
                 asPlainText(detailRaw.get("field_Mb25P__c")),
-                detail == null ? null : detail.getMaterialCode()));
+                detail == null ? null : detail.getMaterialCode())));
         // field0091  销售税率 ← null（OA计算公式）
         formson.put("field0091", null);
-        // field0092  销售单价 ← actual_price
-        formson.put("field0092", firstNonBlank(
+        // field0092  销售单价 ← actual_price；空 → ""
+        formson.put("field0092", blankToEmpty(firstNonBlank(
                 CrmOrderPayloadSupport.text(detailRaw, "actual_price"),
-                detail == null ? null : detail.getActualPrice()));
-        // field0093  考核单价 ← field_USMmk__c
-        formson.put("field0093", firstNonBlank(
+                detail == null ? null : detail.getActualPrice())));
+        // field0093  考核单价 ← field_USMmk__c；空 → ""
+        formson.put("field0093", blankToEmpty(firstNonBlank(
                 CrmOrderPayloadSupport.text(detailRaw, "field_USMmk__c"),
-                asPlainText(detailRaw.get("field_USMmk__c"))));
+                asPlainText(detailRaw.get("field_USMmk__c")))));
         // field0129  发货日期 ← 空字符串
         formson.put("field0129", CrmOaFormConstants.SHIP_DATE_EMPTY);
-        // field0130  要求到货日 ← 主订单 field_qx94q__c.value
-        formson.put("field0130", CrmOrderPayloadSupport.nestedText(orderRaw, "field_qx94q__c", "value"));
+        // field0130  要求到货日 ← 主订单 field_qx94q__c.value；空 → ""
+        formson.put("field0130", blankToEmpty(
+                CrmOrderPayloadSupport.nestedText(orderRaw, "field_qx94q__c", "value")));
         // field0443  零售包装 ← pd_code 以 53 开头→0001，否则→0002
         String pdCode = firstNonBlank(
                 CrmOrderPayloadSupport.text(detailRaw, "pd_code"),
@@ -145,13 +145,16 @@ public final class CrmOaFormMappingSupport {
     }
 
     /**
-     * CRM 盖章 code → OA 是否需要盖章（1=是，2=否）
+     * CRM 盖章 code → OA 是否需要盖章（1=是，2=否；code 为空 → ""）
      *
      * @param code CRM field_234i0__c.code
      * @return OA 取值
      */
     public static String mapSealNeed(String code) {
-        return CrmOaFormConstants.CRM_SEAL_CODE_YES.equals(code)
+        if (!StringUtils.hasText(code)) {
+            return CrmOaFormConstants.EMPTY_STRING;
+        }
+        return CrmOaFormConstants.CRM_SEAL_CODE_YES.equals(code.trim())
                 ? CrmOaFormConstants.SEAL_YES
                 : CrmOaFormConstants.SEAL_NO;
     }
@@ -170,14 +173,13 @@ public final class CrmOaFormMappingSupport {
     }
 
     /**
-     * 空值回退默认值
+     * CRM 为空时回退空串
      *
-     * @param value        原始值，可空
-     * @param defaultValue 默认值
-     * @return 非空白原值，否则默认值
+     * @param value 原始值，可空
+     * @return 非空白原值，否则 {@link CrmOaFormConstants#EMPTY_STRING}
      */
-    private static String blankToDefault(String value, String defaultValue) {
-        return StringUtils.hasText(value) ? value.trim() : defaultValue;
+    private static String blankToEmpty(String value) {
+        return StringUtils.hasText(value) ? value.trim() : CrmOaFormConstants.EMPTY_STRING;
     }
 
     private static String asPlainText(JsonNode node) {

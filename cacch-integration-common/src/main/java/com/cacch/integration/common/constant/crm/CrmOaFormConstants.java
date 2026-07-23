@@ -51,14 +51,14 @@ public final class CrmOaFormConstants {
     public static final String CREDIT_LIMIT = "空值";
 
     /**
-     * 发货日期 field0129（本期空串）
+     * CRM 为空时 OA 默认空串（对齐 ESB：field0329/0012/0013/0015/0017/0018/0029/0462 及明细部分字段）
      */
-    public static final String SHIP_DATE_EMPTY = "";
+    public static final String EMPTY_STRING = "-";
 
     /**
-     * CRM 空值时的 OA 占位（运输方式 / 收款方式等）
+     * 发货日期 field0129（空串）
      */
-    public static final String EMPTY_PLACEHOLDER = "-";
+    public static final String SHIP_DATE_EMPTY = EMPTY_STRING;
 
     /**
      * 是否需要盖章：是
