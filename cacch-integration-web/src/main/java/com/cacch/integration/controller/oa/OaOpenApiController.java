@@ -126,7 +126,7 @@ public class OaOpenApiController {
      *
      * @param file      multipart 文件，表单字段名 {@code file}
      * @param loginName Token 绑定登录名，可空（默认使用配置 {@code oa.default-login-name}）
-     * @return 文件 ID（fileUrl，可写入 field0218）及致远原始响应
+     * @return 文件 ID（fileUrl）；绑定子表附件请使用 reg-reports 上传并绑定接口
      * @throws java.io.IOException 读取 multipart 文件失败时抛出
      */
     @PostMapping(value = "/attachments/upload", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)

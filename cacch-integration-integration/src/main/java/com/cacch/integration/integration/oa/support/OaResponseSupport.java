@@ -109,6 +109,72 @@ public final class OaResponseSupport {
         return null;
     }
 
+    /**
+     * 判断 CAP4 batch-update 是否全部成功
+     *
+     * @param raw batch-update 原始响应，可空
+     * @return {@code code=0} 且 {@code failedCount=0} 时返回 true
+     */
+    public static boolean isCap4BatchUpdateSuccess(JsonNode raw) {
+        if (raw == null || raw.isNull() || raw.isMissingNode() || !raw.isObject()) {
+            return false;
+        }
+        JsonNode codeNode = raw.get("code");
+        if (codeNode == null || codeNode.isNull() || codeNode.isMissingNode()) {
+            return false;
+        }
+        int code = codeNode.isNumber() ? codeNode.intValue() : parseIntOrMinusOne(codeNode.asString());
+        if (code != 0) {
+            return false;
+        }
+        JsonNode data = raw.get("data");
+        if (data == null || data.isNull() || data.isMissingNode() || !data.isObject()) {
+            return true;
+        }
+        JsonNode failedCount = data.get("failedCount");
+        if (failedCount == null || failedCount.isNull() || failedCount.isMissingNode()) {
+            return true;
+        }
+        return failedCount.isNumber() ? failedCount.intValue() == 0 : parseIntOrMinusOne(failedCount.asString()) == 0;
+    }
+
+    /**
+     * 提取 CAP4 batch-update 失败原因摘要
+     *
+     * @param raw batch-update 原始响应，可空
+     * @return 失败原因；无法解析时返回 null
+     */
+    public static String extractCap4BatchUpdateFailureMessage(JsonNode raw) {
+        if (raw == null || raw.isNull() || raw.isMissingNode() || !raw.isObject()) {
+            return null;
+        }
+        String message = firstNonBlankText(raw, "message");
+        JsonNode data = raw.get("data");
+        if (data != null && data.isObject()) {
+            JsonNode failedData = data.get("failedData");
+            if (failedData != null && failedData.isObject() && !failedData.isEmpty()) {
+                StringBuilder sb = new StringBuilder();
+                failedData.properties().forEach(entry ->
+                        sb.append(entry.getKey()).append('=').append(entry.getValue().asString()).append(';'));
+                if (!sb.isEmpty()) {
+                    return message == null ? sb.toString() : message + " | " + sb;
+                }
+            }
+        }
+        return message;
+    }
+
+    private static int parseIntOrMinusOne(String text) {
+        if (text == null || text.isBlank()) {
+            return -1;
+        }
+        try {
+            return Integer.parseInt(text.trim());
+        } catch (NumberFormatException ex) {
+            return -1;
+        }
+    }
+
     private static String firstNonBlankText(JsonNode node, String... fields) {
         if (node == null || !node.isObject() || fields == null) {
             return null;

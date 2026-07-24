@@ -122,3 +122,13 @@ oa:
   default-login-name: zhouhongfu
   token-ttl-seconds: 840
   template-code: CRM_ZYXS_001
+  reg-report:
+    # 无流程表单模板编码（formCode），由 OA 管理员提供
+    form-code: "GNDJ"
+    # CAP4 批量更新操作权限 ID（rightId），由 OA 管理员提供
+    right-id: "9077397064738097293.-3587954604159646544"
+    form-main-table: formmain_4070
+    form-sub-table: formson_5464
+    attachment-field: field0218
+    # 联调建议 false，避免误触发 OA 业务规则
+    do-trigger: false

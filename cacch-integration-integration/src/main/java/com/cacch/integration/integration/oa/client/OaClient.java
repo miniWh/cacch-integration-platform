@@ -225,6 +225,25 @@ public class OaClient {
         }
     }
 
+    /**
+     * CAP4 无流程表单批量更新
+     *
+     * <p>POST {@code /seeyon/rest/cap4/form/soap/batch-update}，用于绑定附件至表单字段。</p>
+     *
+     * @param token Rest Token，不可为空
+     * @param body  batch-update 请求体，不可为空
+     * @return 原始响应 JSON
+     * @throws RestClientException 网络或 HTTP 错误
+     */
+    public JsonNode batchUpdateCap4Form(String token, Map<String, Object> body) {
+        String action = "CAP4批量更新";
+        if (body == null || body.isEmpty()) {
+            throw new RestClientException("致远 OA CAP4 批量更新失败：请求体为空");
+        }
+        URI uri = URI.create(oaProperties.resolvedBaseUrl() + OaConstants.CAP4_BATCH_UPDATE_PATH);
+        return exchangeForJson(action, HttpMethod.POST, uri, token, body);
+    }
+
     private JsonNode exchangeForJson(String action, HttpMethod method, URI uri,
                                      String token, Object body) {
         ThirdPartyHttpLogSupport.logRequest(BIZ, action, uri.toString(), body);
