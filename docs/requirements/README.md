@@ -18,6 +18,9 @@ docs/requirements/
 ├── crm/                               ← 勤策CRM相关需求
 │   └── integration/                   ← 集成对接
 ├── oa/                                ← 致远OA相关需求
+│   ├── feature/                       ← 新功能
+│   ├── optimization/                  ← 优化改进
+│   ├── bug/                           ← 缺陷修复
 │   └── integration/                   ← 集成对接
 └── platform/                          ← 平台基础（部署、配置、基础设施）
     ├── feature/
@@ -101,4 +104,5 @@ draft → reviewing → approved → in-progress → testing → done → closed
 | 编号 | 标题 | 系统 | 类型 | 状态 | 文件 |
 |------|------|------|------|------|------|
 | REQ-CRM-001 | CRM订单同步OA表单 | CRM | integration | reviewing | [crm/integration/REQ-CRM-001-CRM订单同步OA表单.md](./crm/integration/REQ-CRM-001-CRM订单同步OA表单.md) |
+| REQ-OA-001 | 国内登记报告资料列表附件上传 | OA | feature | draft | [oa/feature/REQ-OA-001-国内登记报告资料列表附件上传.md](./oa/feature/REQ-OA-001-国内登记报告资料列表附件上传.md) |
 | REQ-WECOM-001 | 智能表格人员忙闲状态 | WECOM | feature | draft | wecom/feature/ (待创建) |
