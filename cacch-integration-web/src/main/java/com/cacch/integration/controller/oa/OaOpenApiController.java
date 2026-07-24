@@ -1,10 +1,14 @@
 package com.cacch.integration.controller.oa;
 
+import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.Result;
+import com.cacch.integration.common.result.ResultCode;
 import com.cacch.integration.dto.oa.request.OaOrgMemberByCodeRequest;
 import com.cacch.integration.dto.oa.request.OaProcessStartApiRequest;
 import com.cacch.integration.dto.oa.request.OaTokenRequest;
+import com.cacch.integration.dto.oa.vo.OaFileUploadVO;
 import com.cacch.integration.dto.oa.vo.OaTokenVO;
+import com.cacch.integration.integration.oa.client.dto.OaFileUploadResult;
 import com.cacch.integration.integration.oa.client.dto.OaOrgMember;
 import com.cacch.integration.integration.oa.client.dto.OaProcessStartRequest;
 import com.cacch.integration.service.oa.api.IOaOpenApiService;
@@ -18,6 +22,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 import tools.jackson.databind.JsonNode;
 
 /**
@@ -114,5 +119,27 @@ public class OaOpenApiController {
     public Result<JsonNode> getFlowState(@PathVariable String flowId,
                                          @RequestParam(required = false) String loginName) {
         return Result.success(oaOpenApiService.getFlowState(flowId, loginName));
+    }
+
+    /**
+     * 上传附件至致远 OA（联调/核实接口可用性）
+     *
+     * @param file      multipart 文件，表单字段名 {@code file}
+     * @param loginName Token 绑定登录名，可空（默认使用配置 {@code oa.default-login-name}）
+     * @return 文件 ID（fileUrl，可写入 field0218）及致远原始响应
+     * @throws java.io.IOException 读取 multipart 文件失败时抛出
+     */
+    @PostMapping(value = "/attachments/upload", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    public Result<OaFileUploadVO> uploadAttachment(@RequestParam("file") MultipartFile file,
+                                                   @RequestParam(required = false) String loginName) throws java.io.IOException {
+        if (file == null || file.isEmpty()) {
+            throw new BizException(ResultCode.PARAM_MISSING, "file 不能为空");
+        }
+        OaFileUploadResult result = oaOpenApiService.uploadAttachment(
+                file.getBytes(),
+                file.getOriginalFilename(),
+                file.getContentType(),
+                loginName);
+        return Result.success(new OaFileUploadVO(result.fileUrl(), result.fileName(), result.rawResponse()));
     }
 }

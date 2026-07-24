@@ -43,6 +43,16 @@ public final class OaConstants {
     public static final String FLOW_STATE_PATH = "/seeyon/rest/flow/state/{flowId}";
 
     /**
+     * 附件上传（multipart，form-data 字段名 {@code file}）
+     */
+    public static final String ATTACHMENT_UPLOAD_PATH = "/seeyon/rest/attachment";
+
+    /**
+     * multipart 上传表单字段名
+     */
+    public static final String ATTACHMENT_UPLOAD_FIELD = "file";
+
+    /**
      * 默认协同应用名
      */
     public static final String APP_NAME_COLLABORATION = "collaboration";

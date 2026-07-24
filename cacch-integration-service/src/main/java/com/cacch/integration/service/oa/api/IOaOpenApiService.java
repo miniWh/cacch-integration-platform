@@ -1,5 +1,6 @@
 package com.cacch.integration.service.oa.api;
 
+import com.cacch.integration.integration.oa.client.dto.OaFileUploadResult;
 import com.cacch.integration.integration.oa.client.dto.OaOrgMember;
 import com.cacch.integration.integration.oa.client.dto.OaProcessStartRequest;
 import tools.jackson.databind.JsonNode;
@@ -62,4 +63,15 @@ public interface IOaOpenApiService {
      * @return 原始响应 JSON
      */
     JsonNode getFlowState(String flowId, String loginName);
+
+    /**
+     * 上传附件至致远 OA
+     *
+     * @param fileBytes   文件内容，不可为空
+     * @param fileName    文件名，不可为空
+     * @param contentType MIME 类型，可空
+     * @param loginName   Token 绑定登录名，可空
+     * @return 上传结果，含 fileUrl（文件 ID）
+     */
+    OaFileUploadResult uploadAttachment(byte[] fileBytes, String fileName, String contentType, String loginName);
 }

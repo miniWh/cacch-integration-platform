@@ -2,8 +2,10 @@ package com.cacch.integration.integration.oa.client;
 
 import com.cacch.integration.common.config.oa.OaProperties;
 import com.cacch.integration.common.constant.oa.OaConstants;
+import com.cacch.integration.integration.oa.client.dto.OaFileUploadResult;
 import com.cacch.integration.integration.oa.client.dto.OaProcessStartRequest;
 import com.cacch.integration.integration.oa.client.dto.OaTokenResponse;
+import com.cacch.integration.integration.oa.support.OaResponseSupport;
 import com.cacch.integration.integration.support.ThirdPartyHttpLogSupport;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -146,6 +148,81 @@ public class OaClient {
                 .encode()
                 .toUri();
         return exchangeForJson(action, HttpMethod.GET, uri, token, null);
+    }
+
+    /**
+     * 上传附件文件
+     *
+     * <p>POST {@code /seeyon/rest/attachment}，multipart 字段名 {@code file}；响应 {@code atts[0].fileUrl} 为文件 ID。</p>
+     *
+     * @param token       Rest Token，不可为空
+     * @param fileBytes   文件内容，不可为空
+     * @param fileName    原始文件名，不可为空
+     * @param contentType MIME 类型，可空
+     * @return 上传结果，含 fileUrl
+     * @throws RestClientException 网络、HTTP 非 2xx 或响应无法解析 fileUrl 时抛出
+     */
+    public OaFileUploadResult uploadAttachment(String token, byte[] fileBytes, String fileName, String contentType) {
+        String action = "上传附件";
+        if (fileBytes == null || fileBytes.length == 0) {
+            throw new RestClientException("致远 OA 上传附件失败：文件内容为空");
+        }
+        if (!StringUtils.hasText(fileName)) {
+            throw new RestClientException("致远 OA 上传附件失败：文件名为空");
+        }
+        URI uri = URI.create(oaProperties.resolvedBaseUrl() + OaConstants.ATTACHMENT_UPLOAD_PATH);
+
+        Map<String, Object> requestLog = Map.of(
+                "fileName", fileName.trim(),
+                "byteLength", fileBytes.length,
+                "contentType", StringUtils.hasText(contentType) ? contentType.trim() : "");
+        ThirdPartyHttpLogSupport.logRequest(BIZ, action, uri.toString(), requestLog);
+
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+            headers.add(OaConstants.TOKEN_HEADER, token);
+
+            org.springframework.core.io.ByteArrayResource fileResource =
+                    new org.springframework.core.io.ByteArrayResource(fileBytes) {
+                        @Override
+                        public String getFilename() {
+                            return fileName.trim();
+                        }
+                    };
+
+            org.springframework.util.LinkedMultiValueMap<String, Object> body =
+                    new org.springframework.util.LinkedMultiValueMap<>();
+            body.add(OaConstants.ATTACHMENT_UPLOAD_FIELD, fileResource);
+
+            HttpEntity<org.springframework.util.MultiValueMap<String, Object>> entity =
+                    new HttpEntity<>(body, headers);
+            ResponseEntity<String> response = restTemplate.exchange(
+                    uri, HttpMethod.POST, entity, String.class);
+            String responseBody = response.getBody();
+            ThirdPartyHttpLogSupport.logResponse(BIZ, action, responseBody);
+
+            if (responseBody == null || responseBody.isBlank()) {
+                log.info("【{}】{}终止, reason=响应体为空", BIZ, action);
+                throw new RestClientException("致远 OA 上传附件响应体为空");
+            }
+            JsonNode json = OBJECT_MAPPER.readTree(responseBody);
+            String fileUrl = OaResponseSupport.extractFileUrl(json);
+            if (!StringUtils.hasText(fileUrl)) {
+                log.info("【{}】{}终止, reason=响应未包含 fileUrl", BIZ, action);
+                throw new RestClientException("致远 OA 上传附件响应未包含 fileUrl");
+            }
+            log.info("【{}】{}成功, fileName={}, fileUrl={}", BIZ, action, fileName.trim(), fileUrl);
+            return new OaFileUploadResult(fileUrl.trim(), fileName.trim(), json);
+        } catch (RestClientException e) {
+            log.info("【{}】{}终止, reason={}", BIZ, action, e.getMessage());
+            log.error("【{}】{} HTTP 调用失败", BIZ, action, e);
+            throw e;
+        } catch (Exception e) {
+            log.info("【{}】{}终止, reason={}", BIZ, action, e.getMessage());
+            log.error("【{}】{} 处理失败", BIZ, action, e);
+            throw new RestClientException("致远 OA 上传附件处理失败: " + e.getMessage(), e);
+        }
     }
 
     private JsonNode exchangeForJson(String action, HttpMethod method, URI uri,

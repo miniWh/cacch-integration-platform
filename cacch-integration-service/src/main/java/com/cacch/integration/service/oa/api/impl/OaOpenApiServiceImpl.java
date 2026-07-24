@@ -4,6 +4,7 @@ import com.cacch.integration.common.constant.oa.OaConstants;
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.ResultCode;
 import com.cacch.integration.integration.oa.client.OaClient;
+import com.cacch.integration.integration.oa.client.dto.OaFileUploadResult;
 import com.cacch.integration.integration.oa.client.dto.OaOrgMember;
 import com.cacch.integration.integration.oa.client.dto.OaProcessStartRequest;
 import com.cacch.integration.integration.oa.support.OaResponseSupport;
@@ -98,6 +99,28 @@ public class OaOpenApiServiceImpl implements IOaOpenApiService {
         } catch (RestClientException e) {
             log.info("【OaOpenApi】查询流程状态终止, flowId={}, reason={}", flowId, e.getMessage());
             throw new BizException(ResultCode.INTEGRATION_ERROR, "致远 OA 查询流程状态失败: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public OaFileUploadResult uploadAttachment(byte[] fileBytes, String fileName, String contentType, String loginName) {
+        if (fileBytes == null || fileBytes.length == 0) {
+            log.info("【OaOpenApi】上传附件终止, reason=文件内容为空");
+            throw new BizException(ResultCode.PARAM_MISSING, "上传文件不能为空");
+        }
+        if (!StringUtils.hasText(fileName)) {
+            log.info("【OaOpenApi】上传附件终止, reason=文件名为空");
+            throw new BizException(ResultCode.PARAM_MISSING, "文件名不能为空");
+        }
+        String token = oaTokenService.getToken(loginName);
+        try {
+            OaFileUploadResult result = oaClient.uploadAttachment(
+                    token, fileBytes, fileName.trim(), contentType);
+            log.info("【OaOpenApi】上传附件完成, fileName={}, fileUrl={}", result.fileName(), result.fileUrl());
+            return result;
+        } catch (RestClientException e) {
+            log.info("【OaOpenApi】上传附件终止, fileName={}, reason={}", fileName, e.getMessage());
+            throw new BizException(ResultCode.INTEGRATION_ERROR, "致远 OA 上传附件失败: " + e.getMessage(), e);
         }
     }
 }
