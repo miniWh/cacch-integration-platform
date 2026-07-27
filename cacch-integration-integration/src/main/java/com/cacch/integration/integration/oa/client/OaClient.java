@@ -244,6 +244,25 @@ public class OaClient {
         return exchangeForJson(action, HttpMethod.POST, uri, token, body);
     }
 
+    /**
+     * CAP4 无流程表单导出（含表单元数据 definition）
+     *
+     * <p>POST {@code /seeyon/rest/cap4/form/soap/export}；元数据位于响应 {@code data.data.definition}。</p>
+     *
+     * @param token Rest Token，不可为空
+     * @param body  export 请求体，不可为空
+     * @return 原始响应 JSON
+     * @throws RestClientException 网络或 HTTP 错误
+     */
+    public JsonNode exportCap4Form(String token, Map<String, Object> body) {
+        String action = "CAP4导出表单";
+        if (body == null || body.isEmpty()) {
+            throw new RestClientException("致远 OA CAP4 导出表单失败：请求体为空");
+        }
+        URI uri = URI.create(oaProperties.resolvedBaseUrl() + OaConstants.CAP4_FORM_EXPORT_PATH);
+        return exchangeForJson(action, HttpMethod.POST, uri, token, body);
+    }
+
     private JsonNode exchangeForJson(String action, HttpMethod method, URI uri,
                                      String token, Object body) {
         ThirdPartyHttpLogSupport.logRequest(BIZ, action, uri.toString(), body);

@@ -1,12 +1,15 @@
 package com.cacch.integration.service.oa.api.impl;
 
 import com.cacch.integration.common.constant.oa.OaConstants;
+import com.cacch.integration.common.config.oa.OaProperties;
+import com.cacch.integration.common.config.oa.OaRegReportProperties;
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.ResultCode;
 import com.cacch.integration.integration.oa.client.OaClient;
 import com.cacch.integration.integration.oa.client.dto.OaFileUploadResult;
 import com.cacch.integration.integration.oa.client.dto.OaOrgMember;
 import com.cacch.integration.integration.oa.client.dto.OaProcessStartRequest;
+import com.cacch.integration.integration.oa.client.dto.OaCap4FormMetadataRequest;
 import com.cacch.integration.integration.oa.support.OaResponseSupport;
 import com.cacch.integration.service.oa.api.IOaOpenApiService;
 import com.cacch.integration.service.oa.api.IOaTokenService;
@@ -16,6 +19,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClientException;
 import tools.jackson.databind.JsonNode;
+
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.Map;
 
 /**
  * 致远 OA OpenAPI 服务实现
@@ -27,8 +34,12 @@ import tools.jackson.databind.JsonNode;
 @RequiredArgsConstructor
 public class OaOpenApiServiceImpl implements IOaOpenApiService {
 
+    private static final DateTimeFormatter EXPORT_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+
     private final OaClient oaClient;
     private final IOaTokenService oaTokenService;
+    private final OaProperties oaProperties;
+    private final OaRegReportProperties regReportProperties;
 
     @Override
     public String getToken(String loginName) {
@@ -122,5 +133,74 @@ public class OaOpenApiServiceImpl implements IOaOpenApiService {
             log.info("【OaOpenApi】上传附件终止, fileName={}, reason={}", fileName, e.getMessage());
             throw new BizException(ResultCode.INTEGRATION_ERROR, "致远 OA 上传附件失败: " + e.getMessage(), e);
         }
+    }
+
+    @Override
+    public JsonNode getCap4FormMetadata(String formCode,
+                                        String templateCode,
+                                        String rightId,
+                                        String loginName,
+                                        String beginDateTime,
+                                        String endDateTime,
+                                        Long dataId,
+                                        Integer page,
+                                        Integer pageSize) {
+        String resolvedFormCode = blankToDefault(formCode, regReportProperties.getFormCode());
+        String resolvedTemplateCode = blankToDefault(templateCode, resolvedFormCode);
+        String resolvedRightId = blankToDefault(rightId, regReportProperties.getRightId());
+        String resolvedLogin = resolveLoginName(loginName);
+
+        if (!StringUtils.hasText(resolvedTemplateCode)) {
+            log.info("【OaOpenApi】获取 CAP4 表单元数据终止, reason=templateCode为空");
+            throw new BizException(ResultCode.PARAM_MISSING,
+                    "formCode 或 templateCode 至少填一项，请传参或配置 oa.reg-report.form-code");
+        }
+        if (!StringUtils.hasText(resolvedRightId)) {
+            log.info("【OaOpenApi】获取 CAP4 表单元数据终止, reason=rightId为空");
+            throw new BizException(ResultCode.PARAM_MISSING,
+                    "rightId 不能为空，请传参或配置 oa.reg-report.right-id");
+        }
+
+        String resolvedBegin = blankToDefault(beginDateTime,
+                LocalDate.now().minusYears(10).format(EXPORT_DATE_FORMAT));
+        String resolvedEnd = blankToDefault(endDateTime,
+                LocalDate.now().plusDays(1).format(EXPORT_DATE_FORMAT));
+        int resolvedPage = page == null || page < 1 ? 1 : page;
+        int resolvedPageSize = pageSize == null || pageSize < 1 ? 1 : pageSize;
+
+        Map<String, Object> body = OaCap4FormMetadataRequest.toExportBody(
+                resolvedTemplateCode,
+                resolvedRightId,
+                resolvedBegin,
+                resolvedEnd,
+                dataId,
+                resolvedPage,
+                resolvedPageSize);
+        String token = oaTokenService.getToken(resolvedLogin);
+        try {
+            JsonNode response = oaClient.exportCap4Form(token, body);
+            log.info("【OaOpenApi】获取 CAP4 表单元数据完成, templateCode={}, begin={}, end={}",
+                    resolvedTemplateCode, resolvedBegin, resolvedEnd);
+            return response;
+        } catch (RestClientException e) {
+            log.info("【OaOpenApi】获取 CAP4 表单元数据终止, templateCode={}, reason={}",
+                    resolvedTemplateCode, e.getMessage());
+            throw new BizException(ResultCode.INTEGRATION_ERROR,
+                    "致远 OA 获取 CAP4 表单元数据失败: " + e.getMessage(), e);
+        }
+    }
+
+    private String resolveLoginName(String loginName) {
+        if (StringUtils.hasText(loginName)) {
+            return loginName.trim();
+        }
+        if (StringUtils.hasText(oaProperties.getDefaultLoginName())) {
+            return oaProperties.getDefaultLoginName().trim();
+        }
+        return null;
+    }
+
+    private static String blankToDefault(String value, String defaultValue) {
+        return StringUtils.hasText(value) ? value.trim() : defaultValue;
     }
 }

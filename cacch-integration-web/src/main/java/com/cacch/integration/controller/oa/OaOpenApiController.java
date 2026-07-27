@@ -3,6 +3,7 @@ package com.cacch.integration.controller.oa;
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.Result;
 import com.cacch.integration.common.result.ResultCode;
+import com.cacch.integration.dto.oa.request.OaCap4FormMetadataApiRequest;
 import com.cacch.integration.dto.oa.request.OaOrgMemberByCodeRequest;
 import com.cacch.integration.dto.oa.request.OaProcessStartApiRequest;
 import com.cacch.integration.dto.oa.request.OaTokenRequest;
@@ -141,5 +142,55 @@ public class OaOpenApiController {
                 file.getContentType(),
                 loginName);
         return Result.success(new OaFileUploadVO(result.fileUrl(), result.fileName(), result.rawResponse()));
+    }
+
+    /**
+     * 获取 CAP4 表单元数据（POST，底层调用 {@code /seeyon/rest/cap4/form/soap/export}）
+     *
+     * @param request 可含 templateCode、rightId、日期范围等；body 可空（使用 yml 默认配置）
+     * @return 致远原始响应（元数据见 {@code data.data.definition}）
+     */
+    @PostMapping("/cap4/form/metadata")
+    public Result<JsonNode> getCap4FormMetadata(@RequestBody(required = false) OaCap4FormMetadataApiRequest request) {
+        OaCap4FormMetadataApiRequest req = request != null ? request : new OaCap4FormMetadataApiRequest();
+        return Result.success(oaOpenApiService.getCap4FormMetadata(
+                req.getFormCode(),
+                req.getTemplateCode(),
+                req.getRightId(),
+                req.getLoginName(),
+                req.getBeginDateTime(),
+                req.getEndDateTime(),
+                req.getDataId(),
+                req.getPage(),
+                req.getPageSize()));
+    }
+
+    /**
+     * 获取 CAP4 表单元数据（GET 联调，底层走 export）
+     *
+     * @param formCode      无流程表单模板编码，可空
+     * @param templateCode  表单模板编号，可空
+     * @param rightId       CAP4 操作权限 ID，可空
+     * @param loginName     OA 登录名，可空
+     * @param beginDateTime 导出起始日期 yyyy-MM-dd，可空
+     * @param endDateTime   导出截止日期 yyyy-MM-dd，可空
+     * @param dataId        主表数据 ID，可空
+     * @param page          页码，可空
+     * @param pageSize      每页条数，可空
+     * @return 致远原始响应
+     */
+    @GetMapping("/cap4/form/metadata")
+    public Result<JsonNode> getCap4FormMetadataByQuery(@RequestParam(required = false) String formCode,
+                                                       @RequestParam(required = false) String templateCode,
+                                                       @RequestParam(required = false) String rightId,
+                                                       @RequestParam(required = false) String loginName,
+                                                       @RequestParam(required = false) String beginDateTime,
+                                                       @RequestParam(required = false) String endDateTime,
+                                                       @RequestParam(required = false) Long dataId,
+                                                       @RequestParam(required = false) Integer page,
+                                                       @RequestParam(required = false) Integer pageSize) {
+        return Result.success(oaOpenApiService.getCap4FormMetadata(
+                formCode, templateCode, rightId, loginName,
+                beginDateTime, endDateTime, dataId, page, pageSize));
     }
 }

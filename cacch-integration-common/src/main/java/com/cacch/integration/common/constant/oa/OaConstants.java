@@ -58,6 +58,17 @@ public final class OaConstants {
     public static final String CAP4_BATCH_UPDATE_PATH = "/seeyon/rest/cap4/form/soap/batch-update";
 
     /**
+     * CAP4 无流程表单导出（响应含 definition 表单元数据）
+     */
+    public static final String CAP4_FORM_EXPORT_PATH = "/seeyon/rest/cap4/form/soap/export";
+
+    /**
+     * @deprecated 多数 OA 环境未部署该路径，请使用 {@link #CAP4_FORM_EXPORT_PATH}
+     */
+    @Deprecated
+    public static final String CAP4_GET_FORM_METADATA_PATH = "/seeyon/rest/cap4/form/soap/getFormMetadata";
+
+    /**
      * 国内登记报告主表
      */
     public static final String REG_REPORT_FORM_MAIN = "formmain_4070";

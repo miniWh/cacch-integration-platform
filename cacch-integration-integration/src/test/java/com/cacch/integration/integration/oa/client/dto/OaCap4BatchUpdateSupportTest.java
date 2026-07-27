@@ -65,4 +65,22 @@ class OaCap4BatchUpdateSupportTest {
                 {"code":500,"message":"error"}
                 """)));
     }
+
+    @Test
+    void formMetadataRequest_shouldBuildExportBody() {
+        Map<String, Object> body = OaCap4FormMetadataRequest.toExportBody(
+                "GNDJ",
+                "9077397064738097293.-3587954604159646544",
+                "2020-01-01",
+                "2026-07-27",
+                null,
+                1,
+                1);
+        assertEquals("GNDJ", body.get("templateCode"));
+        assertEquals("9077397064738097293.-3587954604159646544", body.get("rightId"));
+        assertEquals("2020-01-01", body.get("beginDateTime"));
+        assertEquals("2026-07-27", body.get("endDateTime"));
+        assertEquals(1, body.get("page"));
+        assertEquals(1, body.get("pageSize"));
+    }
 }

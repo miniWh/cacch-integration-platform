@@ -6,7 +6,7 @@ import com.cacch.integration.integration.oa.client.dto.OaProcessStartRequest;
 import tools.jackson.databind.JsonNode;
 
 /**
- * 致远 OA OpenAPI 服务（Token / 人员 / 发起流程 / 流程状态）
+ * 致远 OA OpenAPI 服务（Token / 人员 / 发起流程 / 流程状态 / CAP4）
  *
  * @author hongfu_zhou@cacch.com
  */
@@ -74,4 +74,28 @@ public interface IOaOpenApiService {
      * @return 上传结果，含 fileUrl（文件 ID）
      */
     OaFileUploadResult uploadAttachment(byte[] fileBytes, String fileName, String contentType, String loginName);
+
+    /**
+     * 获取 CAP4 表单元数据（通过 export 接口，响应 definition 节点）
+     *
+     * @param formCode      无流程表单模板编码，可空（默认 {@code oa.reg-report.form-code}）
+     * @param templateCode  表单模板编号，可空；未传时与 formCode 相同
+     * @param rightId       CAP4 操作权限 ID，可空（默认 {@code oa.reg-report.right-id}）
+     * @param loginName     OA 登录名，可空（默认 {@code oa.default-login-name}）
+     * @param beginDateTime 导出起始日期 yyyy-MM-dd，可空（默认 10 年前）
+     * @param endDateTime   导出截止日期 yyyy-MM-dd，可空（默认明天）
+     * @param dataId        指定主表数据 ID，可空
+     * @param page          页码，可空（默认 1）
+     * @param pageSize      每页条数，可空（默认 1，仅取元数据时减小数据量）
+     * @return 致远原始响应 JSON（元数据见 {@code data.data.definition}）
+     */
+    JsonNode getCap4FormMetadata(String formCode,
+                                 String templateCode,
+                                 String rightId,
+                                 String loginName,
+                                 String beginDateTime,
+                                 String endDateTime,
+                                 Long dataId,
+                                 Integer page,
+                                 Integer pageSize);
 }
