@@ -43,6 +43,8 @@
         <bcrypt.version>0.10.2</bcrypt.version>
         <lombok.version>1.18.36</lombok.version>
         <postgresql.version>42.7.7</postgresql.version>
+        <mssql-jdbc.version>12.8.1.jre11</mssql-jdbc.version>
+        <ojdbc.version>23.6.0.24.10</ojdbc.version>
         <wemeet-openapi-sdk.version>v1.0.12</wemeet-openapi-sdk.version>
     </properties>
 
@@ -134,6 +136,20 @@
                 <groupId>org.postgresql</groupId>
                 <artifactId>postgresql</artifactId>
                 <version>${postgresql.version}</version>
+            </dependency>
+
+            <!-- Microsoft SQL Server JDBC Driver（OA 库第二数据源，可选） -->
+            <dependency>
+                <groupId>com.microsoft.sqlserver</groupId>
+                <artifactId>mssql-jdbc</artifactId>
+                <version>${mssql-jdbc.version}</version>
+            </dependency>
+
+            <!-- Oracle JDBC Driver（致远 OA 库第二数据源） -->
+            <dependency>
+                <groupId>com.oracle.database.jdbc</groupId>
+                <artifactId>ojdbc11</artifactId>
+                <version>${ojdbc.version}</version>
             </dependency>
 
             <!-- 腾讯会议 OpenAPI SDK -->

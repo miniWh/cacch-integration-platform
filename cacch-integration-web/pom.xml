@@ -80,6 +80,18 @@
             <groupId>at.favre.lib</groupId>
             <artifactId>bcrypt</artifactId>
         </dependency>
+
+        <!-- Oracle JDBC（致远 OA 第二数据源，默认） -->
+        <dependency>
+            <groupId>com.oracle.database.jdbc</groupId>
+            <artifactId>ojdbc11</artifactId>
+        </dependency>
+
+        <!-- Microsoft SQL Server JDBC（OA 第二数据源，可选） -->
+        <dependency>
+            <groupId>com.microsoft.sqlserver</groupId>
+            <artifactId>mssql-jdbc</artifactId>
+        </dependency>
     </dependencies>
 
     <build>

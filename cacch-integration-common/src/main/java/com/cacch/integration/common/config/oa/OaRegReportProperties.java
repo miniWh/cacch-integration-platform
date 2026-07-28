@@ -1,5 +1,6 @@
 package com.cacch.integration.common.config.oa;
 
+import lombok.Getter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
@@ -7,6 +8,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  *
  * @author hongfu_zhou@cacch.com
  */
+@Getter
 @ConfigurationProperties(prefix = "oa.reg-report")
 public class OaRegReportProperties {
 
@@ -40,42 +42,46 @@ public class OaRegReportProperties {
      */
     private final boolean doTrigger;
 
+    /**
+     * 登记负责人字段名
+     */
+    private final String fieldOwner;
+
+    /**
+     * IPDP 名称字段名
+     */
+    private final String fieldIpdpName;
+
+    /**
+     * 资料项目字段名
+     */
+    private final String fieldItemName;
+
+    /**
+     * 子表外键列名
+     */
+    private final String subTableFk;
+
     public OaRegReportProperties(String formCode,
                                  String rightId,
                                  String formMainTable,
                                  String formSubTable,
                                  String attachmentField,
-                                 Boolean doTrigger) {
+                                 Boolean doTrigger,
+                                 String fieldOwner,
+                                 String fieldIpdpName,
+                                 String fieldItemName,
+                                 String subTableFk) {
         this.formCode = formCode != null ? formCode.trim() : "";
         this.rightId = rightId != null ? rightId.trim() : "";
         this.formMainTable = blankToDefault(formMainTable, "formmain_4070");
         this.formSubTable = blankToDefault(formSubTable, "formson_5464");
         this.attachmentField = blankToDefault(attachmentField, "field0218");
         this.doTrigger = doTrigger != null && doTrigger;
-    }
-
-    public String getFormCode() {
-        return formCode;
-    }
-
-    public String getRightId() {
-        return rightId;
-    }
-
-    public String getFormMainTable() {
-        return formMainTable;
-    }
-
-    public String getFormSubTable() {
-        return formSubTable;
-    }
-
-    public String getAttachmentField() {
-        return attachmentField;
-    }
-
-    public boolean isDoTrigger() {
-        return doTrigger;
+        this.fieldOwner = blankToDefault(fieldOwner, "field0223");
+        this.fieldIpdpName = blankToDefault(fieldIpdpName, "field0160");
+        this.fieldItemName = blankToDefault(fieldItemName, "field0214");
+        this.subTableFk = blankToDefault(subTableFk, "formmain_id");
     }
 
     private static String blankToDefault(String value, String defaultValue) {
