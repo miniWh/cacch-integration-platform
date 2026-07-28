@@ -19,6 +19,10 @@ spring:
     validate-on-migrate: true
     encoding: UTF-8
     clean-disabled: true
+    # 显式绑定集成 PG 库，避免存在 oaDataSource（Oracle）时 Flyway 误连 OA 库
+    url: ${spring.datasource.url}
+    user: ${spring.datasource.username}
+    password: ${spring.datasource.password}
 
 # ==================== MyBatis-Plus 全局配置（所有环境共用） ====================
 mybatis-plus:
@@ -136,12 +140,15 @@ oa:
     sub-table-fk: formmain_id
     # 联调建议 false，避免误触发 OA 业务规则
     do-trigger: false
-  # OA 库第二数据源（资料列表 SQL 查询，致远 OA 通常为 Oracle）
+  # OA 库第二数据源（只读 SELECT，勿写入 spring.datasource）
+  # 请在 application-{profile}.yml 配置，示例：
+  # datasource:
+  #   url: jdbc:oracle:thin:@//host:1521/seeyon
+  #   username: xxx
+  #   password: ${OA_DB_PASSWORD}
   datasource:
-    url: jdbc:oracle:thin:@//10.80.64.19:1521/seeyon
-    username: "V5"
-    password: "Seeyon123456"
-    # 未配置时按 url 推断；Oracle 示例：oracle.jdbc.OracleDriver
+    username: ""
+    password: ""
     driver-class-name: oracle.jdbc.OracleDriver
   attachment-sync:
     enabled: false

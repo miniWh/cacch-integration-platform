@@ -88,6 +88,12 @@ oa:
   default-login-name: ${OA_DEFAULT_LOGIN_NAME:zhouhongfu}
   token-ttl-seconds: ${OA_TOKEN_TTL_SECONDS:840}
   template-code: ${OA_TEMPLATE_CODE:CRM_ZYXS_001}
+  # OA Oracle 只读库（独立第二数据源，勿覆盖 spring.datasource）
+  datasource:
+    url: ${OA_DB_URL:jdbc:oracle:thin:@//10.80.64.19:1521/seeyon}
+    username: ${OA_DB_USERNAME:V5}
+    password: ${OA_DB_PASSWORD:Seeyon123456}
+    driver-class-name: oracle.jdbc.OracleDriver
 
 # ---------- 腾讯会议 REST API（智能纪要） ----------
 # 未配置时会继承 application.yml 的 enabled=false，导致正式环境跳过纪要拉取。

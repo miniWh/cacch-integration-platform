@@ -87,6 +87,12 @@ oa:
   default-login-name: zhouhongfu
   token-ttl-seconds: 840
   template-code: CRM_ZYXS_001
+  # OA Oracle 只读库（勿写入 spring.datasource，Flyway 仅迁移 PG 集成库）
+  datasource:
+    url: jdbc:oracle:thin:@//10.80.64.19:1521/seeyon
+    username: V5
+    password: Seeyon123456
+    driver-class-name: oracle.jdbc.OracleDriver
 
 # ---------- 腾讯会议 REST API（智能纪要） ----------
 tencent-meeting:
