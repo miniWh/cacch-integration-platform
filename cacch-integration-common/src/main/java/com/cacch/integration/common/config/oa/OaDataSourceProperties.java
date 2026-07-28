@@ -1,12 +1,14 @@
 package com.cacch.integration.common.config.oa;
 
+import lombok.Getter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
- * OA 数据库第二数据源配置（直连 formmain_4070 / formson_5464）
+ * OA 数据库第二数据源配置（直连 formmain_4070 / formson_5464，严格只读）
  *
  * @author hongfu_zhou@cacch.com
  */
+@Getter
 @ConfigurationProperties(prefix = "oa.datasource")
 public class OaDataSourceProperties {
 
@@ -29,22 +31,6 @@ public class OaDataSourceProperties {
         this.username = username != null ? username.trim() : "";
         this.password = password != null ? password : "";
         this.driverClassName = blankToDefault(driverClassName, inferDriverClassName(this.url));
-    }
-
-    public String getUrl() {
-        return url;
-    }
-
-    public String getUsername() {
-        return username;
-    }
-
-    public String getPassword() {
-        return password;
-    }
-
-    public String getDriverClassName() {
-        return driverClassName;
     }
 
     public boolean isConfigured() {

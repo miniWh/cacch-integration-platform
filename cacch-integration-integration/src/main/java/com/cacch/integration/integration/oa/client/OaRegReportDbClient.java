@@ -4,6 +4,7 @@ import com.cacch.integration.common.config.oa.OaRegReportProperties;
 import com.cacch.integration.integration.oa.client.dto.OaRegReportItemRow;
 import com.cacch.integration.integration.oa.support.OaDbDialectSupport;
 import com.cacch.integration.integration.oa.support.OaDbDialectSupport.DbProduct;
+import com.cacch.integration.integration.oa.support.ReadOnlyOaJdbcTemplate;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -20,6 +21,8 @@ import java.util.List;
 
 /**
  * 国内登记报告 OA 库查询客户端（只读 JOIN 主表与子表）
+ *
+ * <p><strong>禁止</strong>对 OA 库执行 UPDATE / INSERT / DELETE；附件绑定仅走 OA REST + CAP4 batch-update。</p>
  *
  * @author hongfu_zhou@cacch.com
  */
@@ -84,6 +87,7 @@ public class OaRegReportDbClient {
 
         DbProduct product = OaDbDialectSupport.detect(jdbc);
         sql = OaDbDialectSupport.appendPagination(sql, args, limit, product);
+        ReadOnlyOaJdbcTemplate.assertSelectOnly(sql);
         log.info("【{}】使用分页方言, product={}", BIZ, product);
 
         try {
@@ -127,16 +131,12 @@ public class OaRegReportDbClient {
          */
         private static Long readLong(ResultSet rs, String columnLabel) throws SQLException {
             Object value = rs.getObject(columnLabel);
-            if (value == null) {
-                return null;
-            }
-            if (value instanceof Number number) {
-                return number.longValue();
-            }
-            if (value instanceof String text && StringUtils.hasText(text)) {
-                return Long.parseLong(text.trim());
-            }
-            return rs.getObject(columnLabel, Long.class);
+            return switch (value) {
+                case null -> null;
+                case Number number -> number.longValue();
+                case String text when StringUtils.hasText(text) -> Long.parseLong(text.trim());
+                default -> rs.getObject(columnLabel, Long.class);
+            };
         }
 
         private static String trimToNull(String value) {

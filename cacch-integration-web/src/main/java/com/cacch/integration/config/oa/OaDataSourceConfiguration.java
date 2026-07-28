@@ -1,6 +1,7 @@
 package com.cacch.integration.config.oa;
 
 import com.cacch.integration.common.config.oa.OaDataSourceProperties;
+import com.cacch.integration.integration.oa.support.ReadOnlyOaJdbcTemplate;
 import com.zaxxer.hikari.HikariDataSource;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -12,7 +13,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import javax.sql.DataSource;
 
 /**
- * OA 数据库第二数据源配置
+ * OA 数据库第二数据源配置（严格只读）
  *
  * @author hongfu_zhou@cacch.com
  */
@@ -22,10 +23,10 @@ import javax.sql.DataSource;
 public class OaDataSourceConfiguration {
 
     /**
-     * OA 库数据源（只读查询资料列表）
+     * OA 库只读数据源
      *
      * @param properties OA 数据源配置
-     * @return 数据源 Bean
+     * @return 只读数据源 Bean
      */
     @Bean(name = "oaDataSource")
     public DataSource oaDataSource(OaDataSourceProperties properties) {
@@ -34,20 +35,21 @@ public class OaDataSourceConfiguration {
         dataSource.setUsername(properties.getUsername());
         dataSource.setPassword(properties.getPassword());
         dataSource.setDriverClassName(properties.getDriverClassName());
-        dataSource.setPoolName("oa-hikari");
+        dataSource.setPoolName("oa-hikari-readonly");
         dataSource.setMaximumPoolSize(5);
         dataSource.setMinimumIdle(1);
+        dataSource.setReadOnly(true);
         return dataSource;
     }
 
     /**
-     * OA 库 JdbcTemplate
+     * OA 库只读 JdbcTemplate（拦截一切写操作）
      *
-     * @param oaDataSource OA 数据源
-     * @return JdbcTemplate
+     * @param oaDataSource OA 只读数据源
+     * @return 只读 JdbcTemplate
      */
     @Bean(name = "oaJdbcTemplate")
     public JdbcTemplate oaJdbcTemplate(@Qualifier("oaDataSource") DataSource oaDataSource) {
-        return new JdbcTemplate(oaDataSource);
+        return new ReadOnlyOaJdbcTemplate(oaDataSource);
     }
 }
