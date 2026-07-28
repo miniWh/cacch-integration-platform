@@ -1,5 +1,6 @@
 package com.cacch.integration.common.config.sharedrive;
 
+import lombok.Getter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.util.List;
@@ -9,6 +10,7 @@ import java.util.List;
  *
  * @author hongfu_zhou@cacch.com
  */
+@Getter
 @ConfigurationProperties(prefix = "share-drive")
 public class ShareDriveProperties {
 
@@ -25,6 +27,11 @@ public class ShareDriveProperties {
     private final String username;
 
     private final String password;
+
+    /**
+     * Windows 域名称；留空表示工作组或服务器本地账号
+     */
+    private final String domain;
 
     /**
      * 版本号正则，默认 _v(\\d+)
@@ -45,6 +52,7 @@ public class ShareDriveProperties {
                                 String rootPath,
                                 String username,
                                 String password,
+                                String domain,
                                 String versionPattern,
                                 List<String> allowedExtensions,
                                 Long maxFileSizeBytes) {
@@ -52,6 +60,7 @@ public class ShareDriveProperties {
         this.rootPath = rootPath != null ? rootPath.trim() : "";
         this.username = username != null ? username.trim() : "";
         this.password = password != null ? password : "";
+        this.domain = domain != null ? domain.trim() : "";
         this.versionPattern = blankToDefault(versionPattern, "_v(\\d+)");
         this.allowedExtensions = allowedExtensions != null && !allowedExtensions.isEmpty()
                 ? List.copyOf(allowedExtensions)
@@ -61,36 +70,17 @@ public class ShareDriveProperties {
                 : 104_857_600L;
     }
 
-    public String getProtocol() {
-        return protocol;
-    }
-
-    public String getRootPath() {
-        return rootPath;
-    }
-
-    public String getUsername() {
-        return username;
-    }
-
-    public String getPassword() {
-        return password;
-    }
-
-    public String getVersionPattern() {
-        return versionPattern;
-    }
-
-    public List<String> getAllowedExtensions() {
-        return allowedExtensions;
-    }
-
-    public long getMaxFileSizeBytes() {
-        return maxFileSizeBytes;
-    }
-
     public boolean isConfigured() {
         return !rootPath.isBlank();
+    }
+
+    /**
+     * 是否已配置 SMB 登录账号（UNC 远程访问必填，Guest 在多数服务器已禁用）
+     *
+     * @return true 表示已配置 username
+     */
+    public boolean hasCredentials() {
+        return !username.isBlank();
     }
 
     private static String blankToDefault(String value, String defaultValue) {

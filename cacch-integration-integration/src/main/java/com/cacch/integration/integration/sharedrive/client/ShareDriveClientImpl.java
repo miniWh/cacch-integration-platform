@@ -14,6 +14,7 @@ import com.hierynomus.mssmb2.SMB2ShareAccess;
 import com.hierynomus.smbj.SMBClient;
 import com.hierynomus.smbj.auth.AuthenticationContext;
 import com.hierynomus.smbj.connection.Connection;
+import com.hierynomus.smbj.session.Session;
 import com.hierynomus.smbj.share.DiskShare;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,7 +24,6 @@ import org.springframework.util.StringUtils;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -39,8 +39,7 @@ import java.util.stream.Stream;
 /**
  * 共享盘客户端：UNC 远程路径走 SMB（smbj），本地已挂载路径走 NIO
  *
- * <p>Linux 服务器无法像 Windows 资源管理器那样直接访问 {@code \\host\share}，
- * 须通过 SMB 协议；未配置账号时尝试 Guest，多数环境需配置 {@code share-drive.username/password}。</p>
+ * <p>Linux 服务器须配置 {@code share-drive.username/password}；Guest 账号在多数文件服务器已禁用。</p>
  *
  * @author hongfu_zhou@cacch.com
  */
@@ -62,10 +61,15 @@ public class ShareDriveClientImpl implements IShareDriveClient {
         }
         String root = shareDriveProperties.getRootPath().trim();
         if (shouldUseSmb(root)) {
+            if (!shareDriveProperties.hasCredentials()) {
+                log.info("【{}】共享盘不可用, reason=UNC路径未配置SMB账号(Guest已禁用), path={}, "
+                                + "hint=请配置 share-drive.username/password",
+                        BIZ, root);
+                return false;
+            }
             boolean ok = pingSmbRoot(root);
             if (!ok) {
-                log.info("【{}】共享盘不可用, reason=SMB根目录不可访问, path={}, hint=Linux服务器须配置share-drive.username/password",
-                        BIZ, root);
+                log.info("【{}】共享盘不可用, reason=SMB根目录不可访问, path={}", BIZ, root);
             }
             return ok;
         }
@@ -111,18 +115,17 @@ public class ShareDriveClientImpl implements IShareDriveClient {
         if (ShareDriveUncPathSupport.isUncPath(path)) {
             return true;
         }
-        return StringUtils.hasText(shareDriveProperties.getUsername());
+        return shareDriveProperties.hasCredentials();
     }
 
     private AuthenticationContext buildAuthContext() {
-        if (StringUtils.hasText(shareDriveProperties.getUsername())) {
-            return new AuthenticationContext(
-                    shareDriveProperties.getUsername(),
-                    shareDriveProperties.getPassword().toCharArray(),
-                    null);
-        }
-        log.info("【{}】未配置 SMB 账号，尝试 Guest 访问；若失败请配置 share-drive.username/password", BIZ);
-        return AuthenticationContext.guest();
+        String domain = StringUtils.hasText(shareDriveProperties.getDomain())
+                ? shareDriveProperties.getDomain()
+                : null;
+        return new AuthenticationContext(
+                shareDriveProperties.getUsername(),
+                shareDriveProperties.getPassword().toCharArray(),
+                domain);
     }
 
     private List<CandidateFile> listViaNio(String directoryPath, Pattern versionPattern) {
@@ -173,6 +176,10 @@ public class ShareDriveClientImpl implements IShareDriveClient {
     }
 
     private List<CandidateFile> listViaSmb(String directoryPath, Pattern versionPattern) {
+        if (!shareDriveProperties.hasCredentials()) {
+            log.info("【{}】SMB 读取终止, reason=未配置SMB账号", BIZ);
+            return List.of();
+        }
         ShareDriveUncPathSupport.UncRoot root = ShareDriveUncPathSupport.parseRoot(shareDriveProperties.getRootPath());
         if (root == null) {
             log.info("【{}】SMB 读取终止, reason=根路径解析失败, root={}", BIZ, shareDriveProperties.getRootPath());
@@ -206,7 +213,7 @@ public class ShareDriveClientImpl implements IShareDriveClient {
                 }
                 return null;
             });
-        } catch (IOException e) {
+        } catch (Exception e) {
             log.info("【{}】SMB 列举目录失败, path={}, reason={}", BIZ, directoryPath, e.getMessage());
             log.error("【{}】SMB 列举目录异常, path={}", BIZ, directoryPath, e);
         }
@@ -261,24 +268,23 @@ public class ShareDriveClientImpl implements IShareDriveClient {
             });
             log.info("【{}】SMB 根目录连通成功, host={}, share={}", BIZ, root.host(), root.shareName());
             return true;
-        } catch (IOException e) {
+        } catch (Exception e) {
             log.info("【{}】SMB 连通检查失败, root={}, reason={}", BIZ, rootPath, e.getMessage());
+            log.error("【{}】SMB 连通检查异常, root={}", BIZ, rootPath, e);
             return false;
         }
     }
 
-    private <T> T withDiskShare(ShareDriveUncPathSupport.UncRoot root, Function<DiskShare, T> action)
-            throws IOException {
+    private <T> T withDiskShare(ShareDriveUncPathSupport.UncRoot root, Function<DiskShare, T> action) throws Exception {
         SMBClient client = new SMBClient();
         try (Connection connection = client.connect(root.host())) {
             AuthenticationContext auth = buildAuthContext();
-            try (var session = connection.authenticate(auth)) {
-                try (DiskShare share = (DiskShare) session.connectShare(root.shareName())) {
-                    return action.apply(share);
-                }
+            Session session = connection.authenticate(auth);
+            try (DiskShare share = (DiskShare) session.connectShare(root.shareName())) {
+                return action.apply(share);
+            } finally {
+                session.close();
             }
-        } catch (UncheckedIOException e) {
-            throw e.getCause();
         }
     }
 }

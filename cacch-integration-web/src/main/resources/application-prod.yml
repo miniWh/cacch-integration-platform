@@ -95,6 +95,12 @@ oa:
     password: ${OA_DB_PASSWORD:Seeyon123456}
     driver-class-name: oracle.jdbc.OracleDriver
 
+# ---------- 共享盘 SMB（与 Windows 访问 \\192.168.1.8\国内登记资料 的域账号一致，直接写在本文件） ----------
+share-drive:
+  username: liuyanmiao
+  password: taihe@cac2016
+  domain: ""
+
 # ---------- 腾讯会议 REST API（智能纪要） ----------
 # 未配置时会继承 application.yml 的 enabled=false，导致正式环境跳过纪要拉取。
 # 密钥建议由环境变量覆盖：TENCENT_MEETING_APP_ID / SDK_ID / SECRET_ID / SECRET_KEY

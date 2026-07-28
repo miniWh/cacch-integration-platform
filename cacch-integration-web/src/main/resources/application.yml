@@ -165,9 +165,10 @@ oa:
 share-drive:
   protocol: smb
   root-path: "\\\\192.168.1.8\\国内登记资料"
-  # Linux 服务器须配置有共享盘读权限的域账号；Windows 本机联调可留空（走 Guest，失败再填）
+  # 账号密码请在 application-{profile}.yml 中配置，勿使用服务器环境变量
   username: ""
   password: ""
+  domain: ""
   version-pattern: "_v(\\d+)"
   allowed-extensions: [pdf, doc, docx, xls, xlsx, png, jpg, jpeg, zip]
   max-file-size-bytes: 104857600

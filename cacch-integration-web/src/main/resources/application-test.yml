@@ -97,10 +97,11 @@ oa:
     # 测试阶段仅联调李庆辉负责的资料
     owner-name-filter: 李庆辉
 
-# ---------- 共享盘 SMB（Linux 部署必填账号，与 Windows 登录共享盘的用户一致） ----------
+# ---------- 共享盘 SMB（与 Windows 访问 \\192.168.1.8\国内登记资料 的域账号一致，直接写在本文件） ----------
 share-drive:
-  username: ${SHARE_DRIVE_USERNAME:}
-  password: ${SHARE_DRIVE_PASSWORD:}
+  username: liuyanmiao
+  password: taihe@cac2016
+  domain: ""
 
 # ---------- 腾讯会议 REST API（智能纪要） ----------
 tencent-meeting:
