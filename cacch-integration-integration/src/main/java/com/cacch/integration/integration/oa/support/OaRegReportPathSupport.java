@@ -1,6 +1,7 @@
 package com.cacch.integration.integration.oa.support;
 
 import com.cacch.integration.common.config.sharedrive.ShareDriveProperties;
+import com.cacch.integration.integration.sharedrive.support.ShareDrivePathNormalizer;
 import org.springframework.util.StringUtils;
 
 /**
@@ -14,12 +15,12 @@ public final class OaRegReportPathSupport {
     }
 
     /**
-     * 拼接资料项目三级目录路径
+     * 拼接资料项目三级目录路径（OA 名称经共享盘归一化后匹配实际目录）
      *
      * @param rootPath  共享盘根路径
-     * @param ownerName 登记负责人
-     * @param ipdpName  IPDP 名称
-     * @param itemName  资料项目名称
+     * @param ownerName 登记负责人（OA 原文）
+     * @param ipdpName  IPDP 名称（OA 原文）
+     * @param itemName  资料项目名称（OA 原文）
      * @return UNC 目录路径
      */
     public static String buildItemDirectory(String rootPath,
@@ -27,9 +28,21 @@ public final class OaRegReportPathSupport {
                                             String ipdpName,
                                             String itemName) {
         String normalizedRoot = normalizeRoot(rootPath);
-        return normalizedRoot + trimSegment(ownerName) + "\\"
-                + trimSegment(ipdpName) + "\\"
-                + trimSegment(itemName);
+        return normalizedRoot
+                + ShareDrivePathNormalizer.normalize(ownerName) + "\\"
+                + ShareDrivePathNormalizer.normalize(ipdpName) + "\\"
+                + ShareDrivePathNormalizer.normalize(itemName);
+    }
+
+    /**
+     * 构建路径匹配键（负责人 + 归一化 IPDP），用于检测删字符后撞名
+     *
+     * @param ownerName 登记负责人 OA 原文
+     * @param ipdpName  IPDP OA 原文
+     * @return 匹配键
+     */
+    public static String buildNormalizedIpdpKey(String ownerName, String ipdpName) {
+        return ShareDrivePathNormalizer.normalize(ownerName) + "|" + ShareDrivePathNormalizer.normalize(ipdpName);
     }
 
     /**
@@ -54,9 +67,5 @@ public final class OaRegReportPathSupport {
             return trimmed;
         }
         return trimmed + "\\";
-    }
-
-    private static String trimSegment(String segment) {
-        return segment == null ? "" : segment.trim();
     }
 }

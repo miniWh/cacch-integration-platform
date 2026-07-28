@@ -3,6 +3,7 @@ package com.cacch.integration.manager.oa.api.impl;
 import com.cacch.integration.common.config.oa.OaRegAttachmentSyncProperties;
 import com.cacch.integration.common.config.sharedrive.ShareDriveProperties;
 import com.cacch.integration.common.constant.oa.OaRegReportConstants;
+import com.cacch.integration.common.constant.sharedrive.ShareDriveConstants;
 import com.cacch.integration.common.dto.oa.OaRegAttachmentSyncResult;
 import com.cacch.integration.common.dto.wecom.WeComAlertCommand;
 import com.cacch.integration.common.enums.oa.OaRegAttachmentSyncStatusEnum;
@@ -23,8 +24,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * 国内登记报告附件同步编排实现
@@ -64,8 +69,10 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
             log.info("【{}】共享盘不可用，资料行将全部记为跳过", BIZ);
         }
 
-        log.info("【{}】开始附件同步, formMainId={}, scanned={}, batchSize={}, maxRetry={}",
-                BIZ, formMainId, rows.size(), batchSize, maxRetry);
+        Set<String> ipdpPathCollisionKeys = detectIpdpPathCollisions(rows);
+
+        log.info("【{}】开始附件同步, formMainId={}, scanned={}, batchSize={}, maxRetry={}, ipdpCollisions={}",
+                BIZ, formMainId, rows.size(), batchSize, maxRetry, ipdpPathCollisionKeys.size());
 
         int success = 0;
         int retry = 0;
@@ -76,7 +83,7 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
 
         for (OaRegReportItemRow row : rows) {
             try {
-                String outcome = syncOneRow(row, rootPath, maxRetry);
+                String outcome = syncOneRow(row, rootPath, maxRetry, ipdpPathCollisionKeys);
                 if (OaRegAttachmentSyncStatusEnum.SUCCESS.getCode().equals(outcome)) {
                     success++;
                 } else if (OaRegAttachmentSyncStatusEnum.FAILED.getCode().equals(outcome)) {
@@ -115,7 +122,10 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
         return result;
     }
 
-    private String syncOneRow(OaRegReportItemRow row, String rootPath, int maxRetry) {
+    private String syncOneRow(OaRegReportItemRow row,
+                              String rootPath,
+                              int maxRetry,
+                              Set<String> ipdpPathCollisionKeys) {
         if (row == null || row.subRowId() == null || row.formMainId() == null) {
             log.info("【{}】跳过同步, reason=行数据不完整", BIZ);
             return OaRegAttachmentSyncStatusEnum.SKIPPED.getCode();
@@ -128,8 +138,19 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
             return OaRegAttachmentSyncStatusEnum.SKIPPED.getCode();
         }
 
+        String ipdpKey = OaRegReportPathSupport.buildNormalizedIpdpKey(row.ownerName(), row.ipdpName());
+        if (ipdpPathCollisionKeys.contains(ipdpKey)) {
+            log.info("【{}】跳过同步, reason=IPDP归一化路径冲突, subRowId={}, oaIpdp={}",
+                    BIZ, row.subRowId(), row.ipdpName());
+            OaRegAttachmentSyncDO record = baseRecord(row, null);
+            syncService.markSkipped(record, ShareDriveConstants.SKIP_PATH_COLLISION + ":" + row.ipdpName());
+            return OaRegAttachmentSyncStatusEnum.SKIPPED.getCode();
+        }
+
         String sharePath = OaRegReportPathSupport.buildItemDirectory(
                 rootPath, row.ownerName(), row.ipdpName(), row.itemName());
+        log.info("【{}】拼共享盘路径, subRowId={}, oaIpdp={}, sharePath={}",
+                BIZ, row.subRowId(), row.ipdpName(), sharePath);
 
         if (!shareDriveClient.isAvailable()) {
             log.info("【{}】跳过同步, reason=共享盘未就绪, subRowId={}, path={}",
@@ -196,6 +217,33 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
             }
             return status;
         }
+    }
+
+    /**
+     * 检测同一负责人下不同 OA IPDP 名称归一化后指向同一路径的冲突
+     *
+     * @param rows 资料行
+     * @return 发生冲突的归一化 IPDP 键集合
+     */
+    private Set<String> detectIpdpPathCollisions(List<OaRegReportItemRow> rows) {
+        Map<String, String> normalizedToOaIpdp = new HashMap<>();
+        Set<String> collisions = new HashSet<>();
+        for (OaRegReportItemRow row : rows) {
+            if (!StringUtils.hasText(row.ownerName()) || !StringUtils.hasText(row.ipdpName())) {
+                continue;
+            }
+            String key = OaRegReportPathSupport.buildNormalizedIpdpKey(row.ownerName(), row.ipdpName());
+            if (!StringUtils.hasText(key) || key.equals("|")) {
+                continue;
+            }
+            String previous = normalizedToOaIpdp.put(key, row.ipdpName());
+            if (previous != null && !previous.equals(row.ipdpName())) {
+                collisions.add(key);
+                log.info("【{}】检测到 IPDP 路径冲突, key={}, oaIpdp1={}, oaIpdp2={}",
+                        BIZ, key, previous, row.ipdpName());
+            }
+        }
+        return collisions;
     }
 
     private OaRegAttachmentSyncDO baseRecord(OaRegReportItemRow row, String sharePath) {

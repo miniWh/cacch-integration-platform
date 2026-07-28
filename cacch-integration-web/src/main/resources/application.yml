@@ -156,3 +156,4 @@ share-drive:
   version-pattern: "_v(\\d+)"
   allowed-extensions: [pdf, doc, docx, xls, xlsx, png, jpg, jpeg, zip]
   max-file-size-bytes: 104857600
+  # 目录名归一化：删除 \\ / : * ? " < > | % 等非法字符后与 OA 名称匹配

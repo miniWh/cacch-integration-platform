@@ -45,6 +45,7 @@
         <postgresql.version>42.7.7</postgresql.version>
         <mssql-jdbc.version>12.8.1.jre11</mssql-jdbc.version>
         <ojdbc.version>23.6.0.24.10</ojdbc.version>
+        <smbj.version>0.13.0</smbj.version>
         <wemeet-openapi-sdk.version>v1.0.12</wemeet-openapi-sdk.version>
     </properties>
 
@@ -150,6 +151,13 @@
                 <groupId>com.oracle.database.jdbc</groupId>
                 <artifactId>ojdbc11</artifactId>
                 <version>${ojdbc.version}</version>
+            </dependency>
+
+            <!-- SMB 客户端（共享盘读取） -->
+            <dependency>
+                <groupId>com.hierynomus</groupId>
+                <artifactId>smbj</artifactId>
+                <version>${smbj.version}</version>
             </dependency>
 
             <!-- 腾讯会议 OpenAPI SDK -->
