@@ -149,7 +149,7 @@ oa:
   datasource:
     username: ""
     password: ""
-    driver-class-name: oracle.jdbc.OracleDriver
+    # url / driver-class-name 请在 application-{profile}.yml 的 oa.datasource 下配置
   attachment-sync:
     enabled: false
     cron: "0 */10 * * * ?"
