@@ -11,11 +11,17 @@ public final class OaRegReportConstants {
 
     public static final int DEFAULT_BATCH_SIZE = 50;
 
+    public static final int DEFAULT_FORM_BATCH_SIZE = 20;
+
     public static final int DEFAULT_MAX_RETRY = 3;
 
     public static final String SKIP_MISSING_DIR = "MISSING_DIR";
 
     public static final String SKIP_NO_FILE = "NO_FILE";
+
+    public static final String SKIP_OWNER_UNRESOLVED = "OWNER_UNRESOLVED";
+
+    public static final String SKIP_OWNER_FILTER = "OWNER_FILTER";
 
     public static final String SKIP_IDEMPOTENT = "ALREADY_SYNCED";
 

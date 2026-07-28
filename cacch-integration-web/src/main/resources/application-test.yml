@@ -93,6 +93,14 @@ oa:
     username: V5
     password: Seeyon123456
     driver-class-name: oracle.jdbc.OracleDriver
+  attachment-sync:
+    # 测试阶段仅联调李庆辉负责的资料
+    owner-name-filter: 李庆辉
+
+# ---------- 共享盘 SMB（Linux 部署必填账号，与 Windows 登录共享盘的用户一致） ----------
+share-drive:
+  username: ${SHARE_DRIVE_USERNAME:}
+  password: ${SHARE_DRIVE_PASSWORD:}
 
 # ---------- 腾讯会议 REST API（智能纪要） ----------
 tencent-meeting:

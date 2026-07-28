@@ -17,7 +17,10 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * 国内登记报告 OA 库查询客户端（只读 JOIN 主表与子表）
@@ -42,20 +45,85 @@ public class OaRegReportDbClient {
     }
 
     /**
-     * 拉取资料列表行（主表 JOIN 子表）
+     * 拉取资料列表行（主表 JOIN 子表，登记负责人由 org_member 解析为姓名）
      *
-     * @param formMainId 可选主表 ID 过滤；null 表示全量
-     * @param limit      最大行数，须 &gt; 0
+     * <p>未指定 {@code formMainId} 时按<strong>项目（主表）</strong>分批：先取最多 {@code formBatchSize} 个主表，
+     * 再拉取这些主表下的全部资料子表行，避免单项目资料行占满 {@code subRowBatchSize} 导致其他项目被截断。</p>
+     *
+     * @param formMainId       可选主表 ID 过滤；null 表示按项目批次扫描
+     * @param formBatchSize    单轮最多扫描主表（项目）数；{@code formMainId} 有值时忽略
+     * @param subRowBatchSize  单表扫描时子表行上限；按项目批次扫描时不截断子表行
+     * @param ownerNameFilter  可选登记负责人姓名过滤（测试联调用）；空表示不过滤
      * @return 资料行列表；OA 数据源未配置时返回空列表
      */
-    public List<OaRegReportItemRow> listRegReportItems(Long formMainId, int limit) {
-        if (limit <= 0) {
-            log.info("【{}】查询终止, reason=limit无效, limit={}", BIZ, limit);
+    public List<OaRegReportItemRow> listRegReportItems(Long formMainId,
+                                                        int formBatchSize,
+                                                        int subRowBatchSize,
+                                                        String ownerNameFilter) {
+        if (formBatchSize <= 0 && (formMainId == null || formMainId <= 0)) {
+            log.info("【{}】查询终止, reason=formBatchSize无效, formBatchSize={}", BIZ, formBatchSize);
             return Collections.emptyList();
         }
         JdbcTemplate jdbc = oaJdbcTemplateProvider.getIfAvailable();
         if (jdbc == null) {
             log.info("【{}】查询终止, reason=OA数据源未配置(oa.datasource.url)", BIZ);
+            return Collections.emptyList();
+        }
+
+        DbProduct product = OaDbDialectSupport.detect(jdbc);
+        if (formMainId != null && formMainId > 0) {
+            int rowLimit = Math.max(1, subRowBatchSize);
+            return queryItemRows(jdbc, product, List.of(formMainId), rowLimit, ownerNameFilter, true);
+        }
+
+        List<Long> formMainIds = listFormMainIds(jdbc, product, formBatchSize, ownerNameFilter);
+        if (formMainIds.isEmpty()) {
+            log.info("【{}】未匹配到含资料子表的主表, ownerFilter={}", BIZ, ownerNameFilter);
+            return Collections.emptyList();
+        }
+        log.info("【{}】本批次主表数={}, formMainIds={}", BIZ, formMainIds.size(), formMainIds);
+        return queryItemRows(jdbc, product, formMainIds, 0, ownerNameFilter, false);
+    }
+
+    private List<Long> listFormMainIds(JdbcTemplate jdbc,
+                                       DbProduct product,
+                                       int formBatchSize,
+                                       String ownerNameFilter) {
+        String mainTable = regReportProperties.getFormMainTable();
+        String subTable = regReportProperties.getFormSubTable();
+        String fieldOwner = regReportProperties.getFieldOwner();
+        String subFk = regReportProperties.getSubTableFk();
+        String orgMemberTable = regReportProperties.getOrgMemberTable();
+        String ownerJoin = OaDbDialectSupport.buildOwnerMemberJoin(orgMemberTable, "m", fieldOwner, product);
+
+        String sql = """
+                SELECT DISTINCT m.id AS form_main_id
+                FROM %s m
+                %s
+                INNER JOIN %s s ON s.%s = m.id
+                """.formatted(mainTable, ownerJoin, subTable, subFk);
+
+        List<Object> args = new ArrayList<>();
+        if (StringUtils.hasText(ownerNameFilter)) {
+            sql += " WHERE om.name = ?";
+            args.add(ownerNameFilter.trim());
+        }
+        sql += " ORDER BY m.id";
+
+        sql = OaDbDialectSupport.appendPagination(sql, args, formBatchSize, product);
+        ReadOnlyOaJdbcTemplate.assertSelectOnly(sql);
+
+        List<Long> ids = jdbc.query(sql, (rs, rowNum) -> rs.getLong("form_main_id"), args.toArray());
+        return ids.stream().distinct().toList();
+    }
+
+    private List<OaRegReportItemRow> queryItemRows(JdbcTemplate jdbc,
+                                                   DbProduct product,
+                                                   List<Long> formMainIds,
+                                                   int subRowBatchSize,
+                                                   String ownerNameFilter,
+                                                   boolean applySubRowLimit) {
+        if (formMainIds.isEmpty()) {
             return Collections.emptyList();
         }
 
@@ -66,40 +134,61 @@ public class OaRegReportDbClient {
         String fieldItem = regReportProperties.getFieldItemName();
         String fieldAttachment = regReportProperties.getAttachmentField();
         String subFk = regReportProperties.getSubTableFk();
+        String orgMemberTable = regReportProperties.getOrgMemberTable();
+        String ownerJoin = OaDbDialectSupport.buildOwnerMemberJoin(orgMemberTable, "m", fieldOwner, product);
+
+        String inPlaceholders = formMainIds.stream().map(id -> "?").collect(Collectors.joining(", "));
 
         String sql = """
                 SELECT m.id AS form_main_id,
-                       m.%s AS owner_name,
+                       om.name AS owner_name,
                        m.%s AS ipdp_name,
                        s.id AS sub_row_id,
                        s.%s AS item_name,
                        s.%s AS current_attachment_ref
                 FROM %s m
+                %s
                 INNER JOIN %s s ON s.%s = m.id
-                """.formatted(fieldOwner, fieldIpdp, fieldItem, fieldAttachment, mainTable, subTable, subFk);
+                WHERE m.id IN (%s)
+                """.formatted(fieldIpdp, fieldItem, fieldAttachment, mainTable, ownerJoin, subTable, subFk,
+                inPlaceholders);
 
-        List<Object> args = new ArrayList<>();
-        if (formMainId != null && formMainId > 0) {
-            sql += " WHERE m.id = ?";
-            args.add(formMainId);
+        List<Object> args = new ArrayList<>(formMainIds);
+        if (StringUtils.hasText(ownerNameFilter)) {
+            sql += " AND om.name = ?";
+            args.add(ownerNameFilter.trim());
         }
         sql += " ORDER BY m.id, s.id";
 
-        DbProduct product = OaDbDialectSupport.detect(jdbc);
-        sql = OaDbDialectSupport.appendPagination(sql, args, limit, product);
+        if (applySubRowLimit && subRowBatchSize > 0) {
+            sql = OaDbDialectSupport.appendPagination(sql, args, subRowBatchSize, product);
+        }
+
         ReadOnlyOaJdbcTemplate.assertSelectOnly(sql);
-        log.info("【{}】使用分页方言, product={}", BIZ, product);
+        log.info("【{}】查询资料子表, formCount={}, subRowLimit={}, ownerNameFilter={}",
+                BIZ, formMainIds.size(), applySubRowLimit ? subRowBatchSize : "无", ownerNameFilter);
 
         try {
             List<OaRegReportItemRow> rows = jdbc.query(sql, new ItemRowMapper(), args.toArray());
-            log.info("【{}】查询资料列表完成, formMainId={}, limit={}, count={}",
-                    BIZ, formMainId, limit, rows.size());
+            logDistinctProjects(rows);
+            log.info("【{}】查询资料列表完成, formCount={}, subRowCount={}, ownerFilter={}",
+                    BIZ, formMainIds.size(), rows.size(), ownerNameFilter);
             return rows;
         } catch (Exception e) {
-            log.info("【{}】查询资料列表失败, formMainId={}, reason={}", BIZ, formMainId, e.getMessage());
-            log.error("【{}】查询资料列表异常, formMainId={}", BIZ, formMainId, e);
+            log.info("【{}】查询资料列表失败, formMainIds={}, reason={}", BIZ, formMainIds, e.getMessage());
+            log.error("【{}】查询资料列表异常, formMainIds={}", BIZ, formMainIds, e);
             throw e;
         }
+    }
+
+    private void logDistinctProjects(List<OaRegReportItemRow> rows) {
+        Set<String> projects = new LinkedHashSet<>();
+        for (OaRegReportItemRow row : rows) {
+            if (row.formMainId() != null && StringUtils.hasText(row.ipdpName())) {
+                projects.add(row.formMainId() + ":" + row.ipdpName());
+            }
+        }
+        log.info("【{}】本批次覆盖 IPDP 项目数={}, 项目={}", BIZ, projects.size(), projects);
     }
 
     private static final class ItemRowMapper implements RowMapper<OaRegReportItemRow> {
@@ -107,18 +196,18 @@ public class OaRegReportDbClient {
         @Override
         public OaRegReportItemRow mapRow(ResultSet rs, int rowNum) throws SQLException {
             Long formMainId = readLong(rs, "form_main_id");
-            String ownerName = rs.getString("owner_name");
-            String ipdpName = rs.getString("ipdp_name");
+            String ownerName = trimToNull(rs.getString("owner_name"));
+            String ipdpName = trimToNull(rs.getString("ipdp_name"));
             Long subRowId = readLong(rs, "sub_row_id");
-            String itemName = rs.getString("item_name");
-            String attachmentRef = rs.getString("current_attachment_ref");
+            String itemName = trimToNull(rs.getString("item_name"));
+            String attachmentRef = trimToNull(rs.getString("current_attachment_ref"));
             return new OaRegReportItemRow(
                     formMainId,
-                    trimToNull(ownerName),
-                    trimToNull(ipdpName),
+                    ownerName,
+                    ipdpName,
                     subRowId,
-                    trimToNull(itemName),
-                    trimToNull(attachmentRef));
+                    itemName,
+                    attachmentRef);
         }
 
         /**

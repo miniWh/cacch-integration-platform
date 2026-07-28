@@ -81,4 +81,18 @@ public final class ShareDriveUncPathSupport {
         }
         return dir.substring(root.length() + 1);
     }
+
+    /**
+     * 是否为 UNC 网络路径（{@code \\host\share} 或 {@code //host/share}）
+     *
+     * @param path 路径
+     * @return true 表示远程 SMB 共享路径
+     */
+    public static boolean isUncPath(String path) {
+        if (!StringUtils.hasText(path)) {
+            return false;
+        }
+        String trimmed = path.trim();
+        return trimmed.startsWith("\\\\") || trimmed.startsWith("//");
+    }
 }

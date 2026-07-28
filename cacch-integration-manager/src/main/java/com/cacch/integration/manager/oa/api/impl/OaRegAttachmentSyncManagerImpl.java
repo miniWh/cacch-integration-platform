@@ -54,13 +54,19 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
     @Override
     public OaRegAttachmentSyncResult syncAttachments(Long formMainId) {
         int batchSize = Math.max(1, syncProperties.getBatchSize());
+        int formBatchSize = Math.max(1, syncProperties.getFormBatchSize());
         int maxRetry = syncProperties.getMaxRetry() > 0
                 ? syncProperties.getMaxRetry()
                 : OaRegReportConstants.DEFAULT_MAX_RETRY;
 
-        List<OaRegReportItemRow> rows = oaRegReportDbClient.listRegReportItems(formMainId, batchSize);
+        List<OaRegReportItemRow> rows = oaRegReportDbClient.listRegReportItems(
+                formMainId,
+                formBatchSize,
+                batchSize,
+                syncProperties.hasOwnerNameFilter() ? syncProperties.getOwnerNameFilter() : null);
         if (rows.isEmpty()) {
-            log.info("【{}】本轮无资料行可处理, formMainId={}", BIZ, formMainId);
+            log.info("【{}】本轮无资料行可处理, formMainId={}, ownerFilter={}",
+                    BIZ, formMainId, syncProperties.getOwnerNameFilter());
             return OaRegAttachmentSyncResult.builder()
                     .scanned(0).success(0).retry(0).failed(0).skipped(0).build();
         }
@@ -71,8 +77,8 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
 
         Set<String> ipdpPathCollisionKeys = detectIpdpPathCollisions(rows);
 
-        log.info("【{}】开始附件同步, formMainId={}, scanned={}, batchSize={}, maxRetry={}, ipdpCollisions={}",
-                BIZ, formMainId, rows.size(), batchSize, maxRetry, ipdpPathCollisionKeys.size());
+        log.info("【{}】开始附件同步, formMainId={}, scanned={}, formBatchSize={}, subRowBatchSize={}, maxRetry={}, ipdpCollisions={}",
+                BIZ, formMainId, rows.size(), formBatchSize, batchSize, maxRetry, ipdpPathCollisionKeys.size());
 
         int success = 0;
         int retry = 0;
@@ -137,6 +143,13 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
             syncService.markSkipped(record, "名称字段为空");
             return OaRegAttachmentSyncStatusEnum.SKIPPED.getCode();
         }
+        if (looksLikeMemberId(row.ownerName())) {
+            log.info("【{}】跳过同步, reason=登记负责人未解析为姓名, subRowId={}, rawOwner={}",
+                    BIZ, row.subRowId(), row.ownerName());
+            OaRegAttachmentSyncDO record = baseRecord(row, null);
+            syncService.markSkipped(record, OaRegReportConstants.SKIP_OWNER_UNRESOLVED);
+            return OaRegAttachmentSyncStatusEnum.SKIPPED.getCode();
+        }
 
         String ipdpKey = OaRegReportPathSupport.buildNormalizedIpdpKey(row.ownerName(), row.ipdpName());
         if (ipdpPathCollisionKeys.contains(ipdpKey)) {
@@ -186,7 +199,7 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
             return OaRegAttachmentSyncStatusEnum.SKIPPED.getCode();
         }
 
-        try {
+        /*try {
             OaRegReportAttachmentBindResult bindResult = oaRegReportOpenApiService.uploadAndBindAttachment(
                     file.content(),
                     file.fileName(),
@@ -216,7 +229,8 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
                 alertFailed(row, e.getMessage());
             }
             return status;
-        }
+        }*/
+        return OaRegAttachmentSyncStatusEnum.SKIPPED.getCode();
     }
 
     /**
@@ -244,6 +258,16 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
             }
         }
         return collisions;
+    }
+
+    /**
+     * 判断登记负责人是否仍为 OA 人员 ID（org_member JOIN 未解析出姓名）
+     *
+     * @param ownerName 登记负责人
+     * @return true 表示形如纯数字 ID
+     */
+    private static boolean looksLikeMemberId(String ownerName) {
+        return StringUtils.hasText(ownerName) && ownerName.trim().matches("-?\\d+");
     }
 
     private OaRegAttachmentSyncDO baseRecord(OaRegReportItemRow row, String sharePath) {

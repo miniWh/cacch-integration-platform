@@ -62,6 +62,11 @@ public class OaRegReportProperties {
      */
     private final String subTableFk;
 
+    /**
+     * OA 人员表物理名（field0223 存人员 ID，需 JOIN 取 name）
+     */
+    private final String orgMemberTable;
+
     public OaRegReportProperties(String formCode,
                                  String rightId,
                                  String formMainTable,
@@ -71,7 +76,8 @@ public class OaRegReportProperties {
                                  String fieldOwner,
                                  String fieldIpdpName,
                                  String fieldItemName,
-                                 String subTableFk) {
+                                 String subTableFk,
+                                 String orgMemberTable) {
         this.formCode = formCode != null ? formCode.trim() : "";
         this.rightId = rightId != null ? rightId.trim() : "";
         this.formMainTable = blankToDefault(formMainTable, "formmain_4070");
@@ -82,6 +88,7 @@ public class OaRegReportProperties {
         this.fieldIpdpName = blankToDefault(fieldIpdpName, "field0160");
         this.fieldItemName = blankToDefault(fieldItemName, "field0214");
         this.subTableFk = blankToDefault(subTableFk, "formmain_id");
+        this.orgMemberTable = blankToDefault(orgMemberTable, "org_member");
     }
 
     private static String blankToDefault(String value, String defaultValue) {

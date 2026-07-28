@@ -96,6 +96,30 @@ public final class OaDbDialectSupport {
     }
 
     /**
+     * 登记负责人字段（存 org_member.id）与人员表 JOIN 片段
+     *
+     * @param orgMemberTable   人员表名，如 org_member
+     * @param formMainAlias    主表别名
+     * @param ownerFieldColumn 负责人字段列名，如 field0223
+     * @param product          数据库类型
+     * @return LEFT JOIN SQL 片段
+     */
+    public static String buildOwnerMemberJoin(String orgMemberTable,
+                                              String formMainAlias,
+                                              String ownerFieldColumn,
+                                              DbProduct product) {
+        String ownerCol = formMainAlias + "." + ownerFieldColumn;
+        return switch (product) {
+            case ORACLE -> " LEFT JOIN " + orgMemberTable
+                    + " om ON TO_CHAR(om.id) = TRIM(" + ownerCol + ")";
+            case SQL_SERVER -> " LEFT JOIN " + orgMemberTable
+                    + " om ON CAST(om.id AS VARCHAR(32)) = LTRIM(RTRIM(" + ownerCol + "))";
+            case LIMIT -> " LEFT JOIN " + orgMemberTable
+                    + " om ON CAST(om.id AS CHAR) = TRIM(" + ownerCol + ")";
+        };
+    }
+
+    /**
      * 根据 JDBC URL 推断驱动类名（未显式配置 driver-class-name 时使用）
      *
      * @param jdbcUrl JDBC URL
