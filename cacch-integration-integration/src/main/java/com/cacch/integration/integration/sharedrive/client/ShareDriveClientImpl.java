@@ -204,8 +204,8 @@ public class ShareDriveClientImpl implements IShareDriveClient {
                     itemDir,
                     directoryPath,
                     toShareDriveFile(latest)));
-            log.info("【{}】扫描到资料目录, owner={}, ipdp={}, item={}, file={}",
-                    BIZ, ownerDir, ipdpDir, itemDir, latest.fileName());
+            log.info("【{}】扫描到含附件目录, directoryPath={}, file={}",
+                    BIZ, directoryPath, latest.fileName());
             if (results.size() >= request.maxItems()) {
                 return;
             }
@@ -280,6 +280,8 @@ public class ShareDriveClientImpl implements IShareDriveClient {
                         shareDriveProperties.getRootPath(), ownerDir, ipdpDir, itemDir);
                 results.add(new ShareDriveScannedItem(
                         ownerDir, ipdpDir, itemDir, directoryPath, toShareDriveFile(latest)));
+                log.info("【{}】扫描到含附件目录, directoryPath={}, file={}",
+                        BIZ, directoryPath, latest.fileName());
             });
         } catch (IOException e) {
             log.info("【{}】NIO 列举资料项目失败, ipdp={}, reason={}", BIZ, ipdpDir, e.getMessage());

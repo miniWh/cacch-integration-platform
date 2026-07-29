@@ -91,6 +91,10 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
         int skipped = 0;
 
         for (ShareDriveScannedItem scanned : scannedItems) {
+            ShareDriveFile latestFile = scanned.latestFile();
+            log.info("【{}】识别到含附件目录, directoryPath={}, owner={}, ipdp={}, item={}, file={}",
+                    BIZ, scanned.directoryPath(), scanned.ownerName(), scanned.ipdpName(),
+                    scanned.itemName(), latestFile != null ? latestFile.fileName() : null);
             try {
                 String outcome = syncScannedItem(scanned, formMainId, oaLookupRows, maxRetry, ipdpPathCollisionKeys);
                 if (OaRegAttachmentSyncStatusEnum.SUCCESS.getCode().equals(outcome)) {
@@ -164,7 +168,7 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
             return OaRegAttachmentSyncStatusEnum.SKIPPED.getCode();
         }
 
-        /*try {
+        try {
             OaRegReportAttachmentBindResult bindResult = oaRegReportOpenApiService.uploadAndBindAttachment(
                     file.content(),
                     file.fileName(),
@@ -194,10 +198,7 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
                 alertFailed(row, e.getMessage());
             }
             return status;
-        }*/
-        log.info("【{}】待上传绑定(联调占位), subRowId={}, item={}, file={}",
-                BIZ, row.subRowId(), row.itemName(), file.fileName());
-        return OaRegAttachmentSyncStatusEnum.SKIPPED.getCode();
+        }
     }
 
     private static String resolveIpdpFilter(Long formMainId, List<OaRegReportItemRow> oaLookupRows) {
