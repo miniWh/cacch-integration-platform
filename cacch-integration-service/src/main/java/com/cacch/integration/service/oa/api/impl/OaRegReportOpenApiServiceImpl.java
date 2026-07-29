@@ -132,11 +132,14 @@ public class OaRegReportOpenApiServiceImpl implements IOaRegReportOpenApiService
         }
         String resolvedLogin = resolveLoginName(loginName);
         String token = oaTokenService.getToken(resolvedLogin);
-        if (StringUtils.hasText(oldFileUrl)) {
+        boolean replacing = StringUtils.hasText(oldFileUrl);
+        if (replacing) {
             try {
                 oaClient.deleteAttachment(token, oldFileUrl.trim());
+                log.info("【{}】已删除 OA 旧附件, oldFileUrl={}", BIZ, oldFileUrl.trim());
             } catch (RestClientException e) {
-                log.info("【{}】删除旧附件失败，继续上传替换, oldFileUrl={}, reason={}",
+                log.info("【{}】REST 删除旧附件不可用(致远仅允许删本接口上传文件)，将轮换 subReference 绑定新附件, "
+                                + "oldFileUrl={}, reason={}",
                         BIZ, oldFileUrl.trim(), e.getMessage());
             }
         }
@@ -147,11 +150,14 @@ public class OaRegReportOpenApiServiceImpl implements IOaRegReportOpenApiService
             log.info("【{}】替换附件终止, step=upload, reason={}", BIZ, e.getMessage());
             throw new BizException(ResultCode.INTEGRATION_ERROR, "致远 OA 上传附件失败: " + e.getMessage(), e);
         }
-        BindContext context = resolveBindContext(formMainId, subRowId, subReference, formCode, rightId,
+        // 替换场景轮换 subReference，使 field0218 仅关联新附件（不依赖 REST 删旧文件）
+        String bindSubReference = replacing ? String.valueOf(IdWorker.getId()) : subReference;
+        BindContext context = resolveBindContext(formMainId, subRowId, bindSubReference, formCode, rightId,
                 resolvedLogin, sort, doTrigger);
         JsonNode batchResponse = executeBatchUpdate(token, uploadResult.fileUrl(), context);
-        log.info("【{}】替换附件完成, formMainId={}, subRowId={}, subReference={}, oldFileUrl={}, newFileUrl={}",
-                BIZ, formMainId, subRowId, context.subReference(), oldFileUrl, uploadResult.fileUrl());
+        log.info("【{}】替换附件完成, formMainId={}, subRowId={}, subReference={}, oldFileUrl={}, newFileUrl={}, "
+                        + "subReferenceRotated={}",
+                BIZ, formMainId, subRowId, context.subReference(), oldFileUrl, uploadResult.fileUrl(), replacing);
         return new OaRegReportAttachmentBindResult(
                 uploadResult.fileUrl(),
                 uploadResult.fileName(),

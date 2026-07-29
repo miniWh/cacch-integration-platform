@@ -172,8 +172,10 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
         String subReference = resolveSubReference(existing, row);
         String oldFileUrl = existing != null ? existing.getOaFileId() : null;
         if (StringUtils.hasText(oldFileUrl)) {
-            log.info("【{}】检测到资料项已有附件，将删除旧文件后重新上传, subRowId={}, oldFileUrl={}, newCreatedAt={}",
-                    BIZ, row.subRowId(), oldFileUrl, file.createdAt());
+            log.info("【{}】检测到资料项已有附件，将上传新文件并轮换 subReference 替换展示, subRowId={}, "
+                            + "oldFileUrl={}, oldSubReference={}, newCreatedAt={}",
+                    BIZ, row.subRowId(), oldFileUrl,
+                    existing != null ? existing.getOaSubReference() : null, file.createdAt());
         }
 
         try {
