@@ -15,7 +15,7 @@ public final class OaRegReportPathSupport {
     }
 
     /**
-     * 拼接资料项目三级目录路径（OA 名称经共享盘归一化后匹配实际目录）
+     * 拼接资料项目三级目录路径（与 OA field 原文及共享盘文件夹名保持一致，仅 trim）
      *
      * @param rootPath  共享盘根路径
      * @param ownerName 登记负责人（OA 原文）
@@ -29,9 +29,13 @@ public final class OaRegReportPathSupport {
                                             String itemName) {
         String normalizedRoot = normalizeRoot(rootPath);
         return normalizedRoot
-                + ShareDrivePathNormalizer.normalize(ownerName) + "\\"
-                + ShareDrivePathNormalizer.normalize(ipdpName) + "\\"
-                + ShareDrivePathNormalizer.normalize(itemName);
+                + trimSegment(ownerName) + "\\"
+                + trimSegment(ipdpName) + "\\"
+                + trimSegment(itemName);
+    }
+
+    private static String trimSegment(String segment) {
+        return segment != null ? segment.trim() : "";
     }
 
     /**

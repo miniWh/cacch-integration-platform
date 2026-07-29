@@ -5,6 +5,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.stereotype.Component;
 
+import com.cacch.integration.integration.sharedrive.client.dto.ShareDriveScanRequest;
+import com.cacch.integration.integration.sharedrive.client.dto.ShareDriveScannedItem;
+
+import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -33,5 +38,10 @@ public class NoOpShareDriveClient implements IShareDriveClient {
     @Override
     public Optional<ShareDriveFile> pickLatestVersion(String directoryPath) {
         return Optional.empty();
+    }
+
+    @Override
+    public List<ShareDriveScannedItem> scanItemDirectories(ShareDriveScanRequest request) {
+        return Collections.emptyList();
     }
 }

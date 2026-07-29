@@ -85,6 +85,34 @@ public class OaRegReportDbClient {
         return queryItemRows(jdbc, product, formMainIds, 0, ownerNameFilter, false);
     }
 
+    /**
+     * 拉取 OA 资料行供共享盘反查匹配（不做子表行数截断）
+     *
+     * @param formMainId      可选主表 ID；null 表示按负责人过滤拉取多主表
+     * @param formBatchSize   formMainId 为空时最多拉取的主表数
+     * @param ownerNameFilter 可选登记负责人姓名过滤
+     * @return 资料行列表
+     */
+    public List<OaRegReportItemRow> listRegReportItemsForLookup(Long formMainId,
+                                                                int formBatchSize,
+                                                                String ownerNameFilter) {
+        JdbcTemplate jdbc = oaJdbcTemplateProvider.getIfAvailable();
+        if (jdbc == null) {
+            log.info("【{}】反查终止, reason=OA数据源未配置(oa.datasource.url)", BIZ);
+            return Collections.emptyList();
+        }
+        DbProduct product = OaDbDialectSupport.detect(jdbc);
+        if (formMainId != null && formMainId > 0) {
+            return queryItemRows(jdbc, product, List.of(formMainId), 0, ownerNameFilter, false);
+        }
+        int batch = formBatchSize > 0 ? formBatchSize : 20;
+        List<Long> formMainIds = listFormMainIds(jdbc, product, batch, ownerNameFilter);
+        if (formMainIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return queryItemRows(jdbc, product, formMainIds, 0, ownerNameFilter, false);
+    }
+
     private List<Long> listFormMainIds(JdbcTemplate jdbc,
                                        DbProduct product,
                                        int formBatchSize,

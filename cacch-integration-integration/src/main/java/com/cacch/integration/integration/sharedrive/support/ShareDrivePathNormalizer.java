@@ -3,6 +3,9 @@ package com.cacch.integration.integration.sharedrive.support;
 import com.cacch.integration.common.constant.sharedrive.ShareDriveConstants;
 import org.springframework.util.StringUtils;
 
+import java.text.Normalizer;
+import java.util.Locale;
+
 /**
  * 共享盘目录名归一化：删除 OA 名称中不能出现在目录里的字符，以共享盘实际目录为准匹配
  *
@@ -34,6 +37,81 @@ public final class ShareDrivePathNormalizer {
         }
         String collapsed = builder.toString().replaceAll("\\s+", " ").trim();
         return stripTrailingDots(collapsed);
+    }
+
+    /**
+     * 判断共享盘目录名是否与 OA 期望值匹配（精确 / 归一化 / 忽略大小写）
+     *
+     * @param diskName     磁盘上的目录名
+     * @param expectedName OA 字段期望值
+     * @return true 表示匹配
+     */
+    public static boolean matchesDirectoryName(String diskName, String expectedName) {
+        if (!StringUtils.hasText(diskName) || !StringUtils.hasText(expectedName)) {
+            return false;
+        }
+        String disk = diskName.trim();
+        String expected = expectedName.trim();
+        if (disk.equals(expected)) {
+            return true;
+        }
+        if (disk.equalsIgnoreCase(expected)) {
+            return true;
+        }
+        return normalize(disk).equals(normalize(expected));
+    }
+
+    /**
+     * 目录名匹配用 canonical 形式（NFKC、全半角统一、去空白、小写）
+     *
+     * @param value 原始目录名
+     * @return 匹配键
+     */
+    public static String canonicalForMatch(String value) {
+        if (!StringUtils.hasText(value)) {
+            return "";
+        }
+        String normalized = Normalizer.normalize(value.trim(), Normalizer.Form.NFKC);
+        normalized = normalized
+                .replace('（', '(')
+                .replace('）', ')')
+                .replace('【', '[')
+                .replace('】', ']')
+                .replace('·', '.')
+                .replace('．', '.')
+                .replace('\u00B7', '.')
+                .replace('\u30FB', '.')
+                .replace('＋', '+')
+                .replace('％', '%');
+        normalized = normalize(normalized);
+        normalized = normalized.replaceAll("\\s+", "");
+        return normalized.toLowerCase(Locale.ROOT);
+    }
+
+    /**
+     * 宽松目录名匹配（canonical 相等或互为前缀）
+     *
+     * @param diskName     磁盘目录名
+     * @param expectedName OA 期望值
+     * @return true 表示匹配
+     */
+    public static boolean matchesDirectoryNameLoosely(String diskName, String expectedName) {
+        if (matchesDirectoryName(diskName, expectedName)) {
+            return true;
+        }
+        String diskKey = canonicalForMatch(diskName);
+        String expectedKey = canonicalForMatch(expectedName);
+        if (!StringUtils.hasText(diskKey) || !StringUtils.hasText(expectedKey)) {
+            return false;
+        }
+        if (diskKey.equals(expectedKey)) {
+            return true;
+        }
+        int minLen = Math.min(diskKey.length(), expectedKey.length());
+        if (minLen < 4) {
+            return false;
+        }
+        return diskKey.startsWith(expectedKey) || expectedKey.startsWith(diskKey);
     }
 
     private static String stripTrailingDots(String value) {

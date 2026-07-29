@@ -23,6 +23,8 @@ public final class OaRegReportConstants {
 
     public static final String SKIP_OWNER_FILTER = "OWNER_FILTER";
 
+    public static final String SKIP_OA_NOT_FOUND = "OA_NOT_FOUND";
+
     public static final String SKIP_IDEMPOTENT = "ALREADY_SYNCED";
 
     /**

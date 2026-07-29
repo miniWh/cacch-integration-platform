@@ -3,6 +3,11 @@ package com.cacch.integration.integration.sharedrive.client;
 import com.cacch.integration.common.config.sharedrive.ShareDriveProperties;
 import com.cacch.integration.common.constant.sharedrive.ShareDriveConstants;
 import com.cacch.integration.integration.sharedrive.client.dto.ShareDriveFile;
+import com.cacch.integration.integration.oa.support.OaRegReportPathSupport;
+import com.cacch.integration.integration.sharedrive.client.dto.ShareDriveScanRequest;
+import com.cacch.integration.integration.sharedrive.client.dto.ShareDriveScannedItem;
+import com.cacch.integration.integration.sharedrive.support.ShareDrivePathNormalizer;
+import com.cacch.integration.integration.sharedrive.support.ShareDriveDirectorySupport;
 import com.cacch.integration.integration.sharedrive.support.ShareDriveFileSupport;
 import com.cacch.integration.integration.sharedrive.support.ShareDriveUncPathSupport;
 import com.cacch.integration.integration.sharedrive.support.ShareDriveVersionSupport;
@@ -105,6 +110,251 @@ public class ShareDriveClientImpl implements IShareDriveClient {
                 latest.contentType()));
     }
 
+    @Override
+    public List<ShareDriveScannedItem> scanItemDirectories(ShareDriveScanRequest request) {
+        if (request == null || request.maxItems() <= 0) {
+            log.info("【{}】扫描终止, reason=扫描参数无效", BIZ);
+            return List.of();
+        }
+        if (!isAvailable()) {
+            log.info("【{}】扫描终止, reason=共享盘不可用", BIZ);
+            return List.of();
+        }
+        String root = shareDriveProperties.getRootPath().trim();
+        if (shouldUseSmb(root)) {
+            return scanViaSmb(request);
+        }
+        return scanViaNioScan(request);
+    }
+
+    private List<ShareDriveScannedItem> scanViaSmb(ShareDriveScanRequest request) {
+        ShareDriveUncPathSupport.UncRoot root = ShareDriveUncPathSupport.parseRoot(shareDriveProperties.getRootPath());
+        if (root == null) {
+            log.info("【{}】扫描终止, reason=UNC根路径解析失败", BIZ);
+            return List.of();
+        }
+        List<ShareDriveScannedItem> results = new ArrayList<>();
+        Pattern versionPattern = Pattern.compile(shareDriveProperties.getVersionPattern());
+        try {
+            withDiskShare(root, share -> {
+                walkOwnerLevel(share, request, versionPattern, results);
+                return null;
+            });
+        } catch (Exception e) {
+            log.info("【{}】共享盘扫描失败, reason={}", BIZ, e.getMessage());
+            log.error("【{}】共享盘扫描异常", BIZ, e);
+        }
+        log.info("【{}】共享盘扫描完成, ownerFilter={}, ipdpFilter={}, found={}",
+                BIZ, request.ownerNameFilter(), request.ipdpNameFilter(), results.size());
+        return results;
+    }
+
+    private void walkOwnerLevel(DiskShare share,
+                                ShareDriveScanRequest request,
+                                Pattern versionPattern,
+                                List<ShareDriveScannedItem> results) {
+        for (String ownerDir : listChildDirectories(share, "")) {
+            if (StringUtils.hasText(request.ownerNameFilter())
+                    && !ShareDrivePathNormalizer.matchesDirectoryNameLoosely(ownerDir, request.ownerNameFilter())) {
+                continue;
+            }
+            walkIpdpLevel(share, ownerDir, request, versionPattern, results);
+            if (results.size() >= request.maxItems()) {
+                return;
+            }
+        }
+    }
+
+    private void walkIpdpLevel(DiskShare share,
+                               String ownerDir,
+                               ShareDriveScanRequest request,
+                               Pattern versionPattern,
+                               List<ShareDriveScannedItem> results) {
+        for (String ipdpDir : listChildDirectories(share, ownerDir)) {
+            if (StringUtils.hasText(request.ipdpNameFilter())
+                    && !ShareDrivePathNormalizer.matchesDirectoryNameLoosely(ipdpDir, request.ipdpNameFilter())) {
+                continue;
+            }
+            String ipdpPath = ownerDir + "\\" + ipdpDir;
+            walkItemLevel(share, ownerDir, ipdpDir, ipdpPath, request, versionPattern, results);
+            if (results.size() >= request.maxItems()) {
+                return;
+            }
+        }
+    }
+
+    private void walkItemLevel(DiskShare share,
+                               String ownerDir,
+                               String ipdpDir,
+                               String ipdpPath,
+                               ShareDriveScanRequest request,
+                               Pattern versionPattern,
+                               List<ShareDriveScannedItem> results) {
+        for (String itemDir : listChildDirectories(share, ipdpPath)) {
+            String itemRelative = ipdpPath + "\\" + itemDir;
+            CandidateFile latest = pickLatestInSmbDirectory(share, itemRelative, versionPattern);
+            if (latest == null) {
+                continue;
+            }
+            String directoryPath = OaRegReportPathSupport.buildItemDirectory(
+                    shareDriveProperties.getRootPath(), ownerDir, ipdpDir, itemDir);
+            results.add(new ShareDriveScannedItem(
+                    ownerDir,
+                    ipdpDir,
+                    itemDir,
+                    directoryPath,
+                    toShareDriveFile(latest)));
+            log.info("【{}】扫描到资料目录, owner={}, ipdp={}, item={}, file={}",
+                    BIZ, ownerDir, ipdpDir, itemDir, latest.fileName());
+            if (results.size() >= request.maxItems()) {
+                return;
+            }
+        }
+    }
+
+    private List<ShareDriveScannedItem> scanViaNioScan(ShareDriveScanRequest request) {
+        String root = shareDriveProperties.getRootPath().trim();
+        Path rootPath = Paths.get(root);
+        if (!Files.isDirectory(rootPath)) {
+            return List.of();
+        }
+        List<ShareDriveScannedItem> results = new ArrayList<>();
+        Pattern versionPattern = Pattern.compile(shareDriveProperties.getVersionPattern());
+        try (Stream<Path> owners = Files.list(rootPath)) {
+            owners.filter(Files::isDirectory).forEach(ownerPath -> {
+                if (results.size() >= request.maxItems()) {
+                    return;
+                }
+                String ownerDir = ownerPath.getFileName().toString();
+                if (StringUtils.hasText(request.ownerNameFilter())
+                        && !ShareDrivePathNormalizer.matchesDirectoryNameLoosely(ownerDir, request.ownerNameFilter())) {
+                    return;
+                }
+                scanNioIpdpLevel(ownerPath, ownerDir, request, versionPattern, results);
+            });
+        } catch (IOException e) {
+            log.info("【{}】NIO 扫描失败, reason={}", BIZ, e.getMessage());
+        }
+        return results;
+    }
+
+    private void scanNioIpdpLevel(Path ownerPath,
+                                  String ownerDir,
+                                  ShareDriveScanRequest request,
+                                  Pattern versionPattern,
+                                  List<ShareDriveScannedItem> results) {
+        try (Stream<Path> ipdps = Files.list(ownerPath)) {
+            ipdps.filter(Files::isDirectory).forEach(ipdpPath -> {
+                if (results.size() >= request.maxItems()) {
+                    return;
+                }
+                String ipdpDir = ipdpPath.getFileName().toString();
+                if (StringUtils.hasText(request.ipdpNameFilter())
+                        && !ShareDrivePathNormalizer.matchesDirectoryNameLoosely(ipdpDir, request.ipdpNameFilter())) {
+                    return;
+                }
+                scanNioItemLevel(ipdpPath, ownerDir, ipdpDir, request, versionPattern, results);
+            });
+        } catch (IOException e) {
+            log.info("【{}】NIO 列举 IPDP 失败, owner={}, reason={}", BIZ, ownerDir, e.getMessage());
+        }
+    }
+
+    private void scanNioItemLevel(Path ipdpPath,
+                                  String ownerDir,
+                                  String ipdpDir,
+                                  ShareDriveScanRequest request,
+                                  Pattern versionPattern,
+                                  List<ShareDriveScannedItem> results) {
+        try (Stream<Path> items = Files.list(ipdpPath)) {
+            items.filter(Files::isDirectory).forEach(itemPath -> {
+                if (results.size() >= request.maxItems()) {
+                    return;
+                }
+                CandidateFile latest = toCandidateViaNioDir(itemPath, versionPattern);
+                if (latest == null) {
+                    return;
+                }
+                String itemDir = itemPath.getFileName().toString();
+                String directoryPath = OaRegReportPathSupport.buildItemDirectory(
+                        shareDriveProperties.getRootPath(), ownerDir, ipdpDir, itemDir);
+                results.add(new ShareDriveScannedItem(
+                        ownerDir, ipdpDir, itemDir, directoryPath, toShareDriveFile(latest)));
+            });
+        } catch (IOException e) {
+            log.info("【{}】NIO 列举资料项目失败, ipdp={}, reason={}", BIZ, ipdpDir, e.getMessage());
+        }
+    }
+
+    private CandidateFile toCandidateViaNioDir(Path itemPath, Pattern versionPattern) {
+        try (Stream<Path> files = Files.list(itemPath)) {
+            List<CandidateFile> candidates = new ArrayList<>();
+            files.filter(Files::isRegularFile).forEach(filePath -> {
+                CandidateFile candidate = toCandidateViaNio(filePath, versionPattern);
+                if (candidate != null) {
+                    candidates.add(candidate);
+                }
+            });
+            return ShareDriveVersionSupport.pickLatest(candidates, versionPattern);
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
+    private CandidateFile pickLatestInSmbDirectory(DiskShare share,
+                                                   String relativeDir,
+                                                   Pattern versionPattern) {
+        List<CandidateFile> candidates = new ArrayList<>();
+        try {
+            for (FileIdBothDirectoryInformation entry : share.list(relativeDir)) {
+                String fileName = entry.getFileName();
+                if (".".equals(fileName) || "..".equals(fileName)) {
+                    continue;
+                }
+                if (ShareDriveDirectorySupport.isDirectoryEntry(entry)) {
+                    continue;
+                }
+                CandidateFile candidate = readSmbFile(share, relativeDir, fileName, entry, versionPattern);
+                if (candidate != null) {
+                    candidates.add(candidate);
+                }
+            }
+        } catch (Exception e) {
+            log.info("【{}】SMB 列举资料目录失败, dir={}, reason={}", BIZ, relativeDir, e.getMessage());
+            return null;
+        }
+        return ShareDriveVersionSupport.pickLatest(candidates, versionPattern);
+    }
+
+    private List<String> listChildDirectories(DiskShare share, String parentDir) {
+        List<String> names = new ArrayList<>();
+        try {
+            for (FileIdBothDirectoryInformation entry : share.list(StringUtils.hasText(parentDir) ? parentDir : "")) {
+                String name = entry.getFileName();
+                if (".".equals(name) || "..".equals(name)) {
+                    continue;
+                }
+                if (ShareDriveDirectorySupport.isDirectoryEntry(entry)) {
+                    names.add(name);
+                }
+            }
+        } catch (Exception e) {
+            log.info("【{}】SMB 列举子目录失败, parent={}, reason={}", BIZ, parentDir, e.getMessage());
+        }
+        return names;
+    }
+
+    private ShareDriveFile toShareDriveFile(CandidateFile latest) {
+        return new ShareDriveFile(
+                latest.fileName(),
+                latest.fileVersion(),
+                latest.fileSize(),
+                ShareDriveFileSupport.sha256(latest.content()),
+                latest.modifiedAt(),
+                latest.content(),
+                latest.contentType());
+    }
+
     /**
      * UNC 远程路径或未显式配置本地挂载时走 SMB
      *
@@ -194,23 +444,33 @@ public class ShareDriveClientImpl implements IShareDriveClient {
         List<CandidateFile> candidates = new ArrayList<>();
         try {
             withDiskShare(root, share -> {
-                if (!share.folderExists(smbDir)) {
-                    log.info("【{}】SMB 目录不存在, relativeDir={}", BIZ, smbDir);
+                String resolvedDir = ShareDriveDirectorySupport.resolveRelativeDirectory(share, smbDir);
+                if (resolvedDir == null) {
+                    log.info("【{}】SMB 目录不存在, relativeDir={}, path={}", BIZ, smbDir, directoryPath);
                     return null;
                 }
-                for (FileIdBothDirectoryInformation entry : share.list(smbDir)) {
+                if (!resolvedDir.equals(smbDir)) {
+                    log.info("【{}】SMB 目录名已解析匹配, expected={}, resolved={}", BIZ, smbDir, resolvedDir);
+                }
+                int listed = 0;
+                int accepted = 0;
+                for (FileIdBothDirectoryInformation entry : share.list(resolvedDir)) {
+                    listed++;
                     String fileName = entry.getFileName();
                     if (".".equals(fileName) || "..".equals(fileName)) {
                         continue;
                     }
-                    if ((entry.getFileAttributes() & 0x00000010L) != 0) {
+                    if (ShareDriveDirectorySupport.isDirectoryEntry(entry)) {
                         continue;
                     }
-                    CandidateFile candidate = readSmbFile(share, smbDir, fileName, entry, versionPattern);
+                    CandidateFile candidate = readSmbFile(share, resolvedDir, fileName, entry, versionPattern);
                     if (candidate != null) {
+                        accepted++;
                         candidates.add(candidate);
                     }
                 }
+                log.info("【{}】SMB 目录列举完成, relativeDir={}, listed={}, accepted={}",
+                        BIZ, resolvedDir, listed, accepted);
                 return null;
             });
         } catch (Exception e) {
