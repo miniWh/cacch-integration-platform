@@ -49,6 +49,19 @@ public final class ShareDriveFileSupport {
     }
 
     /**
+     * 由 MessageDigest 输出十六进制 SHA-256
+     *
+     * @param digest 已完成更新的摘要实例
+     * @return 十六进制小写；digest 为 null 时返回 null
+     */
+    public static String sha256Hex(MessageDigest digest) {
+        if (digest == null) {
+            return null;
+        }
+        return HexFormat.of().formatHex(digest.digest());
+    }
+
+    /**
      * 按扩展名推断 MIME
      *
      * @param fileName 文件名

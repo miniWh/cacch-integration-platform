@@ -46,6 +46,6 @@ class ShareDriveFinalVersionSupportTest {
 
     private static ShareDriveFinalVersionSupport.CandidateFile candidate(String fileName, LocalDateTime createdAt) {
         return new ShareDriveFinalVersionSupport.CandidateFile(
-                fileName, 1024L, createdAt, createdAt, new byte[]{1}, "application/pdf");
+                fileName, 1024L, createdAt, createdAt, "application/pdf");
     }
 }

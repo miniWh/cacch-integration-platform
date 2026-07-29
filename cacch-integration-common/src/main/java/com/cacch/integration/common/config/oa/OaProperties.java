@@ -45,6 +45,11 @@ public class OaProperties {
     private String templateCode = "CRM_ZYXS_001";
 
     /**
+     * OA 附件上传读超时（秒）；大文件流式上传需较长超时，默认 30 分钟
+     */
+    private int attachmentUploadReadTimeoutSeconds = 1800;
+
+    /**
      * 规范化后的 Base URL（去掉末尾 /）
      *
      * @return Base URL

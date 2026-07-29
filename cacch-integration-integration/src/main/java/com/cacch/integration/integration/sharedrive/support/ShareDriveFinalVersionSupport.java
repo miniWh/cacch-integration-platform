@@ -17,13 +17,12 @@ public final class ShareDriveFinalVersionSupport {
     }
 
     /**
-     * 目录内候选文件
+     * 目录内候选文件元数据（不含内容）
      *
      * @param fileName    文件名
      * @param fileSize    大小（字节）
      * @param createdAt   创建时间
      * @param modifiedAt  最后修改时间
-     * @param content     文件内容
      * @param contentType MIME 类型
      */
     public record CandidateFile(
@@ -31,7 +30,6 @@ public final class ShareDriveFinalVersionSupport {
             long fileSize,
             LocalDateTime createdAt,
             LocalDateTime modifiedAt,
-            byte[] content,
             String contentType
     ) {
     }
@@ -56,7 +54,7 @@ public final class ShareDriveFinalVersionSupport {
     /**
      * 从候选文件中选取创建时间最新的「最终版本」文件
      *
-     * @param candidates 目录内全部候选文件
+     * @param candidates 目录内全部候选文件元数据
      * @param suffix     最终版本后缀
      * @return 最新最终版本文件；无匹配时返回 null
      */

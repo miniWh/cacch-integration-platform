@@ -7,8 +7,8 @@ import com.cacch.integration.integration.oa.client.dto.OaProcessStartRequest;
 import com.cacch.integration.integration.oa.client.dto.OaTokenResponse;
 import com.cacch.integration.integration.oa.support.OaResponseSupport;
 import com.cacch.integration.integration.support.ThirdPartyHttpLogSupport;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -25,6 +25,7 @@ import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.net.URI;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
@@ -38,7 +39,6 @@ import java.util.Map;
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class OaClient {
 
     private static final String BIZ = OaConstants.LOG_BIZ;
@@ -46,7 +46,21 @@ public class OaClient {
     private static final ObjectMapper OBJECT_MAPPER = JsonMapper.builder().build();
 
     private final RestTemplate restTemplate;
+    private final RestTemplate oaUploadRestTemplate;
     private final OaProperties oaProperties;
+
+    /**
+     * @param restTemplate           通用 HTTP 客户端
+     * @param oaUploadRestTemplate   OA 大文件上传专用客户端（长读超时）
+     * @param oaProperties           OA 配置
+     */
+    public OaClient(RestTemplate restTemplate,
+                      @Qualifier("oaUploadRestTemplate") RestTemplate oaUploadRestTemplate,
+                      OaProperties oaProperties) {
+        this.restTemplate = restTemplate;
+        this.oaUploadRestTemplate = oaUploadRestTemplate;
+        this.oaProperties = oaProperties;
+    }
 
     /**
      * 获取 Rest Token
@@ -226,37 +240,91 @@ public class OaClient {
     }
 
     /**
-     * 删除 OA 附件库中的文件
+     * 流式上传附件文件（适用于大文件，避免整文件加载至内存）
      *
-     * <p>GET {@code /seeyon/rest/attachment/removeFile/{fileId}}；{@code fileId} 为上传响应 {@code fileUrl}。</p>
+     * <p>POST {@code /seeyon/rest/attachment}，multipart 字段名 {@code file}。</p>
      *
-     * @param token   Rest Token，不可为空
-     * @param fileUrl REST 上传返回的文件 ID，不可为空
-     * @throws RestClientException 网络、HTTP 非 2xx 或响应异常时抛出
+     * @param token         Rest Token，不可为空
+     * @param inputStream   文件输入流，不可为空；调用方须保证流可读至 EOF
+     * @param contentLength 文件大小（字节），须大于 0
+     * @param fileName      原始文件名，不可为空
+     * @param contentType   MIME 类型，可空
+     * @return 上传结果，含 fileUrl
+     * @throws RestClientException 网络、HTTP 非 2xx 或响应无法解析 fileUrl 时抛出
      */
-    public void deleteAttachment(String token, String fileUrl) {
-        String action = "删除附件";
-        if (!StringUtils.hasText(fileUrl)) {
-            throw new RestClientException("致远 OA 删除附件失败：fileUrl 为空");
+    public OaFileUploadResult uploadAttachment(String token,
+                                               InputStream inputStream,
+                                               long contentLength,
+                                               String fileName,
+                                               String contentType) {
+        String action = "上传附件(流式)";
+        if (inputStream == null) {
+            throw new RestClientException("致远 OA 上传附件失败：文件流为空");
         }
-        String fileId = fileUrl.trim();
-        URI uri = UriComponentsBuilder
-                .fromUriString(oaProperties.resolvedBaseUrl() + OaConstants.ATTACHMENT_REMOVE_PATH)
-                .buildAndExpand(Map.of("fileId", fileId))
-                .encode()
-                .toUri();
-        ThirdPartyHttpLogSupport.logRequest(BIZ, action, uri.toString(), Map.of("fileId", fileId));
+        if (contentLength <= 0) {
+            throw new RestClientException("致远 OA 上传附件失败：文件大小无效");
+        }
+        if (!StringUtils.hasText(fileName)) {
+            throw new RestClientException("致远 OA 上传附件失败：文件名为空");
+        }
+        URI uri = URI.create(oaProperties.resolvedBaseUrl() + OaConstants.ATTACHMENT_UPLOAD_PATH);
+
+        Map<String, Object> requestLog = Map.of(
+                "fileName", fileName.trim(),
+                "contentLength", contentLength,
+                "contentType", StringUtils.hasText(contentType) ? contentType.trim() : "");
+        ThirdPartyHttpLogSupport.logRequest(BIZ, action, uri.toString(), requestLog);
+
         try {
-            HttpHeaders headers = jsonHeaders();
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.MULTIPART_FORM_DATA);
             headers.add(OaConstants.TOKEN_HEADER, token);
-            ResponseEntity<String> response = restTemplate.exchange(
-                    uri, HttpMethod.GET, new HttpEntity<>(headers), String.class);
-            ThirdPartyHttpLogSupport.logResponse(BIZ, action, response.getBody());
-            log.info("【{}】{}成功, fileId={}", BIZ, action, fileId);
+
+            org.springframework.core.io.InputStreamResource fileResource =
+                    new org.springframework.core.io.InputStreamResource(inputStream) {
+                        @Override
+                        public String getFilename() {
+                            return fileName.trim();
+                        }
+
+                        @Override
+                        public long contentLength() {
+                            return contentLength;
+                        }
+                    };
+
+            org.springframework.util.LinkedMultiValueMap<String, Object> body =
+                    new org.springframework.util.LinkedMultiValueMap<>();
+            body.add(OaConstants.ATTACHMENT_UPLOAD_FIELD, fileResource);
+
+            HttpEntity<org.springframework.util.MultiValueMap<String, Object>> entity =
+                    new HttpEntity<>(body, headers);
+            ResponseEntity<String> response = oaUploadRestTemplate.exchange(
+                    uri, HttpMethod.POST, entity, String.class);
+            String responseBody = response.getBody();
+            ThirdPartyHttpLogSupport.logResponse(BIZ, action, responseBody);
+
+            if (responseBody == null || responseBody.isBlank()) {
+                log.info("【{}】{}终止, reason=响应体为空", BIZ, action);
+                throw new RestClientException("致远 OA 上传附件响应体为空");
+            }
+            JsonNode json = OBJECT_MAPPER.readTree(responseBody);
+            String fileUrl = OaResponseSupport.extractFileUrl(json);
+            if (!StringUtils.hasText(fileUrl)) {
+                log.info("【{}】{}终止, reason=响应未包含 fileUrl", BIZ, action);
+                throw new RestClientException("致远 OA 上传附件响应未包含 fileUrl");
+            }
+            log.info("【{}】{}成功, fileName={}, fileUrl={}, contentLength={}",
+                    BIZ, action, fileName.trim(), fileUrl, contentLength);
+            return new OaFileUploadResult(fileUrl.trim(), fileName.trim(), json);
         } catch (RestClientException e) {
-            log.info("【{}】{}终止, fileId={}, reason={}", BIZ, action, fileId, e.getMessage());
+            log.info("【{}】{}终止, reason={}", BIZ, action, e.getMessage());
             log.error("【{}】{} HTTP 调用失败", BIZ, action, e);
             throw e;
+        } catch (Exception e) {
+            log.info("【{}】{}终止, reason={}", BIZ, action, e.getMessage());
+            log.error("【{}】{} 处理失败", BIZ, action, e);
+            throw new RestClientException("致远 OA 上传附件处理失败: " + e.getMessage(), e);
         }
     }
 

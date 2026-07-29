@@ -126,6 +126,7 @@ oa:
   default-login-name: zhouhongfu
   token-ttl-seconds: 840
   template-code: CRM_ZYXS_001
+  attachment-upload-read-timeout-seconds: 1800
   reg-report:
     # 无流程表单模板编码（formCode），由 OA 管理员提供
     form-code: "GNDJ"
@@ -154,7 +155,7 @@ oa:
     # url / driver-class-name 请在 application-{profile}.yml 的 oa.datasource 下配置
   attachment-sync:
     enabled: false
-    cron: "0 */10 * * * ?"
+    cron: "0 0 0/4 * * ?"
     # 单轮最多扫描登记报告主表（项目）数；每个项目下资料行全部拉取
     form-batch-size: 20
     # 仅指定 formMainId 单表触发时的子表行上限
@@ -172,5 +173,5 @@ share-drive:
   final-version-suffix: "_最终版本"
   version-pattern: "_v(\\d+)"
   allowed-extensions: [pdf, doc, docx, xls, xlsx, png, jpg, jpeg, zip]
-  max-file-size-bytes: 104857600
+  max-file-size-bytes: 536870912
   # 目录名归一化：删除 \\ / : * ? " < > | % 等非法字符后与 OA 名称匹配

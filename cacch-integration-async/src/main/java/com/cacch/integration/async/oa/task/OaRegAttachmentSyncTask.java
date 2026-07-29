@@ -38,7 +38,7 @@ public class OaRegAttachmentSyncTask {
      *
      * <p>触发频率由 {@code oa.attachment-sync.cron} 配置；上一轮未结束则跳过。</p>
      */
-    @Scheduled(cron = "${oa.attachment-sync.cron:0 */10 * * * ?}")
+    @Scheduled(cron = "${oa.attachment-sync.cron:0 0 0/4 * * ?}")
     public void syncRegReportAttachments() {
         ScheduledTaskGuard.runExclusive(TASK_NAME, running, () -> {
             log.info("【OaTask】开始执行{}, enabled={}, batchSize={}",

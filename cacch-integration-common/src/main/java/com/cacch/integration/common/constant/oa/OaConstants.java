@@ -48,11 +48,6 @@ public final class OaConstants {
     public static final String ATTACHMENT_UPLOAD_PATH = "/seeyon/rest/attachment";
 
     /**
-     * 附件删除路径模板：{@code /seeyon/rest/attachment/removeFile/{fileId}}
-     */
-    public static final String ATTACHMENT_REMOVE_PATH = "/seeyon/rest/attachment/removeFile/{fileId}";
-
-    /**
      * multipart 上传表单字段名
      */
     public static final String ATTACHMENT_UPLOAD_FIELD = "file";

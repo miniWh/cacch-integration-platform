@@ -2,6 +2,8 @@ package com.cacch.integration.service.oa.api;
 
 import com.cacch.integration.integration.oa.client.dto.OaRegReportAttachmentBindResult;
 
+import java.io.InputStream;
+
 /**
  * 国内登记报告 OA 联调服务（上传 + CAP4 附件绑定）
  *
@@ -62,29 +64,31 @@ public interface IOaRegReportOpenApiService {
                                                    Boolean doTrigger);
 
     /**
-     * 删除 OA 旧附件后上传新文件并绑定（保证资料项仅保留一个附件）
+     * 上传新文件并绑定；替换场景可轮换 subReference，使资料项仅展示一个附件
      *
-     * @param fileBytes    文件内容，不可为空
-     * @param fileName     文件名，不可为空
-     * @param contentType  MIME 类型，可空
-     * @param formMainId   formmain_4070.id，不可为空
-     * @param subRowId     formson_5464.id，不可为空
-     * @param subReference 已有 field0218 值，可空（空则自动生成 subReference）
-     * @param oldFileUrl   待删除的旧 OA 文件 ID（上传响应 fileUrl），可空
-     * @param formCode     无流程表单模板编码，可空
-     * @param rightId      CAP4 操作权限 ID，可空
-     * @param loginName    OA 登录名，可空
-     * @param sort         附件排序，可空（默认 1）
-     * @param doTrigger    是否执行触发器，可空
+     * @param fileStream          文件输入流，不可为空
+     * @param fileSize            文件大小（字节），须大于 0
+     * @param fileName            文件名，不可为空
+     * @param contentType         MIME 类型，可空
+     * @param formMainId          formmain_4070.id，不可为空
+     * @param subRowId            formson_5464.id，不可为空
+     * @param subReference        已有 field0218 值，可空（空则自动生成 subReference）
+     * @param rotateSubReference  true 时生成新 subReference 替换原附件展示
+     * @param formCode            无流程表单模板编码，可空
+     * @param rightId             CAP4 操作权限 ID，可空
+     * @param loginName           OA 登录名，可空
+     * @param sort                附件排序，可空（默认 1）
+     * @param doTrigger           是否执行触发器，可空
      * @return 上传与绑定结果
      */
-    OaRegReportAttachmentBindResult replaceAttachment(byte[] fileBytes,
+    OaRegReportAttachmentBindResult replaceAttachment(InputStream fileStream,
+                                                      long fileSize,
                                                       String fileName,
                                                       String contentType,
                                                       Long formMainId,
                                                       Long subRowId,
                                                       String subReference,
-                                                      String oldFileUrl,
+                                                      boolean rotateSubReference,
                                                       String formCode,
                                                       String rightId,
                                                       String loginName,

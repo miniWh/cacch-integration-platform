@@ -1,17 +1,16 @@
 package com.cacch.integration.integration.sharedrive.client;
 
 import com.cacch.integration.integration.sharedrive.client.dto.ShareDriveFile;
+import com.cacch.integration.integration.sharedrive.client.dto.ShareDriveScanRequest;
+import com.cacch.integration.integration.sharedrive.client.dto.ShareDriveScannedItem;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.stereotype.Component;
 
-import com.cacch.integration.integration.sharedrive.client.dto.ShareDriveScanRequest;
-import com.cacch.integration.integration.sharedrive.client.dto.ShareDriveScannedItem;
-
-import java.util.Collections;
-import java.util.List;
+import java.io.IOException;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 
 /**
  * 共享盘客户端占位实现（未接入 SMB，始终返回 empty）
@@ -41,7 +40,12 @@ public class NoOpShareDriveClient implements IShareDriveClient {
     }
 
     @Override
-    public List<ShareDriveScannedItem> scanItemDirectories(ShareDriveScanRequest request) {
-        return Collections.emptyList();
+    public int scanAndProcessItemDirectories(ShareDriveScanRequest request, Consumer<ShareDriveScannedItem> processor) {
+        return 0;
+    }
+
+    @Override
+    public void readFileStream(ShareDriveScannedItem item, ShareDriveFileStreamConsumer consumer) throws IOException {
+        throw new IOException("共享盘未配置");
     }
 }

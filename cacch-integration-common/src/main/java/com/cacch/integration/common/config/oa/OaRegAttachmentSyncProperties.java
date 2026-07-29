@@ -50,7 +50,7 @@ public class OaRegAttachmentSyncProperties {
                                          Integer maxRetry,
                                          String ownerNameFilter) {
         this.enabled = enabled != null && enabled;
-        this.cron = blankToDefault(cron, "0 */10 * * * ?");
+        this.cron = blankToDefault(cron, "0 0 0/4 * * ?");
         this.batchSize = batchSize != null && batchSize > 0
                 ? batchSize
                 : OaRegReportConstants.DEFAULT_BATCH_SIZE;

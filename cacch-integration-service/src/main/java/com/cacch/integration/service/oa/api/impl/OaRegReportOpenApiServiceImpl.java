@@ -19,6 +19,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClientException;
 import tools.jackson.databind.JsonNode;
 
+import java.io.InputStream;
 import java.util.Map;
 
 /**
@@ -110,21 +111,26 @@ public class OaRegReportOpenApiServiceImpl implements IOaRegReportOpenApiService
     }
 
     @Override
-    public OaRegReportAttachmentBindResult replaceAttachment(byte[] fileBytes,
+    public OaRegReportAttachmentBindResult replaceAttachment(InputStream fileStream,
+                                                             long fileSize,
                                                              String fileName,
                                                              String contentType,
                                                              Long formMainId,
                                                              Long subRowId,
                                                              String subReference,
-                                                             String oldFileUrl,
+                                                             boolean rotateSubReference,
                                                              String formCode,
                                                              String rightId,
                                                              String loginName,
                                                              Integer sort,
                                                              Boolean doTrigger) {
-        if (fileBytes == null || fileBytes.length == 0) {
-            log.info("【{}】替换附件终止, reason=文件内容为空", BIZ);
+        if (fileStream == null) {
+            log.info("【{}】替换附件终止, reason=文件流为空", BIZ);
             throw new BizException(ResultCode.PARAM_MISSING, "上传文件不能为空");
+        }
+        if (fileSize <= 0) {
+            log.info("【{}】替换附件终止, reason=文件大小无效, fileSize={}", BIZ, fileSize);
+            throw new BizException(ResultCode.PARAM_MISSING, "上传文件大小无效");
         }
         if (!StringUtils.hasText(fileName)) {
             log.info("【{}】替换附件终止, reason=文件名为空", BIZ);
@@ -132,32 +138,20 @@ public class OaRegReportOpenApiServiceImpl implements IOaRegReportOpenApiService
         }
         String resolvedLogin = resolveLoginName(loginName);
         String token = oaTokenService.getToken(resolvedLogin);
-        boolean replacing = StringUtils.hasText(oldFileUrl);
-        if (replacing) {
-            try {
-                oaClient.deleteAttachment(token, oldFileUrl.trim());
-                log.info("【{}】已删除 OA 旧附件, oldFileUrl={}", BIZ, oldFileUrl.trim());
-            } catch (RestClientException e) {
-                log.info("【{}】REST 删除旧附件不可用(致远仅允许删本接口上传文件)，将轮换 subReference 绑定新附件, "
-                                + "oldFileUrl={}, reason={}",
-                        BIZ, oldFileUrl.trim(), e.getMessage());
-            }
-        }
         OaFileUploadResult uploadResult;
         try {
-            uploadResult = oaClient.uploadAttachment(token, fileBytes, fileName.trim(), contentType);
+            uploadResult = oaClient.uploadAttachment(token, fileStream, fileSize, fileName.trim(), contentType);
         } catch (RestClientException e) {
             log.info("【{}】替换附件终止, step=upload, reason={}", BIZ, e.getMessage());
             throw new BizException(ResultCode.INTEGRATION_ERROR, "致远 OA 上传附件失败: " + e.getMessage(), e);
         }
-        // 替换场景轮换 subReference，使 field0218 仅关联新附件（不依赖 REST 删旧文件）
-        String bindSubReference = replacing ? String.valueOf(IdWorker.getId()) : subReference;
+        String bindSubReference = rotateSubReference ? String.valueOf(IdWorker.getId()) : subReference;
         BindContext context = resolveBindContext(formMainId, subRowId, bindSubReference, formCode, rightId,
                 resolvedLogin, sort, doTrigger);
         JsonNode batchResponse = executeBatchUpdate(token, uploadResult.fileUrl(), context);
-        log.info("【{}】替换附件完成, formMainId={}, subRowId={}, subReference={}, oldFileUrl={}, newFileUrl={}, "
-                        + "subReferenceRotated={}",
-                BIZ, formMainId, subRowId, context.subReference(), oldFileUrl, uploadResult.fileUrl(), replacing);
+        log.info("【{}】替换附件完成, formMainId={}, subRowId={}, subReference={}, newFileUrl={}, "
+                        + "subReferenceRotated={}, fileSize={}",
+                BIZ, formMainId, subRowId, context.subReference(), uploadResult.fileUrl(), rotateSubReference, fileSize);
         return new OaRegReportAttachmentBindResult(
                 uploadResult.fileUrl(),
                 uploadResult.fileName(),

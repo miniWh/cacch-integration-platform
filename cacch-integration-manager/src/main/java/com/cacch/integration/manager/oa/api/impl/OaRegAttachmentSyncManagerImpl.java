@@ -17,6 +17,7 @@ import com.cacch.integration.integration.sharedrive.client.IShareDriveClient;
 import com.cacch.integration.integration.sharedrive.client.dto.ShareDriveFile;
 import com.cacch.integration.integration.sharedrive.client.dto.ShareDriveScanRequest;
 import com.cacch.integration.integration.sharedrive.client.dto.ShareDriveScannedItem;
+import com.cacch.integration.integration.sharedrive.support.ShareDriveFileSupport;
 import com.cacch.integration.manager.oa.api.IOaRegAttachmentSyncManager;
 import com.cacch.integration.manager.wecom.api.IWeComWebhookManager;
 import com.cacch.integration.service.oa.api.IOaRegAttachmentSyncService;
@@ -26,14 +27,19 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
+import java.io.IOException;
+import java.security.DigestInputStream;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * 国内登记报告附件同步编排实现（共享盘驱动：先扫盘再反查 OA）
+ * 国内登记报告附件同步编排实现（共享盘驱动：扫描即上传，流式处理大文件）
  *
  * @author hongfu_zhou@cacch.com
  */
@@ -74,52 +80,51 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
         Set<String> ipdpPathCollisionKeys = detectIpdpPathCollisions(oaLookupRows);
 
         ShareDriveScanRequest scanRequest = new ShareDriveScanRequest(ownerFilter, ipdpFilter, batchSize);
-        List<ShareDriveScannedItem> scannedItems = shareDriveClient.scanItemDirectories(scanRequest);
-        if (scannedItems.isEmpty()) {
-            log.info("【{}】共享盘未发现含文件的资料目录, formMainId={}, ownerFilter={}, ipdpFilter={}",
-                    BIZ, formMainId, ownerFilter, ipdpFilter);
-            return OaRegAttachmentSyncResult.builder()
-                    .scanned(0).success(0).retry(0).failed(0).skipped(0).build();
-        }
 
-        log.info("【{}】开始附件同步(共享盘驱动), formMainId={}, scannedDirs={}, oaLookupRows={}, maxRetry={}",
-                BIZ, formMainId, scannedItems.size(), oaLookupRows.size(), maxRetry);
+        AtomicInteger success = new AtomicInteger();
+        AtomicInteger retry = new AtomicInteger();
+        AtomicInteger failed = new AtomicInteger();
+        AtomicInteger skipped = new AtomicInteger();
 
-        int success = 0;
-        int retry = 0;
-        int failed = 0;
-        int skipped = 0;
+        log.info("【{}】开始附件同步(共享盘驱动流式), formMainId={}, oaLookupRows={}, maxRetry={}, batchSize={}",
+                BIZ, formMainId, oaLookupRows.size(), maxRetry, batchSize);
 
-        for (ShareDriveScannedItem scanned : scannedItems) {
-            ShareDriveFile latestFile = scanned.latestFile();
-            log.info("【{}】识别到含最终版本文件, directoryPath={}, owner={}, ipdp={}, item={}, file={}, createdAt={}",
-                    BIZ, scanned.directoryPath(), scanned.ownerName(), scanned.ipdpName(),
-                    scanned.itemName(), latestFile != null ? latestFile.fileName() : null,
+        int scanned = shareDriveClient.scanAndProcessItemDirectories(scanRequest, scannedItem -> {
+            ShareDriveFile latestFile = scannedItem.latestFile();
+            log.info("【{}】识别到含最终版本文件, directoryPath={}, owner={}, ipdp={}, item={}, file={}, size={}, createdAt={}",
+                    BIZ, scannedItem.directoryPath(), scannedItem.ownerName(), scannedItem.ipdpName(),
+                    scannedItem.itemName(), latestFile != null ? latestFile.fileName() : null,
+                    latestFile != null ? latestFile.fileSize() : null,
                     latestFile != null ? latestFile.createdAt() : null);
             try {
-                String outcome = syncScannedItem(scanned, formMainId, oaLookupRows, maxRetry, ipdpPathCollisionKeys);
+                String outcome = syncScannedItem(scannedItem, formMainId, oaLookupRows, maxRetry, ipdpPathCollisionKeys);
                 if (OaRegAttachmentSyncStatusEnum.SUCCESS.getCode().equals(outcome)) {
-                    success++;
+                    success.incrementAndGet();
                 } else if (OaRegAttachmentSyncStatusEnum.FAILED.getCode().equals(outcome)) {
-                    failed++;
+                    failed.incrementAndGet();
                 } else if (OaRegAttachmentSyncStatusEnum.RETRY.getCode().equals(outcome)) {
-                    retry++;
+                    retry.incrementAndGet();
                 } else {
-                    skipped++;
+                    skipped.incrementAndGet();
                 }
             } catch (Exception e) {
-                log.info("【{}】单条同步异常, path={}, reason={}", BIZ, scanned.directoryPath(), e.getMessage());
-                log.error("【{}】单条同步失败, path={}", BIZ, scanned.directoryPath(), e);
-                failed++;
+                log.info("【{}】单条同步异常, path={}, reason={}", BIZ, scannedItem.directoryPath(), e.getMessage());
+                log.error("【{}】单条同步失败, path={}", BIZ, scannedItem.directoryPath(), e);
+                failed.incrementAndGet();
             }
+        });
+
+        if (scanned == 0) {
+            log.info("【{}】共享盘未发现含文件的资料目录, formMainId={}, ownerFilter={}, ipdpFilter={}",
+                    BIZ, formMainId, ownerFilter, ipdpFilter);
         }
 
         OaRegAttachmentSyncResult result = OaRegAttachmentSyncResult.builder()
-                .scanned(scannedItems.size())
-                .success(success)
-                .retry(retry)
-                .failed(failed)
-                .skipped(skipped)
+                .scanned(scanned)
+                .success(success.get())
+                .retry(retry.get())
+                .failed(failed.get())
+                .skipped(skipped.get())
                 .build();
         log.info("【{}】本轮附件同步完成, scanned={}, success={}, retry={}, failed={}, skipped={}",
                 BIZ, result.getScanned(), result.getSuccess(), result.getRetry(),
@@ -133,8 +138,8 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
                                    int maxRetry,
                                    Set<String> ipdpPathCollisionKeys) {
         ShareDriveFile file = scanned.latestFile();
-        if (file == null || file.content() == null || file.content().length == 0) {
-            log.info("【{}】跳过同步, reason=扫描结果无有效文件, path={}", BIZ, scanned.directoryPath());
+        if (file == null || !StringUtils.hasText(file.fileName()) || file.fileSize() <= 0) {
+            log.info("【{}】跳过同步, reason=扫描结果无有效文件元数据, path={}", BIZ, scanned.directoryPath());
             return OaRegAttachmentSyncStatusEnum.SKIPPED.getCode();
         }
 
@@ -170,40 +175,66 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
         }
 
         String subReference = resolveSubReference(existing, row);
-        String oldFileUrl = existing != null ? existing.getOaFileId() : null;
-        if (StringUtils.hasText(oldFileUrl)) {
-            log.info("【{}】检测到资料项已有附件，将上传新文件并轮换 subReference 替换展示, subRowId={}, "
-                            + "oldFileUrl={}, oldSubReference={}, newCreatedAt={}",
-                    BIZ, row.subRowId(), oldFileUrl,
-                    existing != null ? existing.getOaSubReference() : null, file.createdAt());
+        boolean rotateSubReference = existing != null;
+        if (rotateSubReference) {
+            log.info("【{}】检测到资料项已有同步记录，将轮换 subReference 绑定新附件, subRowId={}, "
+                            + "oldSubReference={}, newCreatedAt={}",
+                    BIZ, row.subRowId(), existing.getOaSubReference(), file.createdAt());
         }
 
         try {
-            OaRegReportAttachmentBindResult bindResult = oaRegReportOpenApiService.replaceAttachment(
-                    file.content(),
-                    file.fileName(),
-                    file.contentType(),
-                    row.formMainId(),
-                    row.subRowId(),
-                    subReference,
-                    oldFileUrl,
-                    null,
-                    null,
-                    null,
-                    1,
-                    null);
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            OaRegReportAttachmentBindResult[] bindHolder = new OaRegReportAttachmentBindResult[1];
+            shareDriveClient.readFileStream(scanned, rawStream -> {
+                try (DigestInputStream digestStream = new DigestInputStream(rawStream, digest)) {
+                    bindHolder[0] = oaRegReportOpenApiService.replaceAttachment(
+                            digestStream,
+                            file.fileSize(),
+                            file.fileName(),
+                            file.contentType(),
+                            row.formMainId(),
+                            row.subRowId(),
+                            subReference,
+                            rotateSubReference,
+                            null,
+                            null,
+                            null,
+                            1,
+                            null);
+                }
+            });
+            String checksum = ShareDriveFileSupport.sha256Hex(digest);
+            OaRegReportAttachmentBindResult bindResult = bindHolder[0];
+            if (bindResult == null) {
+                log.info("【{}】同步终止, reason=流式上传未返回绑定结果, subRowId={}", BIZ, row.subRowId());
+                throw new BizException(com.cacch.integration.common.result.ResultCode.INTEGRATION_ERROR,
+                        "流式上传未返回绑定结果");
+            }
 
-            OaRegAttachmentSyncDO record = enrichRecord(baseRecord(row, scanned.directoryPath()), file);
+            OaRegAttachmentSyncDO record = enrichRecord(baseRecord(row, scanned.directoryPath()), file, checksum);
             record.setOaFileId(bindResult.fileUrl());
             record.setOaSubReference(bindResult.subReference());
             syncService.markSuccess(record);
-            log.info("【{}】同步成功, formMainId={}, subRowId={}, item={}, fileUrl={}",
-                    BIZ, row.formMainId(), row.subRowId(), row.itemName(), bindResult.fileUrl());
+            log.info("【{}】同步成功, formMainId={}, subRowId={}, item={}, fileUrl={}, fileSize={}",
+                    BIZ, row.formMainId(), row.subRowId(), row.itemName(), bindResult.fileUrl(), file.fileSize());
             return OaRegAttachmentSyncStatusEnum.SUCCESS.getCode();
+        } catch (IOException e) {
+            log.info("【{}】读取共享盘文件失败, subRowId={}, item={}, reason={}",
+                    BIZ, row.subRowId(), row.itemName(), e.getMessage());
+            OaRegAttachmentSyncDO record = enrichRecord(baseRecord(row, scanned.directoryPath()), file, null);
+            String status = syncService.markFailure(record, "读取共享盘文件失败: " + e.getMessage(), maxRetry);
+            if (OaRegAttachmentSyncStatusEnum.FAILED.getCode().equals(status)) {
+                alertFailed(row, e.getMessage());
+            }
+            return status;
+        } catch (NoSuchAlgorithmException e) {
+            log.info("【{}】计算文件摘要失败, subRowId={}, reason={}", BIZ, row.subRowId(), e.getMessage());
+            OaRegAttachmentSyncDO record = enrichRecord(baseRecord(row, scanned.directoryPath()), file, null);
+            return syncService.markFailure(record, "计算文件摘要失败: " + e.getMessage(), maxRetry);
         } catch (BizException e) {
             log.info("【{}】同步业务失败, subRowId={}, item={}, reason={}",
                     BIZ, row.subRowId(), row.itemName(), e.getMessage());
-            OaRegAttachmentSyncDO record = enrichRecord(baseRecord(row, scanned.directoryPath()), file);
+            OaRegAttachmentSyncDO record = enrichRecord(baseRecord(row, scanned.directoryPath()), file, null);
             String status = syncService.markFailure(record, e.getMessage(), maxRetry);
             if (OaRegAttachmentSyncStatusEnum.FAILED.getCode().equals(status)) {
                 alertFailed(row, e.getMessage());
@@ -265,7 +296,7 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
         record.setRetryCount(0);
         ShareDriveFile file = scanned.latestFile();
         if (file != null) {
-            enrichRecord(record, file);
+            enrichRecord(record, file, null);
         }
         return record;
     }
@@ -282,10 +313,10 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
         return record;
     }
 
-    private OaRegAttachmentSyncDO enrichRecord(OaRegAttachmentSyncDO record, ShareDriveFile file) {
+    private OaRegAttachmentSyncDO enrichRecord(OaRegAttachmentSyncDO record, ShareDriveFile file, String checksum) {
         record.setFileName(file.fileName());
         record.setFileSize(file.fileSize());
-        record.setFileChecksum(file.checksum());
+        record.setFileChecksum(checksum);
         record.setFileCreatedAt(file.createdAt());
         record.setFileModifiedAt(file.modifiedAt());
         return record;
