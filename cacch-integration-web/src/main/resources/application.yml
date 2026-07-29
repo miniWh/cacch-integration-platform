@@ -169,6 +169,7 @@ share-drive:
   username: ""
   password: ""
   domain: ""
+  final-version-suffix: "_最终版本"
   version-pattern: "_v(\\d+)"
   allowed-extensions: [pdf, doc, docx, xls, xlsx, png, jpg, jpeg, zip]
   max-file-size-bytes: 104857600

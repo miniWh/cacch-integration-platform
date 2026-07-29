@@ -28,11 +28,16 @@ public class OaRegAttachmentSyncRecordVO {
 
     private String fileName;
 
+    /** @deprecated 已改用 fileCreatedAt */
+    @Deprecated
     private Integer fileVersion;
 
     private Long fileSize;
 
     private String fileChecksum;
+
+    /** 共享盘文件创建时间（幂等比对） */
+    private LocalDateTime fileCreatedAt;
 
     private LocalDateTime fileModifiedAt;
 

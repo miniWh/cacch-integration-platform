@@ -22,15 +22,15 @@ public interface IShareDriveClient {
     boolean isAvailable();
 
     /**
-     * 读取目录内最新版本文件
+     * 读取目录内创建时间最新的「最终版本」文件
      *
      * @param directoryPath 资料项目目录完整路径（UNC）
-     * @return 最新版文件；目录不存在或无有效文件时返回 empty
+     * @return 最新最终版本文件；目录不存在或无匹配文件时返回 empty
      */
     Optional<ShareDriveFile> pickLatestVersion(String directoryPath);
 
     /**
-     * 扫描共享盘三级目录，仅返回目录内存在有效文件的资料项目
+     * 扫描共享盘三级目录，仅返回目录内存在「最终版本」文件的资料项目
      *
      * @param request 扫描条件（负责人/IPDP 过滤与数量上限）
      * @return 扫描结果；共享盘不可用或根路径未配置时返回空列表

@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Objects;
 
@@ -35,34 +36,29 @@ public class OaRegAttachmentSyncServiceImpl implements IOaRegAttachmentSyncServi
 
     @Override
     @Transactional(propagation = Propagation.SUPPORTS, readOnly = true, timeout = 10, rollbackFor = Exception.class)
-    public OaRegAttachmentSyncDO findByBizKey(String ownerName,
-                                              String ipdpName,
-                                              String itemName,
-                                              Integer fileVersion) {
-        if (!StringUtils.hasText(ownerName) || !StringUtils.hasText(ipdpName) || !StringUtils.hasText(itemName)
-                || fileVersion == null) {
+    public OaRegAttachmentSyncDO findByItemKey(String ownerName, String ipdpName, String itemName) {
+        if (!StringUtils.hasText(ownerName) || !StringUtils.hasText(ipdpName) || !StringUtils.hasText(itemName)) {
             return null;
         }
         return syncMapper.selectOne(new LambdaQueryWrapper<OaRegAttachmentSyncDO>()
                 .eq(OaRegAttachmentSyncDO::getOwnerName, ownerName.trim())
                 .eq(OaRegAttachmentSyncDO::getIpdpName, ipdpName.trim())
                 .eq(OaRegAttachmentSyncDO::getItemName, itemName.trim())
-                .eq(OaRegAttachmentSyncDO::getFileVersion, fileVersion)
                 .last("LIMIT 1"));
     }
 
     @Override
-    public boolean shouldSkipSuccess(OaRegAttachmentSyncDO existing, String checksum) {
+    public boolean shouldSkipSuccess(OaRegAttachmentSyncDO existing, LocalDateTime fileCreatedAt) {
         if (existing == null) {
             return false;
         }
         if (!OaRegAttachmentSyncStatusEnum.SUCCESS.getCode().equals(existing.getSyncStatus())) {
             return false;
         }
-        if (!StringUtils.hasText(checksum)) {
-            return true;
+        if (fileCreatedAt == null || existing.getFileCreatedAt() == null) {
+            return false;
         }
-        return Objects.equals(checksum, existing.getFileChecksum());
+        return Objects.equals(truncateToSeconds(fileCreatedAt), truncateToSeconds(existing.getFileCreatedAt()));
     }
 
     @Override
@@ -72,12 +68,11 @@ public class OaRegAttachmentSyncServiceImpl implements IOaRegAttachmentSyncServi
             log.info("【{}】成功回写终止, reason=record为空", BIZ);
             return;
         }
-        if (record.getFileVersion() == null) {
-            log.info("【{}】成功回写终止, reason=fileVersion为空, itemRowId={}", BIZ, record.getItemRowId());
+        if (record.getFileCreatedAt() == null) {
+            log.info("【{}】成功回写终止, reason=fileCreatedAt为空, itemRowId={}", BIZ, record.getItemRowId());
             return;
         }
-        OaRegAttachmentSyncDO existing = findByBizKey(record.getOwnerName(), record.getIpdpName(),
-                record.getItemName(), record.getFileVersion());
+        OaRegAttachmentSyncDO existing = findByItemKey(record.getOwnerName(), record.getIpdpName(), record.getItemName());
         LocalDateTime now = LocalDateTime.now();
         record.setSyncStatus(OaRegAttachmentSyncStatusEnum.SUCCESS.getCode());
         record.setRetryCount(0);
@@ -88,14 +83,14 @@ public class OaRegAttachmentSyncServiceImpl implements IOaRegAttachmentSyncServi
                 record.setRetryCount(0);
             }
             syncMapper.insert(record);
-            log.info("【{}】新增成功记录, owner={}, ipdp={}, item={}, version={}",
-                    BIZ, record.getOwnerName(), record.getIpdpName(), record.getItemName(), record.getFileVersion());
+            log.info("【{}】新增成功记录, owner={}, ipdp={}, item={}, fileCreatedAt={}",
+                    BIZ, record.getOwnerName(), record.getIpdpName(), record.getItemName(), record.getFileCreatedAt());
             return;
         }
         record.setId(existing.getId());
         syncMapper.updateById(record);
-        log.info("【{}】更新成功记录, id={}, owner={}, item={}, version={}",
-                BIZ, existing.getId(), record.getOwnerName(), record.getItemName(), record.getFileVersion());
+        log.info("【{}】更新成功记录, id={}, owner={}, item={}, fileCreatedAt={}",
+                BIZ, existing.getId(), record.getOwnerName(), record.getItemName(), record.getFileCreatedAt());
     }
 
     @Override
@@ -122,9 +117,8 @@ public class OaRegAttachmentSyncServiceImpl implements IOaRegAttachmentSyncServi
             record.setId(existing.getId());
             syncMapper.updateById(record);
         }
-        log.info("【{}】失败回写, owner={}, item={}, version={}, itemRowId={}, status={}, retryCount={}",
-                BIZ, record.getOwnerName(), record.getItemName(), record.getFileVersion(), record.getItemRowId(),
-                status, nextRetry);
+        log.info("【{}】失败回写, owner={}, item={}, itemRowId={}, status={}, retryCount={}",
+                BIZ, record.getOwnerName(), record.getItemName(), record.getItemRowId(), status, nextRetry);
         return status;
     }
 
@@ -135,10 +129,10 @@ public class OaRegAttachmentSyncServiceImpl implements IOaRegAttachmentSyncServi
             log.info("【{}】跳过回写终止, reason=record为空", BIZ);
             return;
         }
-        OaRegAttachmentSyncDO existing = record.getFileVersion() != null
-                ? findByBizKey(record.getOwnerName(), record.getIpdpName(), record.getItemName(),
-                record.getFileVersion())
-                : findLatestSkippedByItemRow(record.getItemRowId());
+        OaRegAttachmentSyncDO existing = findByItemKey(record.getOwnerName(), record.getIpdpName(), record.getItemName());
+        if (existing == null) {
+            existing = findLatestSkippedByItemRow(record.getItemRowId());
+        }
         record.setSyncStatus(OaRegAttachmentSyncStatusEnum.SKIPPED.getCode());
         record.setSyncMessage(truncate(message, 2000));
         record.setLastSyncAt(LocalDateTime.now());
@@ -183,26 +177,14 @@ public class OaRegAttachmentSyncServiceImpl implements IOaRegAttachmentSyncServi
         return syncMapper.selectPage(new Page<>(resolvedPage, resolvedSize), wrapper);
     }
 
-    /**
-     * 解析待更新的失败/重试记录（有版本走幂等键，无版本按子表行 ID）
-     *
-     * @param record 待写入记录
-     * @return 已有记录；不存在时返回 null
-     */
     private OaRegAttachmentSyncDO resolveExistingForUpdate(OaRegAttachmentSyncDO record) {
-        if (record.getFileVersion() != null) {
-            return findByBizKey(record.getOwnerName(), record.getIpdpName(), record.getItemName(),
-                    record.getFileVersion());
+        OaRegAttachmentSyncDO byItem = findByItemKey(record.getOwnerName(), record.getIpdpName(), record.getItemName());
+        if (byItem != null) {
+            return byItem;
         }
         return findLatestRetryableByItemRow(record.getItemRowId());
     }
 
-    /**
-     * 按子表行 ID 查找最近一条可重试记录（fileVersion 为空或未 SUCCESS 的场景）
-     *
-     * @param itemRowId 子表行 ID
-     * @return 记录；不存在时返回 null
-     */
     private OaRegAttachmentSyncDO findLatestRetryableByItemRow(Long itemRowId) {
         if (itemRowId == null) {
             return null;
@@ -219,12 +201,6 @@ public class OaRegAttachmentSyncServiceImpl implements IOaRegAttachmentSyncServi
                 .last("LIMIT 1"));
     }
 
-    /**
-     * 按子表行 ID 查找最近一条 SKIPPED 记录（无版本号跳过场景去重）
-     *
-     * @param itemRowId 子表行 ID
-     * @return 记录；不存在时返回 null
-     */
     private OaRegAttachmentSyncDO findLatestSkippedByItemRow(Long itemRowId) {
         if (itemRowId == null) {
             return null;
@@ -232,9 +208,12 @@ public class OaRegAttachmentSyncServiceImpl implements IOaRegAttachmentSyncServi
         return syncMapper.selectOne(new LambdaQueryWrapper<OaRegAttachmentSyncDO>()
                 .eq(OaRegAttachmentSyncDO::getItemRowId, itemRowId)
                 .eq(OaRegAttachmentSyncDO::getSyncStatus, OaRegAttachmentSyncStatusEnum.SKIPPED.getCode())
-                .isNull(OaRegAttachmentSyncDO::getFileVersion)
                 .orderByDesc(OaRegAttachmentSyncDO::getLastSyncAt)
                 .last("LIMIT 1"));
+    }
+
+    private static LocalDateTime truncateToSeconds(LocalDateTime time) {
+        return time.truncatedTo(ChronoUnit.SECONDS);
     }
 
     private static String truncate(String text, int maxLen) {

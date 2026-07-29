@@ -3,6 +3,8 @@ package com.cacch.integration.service.oa.api;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.cacch.integration.entity.oa.OaRegAttachmentSyncDO;
 
+import java.time.LocalDateTime;
+
 /**
  * 国内登记报告附件同步记录服务
  *
@@ -11,27 +13,23 @@ import com.cacch.integration.entity.oa.OaRegAttachmentSyncDO;
 public interface IOaRegAttachmentSyncService {
 
     /**
-     * 按业务幂等键查询同步记录
+     * 按资料项业务键查询同步记录（每项仅一条 SUCCESS 记录）
      *
-     * @param ownerName   登记负责人
-     * @param ipdpName    IPDP 名称
-     * @param itemName    资料项目名称
-     * @param fileVersion 文件版本号；null 时不查询
+     * @param ownerName 登记负责人
+     * @param ipdpName  IPDP 名称
+     * @param itemName  资料项目名称
      * @return 记录；不存在时返回 null
      */
-    OaRegAttachmentSyncDO findByBizKey(String ownerName,
-                                       String ipdpName,
-                                       String itemName,
-                                       Integer fileVersion);
+    OaRegAttachmentSyncDO findByItemKey(String ownerName, String ipdpName, String itemName);
 
     /**
-     * 判断是否可跳过（已成功且 checksum 一致）
+     * 判断是否可跳过（已成功且共享盘文件创建时间一致）
      *
-     * @param existing 已有记录
-     * @param checksum 当前文件 checksum
+     * @param existing      已有记录
+     * @param fileCreatedAt 当前待同步文件创建时间
      * @return true 表示无需再次上传
      */
-    boolean shouldSkipSuccess(OaRegAttachmentSyncDO existing, String checksum);
+    boolean shouldSkipSuccess(OaRegAttachmentSyncDO existing, LocalDateTime fileCreatedAt);
 
     /**
      * 写入同步成功记录

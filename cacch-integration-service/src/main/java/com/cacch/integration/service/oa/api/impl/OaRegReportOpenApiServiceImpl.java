@@ -109,6 +109,57 @@ public class OaRegReportOpenApiServiceImpl implements IOaRegReportOpenApiService
                 batchResponse);
     }
 
+    @Override
+    public OaRegReportAttachmentBindResult replaceAttachment(byte[] fileBytes,
+                                                             String fileName,
+                                                             String contentType,
+                                                             Long formMainId,
+                                                             Long subRowId,
+                                                             String subReference,
+                                                             String oldFileUrl,
+                                                             String formCode,
+                                                             String rightId,
+                                                             String loginName,
+                                                             Integer sort,
+                                                             Boolean doTrigger) {
+        if (fileBytes == null || fileBytes.length == 0) {
+            log.info("【{}】替换附件终止, reason=文件内容为空", BIZ);
+            throw new BizException(ResultCode.PARAM_MISSING, "上传文件不能为空");
+        }
+        if (!StringUtils.hasText(fileName)) {
+            log.info("【{}】替换附件终止, reason=文件名为空", BIZ);
+            throw new BizException(ResultCode.PARAM_MISSING, "文件名不能为空");
+        }
+        String resolvedLogin = resolveLoginName(loginName);
+        String token = oaTokenService.getToken(resolvedLogin);
+        if (StringUtils.hasText(oldFileUrl)) {
+            try {
+                oaClient.deleteAttachment(token, oldFileUrl.trim());
+            } catch (RestClientException e) {
+                log.info("【{}】删除旧附件失败，继续上传替换, oldFileUrl={}, reason={}",
+                        BIZ, oldFileUrl.trim(), e.getMessage());
+            }
+        }
+        OaFileUploadResult uploadResult;
+        try {
+            uploadResult = oaClient.uploadAttachment(token, fileBytes, fileName.trim(), contentType);
+        } catch (RestClientException e) {
+            log.info("【{}】替换附件终止, step=upload, reason={}", BIZ, e.getMessage());
+            throw new BizException(ResultCode.INTEGRATION_ERROR, "致远 OA 上传附件失败: " + e.getMessage(), e);
+        }
+        BindContext context = resolveBindContext(formMainId, subRowId, subReference, formCode, rightId,
+                resolvedLogin, sort, doTrigger);
+        JsonNode batchResponse = executeBatchUpdate(token, uploadResult.fileUrl(), context);
+        log.info("【{}】替换附件完成, formMainId={}, subRowId={}, subReference={}, oldFileUrl={}, newFileUrl={}",
+                BIZ, formMainId, subRowId, context.subReference(), oldFileUrl, uploadResult.fileUrl());
+        return new OaRegReportAttachmentBindResult(
+                uploadResult.fileUrl(),
+                uploadResult.fileName(),
+                context.subReference(),
+                uploadResult.rawResponse(),
+                batchResponse);
+    }
+
     private JsonNode executeBatchUpdate(String token, String fileUrl, BindContext context) {
         Map<String, Object> body = OaCap4BatchUpdateRequest.regReportAttachmentBind(
                 context.formCode(),

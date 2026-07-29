@@ -59,6 +59,7 @@ public class OaRegAttachmentSyncDO {
 
     /**
      * 解析版本号
+     * @deprecated 已改用「最终版本」后缀 + 文件创建时间，保留字段兼容历史数据
      */
     private Integer fileVersion;
 
@@ -71,6 +72,11 @@ public class OaRegAttachmentSyncDO {
      * 文件 SHA-256
      */
     private String fileChecksum;
+
+    /**
+     * 共享盘文件创建时间（幂等比对）
+     */
+    private LocalDateTime fileCreatedAt;
 
     /**
      * 共享盘文件修改时间

@@ -92,9 +92,10 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
 
         for (ShareDriveScannedItem scanned : scannedItems) {
             ShareDriveFile latestFile = scanned.latestFile();
-            log.info("【{}】识别到含附件目录, directoryPath={}, owner={}, ipdp={}, item={}, file={}",
+            log.info("【{}】识别到含最终版本文件, directoryPath={}, owner={}, ipdp={}, item={}, file={}, createdAt={}",
                     BIZ, scanned.directoryPath(), scanned.ownerName(), scanned.ipdpName(),
-                    scanned.itemName(), latestFile != null ? latestFile.fileName() : null);
+                    scanned.itemName(), latestFile != null ? latestFile.fileName() : null,
+                    latestFile != null ? latestFile.createdAt() : null);
             try {
                 String outcome = syncScannedItem(scanned, formMainId, oaLookupRows, maxRetry, ipdpPathCollisionKeys);
                 if (OaRegAttachmentSyncStatusEnum.SUCCESS.getCode().equals(outcome)) {
@@ -160,22 +161,30 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
             return OaRegAttachmentSyncStatusEnum.SKIPPED.getCode();
         }
 
-        OaRegAttachmentSyncDO existing = syncService.findByBizKey(
-                row.ownerName(), row.ipdpName(), row.itemName(), file.fileVersion());
-        if (syncService.shouldSkipSuccess(existing, file.checksum())) {
-            log.info("【{}】幂等跳过, subRowId={}, item={}, version={}",
-                    BIZ, row.subRowId(), row.itemName(), file.fileVersion());
+        OaRegAttachmentSyncDO existing = syncService.findByItemKey(
+                row.ownerName(), row.ipdpName(), row.itemName());
+        if (syncService.shouldSkipSuccess(existing, file.createdAt())) {
+            log.info("【{}】幂等跳过, subRowId={}, item={}, fileCreatedAt={}",
+                    BIZ, row.subRowId(), row.itemName(), file.createdAt());
             return OaRegAttachmentSyncStatusEnum.SKIPPED.getCode();
         }
 
+        String subReference = resolveSubReference(existing, row);
+        String oldFileUrl = existing != null ? existing.getOaFileId() : null;
+        if (StringUtils.hasText(oldFileUrl)) {
+            log.info("【{}】检测到资料项已有附件，将删除旧文件后重新上传, subRowId={}, oldFileUrl={}, newCreatedAt={}",
+                    BIZ, row.subRowId(), oldFileUrl, file.createdAt());
+        }
+
         try {
-            OaRegReportAttachmentBindResult bindResult = oaRegReportOpenApiService.uploadAndBindAttachment(
+            OaRegReportAttachmentBindResult bindResult = oaRegReportOpenApiService.replaceAttachment(
                     file.content(),
                     file.fileName(),
                     file.contentType(),
                     row.formMainId(),
                     row.subRowId(),
-                    row.currentAttachmentRef(),
+                    subReference,
+                    oldFileUrl,
                     null,
                     null,
                     null,
@@ -231,6 +240,16 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
         return collisions;
     }
 
+    private static String resolveSubReference(OaRegAttachmentSyncDO existing, OaRegReportItemRow row) {
+        if (existing != null && StringUtils.hasText(existing.getOaSubReference())) {
+            return existing.getOaSubReference();
+        }
+        if (StringUtils.hasText(row.currentAttachmentRef())) {
+            return row.currentAttachmentRef();
+        }
+        return null;
+    }
+
     private static boolean looksLikeMemberId(String ownerName) {
         return StringUtils.hasText(ownerName) && ownerName.trim().matches("-?\\d+");
     }
@@ -263,9 +282,9 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
 
     private OaRegAttachmentSyncDO enrichRecord(OaRegAttachmentSyncDO record, ShareDriveFile file) {
         record.setFileName(file.fileName());
-        record.setFileVersion(file.fileVersion());
         record.setFileSize(file.fileSize());
         record.setFileChecksum(file.checksum());
+        record.setFileCreatedAt(file.createdAt());
         record.setFileModifiedAt(file.modifiedAt());
         return record;
     }

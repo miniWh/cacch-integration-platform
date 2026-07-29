@@ -226,6 +226,41 @@ public class OaClient {
     }
 
     /**
+     * 删除 OA 附件库中的文件
+     *
+     * <p>GET {@code /seeyon/rest/attachment/removeFile/{fileId}}；{@code fileId} 为上传响应 {@code fileUrl}。</p>
+     *
+     * @param token   Rest Token，不可为空
+     * @param fileUrl REST 上传返回的文件 ID，不可为空
+     * @throws RestClientException 网络、HTTP 非 2xx 或响应异常时抛出
+     */
+    public void deleteAttachment(String token, String fileUrl) {
+        String action = "删除附件";
+        if (!StringUtils.hasText(fileUrl)) {
+            throw new RestClientException("致远 OA 删除附件失败：fileUrl 为空");
+        }
+        String fileId = fileUrl.trim();
+        URI uri = UriComponentsBuilder
+                .fromUriString(oaProperties.resolvedBaseUrl() + OaConstants.ATTACHMENT_REMOVE_PATH)
+                .buildAndExpand(Map.of("fileId", fileId))
+                .encode()
+                .toUri();
+        ThirdPartyHttpLogSupport.logRequest(BIZ, action, uri.toString(), Map.of("fileId", fileId));
+        try {
+            HttpHeaders headers = jsonHeaders();
+            headers.add(OaConstants.TOKEN_HEADER, token);
+            ResponseEntity<String> response = restTemplate.exchange(
+                    uri, HttpMethod.GET, new HttpEntity<>(headers), String.class);
+            ThirdPartyHttpLogSupport.logResponse(BIZ, action, response.getBody());
+            log.info("【{}】{}成功, fileId={}", BIZ, action, fileId);
+        } catch (RestClientException e) {
+            log.info("【{}】{}终止, fileId={}, reason={}", BIZ, action, fileId, e.getMessage());
+            log.error("【{}】{} HTTP 调用失败", BIZ, action, e);
+            throw e;
+        }
+    }
+
+    /**
      * CAP4 无流程表单批量更新
      *
      * <p>POST {@code /seeyon/rest/cap4/form/soap/batch-update}，用于绑定附件至表单字段。</p>

@@ -1,5 +1,6 @@
 package com.cacch.integration.common.config.sharedrive;
 
+import com.cacch.integration.common.constant.sharedrive.ShareDriveConstants;
 import lombok.Getter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
@@ -34,8 +35,14 @@ public class ShareDriveProperties {
     private final String domain;
 
     /**
-     * 版本号正则，默认 _v(\\d+)
+     * 最终版本文件名后缀（主文件名不含扩展名须以此结尾），默认 {@code _最终版本}
      */
+    private final String finalVersionSuffix;
+
+    /**
+     * @deprecated 已改用 {@link #finalVersionSuffix} 筛选最终版本文件，保留配置项仅为兼容
+     */
+    @Deprecated
     private final String versionPattern;
 
     /**
@@ -53,6 +60,7 @@ public class ShareDriveProperties {
                                 String username,
                                 String password,
                                 String domain,
+                                String finalVersionSuffix,
                                 String versionPattern,
                                 List<String> allowedExtensions,
                                 Long maxFileSizeBytes) {
@@ -61,6 +69,7 @@ public class ShareDriveProperties {
         this.username = username != null ? username.trim() : "";
         this.password = password != null ? password : "";
         this.domain = domain != null ? domain.trim() : "";
+        this.finalVersionSuffix = blankToDefault(finalVersionSuffix, ShareDriveConstants.DEFAULT_FINAL_VERSION_SUFFIX);
         this.versionPattern = blankToDefault(versionPattern, "_v(\\d+)");
         this.allowedExtensions = allowedExtensions != null && !allowedExtensions.isEmpty()
                 ? List.copyOf(allowedExtensions)
