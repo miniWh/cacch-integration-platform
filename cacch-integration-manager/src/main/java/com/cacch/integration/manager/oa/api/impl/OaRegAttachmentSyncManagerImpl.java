@@ -14,12 +14,12 @@ import com.cacch.integration.integration.oa.client.dto.OaRegReportItemRow;
 import com.cacch.integration.integration.oa.support.OaIdSupport;
 import com.cacch.integration.integration.oa.support.OaRegReportItemMatcher;
 import com.cacch.integration.integration.oa.support.OaRegReportPathSupport;
-import com.cacch.integration.integration.sharedrive.support.ShareDrivePathNormalizer;
 import com.cacch.integration.integration.sharedrive.client.IShareDriveClient;
 import com.cacch.integration.integration.sharedrive.client.dto.ShareDriveFile;
 import com.cacch.integration.integration.sharedrive.client.dto.ShareDriveScanRequest;
 import com.cacch.integration.integration.sharedrive.client.dto.ShareDriveScannedItem;
 import com.cacch.integration.integration.sharedrive.support.ShareDriveFileSupport;
+import com.cacch.integration.integration.sharedrive.support.ShareDriveIpdpDirectorySupport;
 import com.cacch.integration.integration.sharedrive.support.ShareDrivePathNormalizer;
 import com.cacch.integration.manager.oa.api.IOaRegAttachmentSyncManager;
 import com.cacch.integration.manager.wecom.api.IWeComWebhookManager;
@@ -96,9 +96,9 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
 
         int scanned = shareDriveClient.scanAndProcessItemDirectories(scanRequest, scannedItem -> {
             ShareDriveFile latestFile = scannedItem.latestFile();
-            log.info("【{}】识别到含最终版本文件, directoryPath={}, owner={}, ipdp={}, item={}, file={}, size={}, createdAt={}",
+            log.info("【{}】识别到含最终版本文件, directoryPath={}, owner={}, ipdp={}, projectNo={}, item={}, file={}, size={}, createdAt={}",
                     BIZ, scannedItem.directoryPath(), scannedItem.ownerName(), scannedItem.ipdpName(),
-                    scannedItem.itemName(), latestFile != null ? latestFile.fileName() : null,
+                    scannedItem.ipdpProjectNo(), scannedItem.itemName(), latestFile != null ? latestFile.fileName() : null,
                     latestFile != null ? latestFile.fileSize() : null,
                     latestFile != null ? latestFile.createdAt() : null);
             try {
@@ -182,8 +182,8 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
 
         OaRegReportItemRow row = resolveOaRow(scanned, formMainId, cursorBatchFormMainIds, ownerRowsCache);
         if (row == null) {
-            log.info("【{}】跳过同步, reason=OA未匹配资料行, owner={}, ipdp={}, item={}",
-                    BIZ, scanned.ownerName(), scanned.ipdpName(), scanned.itemName());
+            log.info("【{}】跳过同步, reason=OA未匹配资料行, owner={}, ipdp={}, projectNo={}, item={}",
+                    BIZ, scanned.ownerName(), scanned.ipdpName(), scanned.ipdpProjectNo(), scanned.itemName());
             OaRegAttachmentSyncDO record = baseRecordFromScan(scanned);
             syncService.markSkipped(record, OaRegReportConstants.SKIP_OA_NOT_FOUND);
             return OaRegAttachmentSyncStatusEnum.SKIPPED.getCode();
@@ -198,7 +198,8 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
         Set<String> ipdpPathCollisionKeys = ownerIpdpCollisionCache.computeIfAbsent(
                 scanned.ownerName(),
                 owner -> detectIpdpPathCollisions(loadOwnerRows(owner, formMainId, cursorBatchFormMainIds, ownerRowsCache)));
-        String ipdpKey = OaRegReportPathSupport.buildNormalizedIpdpKey(row.ownerName(), row.ipdpName());
+        String ipdpKey = OaRegReportPathSupport.buildNormalizedIpdpKey(
+                row.ownerName(), row.ipdpName(), row.ipdpProjectNo());
         if (ipdpPathCollisionKeys.contains(ipdpKey)) {
             log.info("【{}】跳过同步, reason=IPDP路径冲突, subRowId={}, ipdp={}", BIZ, row.subRowId(), row.ipdpName());
             OaRegAttachmentSyncDO record = baseRecord(row, scanned.directoryPath());
@@ -207,7 +208,7 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
         }
 
         OaRegAttachmentSyncDO existing = syncService.findByItemKey(
-                row.ownerName(), row.ipdpName(), row.itemName());
+                row.ownerName(), row.ipdpName(), row.ipdpProjectNo(), row.itemName());
         if (syncService.shouldSkipSuccess(existing, file.createdAt())) {
             log.info("【{}】幂等跳过, subRowId={}, item={}, fileCreatedAt={}",
                     BIZ, row.subRowId(), row.itemName(), file.createdAt());
@@ -302,9 +303,9 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
                             + ", ipdp=" + r.ipdpName()
                             + ", item=" + r.itemName())
                     .toList();
-            log.info("【{}】负责人资料行已加载但未匹配路径, diskOwner={}, diskIpdp={}, diskItem={}, "
+            log.info("【{}】负责人资料行已加载但未匹配路径, diskOwner={}, diskIpdp={}, diskProjectNo={}, diskItem={}, "
                             + "candidateCount={}, itemMatchedSamples={}, ambiguous={}",
-                    BIZ, scanned.ownerName(), scanned.ipdpName(), scanned.itemName(), ownerRows.size(),
+                    BIZ, scanned.ownerName(), scanned.ipdpName(), scanned.ipdpProjectNo(), scanned.itemName(), ownerRows.size(),
                     itemMatchedSamples,
                     OaRegReportItemMatcher.hasAmbiguousMatch(ownerRows, scanned, formMainIdFilter));
         }
@@ -347,8 +348,8 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
             return null;
         }
         return oaRegReportDbClient.listItemRowsByFormMainIds(List.of(String.valueOf(formMainId))).stream()
-                .map(OaRegReportItemRow::ipdpName)
-                .filter(StringUtils::hasText)
+                .filter(row -> StringUtils.hasText(row.ipdpName()) && StringUtils.hasText(row.ipdpProjectNo()))
+                .map(row -> ShareDriveIpdpDirectorySupport.formatDirectoryName(row.ipdpName(), row.ipdpProjectNo()))
                 .findFirst()
                 .orElse(null);
     }
@@ -357,10 +358,12 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
         Map<String, String> normalizedToOaIpdp = new HashMap<>();
         Set<String> collisions = new HashSet<>();
         for (OaRegReportItemRow row : rows) {
-            if (!StringUtils.hasText(row.ownerName()) || !StringUtils.hasText(row.ipdpName())) {
+            if (!StringUtils.hasText(row.ownerName()) || !StringUtils.hasText(row.ipdpName())
+                    || !StringUtils.hasText(row.ipdpProjectNo())) {
                 continue;
             }
-            String key = OaRegReportPathSupport.buildNormalizedIpdpKey(row.ownerName(), row.ipdpName());
+            String key = OaRegReportPathSupport.buildNormalizedIpdpKey(
+                    row.ownerName(), row.ipdpName(), row.ipdpProjectNo());
             if (!StringUtils.hasText(key) || key.equals("|")) {
                 continue;
             }
@@ -390,6 +393,7 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
         OaRegAttachmentSyncDO record = new OaRegAttachmentSyncDO();
         record.setOwnerName(scanned.ownerName());
         record.setIpdpName(scanned.ipdpName());
+        record.setIpdpProjectNo(scanned.ipdpProjectNo());
         record.setItemName(scanned.itemName());
         record.setSharePath(scanned.directoryPath());
         record.setRetryCount(0);
@@ -405,6 +409,7 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
         record.setFormMainId(OaIdSupport.toStorageLong(row.formMainId()));
         record.setOwnerName(row.ownerName());
         record.setIpdpName(row.ipdpName());
+        record.setIpdpProjectNo(row.ipdpProjectNo());
         record.setItemName(row.itemName());
         record.setItemRowId(OaIdSupport.toStorageLong(row.subRowId()));
         record.setSharePath(sharePath);

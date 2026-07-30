@@ -9,6 +9,7 @@ public record OaRegReportItemRow(
         String formMainId,
         String ownerName,
         String ipdpName,
+        String ipdpProjectNo,
         String subRowId,
         String itemName,
         String currentAttachmentRef

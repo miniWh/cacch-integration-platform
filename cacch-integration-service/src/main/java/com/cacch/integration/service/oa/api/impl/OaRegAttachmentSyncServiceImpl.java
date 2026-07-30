@@ -36,13 +36,18 @@ public class OaRegAttachmentSyncServiceImpl implements IOaRegAttachmentSyncServi
 
     @Override
     @Transactional(propagation = Propagation.SUPPORTS, readOnly = true, timeout = 10, rollbackFor = Exception.class)
-    public OaRegAttachmentSyncDO findByItemKey(String ownerName, String ipdpName, String itemName) {
-        if (!StringUtils.hasText(ownerName) || !StringUtils.hasText(ipdpName) || !StringUtils.hasText(itemName)) {
+    public OaRegAttachmentSyncDO findByItemKey(String ownerName,
+                                               String ipdpName,
+                                               String ipdpProjectNo,
+                                               String itemName) {
+        if (!StringUtils.hasText(ownerName) || !StringUtils.hasText(ipdpName)
+                || !StringUtils.hasText(ipdpProjectNo) || !StringUtils.hasText(itemName)) {
             return null;
         }
         return syncMapper.selectOne(new LambdaQueryWrapper<OaRegAttachmentSyncDO>()
                 .eq(OaRegAttachmentSyncDO::getOwnerName, ownerName.trim())
                 .eq(OaRegAttachmentSyncDO::getIpdpName, ipdpName.trim())
+                .eq(OaRegAttachmentSyncDO::getIpdpProjectNo, ipdpProjectNo.trim())
                 .eq(OaRegAttachmentSyncDO::getItemName, itemName.trim())
                 .last("LIMIT 1"));
     }
@@ -72,7 +77,8 @@ public class OaRegAttachmentSyncServiceImpl implements IOaRegAttachmentSyncServi
             log.info("【{}】成功回写终止, reason=fileCreatedAt为空, itemRowId={}", BIZ, record.getItemRowId());
             return;
         }
-        OaRegAttachmentSyncDO existing = findByItemKey(record.getOwnerName(), record.getIpdpName(), record.getItemName());
+        OaRegAttachmentSyncDO existing = findByItemKey(
+                record.getOwnerName(), record.getIpdpName(), record.getIpdpProjectNo(), record.getItemName());
         LocalDateTime now = LocalDateTime.now();
         record.setSyncStatus(OaRegAttachmentSyncStatusEnum.SUCCESS.getCode());
         record.setRetryCount(0);
@@ -129,7 +135,8 @@ public class OaRegAttachmentSyncServiceImpl implements IOaRegAttachmentSyncServi
             log.info("【{}】跳过回写终止, reason=record为空", BIZ);
             return;
         }
-        OaRegAttachmentSyncDO existing = findByItemKey(record.getOwnerName(), record.getIpdpName(), record.getItemName());
+        OaRegAttachmentSyncDO existing = findByItemKey(
+                record.getOwnerName(), record.getIpdpName(), record.getIpdpProjectNo(), record.getItemName());
         if (existing == null && record.getItemRowId() != null) {
             existing = findLatestSkippedByItemRow(record.getItemRowId());
         }
@@ -141,8 +148,9 @@ public class OaRegAttachmentSyncServiceImpl implements IOaRegAttachmentSyncServi
         }
         if (existing == null) {
             if (record.getItemRowId() == null) {
-                log.info("【{}】跳过回写将新增无 itemRowId 记录, owner={}, ipdp={}, item={}, message={}",
-                        BIZ, record.getOwnerName(), record.getIpdpName(), record.getItemName(), message);
+                log.info("【{}】跳过回写将新增无 itemRowId 记录, owner={}, ipdp={}, projectNo={}, item={}, message={}",
+                        BIZ, record.getOwnerName(), record.getIpdpName(), record.getIpdpProjectNo(),
+                        record.getItemName(), message);
             }
             syncMapper.insert(record);
         } else {
@@ -217,7 +225,8 @@ public class OaRegAttachmentSyncServiceImpl implements IOaRegAttachmentSyncServi
     }
 
     private OaRegAttachmentSyncDO resolveExistingForUpdate(OaRegAttachmentSyncDO record) {
-        OaRegAttachmentSyncDO byItem = findByItemKey(record.getOwnerName(), record.getIpdpName(), record.getItemName());
+        OaRegAttachmentSyncDO byItem = findByItemKey(
+                record.getOwnerName(), record.getIpdpName(), record.getIpdpProjectNo(), record.getItemName());
         if (byItem != null) {
             return byItem;
         }

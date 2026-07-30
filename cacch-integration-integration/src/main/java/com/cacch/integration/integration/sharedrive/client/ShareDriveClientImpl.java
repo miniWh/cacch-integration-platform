@@ -10,6 +10,7 @@ import com.cacch.integration.integration.sharedrive.support.ShareDriveDirectoryS
 import com.cacch.integration.integration.sharedrive.support.ShareDriveFinalVersionSupport;
 import com.cacch.integration.integration.sharedrive.support.ShareDriveFinalVersionSupport.CandidateFile;
 import com.cacch.integration.integration.sharedrive.support.ShareDriveFileSupport;
+import com.cacch.integration.integration.sharedrive.support.ShareDriveIpdpDirectorySupport;
 import com.cacch.integration.integration.sharedrive.support.ShareDrivePathNormalizer;
 import com.cacch.integration.integration.sharedrive.support.ShareDriveUncPathSupport;
 import com.hierynomus.msdtyp.AccessMask;
@@ -184,7 +185,7 @@ public class ShareDriveClientImpl implements IShareDriveClient {
                 return;
             }
             if (StringUtils.hasText(request.ipdpNameFilter())
-                    && !ShareDrivePathNormalizer.matchesDirectoryNameLoosely(ipdpDir, request.ipdpNameFilter())) {
+                    && !matchesIpdpFilter(ipdpDir, request.ipdpNameFilter())) {
                 continue;
             }
             String ipdpPath = ownerDir + "\\" + ipdpDir;
@@ -208,19 +209,49 @@ public class ShareDriveClientImpl implements IShareDriveClient {
             if (latest == null) {
                 continue;
             }
-            String directoryPath = OaRegReportPathSupport.buildItemDirectory(
-                    shareDriveProperties.getRootPath(), ownerDir, ipdpDir, itemDir);
-            ShareDriveScannedItem scanned = new ShareDriveScannedItem(
-                    ownerDir,
-                    ipdpDir,
-                    itemDir,
-                    directoryPath,
-                    toShareDriveFile(latest));
+            Optional<ShareDriveScannedItem> scannedOpt = toScannedItem(ownerDir, ipdpDir, itemDir, toShareDriveFile(latest));
+            if (scannedOpt.isEmpty()) {
+                continue;
+            }
+            ShareDriveScannedItem scanned = scannedOpt.get();
             log.info("【{}】扫描到含最终版本文件, directoryPath={}, file={}, createdAt={}",
-                    BIZ, directoryPath, latest.fileName(), latest.createdAt());
+                    BIZ, scanned.directoryPath(), latest.fileName(), latest.createdAt());
             processor.accept(scanned);
             processed[0]++;
         }
+    }
+
+    private Optional<ShareDriveScannedItem> toScannedItem(String ownerDir,
+                                                          String ipdpDir,
+                                                          String itemDir,
+                                                          ShareDriveFile file) {
+        ShareDriveIpdpDirectorySupport.ParsedIpdpDirectory parsed = ShareDriveIpdpDirectorySupport.parse(ipdpDir);
+        if (parsed == null) {
+            log.info("【{}】跳过目录, reason=L2未解析IPDP名称与项目编号, ipdpDir={}", BIZ, ipdpDir);
+            return Optional.empty();
+        }
+        String directoryPath = OaRegReportPathSupport.buildItemDirectory(
+                shareDriveProperties.getRootPath(), ownerDir, ipdpDir, itemDir);
+        return Optional.of(new ShareDriveScannedItem(
+                ownerDir,
+                ipdpDir,
+                parsed.ipdpName(),
+                parsed.ipdpProjectNo(),
+                itemDir,
+                directoryPath,
+                file));
+    }
+
+    private boolean matchesIpdpFilter(String ipdpDir, String filter) {
+        if (!StringUtils.hasText(filter)) {
+            return true;
+        }
+        if (ShareDrivePathNormalizer.matchesDirectoryNameLoosely(ipdpDir, filter)) {
+            return true;
+        }
+        ShareDriveIpdpDirectorySupport.ParsedIpdpDirectory parsed = ShareDriveIpdpDirectorySupport.parse(ipdpDir);
+        return parsed != null
+                && ShareDrivePathNormalizer.matchesDirectoryNameLoosely(parsed.ipdpName(), filter);
     }
 
     private int scanViaNio(ShareDriveScanRequest request, Consumer<ShareDriveScannedItem> processor) {
@@ -260,7 +291,7 @@ public class ShareDriveClientImpl implements IShareDriveClient {
                 }
                 String ipdpDir = ipdpPath.getFileName().toString();
                 if (StringUtils.hasText(request.ipdpNameFilter())
-                        && !ShareDrivePathNormalizer.matchesDirectoryNameLoosely(ipdpDir, request.ipdpNameFilter())) {
+                        && !matchesIpdpFilter(ipdpDir, request.ipdpNameFilter())) {
                     return;
                 }
                 scanNioItemLevel(ipdpPath, ownerDir, ipdpDir, request, processor, processed);
@@ -286,12 +317,14 @@ public class ShareDriveClientImpl implements IShareDriveClient {
                     return;
                 }
                 String itemDir = itemPath.getFileName().toString();
-                String directoryPath = OaRegReportPathSupport.buildItemDirectory(
-                        shareDriveProperties.getRootPath(), ownerDir, ipdpDir, itemDir);
-                ShareDriveScannedItem scanned = new ShareDriveScannedItem(
-                        ownerDir, ipdpDir, itemDir, directoryPath, toShareDriveFile(latest));
+                Optional<ShareDriveScannedItem> scannedOpt = toScannedItem(
+                        ownerDir, ipdpDir, itemDir, toShareDriveFile(latest));
+                if (scannedOpt.isEmpty()) {
+                    return;
+                }
+                ShareDriveScannedItem scanned = scannedOpt.get();
                 log.info("【{}】扫描到含最终版本文件, directoryPath={}, file={}, createdAt={}",
-                        BIZ, directoryPath, latest.fileName(), latest.createdAt());
+                        BIZ, scanned.directoryPath(), latest.fileName(), latest.createdAt());
                 processor.accept(scanned);
                 processed[0]++;
             });

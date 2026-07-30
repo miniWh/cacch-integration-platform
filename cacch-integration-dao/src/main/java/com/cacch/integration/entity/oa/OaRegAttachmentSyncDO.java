@@ -38,6 +38,11 @@ public class OaRegAttachmentSyncDO {
     private String ipdpName;
 
     /**
+     * IPDP 项目编号 field0164
+     */
+    private String ipdpProjectNo;
+
+    /**
      * 资料项目 field0214
      */
     private String itemName;

@@ -15,18 +15,17 @@ import static org.junit.jupiter.api.Assertions.assertNull;
  */
 class OaRegReportItemMatcherTest {
 
+    private static final String IPDP_DIR = "10%环丙氟虫胺可分散液剂（IPDP-202508-089）";
+    private static final String IPDP_NAME = "10%环丙氟虫胺可分散液剂";
+    private static final String PROJECT_NO = "IPDP-202508-089";
+
     @Test
     void match_prefersExactIpdpWhenLooseMatchesMultipleForms() {
-        ShareDriveScannedItem scanned = new ShareDriveScannedItem(
-                "杨燕玲",
-                "10%环丙氟虫胺可分散液剂",
-                "产品概述",
-                "\\\\server\\root\\杨燕玲\\10%环丙氟虫胺可分散液剂\\产品概述",
-                null);
+        ShareDriveScannedItem scanned = scanned("杨燕玲", "产品概述");
 
         List<OaRegReportItemRow> candidates = List.of(
-                row("1", "杨燕玲", "10%环丙氟虫胺可分散液剂", "11", "产品概述"),
-                row("2", "杨燕玲", "环丙氟虫胺可分散液剂", "22", "产品概述"));
+                row("1", "杨燕玲", "10%环丙氟虫胺可分散液剂", PROJECT_NO, "11", "产品概述"),
+                row("2", "杨燕玲", "环丙氟虫胺可分散液剂", PROJECT_NO, "22", "产品概述"));
 
         OaRegReportItemRow matched = OaRegReportItemMatcher.match(candidates, scanned, null);
         assertNotNull(matched);
@@ -35,17 +34,25 @@ class OaRegReportItemMatcherTest {
     }
 
     @Test
-    void match_usesHintFormMainIdsToDisambiguate() {
-        ShareDriveScannedItem scanned = new ShareDriveScannedItem(
-                "杨燕玲",
-                "10%环丙氟虫胺可分散液剂",
-                "产品概述",
-                "\\\\server\\root\\杨燕玲\\10%环丙氟虫胺可分散液剂\\产品概述",
-                null);
+    void match_distinguishesSameIpdpNameByProjectNo() {
+        ShareDriveScannedItem scanned = scanned("杨燕玲", "产品概述");
 
         List<OaRegReportItemRow> candidates = List.of(
-                row("100", "杨燕玲", "10%环丙氟虫胺可分散液剂", "11", "产品概述"),
-                row("200", "杨燕玲", "10%环丙氟虫胺可分散液剂", "22", "产品概述"));
+                row("1", "杨燕玲", IPDP_NAME, "IPDP-202508-089", "11", "产品概述"),
+                row("2", "杨燕玲", IPDP_NAME, "IPDP-202508-090", "22", "产品概述"));
+
+        OaRegReportItemRow matched = OaRegReportItemMatcher.match(candidates, scanned, null);
+        assertNotNull(matched);
+        assertEquals("1", matched.formMainId());
+    }
+
+    @Test
+    void match_usesHintFormMainIdsToDisambiguate() {
+        ShareDriveScannedItem scanned = scanned("杨燕玲", "产品概述");
+
+        List<OaRegReportItemRow> candidates = List.of(
+                row("100", "杨燕玲", IPDP_NAME, PROJECT_NO, "11", "产品概述"),
+                row("200", "杨燕玲", IPDP_NAME, PROJECT_NO, "22", "产品概述"));
 
         OaRegReportItemRow matched = OaRegReportItemMatcher.match(
                 candidates, scanned, null, List.of("200"));
@@ -55,40 +62,42 @@ class OaRegReportItemMatcherTest {
 
     @Test
     void match_returnsNullWhenMultipleExactMatchesWithoutHint() {
-        ShareDriveScannedItem scanned = new ShareDriveScannedItem(
-                "杨燕玲",
-                "10%环丙氟虫胺可分散液剂",
-                "产品概述",
-                "\\\\server\\root\\杨燕玲\\10%环丙氟虫胺可分散液剂\\产品概述",
-                null);
+        ShareDriveScannedItem scanned = scanned("杨燕玲", "产品概述");
 
         List<OaRegReportItemRow> candidates = List.of(
-                row("100", "杨燕玲", "10%环丙氟虫胺可分散液剂", "11", "产品概述"),
-                row("200", "杨燕玲", "10%环丙氟虫胺可分散液剂", "22", "产品概述"));
+                row("100", "杨燕玲", IPDP_NAME, PROJECT_NO, "11", "产品概述"),
+                row("200", "杨燕玲", IPDP_NAME, PROJECT_NO, "22", "产品概述"));
 
         assertNull(OaRegReportItemMatcher.match(candidates, scanned, null));
     }
 
     @Test
     void match_returnsNullWhenOwnerAndPathDoNotOverlap() {
-        ShareDriveScannedItem scanned = new ShareDriveScannedItem(
-                "杨燕玲",
-                "10%环丙氟虫胺可分散液剂",
-                "产品概述",
-                "\\\\server\\root\\杨燕玲\\10%环丙氟虫胺可分散液剂\\产品概述",
-                null);
+        ShareDriveScannedItem scanned = scanned("杨燕玲", "产品概述");
 
         List<OaRegReportItemRow> candidates = List.of(
-                row("1", "张三", "10%环丙氟虫胺可分散液剂", "11", "产品概述"));
+                row("1", "张三", IPDP_NAME, PROJECT_NO, "11", "产品概述"));
 
         assertNull(OaRegReportItemMatcher.match(candidates, scanned, null));
+    }
+
+    private static ShareDriveScannedItem scanned(String ownerName, String itemName) {
+        return new ShareDriveScannedItem(
+                ownerName,
+                IPDP_DIR,
+                IPDP_NAME,
+                PROJECT_NO,
+                itemName,
+                "\\\\server\\root\\" + ownerName + "\\" + IPDP_DIR + "\\" + itemName,
+                null);
     }
 
     private static OaRegReportItemRow row(String formMainId,
                                           String ownerName,
                                           String ipdpName,
+                                          String ipdpProjectNo,
                                           String subRowId,
                                           String itemName) {
-        return new OaRegReportItemRow(formMainId, ownerName, ipdpName, subRowId, itemName, null);
+        return new OaRegReportItemRow(formMainId, ownerName, ipdpName, ipdpProjectNo, subRowId, itemName, null);
     }
 }

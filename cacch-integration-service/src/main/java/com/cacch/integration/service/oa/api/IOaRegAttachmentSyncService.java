@@ -15,12 +15,16 @@ public interface IOaRegAttachmentSyncService {
     /**
      * 按资料项业务键查询同步记录（每项仅一条 SUCCESS 记录）
      *
-     * @param ownerName 登记负责人
-     * @param ipdpName  IPDP 名称
-     * @param itemName  资料项目名称
+     * @param ownerName     登记负责人
+     * @param ipdpName      IPDP 名称
+     * @param ipdpProjectNo IPDP 项目编号
+     * @param itemName      资料项目名称
      * @return 记录；不存在时返回 null
      */
-    OaRegAttachmentSyncDO findByItemKey(String ownerName, String ipdpName, String itemName);
+    OaRegAttachmentSyncDO findByItemKey(String ownerName,
+                                        String ipdpName,
+                                        String ipdpProjectNo,
+                                        String itemName);
 
     /**
      * 判断是否可跳过（已成功且共享盘文件创建时间一致）

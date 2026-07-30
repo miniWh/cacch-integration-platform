@@ -8,6 +8,7 @@ import com.cacch.integration.integration.oa.support.OaJdbcResultSetSupport;
 import com.cacch.integration.integration.oa.support.OaRegReportItemMatcher;
 import com.cacch.integration.integration.oa.support.ReadOnlyOaJdbcTemplate;
 import com.cacch.integration.integration.sharedrive.client.dto.ShareDriveScannedItem;
+import com.cacch.integration.integration.sharedrive.support.ShareDriveIpdpDirectorySupport;
 import com.cacch.integration.integration.sharedrive.support.ShareDrivePathNormalizer;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
@@ -209,7 +210,8 @@ public class OaRegReportDbClient {
                 return matched;
             }
         }
-        List<OaRegReportItemRow> ipdpItemRows = listItemRowsByIpdpAndItem(scanned.ipdpName(), scanned.itemName());
+        List<OaRegReportItemRow> ipdpItemRows = listItemRowsByIpdpProjectAndItem(
+                scanned.ipdpName(), scanned.ipdpProjectNo(), scanned.itemName());
         matched = OaRegReportItemMatcher.match(ipdpItemRows, scanned,
                 formMainId != null && formMainId > 0 ? String.valueOf(formMainId) : null,
                 hintFormMainIds);
@@ -217,8 +219,9 @@ public class OaRegReportDbClient {
             return matched;
         }
         if (!ipdpItemRows.isEmpty()) {
-            log.info("【{}】IPDP+资料项目已命中但未能消歧, diskOwner={}, ipdp={}, item={}, rowCount={}, owners={}",
-                    BIZ, scanned.ownerName(), scanned.ipdpName(), scanned.itemName(), ipdpItemRows.size(),
+            log.info("【{}】IPDP+项目编号+资料项目已命中但未能消歧, diskOwner={}, ipdp={}, projectNo={}, item={}, rowCount={}, owners={}",
+                    BIZ, scanned.ownerName(), scanned.ipdpName(), scanned.ipdpProjectNo(), scanned.itemName(),
+                    ipdpItemRows.size(),
                     ipdpItemRows.stream()
                             .map(OaRegReportItemRow::ownerName)
                             .filter(StringUtils::hasText)
@@ -230,14 +233,17 @@ public class OaRegReportDbClient {
     }
 
     /**
-     * 按 IPDP 名称 + 资料项目拉取候选行（负责人由后续路径匹配过滤）
+     * 按 IPDP 名称 + 项目编号 + 资料项目拉取候选行（负责人由后续路径匹配过滤）
      *
-     * @param ipdpName IPDP 名称（共享盘 L2 目录名）
-     * @param itemName 资料项目名称（共享盘 L3 目录名）
+     * @param ipdpName      IPDP 名称（共享盘 L2 解析出的 field0160）
+     * @param ipdpProjectNo IPDP 项目编号（共享盘 L2 解析出的 field0164）
+     * @param itemName      资料项目名称（共享盘 L3 目录名）
      * @return 候选资料行，无数据时返回空列表
      */
-    public List<OaRegReportItemRow> listItemRowsByIpdpAndItem(String ipdpName, String itemName) {
-        if (!StringUtils.hasText(ipdpName) || !StringUtils.hasText(itemName)) {
+    public List<OaRegReportItemRow> listItemRowsByIpdpProjectAndItem(String ipdpName,
+                                                                     String ipdpProjectNo,
+                                                                     String itemName) {
+        if (!StringUtils.hasText(ipdpName) || !StringUtils.hasText(ipdpProjectNo) || !StringUtils.hasText(itemName)) {
             return Collections.emptyList();
         }
         JdbcTemplate jdbc = oaJdbcTemplateProvider.getIfAvailable();
@@ -252,9 +258,10 @@ public class OaRegReportDbClient {
         }
         List<OaRegReportItemRow> matched = rows.stream()
                 .filter(row -> ShareDrivePathNormalizer.matchesIpdpNameLoosely(row.ipdpName(), ipdpName))
+                .filter(row -> ShareDriveIpdpDirectorySupport.matchesProjectNo(row.ipdpProjectNo(), ipdpProjectNo))
                 .toList();
-        log.info("【{}】按 IPDP+资料项目反查, ipdp={}, item={}, sqlRowCount={}, matchedCount={}",
-                BIZ, ipdpName, itemName, rows.size(), matched.size());
+        log.info("【{}】按 IPDP+项目编号+资料项目反查, ipdp={}, projectNo={}, item={}, sqlRowCount={}, matchedCount={}",
+                BIZ, ipdpName, ipdpProjectNo, itemName, rows.size(), matched.size());
         return matched;
     }
 
@@ -283,13 +290,15 @@ public class OaRegReportDbClient {
         String subTable = regReportProperties.getFormSubTable();
         String fieldOwner = regReportProperties.getFieldOwner();
         String fieldIpdp = regReportProperties.getFieldIpdpName();
+        String fieldIpdpProjectNo = regReportProperties.getFieldIpdpProjectNo();
         String fieldItem = regReportProperties.getFieldItemName();
         String fieldAttachment = regReportProperties.getAttachmentField();
         String subFk = regReportProperties.getSubTableFk();
         String orgMemberTable = regReportProperties.getOrgMemberTable();
         String ownerJoin = OaDbDialectSupport.buildOwnerMemberJoin(orgMemberTable, "m", fieldOwner, product);
         String ownerNameSelect = OaDbDialectSupport.selectOwnerNameColumn("m", fieldOwner, product);
-        String itemRowSelect = buildItemRowSelectClause(product, ownerNameSelect, fieldIpdp, fieldItem, fieldAttachment);
+        String itemRowSelect = buildItemRowSelectClause(
+                product, ownerNameSelect, fieldIpdp, fieldIpdpProjectNo, fieldItem, fieldAttachment);
         String itemText = OaDbDialectSupport.castColumnAsText("s." + fieldItem, product);
         String itemPredicate = itemPredicateTemplate.formatted(itemText);
 
@@ -372,6 +381,7 @@ public class OaRegReportDbClient {
         String subTable = regReportProperties.getFormSubTable();
         String fieldOwner = regReportProperties.getFieldOwner();
         String fieldIpdp = regReportProperties.getFieldIpdpName();
+        String fieldIpdpProjectNo = regReportProperties.getFieldIpdpProjectNo();
         String fieldItem = regReportProperties.getFieldItemName();
         String fieldAttachment = regReportProperties.getAttachmentField();
         String subFk = regReportProperties.getSubTableFk();
@@ -379,7 +389,8 @@ public class OaRegReportDbClient {
         String ownerJoin = OaDbDialectSupport.buildOwnerMemberJoin(orgMemberTable, "m", fieldOwner, product);
         String ownerNameSelect = OaDbDialectSupport.selectOwnerNameColumn("m", fieldOwner, product);
         String ownerFilterClause = OaDbDialectSupport.ownerNameEqualsClause("m", fieldOwner, product);
-        String itemRowSelect = buildItemRowSelectClause(product, ownerNameSelect, fieldIpdp, fieldItem, fieldAttachment);
+        String itemRowSelect = buildItemRowSelectClause(
+                product, ownerNameSelect, fieldIpdp, fieldIpdpProjectNo, fieldItem, fieldAttachment);
 
         String sql = """
                 SELECT %s
@@ -440,6 +451,7 @@ public class OaRegReportDbClient {
         String subTable = regReportProperties.getFormSubTable();
         String fieldOwner = regReportProperties.getFieldOwner();
         String fieldIpdp = regReportProperties.getFieldIpdpName();
+        String fieldIpdpProjectNo = regReportProperties.getFieldIpdpProjectNo();
         String fieldItem = regReportProperties.getFieldItemName();
         String fieldAttachment = regReportProperties.getAttachmentField();
         String subFk = regReportProperties.getSubTableFk();
@@ -447,7 +459,8 @@ public class OaRegReportDbClient {
         String ownerJoin = OaDbDialectSupport.buildOwnerMemberJoin(orgMemberTable, "m", fieldOwner, product);
         String ownerNameSelect = OaDbDialectSupport.selectOwnerNameColumn("m", fieldOwner, product);
         String ownerFilterClause = OaDbDialectSupport.ownerNameEqualsClause("m", fieldOwner, product);
-        String itemRowSelect = buildItemRowSelectClause(product, ownerNameSelect, fieldIpdp, fieldItem, fieldAttachment);
+        String itemRowSelect = buildItemRowSelectClause(
+                product, ownerNameSelect, fieldIpdp, fieldIpdpProjectNo, fieldItem, fieldAttachment);
 
         String inPlaceholders = formMainIds.stream().map(id -> "?").collect(Collectors.joining(", "));
 
@@ -496,7 +509,7 @@ public class OaRegReportDbClient {
         Set<String> projects = new LinkedHashSet<>();
         for (OaRegReportItemRow row : rows) {
             if (row.formMainId() != null && StringUtils.hasText(row.ipdpName())) {
-                projects.add(row.formMainId() + ":" + row.ipdpName());
+                projects.add(row.formMainId() + ":" + row.ipdpName() + "(" + row.ipdpProjectNo() + ")");
             }
         }
         log.info("【{}】本批次覆盖 IPDP 项目数={}, 项目={}", BIZ, projects.size(), projects);
@@ -505,12 +518,14 @@ public class OaRegReportDbClient {
     private static String buildItemRowSelectClause(DbProduct product,
                                                    String ownerNameSelect,
                                                    String fieldIpdp,
+                                                   String fieldIpdpProjectNo,
                                                    String fieldItem,
                                                    String fieldAttachment) {
         return String.join(", ",
                 OaDbDialectSupport.selectFormMainIdColumn("m", product),
                 ownerNameSelect,
                 OaDbDialectSupport.selectTextColumn("m", fieldIpdp, "ipdp_name", product),
+                OaDbDialectSupport.selectTextColumn("m", fieldIpdpProjectNo, "ipdp_project_no", product),
                 OaDbDialectSupport.selectSubRowIdColumn("s", product),
                 OaDbDialectSupport.selectTextColumn("s", fieldItem, "item_name", product),
                 OaDbDialectSupport.selectTextColumn("s", fieldAttachment, "current_attachment_ref", product));
@@ -523,6 +538,7 @@ public class OaRegReportDbClient {
         return "formMainId=" + row.formMainId()
                 + ", subRowId=" + row.subRowId()
                 + ", ipdp=" + row.ipdpName()
+                + ", projectNo=" + row.ipdpProjectNo()
                 + ", item=" + row.itemName();
     }
 
@@ -533,6 +549,7 @@ public class OaRegReportDbClient {
             String formMainId = OaJdbcResultSetSupport.readIdAsString(rs, "form_main_id");
             String ownerName = OaJdbcResultSetSupport.readString(rs, "owner_name");
             String ipdpName = OaJdbcResultSetSupport.readString(rs, "ipdp_name");
+            String ipdpProjectNo = OaJdbcResultSetSupport.readString(rs, "ipdp_project_no");
             String subRowId = OaJdbcResultSetSupport.readIdAsString(rs, "sub_row_id");
             String itemName = OaJdbcResultSetSupport.readString(rs, "item_name");
             String attachmentRef = OaJdbcResultSetSupport.readString(rs, "current_attachment_ref");
@@ -540,6 +557,7 @@ public class OaRegReportDbClient {
                     formMainId,
                     ownerName,
                     ipdpName,
+                    ipdpProjectNo,
                     subRowId,
                     itemName,
                     attachmentRef);

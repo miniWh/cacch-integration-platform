@@ -53,6 +53,11 @@ public class OaRegReportProperties {
     private final String fieldIpdpName;
 
     /**
+     * IPDP 项目编号字段名（共享盘 L2 括号内，对应 field0164）
+     */
+    private final String fieldIpdpProjectNo;
+
+    /**
      * 资料项目字段名
      */
     private final String fieldItemName;
@@ -75,6 +80,7 @@ public class OaRegReportProperties {
                                  Boolean doTrigger,
                                  String fieldOwner,
                                  String fieldIpdpName,
+                                 String fieldIpdpProjectNo,
                                  String fieldItemName,
                                  String subTableFk,
                                  String orgMemberTable) {
@@ -86,6 +92,7 @@ public class OaRegReportProperties {
         this.doTrigger = doTrigger != null && doTrigger;
         this.fieldOwner = blankToDefault(fieldOwner, "field0223");
         this.fieldIpdpName = blankToDefault(fieldIpdpName, "field0160");
+        this.fieldIpdpProjectNo = blankToDefault(fieldIpdpProjectNo, "field0164");
         this.fieldItemName = blankToDefault(fieldItemName, "field0214");
         this.subTableFk = blankToDefault(subTableFk, "formmain_id");
         this.orgMemberTable = blankToDefault(orgMemberTable, "org_member");

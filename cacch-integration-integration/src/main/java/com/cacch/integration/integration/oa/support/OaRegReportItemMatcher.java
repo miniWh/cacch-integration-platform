@@ -2,6 +2,7 @@ package com.cacch.integration.integration.oa.support;
 
 import com.cacch.integration.integration.oa.client.dto.OaRegReportItemRow;
 import com.cacch.integration.integration.sharedrive.client.dto.ShareDriveScannedItem;
+import com.cacch.integration.integration.sharedrive.support.ShareDriveIpdpDirectorySupport;
 import com.cacch.integration.integration.sharedrive.support.ShareDrivePathNormalizer;
 import org.springframework.util.StringUtils;
 
@@ -136,6 +137,7 @@ public final class OaRegReportItemMatcher {
                                                                    ShareDriveScannedItem scanned) {
         return rows.stream()
                 .filter(row -> ShareDrivePathNormalizer.matchesDirectoryName(row.ipdpName(), scanned.ipdpName())
+                        && ShareDriveIpdpDirectorySupport.matchesProjectNo(row.ipdpProjectNo(), scanned.ipdpProjectNo())
                         && ShareDrivePathNormalizer.matchesDirectoryName(row.itemName(), scanned.itemName()))
                 .toList();
     }
@@ -143,7 +145,8 @@ public final class OaRegReportItemMatcher {
     private static List<OaRegReportItemRow> filterExactIpdp(List<OaRegReportItemRow> rows,
                                                             ShareDriveScannedItem scanned) {
         return rows.stream()
-                .filter(row -> ShareDrivePathNormalizer.matchesDirectoryName(row.ipdpName(), scanned.ipdpName()))
+                .filter(row -> ShareDrivePathNormalizer.matchesDirectoryName(row.ipdpName(), scanned.ipdpName())
+                        && ShareDriveIpdpDirectorySupport.matchesProjectNo(row.ipdpProjectNo(), scanned.ipdpProjectNo()))
                 .toList();
     }
 
@@ -166,6 +169,7 @@ public final class OaRegReportItemMatcher {
         }
         return matchesOwner(row.ownerName(), scanned.ownerName())
                 && ShareDrivePathNormalizer.matchesIpdpNameLoosely(row.ipdpName(), scanned.ipdpName())
+                && ShareDriveIpdpDirectorySupport.matchesProjectNo(row.ipdpProjectNo(), scanned.ipdpProjectNo())
                 && ShareDrivePathNormalizer.matchesDirectoryNameLoosely(row.itemName(), scanned.itemName());
     }
 

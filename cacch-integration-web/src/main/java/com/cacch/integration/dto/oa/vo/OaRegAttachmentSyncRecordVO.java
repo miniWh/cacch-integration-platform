@@ -20,6 +20,9 @@ public class OaRegAttachmentSyncRecordVO {
 
     private String ipdpName;
 
+    /** IPDP 项目编号 field0164 */
+    private String ipdpProjectNo;
+
     private String itemName;
 
     private Long itemRowId;
