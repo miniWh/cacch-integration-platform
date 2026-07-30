@@ -6,6 +6,7 @@ import com.cacch.integration.integration.sharedrive.support.ShareDrivePathNormal
 import org.springframework.util.StringUtils;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
  * 共享盘目录与 OA 资料列表行匹配
@@ -45,7 +46,7 @@ public final class OaRegReportItemMatcher {
             if (!ShareDrivePathNormalizer.matchesDirectoryNameLoosely(row.itemName(), scanned.itemName())) {
                 continue;
             }
-            if (matched != null && !matched.subRowId().equals(row.subRowId())) {
+            if (matched != null && !Objects.equals(matched.subRowId(), row.subRowId())) {
                 return null;
             }
             matched = row;

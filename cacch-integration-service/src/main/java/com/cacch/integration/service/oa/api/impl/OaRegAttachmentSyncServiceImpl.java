@@ -130,7 +130,7 @@ public class OaRegAttachmentSyncServiceImpl implements IOaRegAttachmentSyncServi
             return;
         }
         OaRegAttachmentSyncDO existing = findByItemKey(record.getOwnerName(), record.getIpdpName(), record.getItemName());
-        if (existing == null) {
+        if (existing == null && record.getItemRowId() != null) {
             existing = findLatestSkippedByItemRow(record.getItemRowId());
         }
         record.setSyncStatus(OaRegAttachmentSyncStatusEnum.SKIPPED.getCode());
@@ -140,6 +140,10 @@ public class OaRegAttachmentSyncServiceImpl implements IOaRegAttachmentSyncServi
             record.setRetryCount(0);
         }
         if (existing == null) {
+            if (record.getItemRowId() == null) {
+                log.info("【{}】跳过回写将新增无 itemRowId 记录, owner={}, ipdp={}, item={}, message={}",
+                        BIZ, record.getOwnerName(), record.getIpdpName(), record.getItemName(), message);
+            }
             syncMapper.insert(record);
         } else {
             record.setId(existing.getId());

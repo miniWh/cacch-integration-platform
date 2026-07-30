@@ -288,6 +288,14 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
         List<OaRegReportItemRow> ownerRows = loadOwnerRows(
                 scanned.ownerName(), formMainId, cursorBatchFormMainIds, ownerRowsCache);
         OaRegReportItemRow row = OaRegReportItemMatcher.match(ownerRows, scanned, formMainId);
+        if (row == null && !ownerRows.isEmpty()) {
+            log.info("【{}】负责人资料行已加载但未匹配路径, diskOwner={}, diskIpdp={}, diskItem={}, candidateCount={}, samples={}",
+                    BIZ, scanned.ownerName(), scanned.ipdpName(), scanned.itemName(), ownerRows.size(),
+                    ownerRows.stream().limit(5).map(r ->
+                            "formMainId=" + r.formMainId()
+                                    + ", ipdp=" + r.ipdpName()
+                                    + ", item=" + r.itemName()).toList());
+        }
         if (row != null) {
             return row;
         }

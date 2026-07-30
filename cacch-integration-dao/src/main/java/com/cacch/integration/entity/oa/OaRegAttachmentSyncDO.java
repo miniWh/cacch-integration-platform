@@ -43,7 +43,7 @@ public class OaRegAttachmentSyncDO {
     private String itemName;
 
     /**
-     * 子表行 formson_5464.id
+     * 子表行 formson_5464.id；OA 未匹配时可为空
      */
     private Long itemRowId;
 
