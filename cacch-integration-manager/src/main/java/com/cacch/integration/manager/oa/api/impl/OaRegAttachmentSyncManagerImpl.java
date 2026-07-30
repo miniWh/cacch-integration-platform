@@ -18,8 +18,10 @@ import com.cacch.integration.integration.sharedrive.client.dto.ShareDriveFile;
 import com.cacch.integration.integration.sharedrive.client.dto.ShareDriveScanRequest;
 import com.cacch.integration.integration.sharedrive.client.dto.ShareDriveScannedItem;
 import com.cacch.integration.integration.sharedrive.support.ShareDriveFileSupport;
+import com.cacch.integration.integration.sharedrive.support.ShareDrivePathNormalizer;
 import com.cacch.integration.manager.oa.api.IOaRegAttachmentSyncManager;
 import com.cacch.integration.manager.wecom.api.IWeComWebhookManager;
+import com.cacch.integration.service.oa.api.IOaRegAttachmentSyncFormMainCursorService;
 import com.cacch.integration.service.oa.api.IOaRegAttachmentSyncService;
 import com.cacch.integration.service.oa.api.IOaRegReportOpenApiService;
 import lombok.RequiredArgsConstructor;
@@ -39,7 +41,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * 国内登记报告附件同步编排实现（共享盘驱动：扫描即上传，流式处理大文件）
+ * 国内登记报告附件同步编排实现（共享盘驱动：主表游标分批 + 按负责人动态反查 OA）
  *
  * @author hongfu_zhou@cacch.com
  */
@@ -55,6 +57,7 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
     private final IOaRegReportOpenApiService oaRegReportOpenApiService;
     private final IOaRegAttachmentSyncService syncService;
     private final OaRegAttachmentSyncProperties syncProperties;
+    private final IOaRegAttachmentSyncFormMainCursorService formMainCursorService;
     private final IWeComWebhookManager weComWebhookManager;
 
     @Override
@@ -74,20 +77,20 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
                     .scanned(0).success(0).retry(0).failed(0).skipped(0).build();
         }
 
-        List<OaRegReportItemRow> oaLookupRows = oaRegReportDbClient.listRegReportItemsForLookup(
-                formMainId, formBatchSize, ownerFilter);
-        String ipdpFilter = resolveIpdpFilter(formMainId, oaLookupRows);
-        Set<String> ipdpPathCollisionKeys = detectIpdpPathCollisions(oaLookupRows);
-
+        List<Long> cursorBatchFormMainIds = resolveCursorBatchFormMainIds(formMainId, formBatchSize, ownerFilter);
+        String ipdpFilter = resolveIpdpFilter(formMainId);
         ShareDriveScanRequest scanRequest = new ShareDriveScanRequest(ownerFilter, ipdpFilter, batchSize);
+
+        Map<String, List<OaRegReportItemRow>> ownerRowsCache = new HashMap<>();
+        Map<String, Set<String>> ownerIpdpCollisionCache = new HashMap<>();
 
         AtomicInteger success = new AtomicInteger();
         AtomicInteger retry = new AtomicInteger();
         AtomicInteger failed = new AtomicInteger();
         AtomicInteger skipped = new AtomicInteger();
 
-        log.info("【{}】开始附件同步(共享盘驱动流式), formMainId={}, oaLookupRows={}, maxRetry={}, batchSize={}",
-                BIZ, formMainId, oaLookupRows.size(), maxRetry, batchSize);
+        log.info("【{}】开始附件同步(游标+负责人反查), formMainId={}, cursorBatchForms={}, maxRetry={}, batchSize={}",
+                BIZ, formMainId, cursorBatchFormMainIds.size(), maxRetry, batchSize);
 
         int scanned = shareDriveClient.scanAndProcessItemDirectories(scanRequest, scannedItem -> {
             ShareDriveFile latestFile = scannedItem.latestFile();
@@ -97,7 +100,13 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
                     latestFile != null ? latestFile.fileSize() : null,
                     latestFile != null ? latestFile.createdAt() : null);
             try {
-                String outcome = syncScannedItem(scannedItem, formMainId, oaLookupRows, maxRetry, ipdpPathCollisionKeys);
+                String outcome = syncScannedItem(
+                        scannedItem,
+                        formMainId,
+                        cursorBatchFormMainIds,
+                        maxRetry,
+                        ownerRowsCache,
+                        ownerIpdpCollisionCache);
                 if (OaRegAttachmentSyncStatusEnum.SUCCESS.getCode().equals(outcome)) {
                     success.incrementAndGet();
                 } else if (OaRegAttachmentSyncStatusEnum.FAILED.getCode().equals(outcome)) {
@@ -132,18 +141,44 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
         return result;
     }
 
+    /**
+     * 全量定时同步时推进主表游标；指定 formMainId 时不使用游标
+     */
+    private List<Long> resolveCursorBatchFormMainIds(Long formMainId, int formBatchSize, String ownerFilter) {
+        if (formMainId != null && formMainId > 0) {
+            return List.of(formMainId);
+        }
+        long cursor = formMainCursorService.getLastFormMainId();
+        List<Long> batch = oaRegReportDbClient.listFormMainIdsAfterCursor(cursor, formBatchSize, ownerFilter);
+        if (batch.isEmpty() && cursor > 0) {
+            log.info("【{}】主表游标已至末尾，从头开始新一轮, previousCursor={}", BIZ, cursor);
+            formMainCursorService.resetCursor();
+            batch = oaRegReportDbClient.listFormMainIdsAfterCursor(0L, formBatchSize, ownerFilter);
+        }
+        if (!batch.isEmpty()) {
+            long newCursor = batch.get(batch.size() - 1);
+            formMainCursorService.saveLastFormMainId(newCursor);
+            log.info("【{}】本批主表游标批次, previousCursor={}, newCursor={}, formCount={}, formMainIds={}",
+                    BIZ, cursor, newCursor, batch.size(), batch);
+        } else {
+            log.info("【{}】主表游标批次为空, cursor={}", BIZ, cursor);
+        }
+        return batch;
+    }
+
     private String syncScannedItem(ShareDriveScannedItem scanned,
                                    Long formMainId,
-                                   List<OaRegReportItemRow> oaLookupRows,
+                                   List<Long> cursorBatchFormMainIds,
                                    int maxRetry,
-                                   Set<String> ipdpPathCollisionKeys) {
+                                   Map<String, List<OaRegReportItemRow>> ownerRowsCache,
+                                   Map<String, Set<String>> ownerIpdpCollisionCache) {
         ShareDriveFile file = scanned.latestFile();
         if (file == null || !StringUtils.hasText(file.fileName()) || file.fileSize() <= 0) {
             log.info("【{}】跳过同步, reason=扫描结果无有效文件元数据, path={}", BIZ, scanned.directoryPath());
             return OaRegAttachmentSyncStatusEnum.SKIPPED.getCode();
         }
 
-        OaRegReportItemRow row = OaRegReportItemMatcher.match(oaLookupRows, scanned, formMainId);
+        OaRegReportItemRow row = resolveOaRow(scanned, formMainId, cursorBatchFormMainIds, ownerRowsCache);
         if (row == null) {
             log.info("【{}】跳过同步, reason=OA未匹配资料行, owner={}, ipdp={}, item={}",
                     BIZ, scanned.ownerName(), scanned.ipdpName(), scanned.itemName());
@@ -158,6 +193,9 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
             return OaRegAttachmentSyncStatusEnum.SKIPPED.getCode();
         }
 
+        Set<String> ipdpPathCollisionKeys = ownerIpdpCollisionCache.computeIfAbsent(
+                scanned.ownerName(),
+                owner -> detectIpdpPathCollisions(loadOwnerRows(owner, formMainId, cursorBatchFormMainIds, ownerRowsCache)));
         String ipdpKey = OaRegReportPathSupport.buildNormalizedIpdpKey(row.ownerName(), row.ipdpName());
         if (ipdpPathCollisionKeys.contains(ipdpKey)) {
             log.info("【{}】跳过同步, reason=IPDP路径冲突, subRowId={}, ipdp={}", BIZ, row.subRowId(), row.ipdpName());
@@ -243,11 +281,51 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
         }
     }
 
-    private static String resolveIpdpFilter(Long formMainId, List<OaRegReportItemRow> oaLookupRows) {
-        if (formMainId == null || formMainId <= 0 || oaLookupRows.isEmpty()) {
+    private OaRegReportItemRow resolveOaRow(ShareDriveScannedItem scanned,
+                                          Long formMainId,
+                                          List<Long> cursorBatchFormMainIds,
+                                          Map<String, List<OaRegReportItemRow>> ownerRowsCache) {
+        List<OaRegReportItemRow> ownerRows = loadOwnerRows(
+                scanned.ownerName(), formMainId, cursorBatchFormMainIds, ownerRowsCache);
+        OaRegReportItemRow row = OaRegReportItemMatcher.match(ownerRows, scanned, formMainId);
+        if (row != null) {
+            return row;
+        }
+        return oaRegReportDbClient.findItemRowByDirectory(scanned, formMainId, cursorBatchFormMainIds);
+    }
+
+    private List<OaRegReportItemRow> loadOwnerRows(String diskOwnerName,
+                                                   Long formMainId,
+                                                   List<Long> cursorBatchFormMainIds,
+                                                   Map<String, List<OaRegReportItemRow>> ownerRowsCache) {
+        if (!StringUtils.hasText(diskOwnerName)) {
+            return List.of();
+        }
+        String cacheKey = diskOwnerName.trim();
+        List<OaRegReportItemRow> cached = ownerRowsCache.get(cacheKey);
+        if (cached != null) {
+            return cached;
+        }
+        List<OaRegReportItemRow> rows = oaRegReportDbClient.listItemRowsByOwnerName(cacheKey, formMainId);
+        if (rows.isEmpty() && (formMainId == null || formMainId <= 0) && !cursorBatchFormMainIds.isEmpty()) {
+            rows = oaRegReportDbClient.listItemRowsByFormMainIds(cursorBatchFormMainIds).stream()
+                    .filter(row -> ShareDrivePathNormalizer.matchesDirectoryNameLoosely(cacheKey, row.ownerName()))
+                    .toList();
+            if (!rows.isEmpty()) {
+                log.info("【{}】负责人精确反查无结果，游标批次宽松匹配命中, diskOwner={}, rowCount={}",
+                        BIZ, cacheKey, rows.size());
+            }
+        }
+        ownerRowsCache.put(cacheKey, rows);
+        log.info("【{}】负责人资料行已加载, diskOwner={}, rowCount={}", BIZ, cacheKey, rows.size());
+        return rows;
+    }
+
+    private String resolveIpdpFilter(Long formMainId) {
+        if (formMainId == null || formMainId <= 0) {
             return null;
         }
-        return oaLookupRows.stream()
+        return oaRegReportDbClient.listItemRowsByFormMainIds(List.of(formMainId)).stream()
                 .map(OaRegReportItemRow::ipdpName)
                 .filter(StringUtils::hasText)
                 .findFirst()

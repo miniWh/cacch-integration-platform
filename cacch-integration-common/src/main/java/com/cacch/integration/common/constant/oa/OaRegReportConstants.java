@@ -38,6 +38,13 @@ public final class OaRegReportConstants {
     public static final String OA_DB_READ_ONLY_POLICY =
             "OA 库仅允许 SELECT 只读查询；业务写操作须走 OA REST（upload / batch-update 等）";
 
+    /**
+     * 主表分批游标 Redis Key（值为已处理批次中最大 formmain_4070.id）
+     */
+    public static final String FORM_MAIN_CURSOR_REDIS_KEY =
+            com.cacch.integration.common.constant.redis.RedisConstants.KEY_PREFIX
+                    + "oa:reg-attachment-sync:form-main-cursor";
+
     private OaRegReportConstants() {
     }
 }

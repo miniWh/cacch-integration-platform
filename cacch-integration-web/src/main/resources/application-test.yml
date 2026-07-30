@@ -95,7 +95,7 @@ oa:
     driver-class-name: oracle.jdbc.OracleDriver
   attachment-sync:
     # 测试阶段仅联调李庆辉负责的资料
-    owner-name-filter: 李庆辉
+    owner-name-filter:
 
 # ---------- 共享盘 SMB（与 Windows 访问 \\192.168.1.8\国内登记资料 的域账号一致，直接写在本文件） ----------
 share-drive:

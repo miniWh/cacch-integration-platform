@@ -156,7 +156,7 @@ oa:
   attachment-sync:
     enabled: false
     cron: "0 0 0/4 * * ?"
-    # 单轮最多扫描登记报告主表（项目）数；每个项目下资料行全部拉取
+    # 单轮最多扫描登记报告主表（项目）数；定时任务按 Redis 游标分批推进，每批拉取这些项目的资料行作补充反查
     form-batch-size: 20
     # 仅指定 formMainId 单表触发时的子表行上限
     batch-size: 50
