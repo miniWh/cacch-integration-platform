@@ -81,7 +81,9 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
 
         List<String> cursorBatchFormMainIds = resolveCursorBatchFormMainIds(formMainId, formBatchSize, ownerFilter);
         String ipdpFilter = resolveIpdpFilter(formMainId);
-        ShareDriveScanRequest scanRequest = new ShareDriveScanRequest(ownerFilter, ipdpFilter, batchSize);
+        Map<String, Set<String>> ownerAllowedProjectNos = buildOwnerAllowedProjectNos(cursorBatchFormMainIds);
+        ShareDriveScanRequest scanRequest = new ShareDriveScanRequest(
+                ownerFilter, ipdpFilter, batchSize, ownerAllowedProjectNos);
 
         Map<String, List<OaRegReportItemRow>> ownerRowsCache = new HashMap<>();
         Map<String, Set<String>> ownerIpdpCollisionCache = new HashMap<>();
@@ -91,8 +93,8 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
         AtomicInteger failed = new AtomicInteger();
         AtomicInteger skipped = new AtomicInteger();
 
-        log.info("【{}】开始附件同步(游标+负责人反查), formMainId={}, cursorBatchForms={}, maxRetry={}, batchSize={}",
-                BIZ, formMainId, cursorBatchFormMainIds.size(), maxRetry, batchSize);
+        log.info("【{}】开始附件同步(游标+负责人反查), formMainId={}, cursorBatchForms={}, ownerProjectIndex={}, maxRetry={}, batchSize={}",
+                BIZ, formMainId, cursorBatchFormMainIds.size(), ownerAllowedProjectNos.size(), maxRetry, batchSize);
 
         int scanned = shareDriveClient.scanAndProcessItemDirectories(scanRequest, scannedItem -> {
             ShareDriveFile latestFile = scannedItem.latestFile();
@@ -207,8 +209,7 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
             return OaRegAttachmentSyncStatusEnum.SKIPPED.getCode();
         }
 
-        OaRegAttachmentSyncDO existing = syncService.findByItemKey(
-                row.ownerName(), row.ipdpName(), row.ipdpProjectNo(), row.itemName());
+        OaRegAttachmentSyncDO existing = resolveExistingSyncRecord(row);
         if (syncService.shouldSkipSuccess(existing, file.createdAt())) {
             log.info("【{}】幂等跳过, subRowId={}, item={}, fileCreatedAt={}",
                     BIZ, row.subRowId(), row.itemName(), file.createdAt());
@@ -216,11 +217,12 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
         }
 
         String subReference = resolveSubReference(existing, row);
-        boolean rotateSubReference = existing != null;
+        boolean rotateSubReference = shouldRotateSubReference(existing, row);
         if (rotateSubReference) {
-            log.info("【{}】检测到资料项已有同步记录，将轮换 subReference 绑定新附件, subRowId={}, "
-                            + "oldSubReference={}, newCreatedAt={}",
-                    BIZ, row.subRowId(), existing.getOaSubReference(), file.createdAt());
+            log.info("【{}】资料项已有附件，将轮换 subReference 仅保留最新, subRowId={}, "
+                            + "oaSubReference={}, syncRecord={}, newCreatedAt={}",
+                    BIZ, row.subRowId(), row.currentAttachmentRef(),
+                    existing != null ? existing.getOaSubReference() : null, file.createdAt());
         }
 
         try {
@@ -343,6 +345,25 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
         return rows;
     }
 
+    private Map<String, Set<String>> buildOwnerAllowedProjectNos(List<String> formMainIds) {
+        if (formMainIds == null || formMainIds.isEmpty()) {
+            log.info("【{}】扫描未加载OA项目编号索引, reason=主表批次为空", BIZ);
+            return Map.of();
+        }
+        List<OaRegReportItemRow> rows = oaRegReportDbClient.listItemRowsByFormMainIds(formMainIds);
+        Map<String, Set<String>> index = new HashMap<>();
+        for (OaRegReportItemRow row : rows) {
+            if (!StringUtils.hasText(row.ownerName()) || !StringUtils.hasText(row.ipdpProjectNo())) {
+                continue;
+            }
+            String normalizedProjectNo = ShareDriveIpdpDirectorySupport.normalizeProjectNo(row.ipdpProjectNo());
+            index.computeIfAbsent(row.ownerName().trim(), key -> new HashSet<>()).add(normalizedProjectNo);
+        }
+        log.info("【{}】扫描OA项目编号索引已加载, formCount={}, ownerCount={}, index={}",
+                BIZ, formMainIds.size(), index.size(), index);
+        return index;
+    }
+
     private String resolveIpdpFilter(Long formMainId) {
         if (formMainId == null || formMainId <= 0) {
             return null;
@@ -373,6 +394,26 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
             }
         }
         return collisions;
+    }
+
+    private OaRegAttachmentSyncDO resolveExistingSyncRecord(OaRegReportItemRow row) {
+        OaRegAttachmentSyncDO existing = syncService.findByItemKey(
+                row.ownerName(), row.ipdpName(), row.ipdpProjectNo(), row.itemName());
+        if (existing != null) {
+            return existing;
+        }
+        Long itemRowId = OaIdSupport.toStorageLong(row.subRowId());
+        if (itemRowId == null) {
+            return null;
+        }
+        return syncService.findLatestSuccessByItemRowId(itemRowId);
+    }
+
+    private static boolean shouldRotateSubReference(OaRegAttachmentSyncDO existing, OaRegReportItemRow row) {
+        if (existing != null) {
+            return true;
+        }
+        return StringUtils.hasText(row.currentAttachmentRef());
     }
 
     private static String resolveSubReference(OaRegAttachmentSyncDO existing, OaRegReportItemRow row) {

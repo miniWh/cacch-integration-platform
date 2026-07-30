@@ -1,18 +1,21 @@
 package com.cacch.integration.integration.sharedrive.support;
 
+import com.cacch.integration.integration.sharedrive.support.ShareDrivePathNormalizer;
 import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
  * 共享盘 L2 目录解析：{@code IPDP名称（项目编号）}，括号中英文均可
  *
- * <p>项目编号取值以 OA {@code formmain_4070.field0164} 为准；磁盘 L2 括号内为路径定位段，
- * 同步入库与幂等键均使用 OA 侧 field0164，不限制编号格式。</p>
+ * <p>格式：{@code {IPDP名称，可含括号}（{field0164 项目编号}）}，项目编号取<strong>最后一对</strong>括号；
+ * 扫描 L2 时即按 field0164 与 OA 预加载索引匹配，再进入 L3 读文件。</p>
  *
  * @author hongfu_zhou@cacch.com
  */
@@ -27,8 +30,8 @@ public final class ShareDriveIpdpDirectorySupport {
      * L2 目录解析结果
      *
      * @param directoryName 磁盘 L2 目录原名
-     * @param ipdpName      IPDP 名称（括号外，对应 OA field0160 归一化）
-     * @param ipdpProjectNo 项目编号（L2 最后一对括号内，用于路径消歧；入库以 OA field0164 为准）
+     * @param ipdpName      IPDP 名称段（最后一对括号前的原文，可含配方括号如 {@code (6+15)}）
+     * @param ipdpProjectNo 项目编号（L2 最后一对括号内，对应 OA field0164）
      */
     public record ParsedIpdpDirectory(String directoryName, String ipdpName, String ipdpProjectNo) {
     }
@@ -56,11 +59,51 @@ public final class ShareDriveIpdpDirectorySupport {
         if (!StringUtils.hasText(ipdpProjectNo)) {
             return null;
         }
-        String ipdpName = normalizeIpdpNameForMatch(trimmed.substring(0, last.start()));
+        String ipdpName = trimmed.substring(0, last.start()).trim();
         if (!StringUtils.hasText(ipdpName)) {
             return null;
         }
         return new ParsedIpdpDirectory(trimmed, ipdpName, ipdpProjectNo);
+    }
+
+    /**
+     * 判断磁盘 L2 项目编号是否在 OA field0164 允许集合内
+     *
+     * @param allowedNormalizedProjectNos OA field0164 规范化集合；空表示不过滤
+     * @param diskProjectNo               L2 最后一对括号内文本
+     * @return true 表示允许扫描该 L2
+     */
+    public static boolean matchesAllowedProjectNo(Set<String> allowedNormalizedProjectNos, String diskProjectNo) {
+        if (allowedNormalizedProjectNos == null || allowedNormalizedProjectNos.isEmpty()) {
+            return true;
+        }
+        if (!StringUtils.hasText(diskProjectNo)) {
+            return false;
+        }
+        return allowedNormalizedProjectNos.contains(normalizeProjectNo(diskProjectNo));
+    }
+
+    /**
+     * 按磁盘负责人目录名解析 OA 预加载的项目编号集合
+     *
+     * @param ownerIndex    负责人 → field0164 集合（key 为 OA 登记负责人姓名）
+     * @param diskOwnerName 共享盘 L1 目录名
+     * @return 允许的项目编号集合；无匹配负责人时返回空集合
+     */
+    public static Set<String> resolveAllowedProjectNos(Map<String, Set<String>> ownerIndex, String diskOwnerName) {
+        if (ownerIndex == null || ownerIndex.isEmpty() || !StringUtils.hasText(diskOwnerName)) {
+            return Set.of();
+        }
+        Set<String> exact = ownerIndex.get(diskOwnerName.trim());
+        if (exact != null) {
+            return exact;
+        }
+        for (Map.Entry<String, Set<String>> entry : ownerIndex.entrySet()) {
+            if (ShareDrivePathNormalizer.matchesDirectoryNameLoosely(diskOwnerName, entry.getKey())) {
+                return entry.getValue();
+            }
+        }
+        return Set.of();
     }
 
     /**

@@ -53,6 +53,21 @@ public class OaRegAttachmentSyncServiceImpl implements IOaRegAttachmentSyncServi
     }
 
     @Override
+    @Transactional(propagation = Propagation.SUPPORTS, readOnly = true, timeout = 10, rollbackFor = Exception.class)
+    public OaRegAttachmentSyncDO findLatestSuccessByItemRowId(Long itemRowId) {
+        if (itemRowId == null) {
+            return null;
+        }
+        return syncMapper.selectOne(new LambdaQueryWrapper<OaRegAttachmentSyncDO>()
+                .eq(OaRegAttachmentSyncDO::getItemRowId, itemRowId)
+                .eq(OaRegAttachmentSyncDO::getSyncStatus, OaRegAttachmentSyncStatusEnum.SUCCESS.getCode())
+                .orderByDesc(OaRegAttachmentSyncDO::getLastSyncAt)
+                .orderByDesc(OaRegAttachmentSyncDO::getId)
+                .last("LIMIT 1"));
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.SUPPORTS, readOnly = true, timeout = 10, rollbackFor = Exception.class)
     public boolean shouldSkipSuccess(OaRegAttachmentSyncDO existing, LocalDateTime fileCreatedAt) {
         if (existing == null) {
             return false;
@@ -77,8 +92,7 @@ public class OaRegAttachmentSyncServiceImpl implements IOaRegAttachmentSyncServi
             log.info("【{}】成功回写终止, reason=fileCreatedAt为空, itemRowId={}", BIZ, record.getItemRowId());
             return;
         }
-        OaRegAttachmentSyncDO existing = findByItemKey(
-                record.getOwnerName(), record.getIpdpName(), record.getIpdpProjectNo(), record.getItemName());
+        OaRegAttachmentSyncDO existing = resolveExistingForUpdate(record);
         LocalDateTime now = LocalDateTime.now();
         record.setSyncStatus(OaRegAttachmentSyncStatusEnum.SUCCESS.getCode());
         record.setRetryCount(0);
@@ -229,6 +243,13 @@ public class OaRegAttachmentSyncServiceImpl implements IOaRegAttachmentSyncServi
                 record.getOwnerName(), record.getIpdpName(), record.getIpdpProjectNo(), record.getItemName());
         if (byItem != null) {
             return byItem;
+        }
+        if (record.getItemRowId() == null) {
+            return null;
+        }
+        OaRegAttachmentSyncDO bySuccessRow = findLatestSuccessByItemRowId(record.getItemRowId());
+        if (bySuccessRow != null) {
+            return bySuccessRow;
         }
         return findLatestRetryableByItemRow(record.getItemRowId());
     }

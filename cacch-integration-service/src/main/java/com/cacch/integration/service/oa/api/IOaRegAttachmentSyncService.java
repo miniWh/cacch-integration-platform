@@ -27,6 +27,14 @@ public interface IOaRegAttachmentSyncService {
                                         String itemName);
 
     /**
+     * 按子表行 ID 查询最近一次 SUCCESS 同步记录（幂等键变更时仍视为同一资料项）
+     *
+     * @param itemRowId OA 子表行 formson_5464.id
+     * @return 最近成功记录；不存在时返回 null
+     */
+    OaRegAttachmentSyncDO findLatestSuccessByItemRowId(Long itemRowId);
+
+    /**
      * 判断是否可跳过（已成功且共享盘文件创建时间一致）
      *
      * @param existing      已有记录
