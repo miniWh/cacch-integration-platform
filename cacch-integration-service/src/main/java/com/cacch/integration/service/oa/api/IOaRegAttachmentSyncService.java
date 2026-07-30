@@ -75,4 +75,22 @@ public interface IOaRegAttachmentSyncService {
      * @return 分页结果
      */
     IPage<OaRegAttachmentSyncDO> pageQuery(String syncStatus, long page, long size);
+
+    /**
+     * 按登记负责人 / IPDP 名称 / 资料项目分页查询同步记录（管理端；条件均可选，多条件 AND）
+     *
+     * @param ownerName  登记负责人，可空；非空时模糊匹配
+     * @param ipdpName   IPDP 名称，可空；非空时模糊匹配
+     * @param itemName   资料项目名称，可空；非空时模糊匹配
+     * @param syncStatus 同步状态，可空；非空时精确匹配
+     * @param page       页码，从 1 开始
+     * @param size       每页条数，最大 {@link com.cacch.integration.common.constant.oa.OaRegReportConstants#MAX_PAGE_SIZE}
+     * @return 分页结果，按 lastSyncAt、id 倒序
+     */
+    IPage<OaRegAttachmentSyncDO> pageByItemCriteria(String ownerName,
+                                                    String ipdpName,
+                                                    String itemName,
+                                                    String syncStatus,
+                                                    long page,
+                                                    long size);
 }

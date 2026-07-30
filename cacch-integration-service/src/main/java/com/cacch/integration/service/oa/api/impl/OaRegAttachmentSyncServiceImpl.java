@@ -177,6 +177,41 @@ public class OaRegAttachmentSyncServiceImpl implements IOaRegAttachmentSyncServi
         return syncMapper.selectPage(new Page<>(resolvedPage, resolvedSize), wrapper);
     }
 
+    @Override
+    @Transactional(propagation = Propagation.SUPPORTS, readOnly = true, timeout = 10, rollbackFor = Exception.class)
+    public IPage<OaRegAttachmentSyncDO> pageByItemCriteria(String ownerName,
+                                                           String ipdpName,
+                                                           String itemName,
+                                                           String syncStatus,
+                                                           long page,
+                                                           long size) {
+        long resolvedPage = page > 0 ? page : 1;
+        long resolvedSize = resolvePageSize(size);
+        LambdaQueryWrapper<OaRegAttachmentSyncDO> wrapper = new LambdaQueryWrapper<OaRegAttachmentSyncDO>()
+                .orderByDesc(OaRegAttachmentSyncDO::getLastSyncAt)
+                .orderByDesc(OaRegAttachmentSyncDO::getId);
+        if (StringUtils.hasText(ownerName)) {
+            wrapper.like(OaRegAttachmentSyncDO::getOwnerName, ownerName.trim());
+        }
+        if (StringUtils.hasText(ipdpName)) {
+            wrapper.like(OaRegAttachmentSyncDO::getIpdpName, ipdpName.trim());
+        }
+        if (StringUtils.hasText(itemName)) {
+            wrapper.like(OaRegAttachmentSyncDO::getItemName, itemName.trim());
+        }
+        if (StringUtils.hasText(syncStatus)) {
+            wrapper.eq(OaRegAttachmentSyncDO::getSyncStatus, syncStatus.trim());
+        }
+        return syncMapper.selectPage(new Page<>(resolvedPage, resolvedSize), wrapper);
+    }
+
+    private static long resolvePageSize(long size) {
+        if (size <= 0) {
+            return 20;
+        }
+        return Math.min(size, OaRegReportConstants.MAX_PAGE_SIZE);
+    }
+
     private OaRegAttachmentSyncDO resolveExistingForUpdate(OaRegAttachmentSyncDO record) {
         OaRegAttachmentSyncDO byItem = findByItemKey(record.getOwnerName(), record.getIpdpName(), record.getItemName());
         if (byItem != null) {

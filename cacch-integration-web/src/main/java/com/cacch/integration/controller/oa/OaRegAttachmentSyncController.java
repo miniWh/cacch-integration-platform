@@ -98,6 +98,36 @@ public class OaRegAttachmentSyncController {
     }
 
     /**
+     * 按登记负责人 / IPDP 名称 / 资料项目分页查询同步记录（管理端）
+     *
+     * <p>三个业务维度均可选、可组合；均不填时返回全部记录（分页）。名称类条件为模糊匹配（包含即可）。</p>
+     *
+     * @param ownerName  登记负责人，可空
+     * @param ipdpName   IPDP 名称，可空
+     * @param itemName   资料项目名称，可空
+     * @param syncStatus 同步状态，可空；取值见 {@code OaRegAttachmentSyncStatusEnum}
+     * @param page       页码，从 1 开始，默认 1
+     * @param size       每页条数，默认 20，最大 100
+     * @return 分页同步记录
+     */
+    @GetMapping("/attachment-sync/records/search")
+    public Result<Map<String, Object>> searchRecords(@RequestParam(required = false) String ownerName,
+                                                     @RequestParam(required = false) String ipdpName,
+                                                     @RequestParam(required = false) String itemName,
+                                                     @RequestParam(required = false) String syncStatus,
+                                                     @RequestParam(defaultValue = "1") long page,
+                                                     @RequestParam(defaultValue = "20") long size) {
+        log.info("【{}】管理查询同步记录, ownerName={}, ipdpName={}, itemName={}, syncStatus={}, page={}, size={}",
+                BIZ, ownerName, ipdpName, itemName, syncStatus, page, size);
+        IPage<OaRegAttachmentSyncDO> result = syncService.pageByItemCriteria(
+                ownerName, ipdpName, itemName, syncStatus, page, size);
+        List<OaRegAttachmentSyncRecordVO> records = syncConverter.toVOList(result.getRecords());
+        log.info("【{}】管理查询同步记录完成, total={}, page={}, size={}",
+                BIZ, result.getTotal(), result.getCurrent(), result.getSize());
+        return Result.success(pagePayload(result, records));
+    }
+
+    /**
      * 分页查询同步记录
      *
      * @param syncStatus 可选同步状态过滤

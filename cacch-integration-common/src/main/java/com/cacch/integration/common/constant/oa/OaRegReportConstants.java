@@ -15,6 +15,11 @@ public final class OaRegReportConstants {
 
     public static final int DEFAULT_MAX_RETRY = 3;
 
+    /**
+     * 管理端分页查询单页最大条数
+     */
+    public static final int MAX_PAGE_SIZE = 100;
+
     public static final String SKIP_MISSING_DIR = "MISSING_DIR";
 
     public static final String SKIP_NO_FILE = "NO_FILE";
