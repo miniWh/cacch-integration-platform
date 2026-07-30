@@ -20,6 +20,46 @@ class OaRegReportItemMatcherTest {
     private static final String PROJECT_NO = "IPDP-202508-089";
 
     @Test
+    void match_usesOaField0164WhenDiskProjectNoDiffersAndSingleCandidate() {
+        ShareDriveScannedItem scanned = new ShareDriveScannedItem(
+                "李庆辉",
+                "21%环丙氟虫胺·螺虫乙酯可分散液剂（6+15）",
+                "21%环丙氟虫胺·螺虫乙酯可分散液剂",
+                "6+15",
+                "农药登记申请表",
+                "\\\\server\\root\\李庆辉\\21%环丙氟虫胺·螺虫乙酯可分散液剂（6+15）\\农药登记申请表",
+                null);
+
+        List<OaRegReportItemRow> candidates = List.of(
+                row("8323386097039524452", "李庆辉",
+                        "21%环丙氟虫胺·螺虫乙酯可分散液剂（6+15）", "IPDP-202501-010", "11", "农药登记申请表"));
+
+        OaRegReportItemRow matched = OaRegReportItemMatcher.match(candidates, scanned, null);
+        assertNotNull(matched);
+        assertEquals("IPDP-202501-010", matched.ipdpProjectNo());
+    }
+
+    @Test
+    void match_matchesWhenOaIpdpNameContainsFormulationParentheses() {
+        ShareDriveScannedItem scanned = new ShareDriveScannedItem(
+                "李庆辉",
+                "21%环丙氟虫胺·螺虫乙酯可分散液剂（IPDP-202501-010）",
+                "21%环丙氟虫胺·螺虫乙酯可分散液剂",
+                "IPDP-202501-010",
+                "农药登记申请表",
+                "\\\\server\\root\\李庆辉\\21%环丙氟虫胺·螺虫乙酯可分散液剂（IPDP-202501-010）\\农药登记申请表",
+                null);
+
+        List<OaRegReportItemRow> candidates = List.of(
+                row("8323386097039524452", "李庆辉",
+                        "21%环丙氟虫胺·螺虫乙酯可分散液剂（6+15）", "IPDP-202501-010", "11", "农药登记申请表"));
+
+        OaRegReportItemRow matched = OaRegReportItemMatcher.match(candidates, scanned, null);
+        assertNotNull(matched);
+        assertEquals("8323386097039524452", matched.formMainId());
+    }
+
+    @Test
     void match_prefersExactIpdpWhenLooseMatchesMultipleForms() {
         ShareDriveScannedItem scanned = scanned("杨燕玲", "产品概述");
 

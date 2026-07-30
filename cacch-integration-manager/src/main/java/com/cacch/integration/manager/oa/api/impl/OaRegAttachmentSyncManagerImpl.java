@@ -408,7 +408,7 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
         OaRegAttachmentSyncDO record = new OaRegAttachmentSyncDO();
         record.setFormMainId(OaIdSupport.toStorageLong(row.formMainId()));
         record.setOwnerName(row.ownerName());
-        record.setIpdpName(row.ipdpName());
+        record.setIpdpName(ShareDriveIpdpDirectorySupport.normalizeIpdpNameForMatch(row.ipdpName()));
         record.setIpdpProjectNo(row.ipdpProjectNo());
         record.setItemName(row.itemName());
         record.setItemRowId(OaIdSupport.toStorageLong(row.subRowId()));

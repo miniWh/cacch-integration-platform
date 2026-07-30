@@ -227,7 +227,7 @@ public class ShareDriveClientImpl implements IShareDriveClient {
                                                           ShareDriveFile file) {
         ShareDriveIpdpDirectorySupport.ParsedIpdpDirectory parsed = ShareDriveIpdpDirectorySupport.parse(ipdpDir);
         if (parsed == null) {
-            log.info("【{}】跳过目录, reason=L2未解析IPDP名称与项目编号, ipdpDir={}", BIZ, ipdpDir);
+            log.info("【{}】跳过目录, reason=L2未解析IPDP名称与项目编号段, ipdpDir={}", BIZ, ipdpDir);
             return Optional.empty();
         }
         String directoryPath = OaRegReportPathSupport.buildItemDirectory(

@@ -260,8 +260,16 @@ public class OaRegReportDbClient {
                 .filter(row -> ShareDrivePathNormalizer.matchesIpdpNameLoosely(row.ipdpName(), ipdpName))
                 .filter(row -> ShareDriveIpdpDirectorySupport.matchesProjectNo(row.ipdpProjectNo(), ipdpProjectNo))
                 .toList();
-        log.info("【{}】按 IPDP+项目编号+资料项目反查, ipdp={}, projectNo={}, item={}, sqlRowCount={}, matchedCount={}",
-                BIZ, ipdpName, ipdpProjectNo, itemName, rows.size(), matched.size());
+        if (matched.isEmpty()) {
+            matched = rows.stream()
+                    .filter(row -> ShareDrivePathNormalizer.matchesIpdpNameLoosely(row.ipdpName(), ipdpName))
+                    .toList();
+            log.info("【{}】按 field0164 未命中，降级为 IPDP+资料项目反查, ipdp={}, diskProjectNo={}, item={}, matchedCount={}",
+                    BIZ, ipdpName, ipdpProjectNo, itemName, matched.size());
+        } else {
+            log.info("【{}】按 IPDP+field0164+资料项目反查, ipdp={}, projectNo={}, item={}, sqlRowCount={}, matchedCount={}",
+                    BIZ, ipdpName, ipdpProjectNo, itemName, rows.size(), matched.size());
+        }
         return matched;
     }
 

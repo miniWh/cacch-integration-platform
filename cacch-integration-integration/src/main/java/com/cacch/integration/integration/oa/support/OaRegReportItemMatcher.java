@@ -14,6 +14,9 @@ import java.util.Set;
 /**
  * 共享盘目录与 OA 资料列表行匹配
  *
+ * <p>项目编号以 OA {@code field0164} 为准；路径匹配按负责人 + IPDP 名称 + 资料项目，
+ * 多条候选时再按 field0164 与 L2 括号内文本消歧。</p>
+ *
  * @author hongfu_zhou@cacch.com
  */
 public final class OaRegReportItemMatcher {
@@ -99,18 +102,19 @@ public final class OaRegReportItemMatcher {
     private static OaRegReportItemRow disambiguate(List<OaRegReportItemRow> matchedRows,
                                                    ShareDriveScannedItem scanned,
                                                    List<String> hintFormMainIds) {
-        List<OaRegReportItemRow> pool = filterExactIpdpAndItem(matchedRows, scanned);
-        if (pool.size() == 1) {
-            return pool.getFirst();
+        List<OaRegReportItemRow> byProjectNo = filterByOaProjectNo(matchedRows, scanned);
+        if (byProjectNo.size() == 1) {
+            return byProjectNo.getFirst();
         }
-        if (pool.isEmpty()) {
-            pool = filterExactIpdp(matchedRows, scanned);
-            if (pool.size() == 1) {
-                return pool.getFirst();
-            }
-            if (pool.isEmpty()) {
-                pool = matchedRows;
-            }
+
+        List<OaRegReportItemRow> pool = !byProjectNo.isEmpty() ? byProjectNo : matchedRows;
+
+        List<OaRegReportItemRow> exact = filterExactIpdpAndItem(pool, scanned);
+        if (exact.size() == 1) {
+            return exact.getFirst();
+        }
+        if (!exact.isEmpty()) {
+            pool = exact;
         }
 
         List<OaRegReportItemRow> hinted = filterByHintFormMainIds(pool, hintFormMainIds);
@@ -133,25 +137,29 @@ public final class OaRegReportItemMatcher {
         return null;
     }
 
-    private static List<OaRegReportItemRow> filterExactIpdpAndItem(List<OaRegReportItemRow> rows,
-                                                                   ShareDriveScannedItem scanned) {
+    private static List<OaRegReportItemRow> filterByOaProjectNo(List<OaRegReportItemRow> rows,
+                                                                ShareDriveScannedItem scanned) {
+        if (!StringUtils.hasText(scanned.ipdpProjectNo())) {
+            return List.of();
+        }
         return rows.stream()
-                .filter(row -> ShareDrivePathNormalizer.matchesDirectoryName(row.ipdpName(), scanned.ipdpName())
-                        && ShareDriveIpdpDirectorySupport.matchesProjectNo(row.ipdpProjectNo(), scanned.ipdpProjectNo())
-                        && ShareDrivePathNormalizer.matchesDirectoryName(row.itemName(), scanned.itemName()))
+                .filter(row -> ShareDriveIpdpDirectorySupport.matchesProjectNo(
+                        row.ipdpProjectNo(), scanned.ipdpProjectNo()))
                 .toList();
     }
 
-    private static List<OaRegReportItemRow> filterExactIpdp(List<OaRegReportItemRow> rows,
-                                                            ShareDriveScannedItem scanned) {
+    private static List<OaRegReportItemRow> filterExactIpdpAndItem(List<OaRegReportItemRow> rows,
+                                                                   ShareDriveScannedItem scanned) {
         return rows.stream()
-                .filter(row -> ShareDrivePathNormalizer.matchesDirectoryName(row.ipdpName(), scanned.ipdpName())
-                        && ShareDriveIpdpDirectorySupport.matchesProjectNo(row.ipdpProjectNo(), scanned.ipdpProjectNo()))
+                .filter(row -> ShareDrivePathNormalizer.matchesDirectoryName(
+                        ShareDriveIpdpDirectorySupport.normalizeIpdpNameForMatch(row.ipdpName()),
+                        scanned.ipdpName())
+                        && ShareDrivePathNormalizer.matchesDirectoryNameLoosely(row.itemName(), scanned.itemName()))
                 .toList();
     }
 
     private static List<OaRegReportItemRow> filterByHintFormMainIds(List<OaRegReportItemRow> rows,
-                                                                      List<String> hintFormMainIds) {
+                                                                    List<String> hintFormMainIds) {
         if (hintFormMainIds == null || hintFormMainIds.isEmpty()) {
             return List.of();
         }
@@ -169,7 +177,6 @@ public final class OaRegReportItemMatcher {
         }
         return matchesOwner(row.ownerName(), scanned.ownerName())
                 && ShareDrivePathNormalizer.matchesIpdpNameLoosely(row.ipdpName(), scanned.ipdpName())
-                && ShareDriveIpdpDirectorySupport.matchesProjectNo(row.ipdpProjectNo(), scanned.ipdpProjectNo())
                 && ShareDrivePathNormalizer.matchesDirectoryNameLoosely(row.itemName(), scanned.itemName());
     }
 

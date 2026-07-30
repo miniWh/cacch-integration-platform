@@ -125,11 +125,13 @@ public final class ShareDrivePathNormalizer {
      * @return true 表示 IPDP 匹配
      */
     public static boolean matchesIpdpNameLoosely(String oaIpdpName, String diskIpdpName) {
-        if (matchesDirectoryNameLoosely(oaIpdpName, diskIpdpName)) {
+        String oaNormalized = ShareDriveIpdpDirectorySupport.normalizeIpdpNameForMatch(oaIpdpName);
+        String diskNormalized = ShareDriveIpdpDirectorySupport.normalizeIpdpNameForMatch(diskIpdpName);
+        if (matchesDirectoryNameLoosely(oaNormalized, diskNormalized)) {
             return true;
         }
-        String oaCore = stripDosagePrefix(canonicalForMatch(oaIpdpName));
-        String diskCore = stripDosagePrefix(canonicalForMatch(diskIpdpName));
+        String oaCore = stripDosagePrefix(canonicalForMatch(oaNormalized));
+        String diskCore = stripDosagePrefix(canonicalForMatch(diskNormalized));
         if (!StringUtils.hasText(oaCore) || !StringUtils.hasText(diskCore)) {
             return false;
         }
