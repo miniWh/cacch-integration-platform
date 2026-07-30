@@ -111,7 +111,46 @@ public final class ShareDrivePathNormalizer {
         if (minLen < 4) {
             return false;
         }
+        if (diskKey.contains(expectedKey) || expectedKey.contains(diskKey)) {
+            return true;
+        }
         return diskKey.startsWith(expectedKey) || expectedKey.startsWith(diskKey);
+    }
+
+    /**
+     * IPDP 名称宽松匹配（忽略 leading 含量前缀如 {@code 10%}，并支持互为子串）
+     *
+     * @param oaIpdpName   OA field0160 原文
+     * @param diskIpdpName 共享盘 L2 目录名
+     * @return true 表示 IPDP 匹配
+     */
+    public static boolean matchesIpdpNameLoosely(String oaIpdpName, String diskIpdpName) {
+        if (matchesDirectoryNameLoosely(oaIpdpName, diskIpdpName)) {
+            return true;
+        }
+        String oaCore = stripDosagePrefix(canonicalForMatch(oaIpdpName));
+        String diskCore = stripDosagePrefix(canonicalForMatch(diskIpdpName));
+        if (!StringUtils.hasText(oaCore) || !StringUtils.hasText(diskCore)) {
+            return false;
+        }
+        if (oaCore.equals(diskCore)) {
+            return true;
+        }
+        int minLen = Math.min(oaCore.length(), diskCore.length());
+        if (minLen < 4) {
+            return false;
+        }
+        if (oaCore.contains(diskCore) || diskCore.contains(oaCore)) {
+            return true;
+        }
+        return oaCore.startsWith(diskCore) || diskCore.startsWith(oaCore);
+    }
+
+    private static String stripDosagePrefix(String canonicalKey) {
+        if (!StringUtils.hasText(canonicalKey)) {
+            return "";
+        }
+        return canonicalKey.replaceFirst("^\\d+[%％]", "");
     }
 
     private static String stripTrailingDots(String value) {

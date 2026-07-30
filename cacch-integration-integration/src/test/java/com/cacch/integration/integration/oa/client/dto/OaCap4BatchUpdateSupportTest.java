@@ -29,9 +29,9 @@ class OaCap4BatchUpdateSupportTest {
                 "56195256829429332.-470190193844795028",
                 false,
                 "formmain_4070",
-                5185606166217772201L,
+                "5185606166217772201",
                 "formson_5464",
-                8703187152583019529L,
+                "8703187152583019529",
                 "field0218",
                 "8451540374587001174",
                 "-7390855572027915259",
@@ -44,6 +44,18 @@ class OaCap4BatchUpdateSupportTest {
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> dataList = (List<Map<String, Object>>) body.get("dataList");
         Map<String, Object> dataItem = dataList.getFirst();
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> masterTable = (Map<String, Object>) dataItem.get("masterTable");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> masterRecord = (Map<String, Object>) masterTable.get("record");
+        assertEquals("5185606166217772201", masterRecord.get("id"));
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> subTables = (List<Map<String, Object>>) dataItem.get("subTables");
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> subRecords = (List<Map<String, Object>>) subTables.getFirst().get("records");
+        assertEquals("8703187152583019529", subRecords.getFirst().get("id"));
 
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> attachmentInfos = (List<Map<String, Object>>) dataItem.get("attachmentInfos");

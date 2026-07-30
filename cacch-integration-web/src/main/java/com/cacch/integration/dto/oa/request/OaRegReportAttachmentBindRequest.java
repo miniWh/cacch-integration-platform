@@ -1,7 +1,6 @@
 package com.cacch.integration.dto.oa.request;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 /**
@@ -21,14 +20,14 @@ public class OaRegReportAttachmentBindRequest {
     /**
      * formmain_4070.id
      */
-    @NotNull(message = "formMainId 不能为空")
-    private Long formMainId;
+    @NotBlank(message = "formMainId 不能为空")
+    private String formMainId;
 
     /**
      * formson_5464.id
      */
-    @NotNull(message = "subRowId 不能为空")
-    private Long subRowId;
+    @NotBlank(message = "subRowId 不能为空")
+    private String subRowId;
 
     /**
      * 已有 field0218 的 subReference；为空则自动生成

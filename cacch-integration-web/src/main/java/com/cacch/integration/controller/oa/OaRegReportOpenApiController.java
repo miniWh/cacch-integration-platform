@@ -51,8 +51,8 @@ public class OaRegReportOpenApiController {
     @PostMapping(value = "/attachments/upload-and-bind", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public Result<OaRegReportAttachmentBindVO> uploadAndBindAttachment(
             @RequestParam("file") MultipartFile file,
-            @RequestParam("formMainId") Long formMainId,
-            @RequestParam("subRowId") Long subRowId,
+            @RequestParam("formMainId") String formMainId,
+            @RequestParam("subRowId") String subRowId,
             @RequestParam(required = false) String subReference,
             @RequestParam(required = false) String formCode,
             @RequestParam(required = false) String rightId,

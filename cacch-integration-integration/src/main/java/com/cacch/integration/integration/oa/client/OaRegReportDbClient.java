@@ -8,6 +8,7 @@ import com.cacch.integration.integration.oa.support.OaJdbcResultSetSupport;
 import com.cacch.integration.integration.oa.support.OaRegReportItemMatcher;
 import com.cacch.integration.integration.oa.support.ReadOnlyOaJdbcTemplate;
 import com.cacch.integration.integration.sharedrive.client.dto.ShareDriveScannedItem;
+import com.cacch.integration.integration.sharedrive.support.ShareDrivePathNormalizer;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -16,6 +17,7 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
+import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -77,10 +79,10 @@ public class OaRegReportDbClient {
         DbProduct product = OaDbDialectSupport.detect(jdbc);
         if (formMainId != null && formMainId > 0) {
             int rowLimit = Math.max(1, subRowBatchSize);
-            return queryItemRows(jdbc, product, List.of(formMainId), rowLimit, ownerNameFilter, true);
+            return queryItemRows(jdbc, product, List.of(String.valueOf(formMainId)), rowLimit, ownerNameFilter, true);
         }
 
-        List<Long> formMainIds = listFormMainIds(jdbc, product, formBatchSize, ownerNameFilter);
+        List<String> formMainIds = listFormMainIds(jdbc, product, formBatchSize, ownerNameFilter);
         if (formMainIds.isEmpty()) {
             log.info("【{}】未匹配到含资料子表的主表, ownerFilter={}", BIZ, ownerNameFilter);
             return Collections.emptyList();
@@ -107,10 +109,10 @@ public class OaRegReportDbClient {
         }
         DbProduct product = OaDbDialectSupport.detect(jdbc);
         if (formMainId != null && formMainId > 0) {
-            return queryItemRows(jdbc, product, List.of(formMainId), 0, ownerNameFilter, false);
+            return queryItemRows(jdbc, product, List.of(String.valueOf(formMainId)), 0, ownerNameFilter, false);
         }
         int batch = formBatchSize > 0 ? formBatchSize : 20;
-        List<Long> formMainIds = listFormMainIds(jdbc, product, batch, ownerNameFilter);
+        List<String> formMainIds = listFormMainIds(jdbc, product, batch, ownerNameFilter);
         if (formMainIds.isEmpty()) {
             return Collections.emptyList();
         }
@@ -125,7 +127,7 @@ public class OaRegReportDbClient {
      * @param ownerNameFilter          可选登记负责人精确过滤（测试联调）
      * @return 主表 ID 列表，无数据时返回空列表
      */
-    public List<Long> listFormMainIdsAfterCursor(long afterFormMainIdExclusive,
+    public List<String> listFormMainIdsAfterCursor(String afterFormMainIdExclusive,
                                                  int limit,
                                                  String ownerNameFilter) {
         if (limit <= 0) {
@@ -137,7 +139,7 @@ public class OaRegReportDbClient {
             return Collections.emptyList();
         }
         DbProduct product = OaDbDialectSupport.detect(jdbc);
-        return listFormMainIds(jdbc, product, limit, ownerNameFilter, Math.max(afterFormMainIdExclusive, 0L));
+        return listFormMainIds(jdbc, product, limit, ownerNameFilter, afterFormMainIdExclusive);
     }
 
     /**
@@ -147,7 +149,7 @@ public class OaRegReportDbClient {
      * @param formMainId 可选主表 ID；非空时仅查该主表
      * @return 资料行列表
      */
-    public List<OaRegReportItemRow> listItemRowsByOwnerName(String ownerName, Long formMainId) {
+    public List<OaRegReportItemRow> listItemRowsByOwnerName(String ownerName, String formMainId) {
         if (!StringUtils.hasText(ownerName)) {
             return Collections.emptyList();
         }
@@ -165,7 +167,7 @@ public class OaRegReportDbClient {
      * @param formMainIds 主表 ID 列表，不可为空
      * @return 资料行列表
      */
-    public List<OaRegReportItemRow> listItemRowsByFormMainIds(List<Long> formMainIds) {
+    public List<OaRegReportItemRow> listItemRowsByFormMainIds(List<String> formMainIds) {
         if (formMainIds == null || formMainIds.isEmpty()) {
             return Collections.emptyList();
         }
@@ -187,28 +189,44 @@ public class OaRegReportDbClient {
      */
     public OaRegReportItemRow findItemRowByDirectory(ShareDriveScannedItem scanned,
                                                      Long formMainId,
-                                                     List<Long> hintFormMainIds) {
+                                                     List<String> hintFormMainIds) {
         if (scanned == null) {
             return null;
         }
         if (formMainId != null && formMainId > 0) {
-            List<OaRegReportItemRow> rows = listItemRowsByFormMainIds(List.of(formMainId));
-            return OaRegReportItemMatcher.match(rows, scanned, formMainId);
+            List<OaRegReportItemRow> rows = listItemRowsByFormMainIds(List.of(String.valueOf(formMainId)));
+            return OaRegReportItemMatcher.match(rows, scanned, String.valueOf(formMainId));
         }
         List<OaRegReportItemRow> ownerRows = listItemRowsByOwnerName(scanned.ownerName(), null);
-        OaRegReportItemRow matched = OaRegReportItemMatcher.match(ownerRows, scanned, null);
+        OaRegReportItemRow matched = OaRegReportItemMatcher.match(ownerRows, scanned, null, hintFormMainIds);
         if (matched != null) {
             return matched;
         }
         if (hintFormMainIds != null && !hintFormMainIds.isEmpty()) {
             List<OaRegReportItemRow> hintRows = listItemRowsByFormMainIds(hintFormMainIds);
-            matched = OaRegReportItemMatcher.match(hintRows, scanned, null);
+            matched = OaRegReportItemMatcher.match(hintRows, scanned, null, hintFormMainIds);
             if (matched != null) {
                 return matched;
             }
         }
         List<OaRegReportItemRow> ipdpItemRows = listItemRowsByIpdpAndItem(scanned.ipdpName(), scanned.itemName());
-        return OaRegReportItemMatcher.match(ipdpItemRows, scanned, formMainId);
+        matched = OaRegReportItemMatcher.match(ipdpItemRows, scanned,
+                formMainId != null && formMainId > 0 ? String.valueOf(formMainId) : null,
+                hintFormMainIds);
+        if (matched != null) {
+            return matched;
+        }
+        if (!ipdpItemRows.isEmpty()) {
+            log.info("【{}】IPDP+资料项目已命中但未能消歧, diskOwner={}, ipdp={}, item={}, rowCount={}, owners={}",
+                    BIZ, scanned.ownerName(), scanned.ipdpName(), scanned.itemName(), ipdpItemRows.size(),
+                    ipdpItemRows.stream()
+                            .map(OaRegReportItemRow::ownerName)
+                            .filter(StringUtils::hasText)
+                            .distinct()
+                            .limit(10)
+                            .toList());
+        }
+        return null;
     }
 
     /**
@@ -227,6 +245,40 @@ public class OaRegReportDbClient {
             return Collections.emptyList();
         }
         DbProduct product = OaDbDialectSupport.detect(jdbc);
+        List<OaRegReportItemRow> rows = queryItemRowsByItemName(jdbc, product, itemName.trim());
+        if (rows.isEmpty()) {
+            log.info("【{}】按资料项目精确反查无结果, item={}, 尝试子串匹配", BIZ, itemName);
+            rows = queryItemRowsByItemNameContains(jdbc, product, itemName.trim());
+        }
+        List<OaRegReportItemRow> matched = rows.stream()
+                .filter(row -> ShareDrivePathNormalizer.matchesIpdpNameLoosely(row.ipdpName(), ipdpName))
+                .toList();
+        log.info("【{}】按 IPDP+资料项目反查, ipdp={}, item={}, sqlRowCount={}, matchedCount={}",
+                BIZ, ipdpName, itemName, rows.size(), matched.size());
+        return matched;
+    }
+
+    private List<OaRegReportItemRow> queryItemRowsByItemName(JdbcTemplate jdbc,
+                                                             DbProduct product,
+                                                             String itemName) {
+        return queryItemRowsByItemPredicate(jdbc, product, "TRIM(%s) = ?", List.of(itemName));
+    }
+
+    private List<OaRegReportItemRow> queryItemRowsByItemNameContains(JdbcTemplate jdbc,
+                                                                     DbProduct product,
+                                                                     String itemName) {
+        String predicate = switch (product) {
+            case ORACLE -> "INSTR(TRIM(%s), ?) > 0";
+            case SQL_SERVER -> "CHARINDEX(?, TRIM(%s)) > 0";
+            case LIMIT -> "TRIM(%s) LIKE CONCAT('%%', ?, '%%')";
+        };
+        return queryItemRowsByItemPredicate(jdbc, product, predicate, List.of(itemName));
+    }
+
+    private List<OaRegReportItemRow> queryItemRowsByItemPredicate(JdbcTemplate jdbc,
+                                                                  DbProduct product,
+                                                                  String itemPredicateTemplate,
+                                                                  List<Object> args) {
         String mainTable = regReportProperties.getFormMainTable();
         String subTable = regReportProperties.getFormSubTable();
         String fieldOwner = regReportProperties.getFieldOwner();
@@ -238,41 +290,38 @@ public class OaRegReportDbClient {
         String ownerJoin = OaDbDialectSupport.buildOwnerMemberJoin(orgMemberTable, "m", fieldOwner, product);
         String ownerNameSelect = OaDbDialectSupport.selectOwnerNameColumn("m", fieldOwner, product);
         String itemRowSelect = buildItemRowSelectClause(product, ownerNameSelect, fieldIpdp, fieldItem, fieldAttachment);
-        String ipdpText = OaDbDialectSupport.castColumnAsText("m." + fieldIpdp, product);
         String itemText = OaDbDialectSupport.castColumnAsText("s." + fieldItem, product);
+        String itemPredicate = itemPredicateTemplate.formatted(itemText);
 
         String sql = """
                 SELECT %s
                 FROM %s m
                 %s
                 INNER JOIN %s s ON s.%s = m.id
-                WHERE TRIM(%s) = ? AND TRIM(%s) = ?
-                """.formatted(itemRowSelect, mainTable, ownerJoin, subTable, subFk, ipdpText, itemText);
+                WHERE %s
+                """.formatted(itemRowSelect, mainTable, ownerJoin, subTable, subFk, itemPredicate);
 
-        List<Object> args = List.of(ipdpName.trim(), itemName.trim());
         ReadOnlyOaJdbcTemplate.assertSelectOnly(sql);
-        log.info("【{}】按 IPDP+资料项目反查, ipdp={}, item={}", BIZ, ipdpName, itemName);
         try {
             return jdbc.query(sql, new ItemRowMapper(), args.toArray());
         } catch (Exception e) {
-            log.info("【{}】按 IPDP+资料项目反查失败, ipdp={}, item={}, reason={}",
-                    BIZ, ipdpName, itemName, e.getMessage());
+            log.info("【{}】按资料项目反查失败, itemPredicate={}, reason={}", BIZ, itemPredicate, e.getMessage());
             throw e;
         }
     }
 
-    private List<Long> listFormMainIds(JdbcTemplate jdbc,
+    private List<String> listFormMainIds(JdbcTemplate jdbc,
                                        DbProduct product,
                                        int formBatchSize,
                                        String ownerNameFilter) {
-        return listFormMainIds(jdbc, product, formBatchSize, ownerNameFilter, 0L);
+        return listFormMainIds(jdbc, product, formBatchSize, ownerNameFilter, null);
     }
 
-    private List<Long> listFormMainIds(JdbcTemplate jdbc,
+    private List<String> listFormMainIds(JdbcTemplate jdbc,
                                        DbProduct product,
                                        int formBatchSize,
                                        String ownerNameFilter,
-                                       long afterFormMainIdExclusive) {
+                                       String afterFormMainIdExclusive) {
         String mainTable = regReportProperties.getFormMainTable();
         String subTable = regReportProperties.getFormSubTable();
         String fieldOwner = regReportProperties.getFieldOwner();
@@ -291,9 +340,9 @@ public class OaRegReportDbClient {
 
         List<Object> args = new ArrayList<>();
         boolean hasWhere = false;
-        if (afterFormMainIdExclusive > 0) {
+        if (StringUtils.hasText(afterFormMainIdExclusive) && !"0".equals(afterFormMainIdExclusive.trim())) {
             sql += " WHERE m.id > ?";
-            args.add(afterFormMainIdExclusive);
+            args.add(new BigDecimal(afterFormMainIdExclusive.trim()));
             hasWhere = true;
         }
         if (StringUtils.hasText(ownerNameFilter)) {
@@ -309,14 +358,16 @@ public class OaRegReportDbClient {
         sql = OaDbDialectSupport.appendPagination(sql, args, formBatchSize, product);
         ReadOnlyOaJdbcTemplate.assertSelectOnly(sql);
 
-        List<Long> ids = jdbc.query(sql, (rs, rowNum) -> OaJdbcResultSetSupport.readLong(rs, "form_main_id"), args.toArray());
-        return ids.stream().distinct().toList();
+        List<String> ids = jdbc.query(sql,
+                (rs, rowNum) -> OaJdbcResultSetSupport.readIdAsString(rs, "form_main_id"),
+                args.toArray());
+        return ids.stream().filter(StringUtils::hasText).distinct().toList();
     }
 
     private List<OaRegReportItemRow> queryItemRowsByOwner(JdbcTemplate jdbc,
                                                           DbProduct product,
                                                           String ownerName,
-                                                          Long formMainId) {
+                                                          String formMainId) {
         String mainTable = regReportProperties.getFormMainTable();
         String subTable = regReportProperties.getFormSubTable();
         String fieldOwner = regReportProperties.getFieldOwner();
@@ -341,9 +392,9 @@ public class OaRegReportDbClient {
         List<Object> args = new ArrayList<>();
         args.add(ownerName);
         args.add(ownerName);
-        if (formMainId != null && formMainId > 0) {
-            sql += " AND m.id = ?";
-            args.add(formMainId);
+        if (StringUtils.hasText(formMainId)) {
+            sql += " AND " + OaDbDialectSupport.selectFormMainIdColumn("m", product) + " = ?";
+            args.add(formMainId.trim());
         }
         sql += " ORDER BY m.id, s.id";
 
@@ -355,9 +406,9 @@ public class OaRegReportDbClient {
                 log.info("【{}】按负责人反查无结果, ownerName={}, hint=请核对 field0223 存 id/姓名及 org_member.name 是否与共享盘目录一致",
                         BIZ, ownerName);
             } else {
-                List<Long> formMainIds = rows.stream()
+                List<String> formMainIds = rows.stream()
                         .map(OaRegReportItemRow::formMainId)
-                        .filter(Objects::nonNull)
+                        .filter(StringUtils::hasText)
                         .distinct()
                         .toList();
                 log.info("【{}】按负责人反查命中, ownerName={}, rowCount={}, formMainIds={}, sample={}",
@@ -377,7 +428,7 @@ public class OaRegReportDbClient {
 
     private List<OaRegReportItemRow> queryItemRows(JdbcTemplate jdbc,
                                                    DbProduct product,
-                                                   List<Long> formMainIds,
+                                                   List<String> formMainIds,
                                                    int subRowBatchSize,
                                                    String ownerNameFilter,
                                                    boolean applySubRowLimit) {
@@ -408,7 +459,10 @@ public class OaRegReportDbClient {
                 WHERE m.id IN (%s)
                 """.formatted(itemRowSelect, mainTable, ownerJoin, subTable, subFk, inPlaceholders);
 
-        List<Object> args = new ArrayList<>(formMainIds);
+        List<Object> args = formMainIds.stream()
+                .filter(StringUtils::hasText)
+                .map(id -> new BigDecimal(id.trim()))
+                .collect(Collectors.toCollection(ArrayList::new));
         if (StringUtils.hasText(ownerNameFilter)) {
             sql += " AND " + ownerFilterClause;
             String trimmed = ownerNameFilter.trim();
@@ -476,10 +530,10 @@ public class OaRegReportDbClient {
 
         @Override
         public OaRegReportItemRow mapRow(ResultSet rs, int rowNum) throws SQLException {
-            Long formMainId = OaJdbcResultSetSupport.readLong(rs, "form_main_id");
+            String formMainId = OaJdbcResultSetSupport.readIdAsString(rs, "form_main_id");
             String ownerName = OaJdbcResultSetSupport.readString(rs, "owner_name");
             String ipdpName = OaJdbcResultSetSupport.readString(rs, "ipdp_name");
-            Long subRowId = OaJdbcResultSetSupport.readLong(rs, "sub_row_id");
+            String subRowId = OaJdbcResultSetSupport.readIdAsString(rs, "sub_row_id");
             String itemName = OaJdbcResultSetSupport.readString(rs, "item_name");
             String attachmentRef = OaJdbcResultSetSupport.readString(rs, "current_attachment_ref");
             return new OaRegReportItemRow(

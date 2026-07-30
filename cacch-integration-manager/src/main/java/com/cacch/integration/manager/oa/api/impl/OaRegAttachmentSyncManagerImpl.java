@@ -11,8 +11,10 @@ import com.cacch.integration.entity.oa.OaRegAttachmentSyncDO;
 import com.cacch.integration.integration.oa.client.OaRegReportDbClient;
 import com.cacch.integration.integration.oa.client.dto.OaRegReportAttachmentBindResult;
 import com.cacch.integration.integration.oa.client.dto.OaRegReportItemRow;
+import com.cacch.integration.integration.oa.support.OaIdSupport;
 import com.cacch.integration.integration.oa.support.OaRegReportItemMatcher;
 import com.cacch.integration.integration.oa.support.OaRegReportPathSupport;
+import com.cacch.integration.integration.sharedrive.support.ShareDrivePathNormalizer;
 import com.cacch.integration.integration.sharedrive.client.IShareDriveClient;
 import com.cacch.integration.integration.sharedrive.client.dto.ShareDriveFile;
 import com.cacch.integration.integration.sharedrive.client.dto.ShareDriveScanRequest;
@@ -77,7 +79,7 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
                     .scanned(0).success(0).retry(0).failed(0).skipped(0).build();
         }
 
-        List<Long> cursorBatchFormMainIds = resolveCursorBatchFormMainIds(formMainId, formBatchSize, ownerFilter);
+        List<String> cursorBatchFormMainIds = resolveCursorBatchFormMainIds(formMainId, formBatchSize, ownerFilter);
         String ipdpFilter = resolveIpdpFilter(formMainId);
         ShareDriveScanRequest scanRequest = new ShareDriveScanRequest(ownerFilter, ipdpFilter, batchSize);
 
@@ -144,19 +146,19 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
     /**
      * 全量定时同步时推进主表游标；指定 formMainId 时不使用游标
      */
-    private List<Long> resolveCursorBatchFormMainIds(Long formMainId, int formBatchSize, String ownerFilter) {
+    private List<String> resolveCursorBatchFormMainIds(Long formMainId, int formBatchSize, String ownerFilter) {
         if (formMainId != null && formMainId > 0) {
-            return List.of(formMainId);
+            return List.of(String.valueOf(formMainId));
         }
-        long cursor = formMainCursorService.getLastFormMainId();
-        List<Long> batch = oaRegReportDbClient.listFormMainIdsAfterCursor(cursor, formBatchSize, ownerFilter);
-        if (batch.isEmpty() && cursor > 0) {
+        String cursor = formMainCursorService.getLastFormMainId();
+        List<String> batch = oaRegReportDbClient.listFormMainIdsAfterCursor(cursor, formBatchSize, ownerFilter);
+        if (batch.isEmpty() && StringUtils.hasText(cursor) && !"0".equals(cursor)) {
             log.info("【{}】主表游标已至末尾，从头开始新一轮, previousCursor={}", BIZ, cursor);
             formMainCursorService.resetCursor();
-            batch = oaRegReportDbClient.listFormMainIdsAfterCursor(0L, formBatchSize, ownerFilter);
+            batch = oaRegReportDbClient.listFormMainIdsAfterCursor("0", formBatchSize, ownerFilter);
         }
         if (!batch.isEmpty()) {
-            long newCursor = batch.get(batch.size() - 1);
+            String newCursor = batch.get(batch.size() - 1);
             formMainCursorService.saveLastFormMainId(newCursor);
             log.info("【{}】本批主表游标批次, previousCursor={}, newCursor={}, formCount={}, formMainIds={}",
                     BIZ, cursor, newCursor, batch.size(), batch);
@@ -168,7 +170,7 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
 
     private String syncScannedItem(ShareDriveScannedItem scanned,
                                    Long formMainId,
-                                   List<Long> cursorBatchFormMainIds,
+                                   List<String> cursorBatchFormMainIds,
                                    int maxRetry,
                                    Map<String, List<OaRegReportItemRow>> ownerRowsCache,
                                    Map<String, Set<String>> ownerIpdpCollisionCache) {
@@ -283,18 +285,28 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
 
     private OaRegReportItemRow resolveOaRow(ShareDriveScannedItem scanned,
                                           Long formMainId,
-                                          List<Long> cursorBatchFormMainIds,
+                                          List<String> cursorBatchFormMainIds,
                                           Map<String, List<OaRegReportItemRow>> ownerRowsCache) {
         List<OaRegReportItemRow> ownerRows = loadOwnerRows(
                 scanned.ownerName(), formMainId, cursorBatchFormMainIds, ownerRowsCache);
-        OaRegReportItemRow row = OaRegReportItemMatcher.match(ownerRows, scanned, formMainId);
+        String formMainIdFilter = formMainId != null && formMainId > 0 ? String.valueOf(formMainId) : null;
+        OaRegReportItemRow row = OaRegReportItemMatcher.match(
+                ownerRows, scanned, formMainIdFilter, cursorBatchFormMainIds);
         if (row == null && !ownerRows.isEmpty()) {
-            log.info("【{}】负责人资料行已加载但未匹配路径, diskOwner={}, diskIpdp={}, diskItem={}, candidateCount={}, samples={}",
+            List<String> itemMatchedSamples = ownerRows.stream()
+                    .filter(r -> ShareDrivePathNormalizer.matchesDirectoryNameLoosely(
+                            r.itemName(), scanned.itemName()))
+                    .limit(5)
+                    .map(r -> "formMainId=" + r.formMainId()
+                            + ", owner=" + r.ownerName()
+                            + ", ipdp=" + r.ipdpName()
+                            + ", item=" + r.itemName())
+                    .toList();
+            log.info("【{}】负责人资料行已加载但未匹配路径, diskOwner={}, diskIpdp={}, diskItem={}, "
+                            + "candidateCount={}, itemMatchedSamples={}, ambiguous={}",
                     BIZ, scanned.ownerName(), scanned.ipdpName(), scanned.itemName(), ownerRows.size(),
-                    ownerRows.stream().limit(5).map(r ->
-                            "formMainId=" + r.formMainId()
-                                    + ", ipdp=" + r.ipdpName()
-                                    + ", item=" + r.itemName()).toList());
+                    itemMatchedSamples,
+                    OaRegReportItemMatcher.hasAmbiguousMatch(ownerRows, scanned, formMainIdFilter));
         }
         if (row != null) {
             return row;
@@ -304,7 +316,7 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
 
     private List<OaRegReportItemRow> loadOwnerRows(String diskOwnerName,
                                                    Long formMainId,
-                                                   List<Long> cursorBatchFormMainIds,
+                                                   List<String> cursorBatchFormMainIds,
                                                    Map<String, List<OaRegReportItemRow>> ownerRowsCache) {
         if (!StringUtils.hasText(diskOwnerName)) {
             return List.of();
@@ -314,8 +326,9 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
         if (cached != null) {
             return cached;
         }
-        List<OaRegReportItemRow> rows = oaRegReportDbClient.listItemRowsByOwnerName(cacheKey, formMainId);
-        if (rows.isEmpty() && (formMainId == null || formMainId <= 0) && !cursorBatchFormMainIds.isEmpty()) {
+        String formMainIdFilter = formMainId != null && formMainId > 0 ? String.valueOf(formMainId) : null;
+        List<OaRegReportItemRow> rows = oaRegReportDbClient.listItemRowsByOwnerName(cacheKey, formMainIdFilter);
+        if (rows.isEmpty() && formMainIdFilter == null && !cursorBatchFormMainIds.isEmpty()) {
             rows = oaRegReportDbClient.listItemRowsByFormMainIds(cursorBatchFormMainIds).stream()
                     .filter(row -> ShareDrivePathNormalizer.matchesDirectoryNameLoosely(cacheKey, row.ownerName()))
                     .toList();
@@ -333,7 +346,7 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
         if (formMainId == null || formMainId <= 0) {
             return null;
         }
-        return oaRegReportDbClient.listItemRowsByFormMainIds(List.of(formMainId)).stream()
+        return oaRegReportDbClient.listItemRowsByFormMainIds(List.of(String.valueOf(formMainId))).stream()
                 .map(OaRegReportItemRow::ipdpName)
                 .filter(StringUtils::hasText)
                 .findFirst()
@@ -389,11 +402,11 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
 
     private OaRegAttachmentSyncDO baseRecord(OaRegReportItemRow row, String sharePath) {
         OaRegAttachmentSyncDO record = new OaRegAttachmentSyncDO();
-        record.setFormMainId(row.formMainId());
+        record.setFormMainId(OaIdSupport.toStorageLong(row.formMainId()));
         record.setOwnerName(row.ownerName());
         record.setIpdpName(row.ipdpName());
         record.setItemName(row.itemName());
-        record.setItemRowId(row.subRowId());
+        record.setItemRowId(OaIdSupport.toStorageLong(row.subRowId()));
         record.setSharePath(sharePath);
         record.setRetryCount(0);
         return record;

@@ -6,10 +6,10 @@ package com.cacch.integration.integration.oa.client.dto;
  * @author hongfu_zhou@cacch.com
  */
 public record OaRegReportItemRow(
-        Long formMainId,
+        String formMainId,
         String ownerName,
         String ipdpName,
-        Long subRowId,
+        String subRowId,
         String itemName,
         String currentAttachmentRef
 ) {

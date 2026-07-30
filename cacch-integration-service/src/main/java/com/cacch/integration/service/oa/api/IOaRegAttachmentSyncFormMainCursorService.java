@@ -10,18 +10,18 @@ package com.cacch.integration.service.oa.api;
 public interface IOaRegAttachmentSyncFormMainCursorService {
 
     /**
-     * 读取当前游标（已处理批次中最大 formmain_4070.id；0 表示从头开始）
+     * 读取当前游标（已处理批次中最大 formmain_4070.id 原文；空或 0 表示从头开始）
      *
-     * @return 游标 ID，非负
+     * @return 游标 ID 字符串；未设置时返回 {@code "0"}
      */
-    long getLastFormMainId();
+    String getLastFormMainId();
 
     /**
      * 保存游标（本轮批次处理完成后调用）
      *
-     * @param lastFormMainId 本轮批次中最大主表 ID；小于 0 时按 0 处理
+     * @param lastFormMainId 本轮批次中最大主表 ID 原文，不可为空
      */
-    void saveLastFormMainId(long lastFormMainId);
+    void saveLastFormMainId(String lastFormMainId);
 
     /**
      * 重置游标为 0（从头轮询主表）

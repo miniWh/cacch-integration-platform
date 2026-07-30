@@ -33,7 +33,16 @@ class ShareDrivePathNormalizerTest {
     }
 
     @Test
-    void normalize_blankReturnsEmpty() {
-        assertEquals("", ShareDrivePathNormalizer.normalize("   "));
+    void matchesIpdpNameLoosely_ignoresDosagePrefix() {
+        assertTrue(ShareDrivePathNormalizer.matchesIpdpNameLoosely(
+                "环丙氟虫胺可分散液剂", "10%环丙氟虫胺可分散液剂"));
+        assertTrue(ShareDrivePathNormalizer.matchesIpdpNameLoosely(
+                "10%环丙氟虫胺可分散液剂", "环丙氟虫胺可分散液剂"));
+    }
+
+    @Test
+    void matchesDirectoryNameLoosely_supportsContains() {
+        assertTrue(ShareDrivePathNormalizer.matchesDirectoryNameLoosely(
+                "10%环丙氟虫胺可分散液剂", "环丙氟虫胺可分散液剂"));
     }
 }

@@ -9,6 +9,7 @@ import com.cacch.integration.integration.oa.client.OaClient;
 import com.cacch.integration.integration.oa.client.dto.OaCap4BatchUpdateRequest;
 import com.cacch.integration.integration.oa.client.dto.OaFileUploadResult;
 import com.cacch.integration.integration.oa.client.dto.OaRegReportAttachmentBindResult;
+import com.cacch.integration.integration.oa.support.OaIdSupport;
 import com.cacch.integration.integration.oa.support.OaResponseSupport;
 import com.cacch.integration.service.oa.api.IOaRegReportOpenApiService;
 import com.cacch.integration.service.oa.api.IOaTokenService;
@@ -43,8 +44,8 @@ public class OaRegReportOpenApiServiceImpl implements IOaRegReportOpenApiService
     public OaRegReportAttachmentBindResult uploadAndBindAttachment(byte[] fileBytes,
                                                                    String fileName,
                                                                    String contentType,
-                                                                   Long formMainId,
-                                                                   Long subRowId,
+                                                                   String formMainId,
+                                                                   String subRowId,
                                                                    String subReference,
                                                                    String formCode,
                                                                    String rightId,
@@ -83,8 +84,8 @@ public class OaRegReportOpenApiServiceImpl implements IOaRegReportOpenApiService
 
     @Override
     public OaRegReportAttachmentBindResult bindAttachment(String fileUrl,
-                                                          Long formMainId,
-                                                          Long subRowId,
+                                                          String formMainId,
+                                                          String subRowId,
                                                           String subReference,
                                                           String formCode,
                                                           String rightId,
@@ -115,8 +116,8 @@ public class OaRegReportOpenApiServiceImpl implements IOaRegReportOpenApiService
                                                              long fileSize,
                                                              String fileName,
                                                              String contentType,
-                                                             Long formMainId,
-                                                             Long subRowId,
+                                                             String formMainId,
+                                                             String subRowId,
                                                              String subReference,
                                                              boolean rotateSubReference,
                                                              String formCode,
@@ -192,20 +193,21 @@ public class OaRegReportOpenApiServiceImpl implements IOaRegReportOpenApiService
         }
     }
 
-    private BindContext resolveBindContext(Long formMainId,
-                                           Long subRowId,
+    private BindContext resolveBindContext(String formMainId,
+                                           String subRowId,
                                            String subReference,
                                            String formCode,
                                            String rightId,
                                            String loginName,
                                            Integer sort,
                                            Boolean doTrigger) {
-        if (formMainId == null || formMainId == 0L) {
-            log.info("【{}】绑定附件终止, reason=formMainId无效", BIZ);
+        String apiFormMainId = OaIdSupport.toApiId(formMainId);
+        String apiSubRowId = OaIdSupport.toApiId(subRowId);
+        if (!StringUtils.hasText(apiFormMainId) || "0".equals(apiFormMainId)) {
+            log.info("【{}】绑定附件终止, reason=formMainId无效, formMainId={}", BIZ, formMainId);
             throw new BizException(ResultCode.PARAM_MISSING, "formMainId 不能为空");
         }
-        // 致远 OA 主/子表 id 可能为负数（分布式 ID），仅拒绝 null 与 0
-        if (subRowId == null || subRowId == 0L) {
+        if (!StringUtils.hasText(apiSubRowId) || "0".equals(apiSubRowId)) {
             log.info("【{}】绑定附件终止, reason=subRowId无效, subRowId={}", BIZ, subRowId);
             throw new BizException(ResultCode.PARAM_MISSING, "subRowId 不能为空");
         }
@@ -231,7 +233,7 @@ public class OaRegReportOpenApiServiceImpl implements IOaRegReportOpenApiService
                 : String.valueOf(IdWorker.getId());
         int resolvedSort = sort == null || sort < 1 ? 1 : sort;
         boolean resolvedDoTrigger = doTrigger != null ? doTrigger : regReportProperties.isDoTrigger();
-        return new BindContext(formMainId, subRowId, resolvedSubReference, resolvedFormCode,
+        return new BindContext(apiFormMainId, apiSubRowId, resolvedSubReference, resolvedFormCode,
                 resolvedRightId, loginName, resolvedSort, resolvedDoTrigger);
     }
 
@@ -250,8 +252,8 @@ public class OaRegReportOpenApiServiceImpl implements IOaRegReportOpenApiService
     }
 
     private record BindContext(
-            long formMainId,
-            long subRowId,
+            String formMainId,
+            String subRowId,
             String subReference,
             String formCode,
             String rightId,

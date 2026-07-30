@@ -23,28 +23,24 @@ public class OaRegAttachmentSyncFormMainCursorServiceImpl implements IOaRegAttac
     private final StringRedisTemplate stringRedisTemplate;
 
     @Override
-    public long getLastFormMainId() {
+    public String getLastFormMainId() {
         String raw = stringRedisTemplate.opsForValue().get(OaRegReportConstants.FORM_MAIN_CURSOR_REDIS_KEY);
         if (!StringUtils.hasText(raw)) {
-            return 0L;
+            return "0";
         }
-        try {
-            long cursor = Long.parseLong(raw.trim());
-            return Math.max(cursor, 0L);
-        } catch (NumberFormatException e) {
-            log.info("【{}】主表游标解析失败，将重置为 0, raw={}", BIZ, raw);
-            resetCursor();
-            return 0L;
-        }
+        return raw.trim();
     }
 
     @Override
-    public void saveLastFormMainId(long lastFormMainId) {
-        long normalized = Math.max(lastFormMainId, 0L);
+    public void saveLastFormMainId(String lastFormMainId) {
+        if (!StringUtils.hasText(lastFormMainId)) {
+            log.info("【{}】主表游标保存终止, reason=lastFormMainId为空", BIZ);
+            return;
+        }
         stringRedisTemplate.opsForValue().set(
                 OaRegReportConstants.FORM_MAIN_CURSOR_REDIS_KEY,
-                Long.toString(normalized));
-        log.info("【{}】主表游标已更新, lastFormMainId={}", BIZ, normalized);
+                lastFormMainId.trim());
+        log.info("【{}】主表游标已更新, lastFormMainId={}", BIZ, lastFormMainId.trim());
     }
 
     @Override

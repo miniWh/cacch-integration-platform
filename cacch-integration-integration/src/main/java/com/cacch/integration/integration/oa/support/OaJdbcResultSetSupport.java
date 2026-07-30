@@ -17,6 +17,27 @@ public final class OaJdbcResultSetSupport {
     }
 
     /**
+     * 按列别名或列名（忽略大小写）读取 OA 主/子表 ID 字符串（须配合 SQL TO_CHAR/CAST）
+     *
+     * @param rs          结果集
+     * @param columnLabel 列别名，如 form_main_id
+     * @return trim 后的 ID 字符串；空值时返回 null
+     * @throws SQLException JDBC 异常
+     */
+    public static String readIdAsString(ResultSet rs, String columnLabel) throws SQLException {
+        Object value = rs.getObject(resolveColumnIndex(rs, columnLabel));
+        return switch (value) {
+            case null -> null;
+            case String text when StringUtils.hasText(text) -> text.trim();
+            case Number number -> numberToPlainString(number);
+            default -> {
+                String text = rs.getString(resolveColumnIndex(rs, columnLabel));
+                yield StringUtils.hasText(text) ? text.trim() : null;
+            }
+        };
+    }
+
+    /**
      * 按列别名或列名（忽略大小写）读取 Long 值
      *
      * @param rs          结果集
@@ -25,16 +46,22 @@ public final class OaJdbcResultSetSupport {
      * @throws SQLException JDBC 异常
      */
     public static Long readLong(ResultSet rs, String columnLabel) throws SQLException {
-        Object value = rs.getObject(resolveColumnIndex(rs, columnLabel));
-        return switch (value) {
-            case null -> null;
-            case Number number -> number.longValue();
-            case String text when StringUtils.hasText(text) -> Long.parseLong(text.trim());
-            default -> {
-                Long typed = rs.getObject(resolveColumnIndex(rs, columnLabel), Long.class);
-                yield typed;
-            }
-        };
+        String idText = readIdAsString(rs, columnLabel);
+        if (!StringUtils.hasText(idText)) {
+            return null;
+        }
+        try {
+            return new java.math.BigDecimal(idText).longValueExact();
+        } catch (ArithmeticException | NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private static String numberToPlainString(Number number) {
+        if (number instanceof java.math.BigDecimal decimal) {
+            return decimal.toPlainString();
+        }
+        return String.valueOf(number.longValue());
     }
 
     /**
