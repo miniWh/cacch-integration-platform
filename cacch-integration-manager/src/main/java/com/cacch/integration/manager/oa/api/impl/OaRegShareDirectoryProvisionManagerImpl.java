@@ -353,7 +353,7 @@ public class OaRegShareDirectoryProvisionManagerImpl implements IOaRegShareDirec
                     "0", provisionProperties.getFormBatchSize(), null);
         }
         if (!batch.isEmpty()) {
-            String newCursor = batch.get(batch.size() - 1);
+            String newCursor = batch.getLast();
             saveProvisionCursor(newCursor);
             log.info("【{}】游标批次推进, previousCursor={}, newCursor={}, formCount={}",
                     BIZ, cursor, newCursor, batch.size());

@@ -173,6 +173,17 @@ public final class OaDbDialectSupport {
     }
 
     /**
+     * 主表 ID 列表达式（用于 WHERE，不含 SELECT 别名）
+     *
+     * @param formMainAlias 主表别名
+     * @param product       数据库类型
+     * @return 如 {@code TO_CHAR(m.id)} 或 {@code CAST(m.id AS ...)}
+     */
+    public static String formMainIdColumnExpr(String formMainAlias, DbProduct product) {
+        return castColumnAsText(formMainAlias + ".id", product);
+    }
+
+    /**
      * SELECT 主表 ID 列（统一 TO_CHAR/CAST，避免 Oracle JDBC 按别名读 Long 失败）
      *
      * @param formMainAlias 主表别名
@@ -180,7 +191,7 @@ public final class OaDbDialectSupport {
      * @return SELECT 片段，别名为 form_main_id
      */
     public static String selectFormMainIdColumn(String formMainAlias, DbProduct product) {
-        return castColumnAsText(formMainAlias + ".id", product) + " AS form_main_id";
+        return formMainIdColumnExpr(formMainAlias, product) + " AS form_main_id";
     }
 
     /**

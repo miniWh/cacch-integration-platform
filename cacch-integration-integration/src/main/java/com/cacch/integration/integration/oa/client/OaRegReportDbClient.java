@@ -416,8 +416,8 @@ public class OaRegReportDbClient {
         args.add(ownerName);
         args.add(ownerName);
         if (StringUtils.hasText(formMainId)) {
-            sql += " AND " + OaDbDialectSupport.selectFormMainIdColumn("m", product) + " = ?";
-            args.add(formMainId.trim());
+            sql += " AND m.id = ?";
+            args.add(new BigDecimal(formMainId.trim()));
         }
         sql += " ORDER BY m.id, s.id";
 
