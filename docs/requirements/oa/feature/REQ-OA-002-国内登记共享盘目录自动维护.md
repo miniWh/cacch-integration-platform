@@ -11,7 +11,7 @@
 | 需求类型 | feature |
 | 所属系统 | oa / platform |
 | 优先级 | P1(高) |
-| 状态 | drafting |
+| 状态 | ready |
 | 提出人 | — |
 | 提出日期 | 2026-07-30 |
 | 负责人 | — |
@@ -80,7 +80,7 @@ OA 数据库              集成中台                    共享盘（SMB）
 | 路径组优先 | 同 sharePath 多行须聚合后再决策，**禁止逐行删目录**（见 §5.1） |
 | 不迁移动产 | 不自动重命名、不移动已有非空目录；OA 改名导致路径变化另议 |
 | 不回写 OA | 不修改 OA 任何字段（含「完成时间」） |
-| 失败可重试 | 单条失败不阻断批次；记录 FAILED，下轮重试 |
+| 失败可重试 | 单条失败不阻断批次；记录 FAILED，**下一次定时任务执行时重新处理**（游标推进后该主表 ID 需等游标回绕至 0 重新全量循环时才会再次被拉取） |
 
 ### 3.3 与 REQ-OA-001 的关系
 
@@ -135,7 +135,7 @@ flowchart LR
 | 业务含义 | OA 字段 | 示例值 | 用途 |
 |----------|---------|--------|------|
 | 资料项目 | **field0214** | 农药登记变更申请表 | 共享盘 L3 目录 |
-| **需要** | **待确认 field02xx** | 需要 / 不需要 | **本需求核心判定字段** |
+| **需要** | **field0216** | `0`=需要 / `1`=不需要 | **本需求核心判定字段** |
 | 子表行 ID | **id** | — | 日志追踪、治理记录关联 |
 
 > **field0218（资料附件）**：属 REQ-OA-001 附件同步专用字段，**本需求不参与目录创建/删除判定**，SQL 与 DTO 均不读取。
@@ -174,12 +174,12 @@ flowchart LR
 
 ### 4.3 「需要 / 不需要」判定
 
-> **字段物理名仍待 OA 确认**（见 §14.1 B-1、§14.3 O-1）；**空值默认规则已确认**（见 §14.1 B-2）。
+> **字段已确认**（field0216，`0`=需要 / `1`=不需要）；**空值默认规则已确认**（见 §14.1 B-2）。
 
 | OA 存储值 | 语义 | 目录行为 |
 |-----------|------|----------|
-| 需要 | 需要该资料 | 缺则建 L3（及所需 L1/L2） |
-| 不需要 | 不需要该资料 | 不建 L3；已存在且空则删 L3 |
+| `0` | 需要该资料 | 缺则建 L3（及所需 L1/L2） |
+| `1` | 不需要该资料 | 不建 L3；已存在且空则删 L3 |
 | **空值 / NULL / 空白** | **视为「需要」**（**已确认**） | 与「需要」相同：缺则建 L3；**不执行空目录删除** |
 
 **空值默认「需要」（已确认 B-2）**：
@@ -195,8 +195,10 @@ flowchart LR
 **单行归一化（供开发参考）**：
 
 ```
+// field0216: "0"=需要, "1"=不需要; 空/NULL=需要（保守默认）
+// 仅 "1" 明确为「不需要」，其余值（含空、0、异常值）一律视为「需要」
 normalizedRequired(row) =
-    isBlank(row.itemRequired) || equalsIgnoreCase(row.itemRequired, "需要")
+    !"1".equals(trim(row.itemRequired))
 ```
 
 **L3 路径组决策（必须先聚合，禁止逐行删目录）**：
@@ -250,9 +252,12 @@ if (retain) {
     │
     ▼
 ⑤ 写 PG 治理记录（按子表行维度写入，append 模式，每轮生成 run_id）
+    │   所有行 group_retain 字段 = 所属路径组的 groupRetain 决策值
     │   组内「需要」行 → action 取路径组决策（CREATED / SKIPPED_EXISTS / DELETED / …）
     │   组内「不需要」行且 groupRetain=true → action = SKIPPED_GROUP_RETAINED
     │       message 注明「由同组其他行触发」，group_retain = true
+    │   组内所有行且 groupRetain=false → action 取路径组决策（DELETED / SKIPPED_NOT_EMPTY / SKIPPED_NOT_REQUIRED）
+    │       group_retain = false
     │
     ▼
 ⑥ 输出本轮统计；FAILED / SMB 不可用 / SKIPPED_NOT_EMPTY 企微告警（可选）
@@ -262,11 +267,11 @@ if (retain) {
 
 | 层级 | 创建条件 |
 |------|----------|
-| L1 | 该 L2 路径组对应项目下，**至少有一个 L3 路径组 groupRetain=true** |
-| L2 | 同上（同一 formMainId / 同一 field0164 项目） |
-| L3 | **该 sharePath 路径组 groupRetain=true** 且 L3 不存在 |
+| L1 | 创建 L3 时，若 L1（`field0223` 登记负责人）不存在则**隐式创建**（mkdir -p 语义） |
+| L2 | 创建 L3 时，若 L2（`field0160`+`field0164` 项目目录）不存在则**隐式创建** |
+| L3 | **该 sharePath 路径组 groupRetain=true** 且 L3 不存在 → **显式创建** |
 
-- 创建顺序：**L1 → L2 → L3**（逐级 `mkdir`，父级已存在则跳过）。
+- 创建顺序：**L1 → L2 → L3**（逐级 `mkdir`，父级已存在则跳过；L1/L2 不单独决策，由 L3 创建隐式驱动）。
 - 同一 L2 下多条「需要」资料项：共用一个 L2，分别建多个 L3。
 - **路径组 groupRetain=false：永不创建 L3**（空值不归入「不需要」，见 §4.3）。
 
@@ -338,7 +343,7 @@ SELECT
     m.field0164       AS ipdp_project_no,
     s.id              AS item_row_id,
     s.field0214       AS item_name,
-    s.field02xx       AS item_required      -- ★ 待 OA 确认物理字段名
+    s.field0216       AS item_required      -- 0=需要, 1=不需要
 FROM formmain_4070 m
 INNER JOIN formson_5464 s ON s.formmain_id = m.id
 WHERE m.id IN (:formMainIds)
@@ -359,8 +364,8 @@ ORDER BY m.id, s.id;
 |----|------|
 | `OaRegReportItemRow` | 新增 `itemRequired` 字段（String，OA 原始值） |
 | `ItemRowMapper` | 映射 `item_required` 列 |
-| `buildItemRowSelectClause` | SELECT 增加 `s.field02xx AS item_required` |
-| `OaRegReportProperties` | 新增 `fieldItemRequired` 配置项（见 §10） |
+| `buildItemRowSelectClause` | SELECT 增加 `s.field0216 AS item_required` |
+| `OaRegReportProperties` | 新增 `fieldItemRequired` 配置项（值 `field0216`，见 §10） |
 
 ---
 
@@ -472,7 +477,9 @@ INDEX idx_provision_run (run_id);
 | `boolean isEmptyDirectory(String path)` | 目录是否为空 | 列举文件/子目录；按 `ignore-system-files` 配置决定是否忽略系统文件 |
 | `void deleteEmptyDirectory(String path)` | 删除空 L3 | **调用前须二次 isEmpty**；仅删单层目录，禁止递归删 L2/L1 |
 
-> 读写可共用同一 SMB 连接池；若 REQ-OA-001 与 REQ-OA-002 使用不同 AD 账号，通过 `share-dir-provision.smb-*` 独立配置（见 §10）。
+> **SMB 连接复用**：现有 `ShareDriveClientImpl.withDiskShare()` 每次操作新建 `SMBClient` + `Connection`，批量场景（一个批次可能涉及数百个 L3）性能堪忧。开发时须在 **同一批次内复用 SMB 会话**——方案：在 `ShareDriveClientImpl` 中新增 `withDiskShareSession(Consumer<DiskShare> action)` 重载，允许回调内多次操作同一 `DiskShare` 连接；或引入 SMB 连接池（如 smbj connection pool）。Manager 层按路径组批量执行 exists→mkdir→isEmpty→delete，每批共享一个会话。
+>
+> 读写可共用同一 SMB 连接池；当前已确认账号有写权限（S-1），复用现有账号即可（S-3）。
 
 ---
 
@@ -490,7 +497,7 @@ INDEX idx_provision_run (run_id);
 ```yaml
 oa:
   reg-report:
-    field-item-required: field02xx   # ★ 待 OA 确认「需要」字段物理名
+    field-item-required: field0216   # 「需要」字段物理名（已确认）；0=需要, 1=不需要
   share-dir-provision:
     enabled: false                   # 默认关闭，test 验证后开启
     cron: "0 0 3 * * ?"              # 建议早于附件同步任务
@@ -502,7 +509,7 @@ oa:
     # 确认 B-3 后可取消注释添加：
     # - desktop.ini
     # - Thumbs.db
-    # 可选：与 REQ-OA-001 只读账号分离时使用独立 SMB 写账号
+    # 可选：如需与 REQ-OA-001 只读账号分离时使用独立 SMB 写账号（S-3 已确认复用现有账号，默认不启用）
     # smb-username: provision-svc
     # smb-password: ${OA_SHARE_PROVISION_PASSWORD}
 ```
@@ -513,7 +520,7 @@ oa:
 
 | 项 | 要求 |
 |----|------|
-| 共享盘账号 | 需 **读 + 建目录 + 删空目录**；建议专用 AD 读写账号，与 REQ-OA-001 只读账号分离（S-3） |
+| 共享盘账号 | **已确认（S-1/S-3）**：现有账号具备 **读 + 建目录 + 删空目录** 权限，复用现有账号 |
 | 共享盘 UNC | 沿用 `\\192.168.1.8\国内登记资料`；中台进程须能挂载/访问该共享 |
 | SMB 写权限最小化 | 仅授权目标根目录下 **创建子目录、列举、删除空文件夹**；禁止共享级管理员 |
 | OA 库 | **只读 SELECT**（与 REQ-OA-001 相同账号即可）；本需求**不写** field0218 |
@@ -561,13 +568,13 @@ oa:
 
 ## 14. 待确认信息清单
 
-> **使用说明**：请逐项向对应责任方咨询，将「确认结果」列补充完整。★ 为阻塞开发项。
+> **使用说明**：★ 原阻塞项 B-1/O-1/O-2/S-1 已全部确认（见下表）。剩余项均为软阻塞，有默认值，不影响开发启动。
 
 ### 14.1 业务规则（咨询：国内登记部 / 业务负责人）
 
 | 编号 | 确认项 | 咨询对象 | 确认结果 | 备注 |
 |------|--------|----------|----------|------|
-| B-1 ★ | 「需要 / 不需要」子表字段物理名与枚举值 | 登记部 / OA 管理员 | | 阻塞 SQL |
+| B-1 | ~~「需要 / 不需要」子表字段物理名与枚举值~~ | 登记部 / OA 管理员 | **已确认：field0216，`0`=需要 / `1`=不需要** | 见 §4.1、§4.3 |
 | B-2 | ~~空值默认「需要」还是「不需要」~~ | 登记部 | **已确认：空值默认「需要」** | NULL/空串/空白均视为需要；见 §4.3 |
 | B-3 | 空目录是否忽略 desktop.ini 等系统文件 | 登记部 / IT | | 默认不忽略 |
 | B-4 | 「不需要但 L3 非空」是否需企微提醒负责人手动清理 | 登记部 | | **建议默认开启**（`alert-not-empty-skipped: true`）；提醒含 owner、sharePath、itemName |
@@ -578,24 +585,24 @@ oa:
 
 | 编号 | 确认项 | 咨询对象 | 确认结果 | 备注 |
 |------|--------|----------|----------|------|
-| S-1 ★ | 中台共享盘账号是否具备建目录、删空目录权限 | IT 运维 | | REQ-OA-001 当前为只读 |
+| S-1 | ~~中台共享盘账号是否具备建目录、删空目录权限~~ | IT 运维 | **已确认：账号有共享盘写权限，可开发写接口** | 可直接开发 mkdir/deleteEmpty |
 | S-2 | 是否沿用 REQ-OA-001 同一 UNC 根路径 | IT 运维 | **`\\192.168.1.8\国内登记资料`** | 已确认 |
-| S-3 | 专用读写账号或升级现有账号 | IT 运维 | | |
+| S-3 | 专用读写账号或升级现有账号 | IT 运维 | **已确认：复用现有账号（已有写权限）** | 无需分离；§10 smb-* 独立配置保留为可选 |
 
 ### 14.3 致远 OA（咨询：OA 管理员）
 
 | 编号 | 确认项 | 咨询对象 | 确认结果 | 备注 |
 |------|--------|----------|----------|------|
-| O-1 ★ | 「需要」字段物理名（formson_5464） | OA 管理员 | | 如 field02xx |
-| O-2 ★ | 「需要 / 不需要」存储值（中文/编码/数字） | OA 管理员 | | |
+| O-1 | ~~「需要」字段物理名（formson_5464）~~ | OA 管理员 | **已确认：field0216** | 见 §4.1 |
+| O-2 | ~~「需要 / 不需要」存储值（中文/编码/数字）~~ | OA 管理员 | **已确认：数字编码，`0`=需要 / `1`=不需要** | 见 §4.3 |
 | O-3 | 同步 SQL 的 WHERE 条件（状态/时间） | OA 管理员 | | 与 REQ-OA-001 O12 对齐 |
 
 ### 14.4 集成中台（内部确认）
 
 | 编号 | 确认项 | 确认结果 | 备注 |
 |------|--------|----------|------|
-| P-1 ★ | 定时任务 cron | | 默认 `0 0 3 * * ?` |
-| P-2 ★ | form-batch-size / sub-row-batch-size | | 默认 50 / 500；见 §10 |
+| P-1 | 定时任务 cron | | 默认 `0 0 3 * * ?` |
+| P-2 | form-batch-size / sub-row-batch-size | | 默认 50 / 500；见 §10 |
 | P-3 | 是否提供手动触发 API | | 建议提供 |
 | P-4 | enabled 默认 false，test 验证后开启 | | |
 | P-5 | Flyway 版本号 | | 待开发时递增 |
@@ -610,7 +617,7 @@ oa:
 | IPDP 名称 | formmain_4070.**field0160** | 21% 环丙氟虫胺… | ☑ |
 | IPDP 项目编号 | formmain_4070.**field0164** | IPDP-202605-107 | ☑ |
 | 资料项目 | formson_5464.**field0214** | 农药登记变更申请表 | ☑ |
-| **需要** | formson_5464.**field02xx** | 需要 / 不需要 | ☐ |
+| **需要** | formson_5464.**field0216** | `0` / `1` | ☑ |
 | 子表行 ID | formson_5464.**id** | — | ☑ |
 
 ---
@@ -619,8 +626,8 @@ oa:
 
 | 风险/依赖 | 影响 | 应对措施 |
 |-----------|------|----------|
-| O-1 / B-1「需要」字段未确认 | 无法开发 | 优先向 OA 管理员确认 |
-| 共享盘仅有只读权限 | 无法 mkdir/删目录 | S-1 升级账号权限 |
+| ~~O-1 / B-1「需要」字段未确认~~ | ~~无法开发~~ | **已确认：field0216，0=需要 / 1=不需要** |
+| ~~共享盘仅有只读权限~~ | ~~无法 mkdir/删目录~~ | **已确认：账号有写权限，可开发写接口** |
 | 误删非空目录 | 业务资料丢失 | 路径组 groupRetain + 严格 isEmpty + 二次确认；仅删 L3 |
 | 同 field0214 多行（原始值差异） | 归一化前分组导致同路径拆组误删 | §5.1 步骤②先归一化再计算 sharePath 分组 |
 | REQ-OA-001 仍扫描「不需要」项 | 行为不一致 | B-6 同步修订 REQ-OA-001 |
@@ -637,3 +644,4 @@ oa:
 | 2026-07-31 | — | 确认 B-2：「需要」字段空值默认视为「需要」 |
 | 2026-07-31 | — | 审查修订：§5.1 改为 L3 路径分组聚合决策（修复同 field0214 多行误删）；§5.5 对齐主表游标分批 SQL；补充 DTO/Mapper/SMB 写操作/非法字符校验/B-4 企微提醒 |
 | 2026-07-31 | — | 二次审查修订：§5.1 步骤②归一化提前到 sharePath 计算前（修复分组 key 不一致导致误删变体）；§5.5 明确独立 cursor key 避免跳批；§5.3/§10 对齐 ignore-system-files 默认值（默认空=不忽略）；§7 新增 run_id/group_retain 字段、action 增加 SKIPPED_GROUP_RETAINED、改 append 模式 + 索引调整；§13 验收标准 8 措辞明确化 |
+| 2026-07-31 | — | 三项硬阻塞全部确认：B-1/O-1 字段名 field0216、O-2 存储值 0=需要/1=不需要、S-1 共享盘写权限已具备；归一化逻辑改为 `!"1".equals()` 保守判定；§5.2 L1/L2 创建条件改为 mkdir -p 隐式语义；§5.1 step⑤ 补充 group_retain=false 填充规则；§3.2 明确"下轮重试"语义；§8 补充 SMB 连接复用策略；状态变更为 ready |
