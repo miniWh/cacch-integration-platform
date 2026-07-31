@@ -12,6 +12,7 @@ import com.cacch.integration.integration.oa.client.OaRegReportDbClient;
 import com.cacch.integration.integration.oa.client.dto.OaRegReportAttachmentBindResult;
 import com.cacch.integration.integration.oa.client.dto.OaRegReportItemRow;
 import com.cacch.integration.integration.oa.support.OaIdSupport;
+import com.cacch.integration.integration.oa.support.OaRegItemRequiredSupport;
 import com.cacch.integration.integration.oa.support.OaRegReportItemMatcher;
 import com.cacch.integration.integration.oa.support.OaRegReportPathSupport;
 import com.cacch.integration.integration.sharedrive.client.IShareDriveClient;
@@ -194,6 +195,13 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
             log.info("【{}】跳过同步, reason=登记负责人未解析为姓名, subRowId={}", BIZ, row.subRowId());
             OaRegAttachmentSyncDO record = baseRecord(row, scanned.directoryPath());
             syncService.markSkipped(record, OaRegReportConstants.SKIP_OWNER_UNRESOLVED);
+            return OaRegAttachmentSyncStatusEnum.SKIPPED.getCode();
+        }
+        if (OaRegItemRequiredSupport.isExplicitlyNotRequired(row.itemRequired())) {
+            log.info("【{}】跳过同步, reason=资料项标记为不需要, subRowId={}, item={}",
+                    BIZ, row.subRowId(), row.itemName());
+            OaRegAttachmentSyncDO record = baseRecord(row, scanned.directoryPath());
+            syncService.markSkipped(record, OaRegReportConstants.SKIP_NOT_REQUIRED);
             return OaRegAttachmentSyncStatusEnum.SKIPPED.getCode();
         }
 

@@ -12,6 +12,7 @@ public record OaRegReportItemRow(
         String ipdpProjectNo,
         String subRowId,
         String itemName,
-        String currentAttachmentRef
+        String currentAttachmentRef,
+        String itemRequired
 ) {
 }

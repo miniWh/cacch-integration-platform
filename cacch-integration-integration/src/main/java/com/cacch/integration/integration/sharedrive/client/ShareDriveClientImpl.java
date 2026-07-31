@@ -2,6 +2,8 @@ package com.cacch.integration.integration.sharedrive.client;
 
 import com.cacch.integration.common.config.sharedrive.ShareDriveProperties;
 import com.cacch.integration.common.constant.sharedrive.ShareDriveConstants;
+import com.cacch.integration.common.exception.BizException;
+import com.cacch.integration.common.result.ResultCode;
 import com.cacch.integration.integration.oa.support.OaRegReportPathSupport;
 import com.cacch.integration.integration.sharedrive.client.dto.ShareDriveFile;
 import com.cacch.integration.integration.sharedrive.client.dto.ShareDriveScanRequest;
@@ -139,6 +141,317 @@ public class ShareDriveClientImpl implements IShareDriveClient {
         } else {
             readNioFileStream(directoryPath, file.fileName(), consumer);
         }
+    }
+
+    // ── REQ-OA-002 目录治理写操作 ──
+
+    @Override
+    public boolean existsDirectory(String path) {
+        if (!StringUtils.hasText(path)) {
+            log.info("【{}】目录存在检查终止, reason=路径为空", BIZ);
+            return false;
+        }
+        if (shouldUseSmb(path)) {
+            return existsDirectoryViaSmb(path);
+        }
+        return Files.isDirectory(Paths.get(path));
+    }
+
+    @Override
+    public void mkdirs(String path) {
+        if (!StringUtils.hasText(path)) {
+            throw new BizException(ResultCode.PARAM_MISSING, "目录路径为空");
+        }
+        if (shouldUseSmb(path)) {
+            mkdirsViaSmb(path);
+        } else {
+            mkdirsViaNio(path);
+        }
+    }
+
+    @Override
+    public boolean isEmptyDirectory(String path, Set<String> ignoreSystemFiles) {
+        if (!StringUtils.hasText(path)) {
+            log.info("【{}】空目录检查终止, reason=路径为空", BIZ);
+            return false;
+        }
+        if (shouldUseSmb(path)) {
+            return isEmptyDirectoryViaSmb(path, ignoreSystemFiles);
+        }
+        return isEmptyDirectoryViaNio(path, ignoreSystemFiles);
+    }
+
+    @Override
+    public void deleteEmptyDirectory(String path) {
+        if (!StringUtils.hasText(path)) {
+            throw new BizException(ResultCode.PARAM_MISSING, "目录路径为空");
+        }
+        if (shouldUseSmb(path)) {
+            deleteEmptyDirectoryViaSmb(path);
+        } else {
+            deleteEmptyDirectoryViaNio(path);
+        }
+    }
+
+    // ── SMB 写操作实现 ──
+
+    /**
+     * SMB 模式：判断目录是否存在
+     *
+     * @param fullPath 完整 UNC 路径
+     * @return true 表示路径存在且为目录
+     */
+    private boolean existsDirectoryViaSmb(String fullPath) {
+        if (!shareDriveProperties.hasCredentials()) {
+            log.info("【{}】SMB 目录检查终止, reason=未配置SMB账号, path={}", BIZ, fullPath);
+            return false;
+        }
+        ShareDriveUncPathSupport.UncRoot root = ShareDriveUncPathSupport.parseRoot(shareDriveProperties.getRootPath());
+        if (root == null) {
+            log.info("【{}】SMB 目录检查终止, reason=根路径解析失败, path={}", BIZ, fullPath);
+            return false;
+        }
+        String relativeDir = ShareDriveUncPathSupport.toRelativeDirectory(fullPath, shareDriveProperties.getRootPath());
+        if (relativeDir == null) {
+            log.info("【{}】SMB 目录检查终止, reason=相对路径解析失败, path={}", BIZ, fullPath);
+            return false;
+        }
+        if (relativeDir.isEmpty()) {
+            return true;
+        }
+        String smbPath = relativeDir.replace('/', '\\');
+        try {
+            return withDiskShare(root, share -> share.folderExists(smbPath));
+        } catch (Exception e) {
+            log.info("【{}】SMB 目录检查失败, path={}, reason={}", BIZ, fullPath, e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * SMB 模式：逐级创建目录（L1 → L2 → L3）
+     *
+     * <p>smbj {@code DiskShare.mkdir} 仅创建单层目录，需拆分路径逐级创建。
+     * 父级已存在则跳过，实现 mkdir -p 语义。
+     *
+     * @param fullPath 完整 UNC 路径
+     */
+    private void mkdirsViaSmb(String fullPath) {
+        if (!shareDriveProperties.hasCredentials()) {
+            throw new BizException(ResultCode.INTEGRATION_AUTH_FAILED,
+                    "SMB账号未配置, 无法创建目录: " + fullPath);
+        }
+        ShareDriveUncPathSupport.UncRoot root = ShareDriveUncPathSupport.parseRoot(shareDriveProperties.getRootPath());
+        if (root == null) {
+            throw new BizException(ResultCode.PARAM_INVALID, "UNC根路径解析失败: " + fullPath);
+        }
+        String relativeDir = ShareDriveUncPathSupport.toRelativeDirectory(fullPath, shareDriveProperties.getRootPath());
+        if (relativeDir == null) {
+            throw new BizException(ResultCode.PARAM_INVALID, "相对路径解析失败: " + fullPath);
+        }
+        String smbPath = relativeDir.replace('/', '\\');
+        if (smbPath.isEmpty()) {
+            log.info("【{}】目录已为共享根, 无需创建, path={}", BIZ, fullPath);
+            return;
+        }
+        try {
+            withDiskShare(root, share -> {
+                String[] segments = smbPath.split("\\\\");
+                StringBuilder current = new StringBuilder();
+                for (String segment : segments) {
+                    if (!StringUtils.hasText(segment)) {
+                        continue;
+                    }
+                    if (current.length() > 0) {
+                        current.append("\\");
+                    }
+                    current.append(segment);
+                    String pathSoFar = current.toString();
+                    if (!share.folderExists(pathSoFar)) {
+                        share.mkdir(pathSoFar);
+                        log.info("【{}】SMB 目录创建成功, path={}", BIZ, pathSoFar);
+                    }
+                }
+                return null;
+            });
+        } catch (BizException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new BizException(ResultCode.INTEGRATION_ERROR,
+                    "SMB 创建目录失败: " + fullPath, e);
+        }
+    }
+
+    /**
+     * SMB 模式：判断目录是否为空
+     *
+     * <p>遍历目录条目，跳过 {@code .} / {@code ..} 及 ignoreSystemFiles 中的系统文件；
+     * 若仍有剩余条目则视为非空。
+     *
+     * @param fullPath          完整 UNC 路径
+     * @param ignoreSystemFiles 需忽略的文件名集合
+     * @return true 表示目录存在且内容为空
+     */
+    private boolean isEmptyDirectoryViaSmb(String fullPath, Set<String> ignoreSystemFiles) {
+        if (!shareDriveProperties.hasCredentials()) {
+            log.info("【{}】SMB 空目录检查终止, reason=未配置SMB账号, path={}", BIZ, fullPath);
+            return false;
+        }
+        ShareDriveUncPathSupport.UncRoot root = ShareDriveUncPathSupport.parseRoot(shareDriveProperties.getRootPath());
+        if (root == null) {
+            log.info("【{}】SMB 空目录检查终止, reason=根路径解析失败, path={}", BIZ, fullPath);
+            return false;
+        }
+        String relativeDir = ShareDriveUncPathSupport.toRelativeDirectory(fullPath, shareDriveProperties.getRootPath());
+        if (relativeDir == null) {
+            log.info("【{}】SMB 空目录检查终止, reason=相对路径解析失败, path={}", BIZ, fullPath);
+            return false;
+        }
+        String smbPath = relativeDir.replace('/', '\\');
+        try {
+            return withDiskShare(root, share -> {
+                if (!share.folderExists(smbPath)) {
+                    log.info("【{}】SMB 目录不存在, 视为非空, path={}", BIZ, smbPath);
+                    return false;
+                }
+                for (FileIdBothDirectoryInformation entry : share.list(smbPath)) {
+                    String fileName = entry.getFileName();
+                    if (".".equals(fileName) || "..".equals(fileName)) {
+                        continue;
+                    }
+                    if (isIgnoredFile(fileName, ignoreSystemFiles)) {
+                        continue;
+                    }
+                    return false;
+                }
+                return true;
+            });
+        } catch (Exception e) {
+            log.info("【{}】SMB 空目录检查失败, path={}, reason={}", BIZ, fullPath, e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * SMB 模式：删除空目录（仅删单层，不递归）
+     *
+     * <p>调用前须二次 {@link #isEmptyDirectory} 确认为空。禁止删除共享根目录。
+     *
+     * @param fullPath 完整 UNC 路径
+     */
+    private void deleteEmptyDirectoryViaSmb(String fullPath) {
+        if (!shareDriveProperties.hasCredentials()) {
+            throw new BizException(ResultCode.INTEGRATION_AUTH_FAILED,
+                    "SMB账号未配置, 无法删除目录: " + fullPath);
+        }
+        ShareDriveUncPathSupport.UncRoot root = ShareDriveUncPathSupport.parseRoot(shareDriveProperties.getRootPath());
+        if (root == null) {
+            throw new BizException(ResultCode.PARAM_INVALID, "UNC根路径解析失败: " + fullPath);
+        }
+        String relativeDir = ShareDriveUncPathSupport.toRelativeDirectory(fullPath, shareDriveProperties.getRootPath());
+        if (relativeDir == null) {
+            throw new BizException(ResultCode.PARAM_INVALID, "相对路径解析失败: " + fullPath);
+        }
+        String smbPath = relativeDir.replace('/', '\\');
+        if (smbPath.isEmpty()) {
+            throw new BizException(ResultCode.PARAM_INVALID, "禁止删除共享根目录: " + fullPath);
+        }
+        try {
+            withDiskShare(root, share -> {
+                share.rmdir(smbPath, false);
+                log.info("【{}】SMB 空目录删除成功, path={}", BIZ, smbPath);
+                return null;
+            });
+        } catch (BizException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new BizException(ResultCode.INTEGRATION_ERROR,
+                    "SMB 删除目录失败(可能非空): " + fullPath, e);
+        }
+    }
+
+    // ── NIO 写操作实现 ──
+
+    /**
+     * NIO 模式：递归创建目录
+     *
+     * @param fullPath 本地挂载路径
+     */
+    private void mkdirsViaNio(String fullPath) {
+        try {
+            Path dir = Paths.get(fullPath);
+            if (Files.isDirectory(dir)) {
+                log.info("【{}】目录已存在, 跳过创建, path={}", BIZ, fullPath);
+                return;
+            }
+            Files.createDirectories(dir);
+            log.info("【{}】NIO 目录创建成功, path={}", BIZ, fullPath);
+        } catch (IOException e) {
+            throw new BizException(ResultCode.INTEGRATION_ERROR,
+                    "NIO 创建目录失败: " + fullPath, e);
+        }
+    }
+
+    /**
+     * NIO 模式：判断目录是否为空
+     *
+     * @param fullPath          本地挂载路径
+     * @param ignoreSystemFiles 需忽略的文件名集合
+     * @return true 表示目录存在且内容为空
+     */
+    private boolean isEmptyDirectoryViaNio(String fullPath, Set<String> ignoreSystemFiles) {
+        Path dir = Paths.get(fullPath);
+        if (!Files.isDirectory(dir)) {
+            return false;
+        }
+        try (Stream<Path> entries = Files.list(dir)) {
+            return entries.noneMatch(entry -> {
+                String fileName = entry.getFileName().toString();
+                return !isIgnoredFile(fileName, ignoreSystemFiles);
+            });
+        } catch (IOException e) {
+            log.info("【{}】NIO 空目录检查失败, path={}, reason={}", BIZ, fullPath, e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * NIO 模式：删除空目录（仅删单层，非空时抛异常）
+     *
+     * @param fullPath 本地挂载路径
+     */
+    private void deleteEmptyDirectoryViaNio(String fullPath) {
+        Path dir = Paths.get(fullPath);
+        if (!Files.isDirectory(dir)) {
+            throw new BizException(ResultCode.PARAM_INVALID, "目录不存在: " + fullPath);
+        }
+        try {
+            Files.delete(dir);
+            log.info("【{}】NIO 空目录删除成功, path={}", BIZ, fullPath);
+        } catch (IOException e) {
+            throw new BizException(ResultCode.INTEGRATION_ERROR,
+                    "NIO 删除目录失败(可能非空): " + fullPath, e);
+        }
+    }
+
+    /**
+     * 判断文件名是否在忽略列表中（大小写不敏感，适配 Windows 文件系统）
+     *
+     * @param fileName          文件名
+     * @param ignoreSystemFiles 忽略文件名集合
+     * @return true 表示应忽略该文件
+     */
+    private static boolean isIgnoredFile(String fileName, Set<String> ignoreSystemFiles) {
+        if (ignoreSystemFiles == null || ignoreSystemFiles.isEmpty()) {
+            return false;
+        }
+        String lower = fileName.toLowerCase();
+        for (String ignore : ignoreSystemFiles) {
+            if (ignore != null && ignore.toLowerCase().equals(lower)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private int scanViaSmb(ShareDriveScanRequest request, Consumer<ShareDriveScannedItem> processor) {

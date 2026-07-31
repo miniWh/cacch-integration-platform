@@ -9,7 +9,7 @@ import java.util.Optional;
 import java.util.function.Consumer;
 
 /**
- * 共享盘客户端（SMB 读文件）
+ * 共享盘客户端（SMB 读写）
  *
  * @author hongfu_zhou@cacch.com
  */
@@ -47,4 +47,44 @@ public interface IShareDriveClient {
      * @throws IOException 打开或读取文件失败时抛出
      */
     void readFileStream(ShareDriveScannedItem item, ShareDriveFileStreamConsumer consumer) throws IOException;
+
+    // ── REQ-OA-002 目录治理写操作 ──
+
+    /**
+     * 判断 UNC 目录是否存在
+     *
+     * @param path 完整 UNC 路径
+     * @return true 表示路径存在且为目录
+     */
+    boolean existsDirectory(String path);
+
+    /**
+     * 递归创建目录（mkdir -p 语义：L1 → L2 → L3 逐级创建，父级已存在则跳过）
+     *
+     * @param path 完整 UNC 路径
+     * @throws com.cacch.integration.common.exception.BizException 无写权限、路径非法或磁盘满时抛出
+     */
+    void mkdirs(String path);
+
+    /**
+     * 判断目录是否为空（无文件、无子目录）
+     *
+     * <p>按 {@code ignoreSystemFiles} 配置决定是否忽略 desktop.ini / Thumbs.db 等系统文件；
+     * 默认不忽略（含系统文件视为非空，更安全）。
+     *
+     * @param path              完整 UNC 路径
+     * @param ignoreSystemFiles 需要忽略的文件名集合；空集合表示不忽略
+     * @return true 表示目录存在且内容为空（忽略列表中的文件不计）
+     */
+    boolean isEmptyDirectory(String path, java.util.Set<String> ignoreSystemFiles);
+
+    /**
+     * 删除空目录（仅删单层 L3，禁止递归删 L2/L1）
+     *
+     * <p>调用前须二次 {@link #isEmptyDirectory} 确认为空，降低并发误删风险。
+     *
+     * @param path 完整 UNC 路径
+     * @throws com.cacch.integration.common.exception.BizException 目录非空或 SMB 异常时抛出
+     */
+    void deleteEmptyDirectory(String path);
 }

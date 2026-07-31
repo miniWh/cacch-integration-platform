@@ -3,6 +3,7 @@ package com.cacch.integration.config.oa;
 import com.cacch.integration.common.config.oa.OaProperties;
 import com.cacch.integration.common.config.oa.OaRegAttachmentSyncProperties;
 import com.cacch.integration.common.config.oa.OaRegReportProperties;
+import com.cacch.integration.common.config.oa.ShareDirProvisionProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 
@@ -12,6 +13,11 @@ import org.springframework.context.annotation.Configuration;
  * @author hongfu_zhou@cacch.com
  */
 @Configuration
-@EnableConfigurationProperties({OaProperties.class, OaRegReportProperties.class, OaRegAttachmentSyncProperties.class})
+@EnableConfigurationProperties({
+        OaProperties.class,
+        OaRegReportProperties.class,
+        OaRegAttachmentSyncProperties.class,
+        ShareDirProvisionProperties.class
+})
 public class OaConfiguration {
 }

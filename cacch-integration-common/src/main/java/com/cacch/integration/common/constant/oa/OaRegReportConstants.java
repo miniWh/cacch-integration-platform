@@ -32,6 +32,9 @@ public final class OaRegReportConstants {
 
     public static final String SKIP_IDEMPOTENT = "ALREADY_SYNCED";
 
+    /** OA 资料项 field0216=1（不需要），跳过附件同步（REQ-OA-001 B-6 / REQ-OA-002 联动） */
+    public static final String SKIP_NOT_REQUIRED = "NOT_REQUIRED";
+
     /**
      * OA 库访问策略说明（只读 SELECT，禁止 JDBC 写库）
      */

@@ -301,12 +301,13 @@ public class OaRegReportDbClient {
         String fieldIpdpProjectNo = regReportProperties.getFieldIpdpProjectNo();
         String fieldItem = regReportProperties.getFieldItemName();
         String fieldAttachment = regReportProperties.getAttachmentField();
+        String fieldItemRequired = regReportProperties.getFieldItemRequired();
         String subFk = regReportProperties.getSubTableFk();
         String orgMemberTable = regReportProperties.getOrgMemberTable();
         String ownerJoin = OaDbDialectSupport.buildOwnerMemberJoin(orgMemberTable, "m", fieldOwner, product);
         String ownerNameSelect = OaDbDialectSupport.selectOwnerNameColumn("m", fieldOwner, product);
         String itemRowSelect = buildItemRowSelectClause(
-                product, ownerNameSelect, fieldIpdp, fieldIpdpProjectNo, fieldItem, fieldAttachment);
+                product, ownerNameSelect, fieldIpdp, fieldIpdpProjectNo, fieldItem, fieldAttachment, fieldItemRequired);
         String itemText = OaDbDialectSupport.castColumnAsText("s." + fieldItem, product);
         String itemPredicate = itemPredicateTemplate.formatted(itemText);
 
@@ -397,8 +398,9 @@ public class OaRegReportDbClient {
         String ownerJoin = OaDbDialectSupport.buildOwnerMemberJoin(orgMemberTable, "m", fieldOwner, product);
         String ownerNameSelect = OaDbDialectSupport.selectOwnerNameColumn("m", fieldOwner, product);
         String ownerFilterClause = OaDbDialectSupport.ownerNameEqualsClause("m", fieldOwner, product);
+        String fieldItemRequired = regReportProperties.getFieldItemRequired();
         String itemRowSelect = buildItemRowSelectClause(
-                product, ownerNameSelect, fieldIpdp, fieldIpdpProjectNo, fieldItem, fieldAttachment);
+                product, ownerNameSelect, fieldIpdp, fieldIpdpProjectNo, fieldItem, fieldAttachment, fieldItemRequired);
 
         String sql = """
                 SELECT %s
@@ -467,8 +469,9 @@ public class OaRegReportDbClient {
         String ownerJoin = OaDbDialectSupport.buildOwnerMemberJoin(orgMemberTable, "m", fieldOwner, product);
         String ownerNameSelect = OaDbDialectSupport.selectOwnerNameColumn("m", fieldOwner, product);
         String ownerFilterClause = OaDbDialectSupport.ownerNameEqualsClause("m", fieldOwner, product);
+        String fieldItemRequired = regReportProperties.getFieldItemRequired();
         String itemRowSelect = buildItemRowSelectClause(
-                product, ownerNameSelect, fieldIpdp, fieldIpdpProjectNo, fieldItem, fieldAttachment);
+                product, ownerNameSelect, fieldIpdp, fieldIpdpProjectNo, fieldItem, fieldAttachment, fieldItemRequired);
 
         String inPlaceholders = formMainIds.stream().map(id -> "?").collect(Collectors.joining(", "));
 
@@ -528,7 +531,8 @@ public class OaRegReportDbClient {
                                                    String fieldIpdp,
                                                    String fieldIpdpProjectNo,
                                                    String fieldItem,
-                                                   String fieldAttachment) {
+                                                   String fieldAttachment,
+                                                   String fieldItemRequired) {
         return String.join(", ",
                 OaDbDialectSupport.selectFormMainIdColumn("m", product),
                 ownerNameSelect,
@@ -536,7 +540,8 @@ public class OaRegReportDbClient {
                 OaDbDialectSupport.selectTextColumn("m", fieldIpdpProjectNo, "ipdp_project_no", product),
                 OaDbDialectSupport.selectSubRowIdColumn("s", product),
                 OaDbDialectSupport.selectTextColumn("s", fieldItem, "item_name", product),
-                OaDbDialectSupport.selectTextColumn("s", fieldAttachment, "current_attachment_ref", product));
+                OaDbDialectSupport.selectTextColumn("s", fieldAttachment, "current_attachment_ref", product),
+                OaDbDialectSupport.selectTextColumn("s", fieldItemRequired, "item_required", product));
     }
 
     private static String summarizeRow(OaRegReportItemRow row) {
@@ -561,6 +566,7 @@ public class OaRegReportDbClient {
             String subRowId = OaJdbcResultSetSupport.readIdAsString(rs, "sub_row_id");
             String itemName = OaJdbcResultSetSupport.readString(rs, "item_name");
             String attachmentRef = OaJdbcResultSetSupport.readString(rs, "current_attachment_ref");
+            String itemRequired = OaJdbcResultSetSupport.readString(rs, "item_required");
             return new OaRegReportItemRow(
                     formMainId,
                     ownerName,
@@ -568,7 +574,8 @@ public class OaRegReportDbClient {
                     ipdpProjectNo,
                     subRowId,
                     itemName,
-                    attachmentRef);
+                    attachmentRef,
+                    itemRequired);
         }
     }
 }

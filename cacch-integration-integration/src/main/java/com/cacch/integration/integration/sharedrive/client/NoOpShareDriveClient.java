@@ -7,8 +7,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.stereotype.Component;
 
+import com.cacch.integration.common.exception.BizException;
+import com.cacch.integration.common.result.ResultCode;
+
 import java.io.IOException;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
@@ -47,5 +51,25 @@ public class NoOpShareDriveClient implements IShareDriveClient {
     @Override
     public void readFileStream(ShareDriveScannedItem item, ShareDriveFileStreamConsumer consumer) throws IOException {
         throw new IOException("共享盘未配置");
+    }
+
+    @Override
+    public boolean existsDirectory(String path) {
+        return false;
+    }
+
+    @Override
+    public void mkdirs(String path) {
+        throw new BizException(ResultCode.INTEGRATION_ERROR, "共享盘未配置，无法创建目录");
+    }
+
+    @Override
+    public boolean isEmptyDirectory(String path, Set<String> ignoreSystemFiles) {
+        return false;
+    }
+
+    @Override
+    public void deleteEmptyDirectory(String path) {
+        throw new BizException(ResultCode.INTEGRATION_ERROR, "共享盘未配置，无法删除目录");
     }
 }

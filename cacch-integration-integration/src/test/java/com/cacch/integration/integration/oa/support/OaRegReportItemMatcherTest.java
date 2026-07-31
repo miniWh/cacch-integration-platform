@@ -138,6 +138,6 @@ class OaRegReportItemMatcherTest {
                                           String ipdpProjectNo,
                                           String subRowId,
                                           String itemName) {
-        return new OaRegReportItemRow(formMainId, ownerName, ipdpName, ipdpProjectNo, subRowId, itemName, null);
+        return new OaRegReportItemRow(formMainId, ownerName, ipdpName, ipdpProjectNo, subRowId, itemName, null, null);
     }
 }

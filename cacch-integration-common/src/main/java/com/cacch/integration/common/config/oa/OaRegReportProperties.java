@@ -63,6 +63,11 @@ public class OaRegReportProperties {
     private final String fieldItemName;
 
     /**
+     * 「需要 / 不需要」字段名（formson_5464.field0216；0=需要，1=不需要）
+     */
+    private final String fieldItemRequired;
+
+    /**
      * 子表外键列名
      */
     private final String subTableFk;
@@ -82,6 +87,7 @@ public class OaRegReportProperties {
                                  String fieldIpdpName,
                                  String fieldIpdpProjectNo,
                                  String fieldItemName,
+                                 String fieldItemRequired,
                                  String subTableFk,
                                  String orgMemberTable) {
         this.formCode = formCode != null ? formCode.trim() : "";
@@ -94,6 +100,7 @@ public class OaRegReportProperties {
         this.fieldIpdpName = blankToDefault(fieldIpdpName, "field0160");
         this.fieldIpdpProjectNo = blankToDefault(fieldIpdpProjectNo, "field0164");
         this.fieldItemName = blankToDefault(fieldItemName, "field0214");
+        this.fieldItemRequired = blankToDefault(fieldItemRequired, "field0216");
         this.subTableFk = blankToDefault(subTableFk, "formmain_id");
         this.orgMemberTable = blankToDefault(orgMemberTable, "org_member");
     }
