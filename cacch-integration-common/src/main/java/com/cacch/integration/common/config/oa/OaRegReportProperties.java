@@ -63,6 +63,11 @@ public class OaRegReportProperties {
     private final String fieldItemName;
 
     /**
+     * 资料项目序号字段名（formson_5464.field0212，用于 L3 目录排序前缀）
+     */
+    private final String fieldItemSeq;
+
+    /**
      * 「需要 / 不需要」字段名（formson_5464.field0216；0=需要，1=不需要）
      */
     private final String fieldItemRequired;
@@ -87,6 +92,7 @@ public class OaRegReportProperties {
                                  String fieldIpdpName,
                                  String fieldIpdpProjectNo,
                                  String fieldItemName,
+                                 String fieldItemSeq,
                                  String fieldItemRequired,
                                  String subTableFk,
                                  String orgMemberTable) {
@@ -100,6 +106,7 @@ public class OaRegReportProperties {
         this.fieldIpdpName = blankToDefault(fieldIpdpName, "field0160");
         this.fieldIpdpProjectNo = blankToDefault(fieldIpdpProjectNo, "field0164");
         this.fieldItemName = blankToDefault(fieldItemName, "field0214");
+        this.fieldItemSeq = blankToDefault(fieldItemSeq, "field0212");
         this.fieldItemRequired = blankToDefault(fieldItemRequired, "field0216");
         this.subTableFk = blankToDefault(subTableFk, "formmain_id");
         this.orgMemberTable = blankToDefault(orgMemberTable, "org_member");

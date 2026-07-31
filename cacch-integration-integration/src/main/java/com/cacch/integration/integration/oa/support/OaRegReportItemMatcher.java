@@ -154,7 +154,7 @@ public final class OaRegReportItemMatcher {
                 .filter(row -> ShareDrivePathNormalizer.matchesDirectoryName(
                         ShareDriveIpdpDirectorySupport.normalizeIpdpNameForMatch(row.ipdpName()),
                         scanned.ipdpName())
-                        && ShareDrivePathNormalizer.matchesDirectoryNameLoosely(row.itemName(), scanned.itemName()))
+                        && matchesL3Directory(row, scanned.itemName()))
                 .toList();
     }
 
@@ -177,7 +177,18 @@ public final class OaRegReportItemMatcher {
         }
         return matchesOwner(row.ownerName(), scanned.ownerName())
                 && ShareDrivePathNormalizer.matchesIpdpNameLoosely(row.ipdpName(), scanned.ipdpName())
-                && ShareDrivePathNormalizer.matchesDirectoryNameLoosely(row.itemName(), scanned.itemName());
+                && matchesL3Directory(row, scanned.itemName());
+    }
+
+    /**
+     * 匹配 L3 目录名：优先 {@code {field0212}、{field0214}}，兼容历史无序号前缀目录
+     */
+    private static boolean matchesL3Directory(OaRegReportItemRow row, String diskItemName) {
+        String expected = OaRegReportPathSupport.formatL3DirectoryName(row.itemSeq(), row.itemName());
+        if (ShareDrivePathNormalizer.matchesDirectoryNameLoosely(expected, diskItemName)) {
+            return true;
+        }
+        return ShareDrivePathNormalizer.matchesDirectoryNameLoosely(row.itemName(), diskItemName);
     }
 
     private static boolean matchesOwner(String oaOwner, String diskOwner) {

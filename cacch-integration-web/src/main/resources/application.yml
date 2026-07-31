@@ -139,6 +139,8 @@ oa:
     field-ipdp-name: field0160
     field-ipdp-project-no: field0164
     field-item-name: field0214
+    # 资料项目序号（L3 目录名前缀，格式：{序号}、{资料项目名称}）
+    field-item-seq: field0212
     # 「需要 / 不需要」字段（field0216：0=需要，1=不需要）
     field-item-required: field0216
     sub-table-fk: formmain_id

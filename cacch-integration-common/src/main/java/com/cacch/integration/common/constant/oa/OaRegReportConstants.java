@@ -36,6 +36,11 @@ public final class OaRegReportConstants {
     public static final String SKIP_NOT_REQUIRED = "NOT_REQUIRED";
 
     /**
+     * L3 目录名中资料序号（field0212）与资料项目名称（field0214）之间的分隔符（中文顿号）
+     */
+    public static final String L3_ITEM_SEQ_SEPARATOR = "、";
+
+    /**
      * OA 库访问策略说明（只读 SELECT，禁止 JDBC 写库）
      */
     public static final String OA_DB_READ_ONLY_POLICY =

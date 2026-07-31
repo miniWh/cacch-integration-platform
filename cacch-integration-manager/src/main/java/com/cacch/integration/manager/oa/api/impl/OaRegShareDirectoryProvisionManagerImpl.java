@@ -204,12 +204,19 @@ public class OaRegShareDirectoryProvisionManagerImpl implements IOaRegShareDirec
             String normalizedOwner = ShareDrivePathNormalizer.normalize(row.ownerName());
             String normalizedIpdpName = ShareDrivePathNormalizer.normalize(row.ipdpName());
             String normalizedProjectNo = ShareDriveIpdpDirectorySupport.normalizeProjectNo(row.ipdpProjectNo());
-            String normalizedItem = ShareDrivePathNormalizer.normalize(row.itemName());
+            if (!StringUtils.hasText(row.itemSeq()) || !StringUtils.hasText(row.itemSeq().trim())) {
+                log.info("【{}】归一化失败, reason=资料序号 field0212 为空, subRowId={}, item={}",
+                        BIZ, row.subRowId(), row.itemName());
+                failedRecords.add(buildFailedRecord(row, "资料序号 field0212 为空", runId, now));
+                continue;
+            }
+            String l3DirName = OaRegReportPathSupport.formatL3DirectoryName(row.itemSeq(), row.itemName());
+            String normalizedL3 = ShareDrivePathNormalizer.normalize(l3DirName);
 
             if (!StringUtils.hasText(normalizedOwner) || !StringUtils.hasText(normalizedIpdpName)
-                    || !StringUtils.hasText(normalizedProjectNo) || !StringUtils.hasText(normalizedItem)) {
-                log.info("【{}】归一化失败, reason=路径段为空, owner={}, ipdp={}, projectNo={}, item={}",
-                        BIZ, row.ownerName(), row.ipdpName(), row.ipdpProjectNo(), row.itemName());
+                    || !StringUtils.hasText(normalizedProjectNo) || !StringUtils.hasText(normalizedL3)) {
+                log.info("【{}】归一化失败, reason=路径段为空, owner={}, ipdp={}, projectNo={}, itemSeq={}, item={}",
+                        BIZ, row.ownerName(), row.ipdpName(), row.ipdpProjectNo(), row.itemSeq(), row.itemName());
                 failedRecords.add(buildFailedRecord(row, "路径段归一化后为空", runId, now));
                 continue;
             }
@@ -217,7 +224,7 @@ public class OaRegShareDirectoryProvisionManagerImpl implements IOaRegShareDirec
             String l2DirName = ShareDriveIpdpDirectorySupport.formatDirectoryName(
                     normalizedIpdpName, normalizedProjectNo);
             String sharePath = OaRegReportPathSupport.buildItemDirectory(
-                    rootPath, normalizedOwner, l2DirName, normalizedItem);
+                    rootPath, normalizedOwner, l2DirName, normalizedL3);
 
             boolean normalizedRequired = OaRegItemRequiredSupport.isRequired(row.itemRequired());
             pathGroups.computeIfAbsent(sharePath, k -> new ArrayList<>())
