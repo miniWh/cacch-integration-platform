@@ -62,6 +62,9 @@ wecom:
     - corpid: ww0ae0c799548c75bd
       app-key: address-book
       secret: _V82sWWijuUgDVsNcssQcwbFQIyu9FKr1L_xH6L2Q-0
+  # 群机器人 Webhook — 目录治理/附件同步异常告警
+  webhook:
+    enabled: true
 
 # ---------- 勤策 CRM OpenAPI ----------
 crm:
@@ -94,6 +97,12 @@ oa:
     username: ${OA_DB_USERNAME:V5}
     password: ${OA_DB_PASSWORD:Seeyon123456}
     driver-class-name: oracle.jdbc.OracleDriver
+  # REQ-OA-002 共享盘目录治理（正式环境开启定时任务）
+  share-dir-provision:
+    enabled: true
+    # cron 继承 application.yml：每小时整点执行
+    owner-allowlist: []
+    alert-not-empty-skipped: true
 
 # ---------- 共享盘 SMB（与 Windows 访问 \\192.168.1.8\国内登记资料 的域账号一致，直接写在本文件） ----------
 share-drive:

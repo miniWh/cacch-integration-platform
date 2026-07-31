@@ -171,7 +171,7 @@ oa:
   # REQ-OA-002 共享盘目录治理
   share-dir-provision:
     enabled: false
-    cron: "0 0 3 * * ?"
+    cron: "0 0 * * * ?"
     # 主表（项目）每批拉取数量，对齐 OaRegReportDbClient 主表游标分批
     form-batch-size: 50
     # 仅指定 formMainId 触发时限制子表行数
@@ -189,7 +189,7 @@ share-drive:
   username: ""
   password: ""
   domain: ""
-  final-version-suffix: "_最终版本"
+  final-version-suffix: "最终版本"
   version-pattern: "_v(\\d+)"
   allowed-extensions: [pdf, doc, docx, xls, xlsx, png, jpg, jpeg, zip]
   max-file-size-bytes: 536870912

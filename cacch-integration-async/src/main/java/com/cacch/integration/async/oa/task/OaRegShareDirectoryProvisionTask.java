@@ -41,7 +41,7 @@ public class OaRegShareDirectoryProvisionTask {
      *
      * <p>触发频率由 {@code oa.share-dir-provision.cron} 配置；上一轮未结束则跳过。</p>
      */
-    @Scheduled(cron = "${oa.share-dir-provision.cron:0 0 3 * * ?}")
+    @Scheduled(cron = "${oa.share-dir-provision.cron:0 0 * * * ?}")
     public void provisionShareDirectories() {
         ScheduledTaskGuard.runExclusive(TASK_NAME, running, () -> {
             log.info("【{}】开始执行{}, enabled={}, formBatchSize={}",

@@ -17,9 +17,9 @@ public final class ShareDriveConstants {
     public static final String SKIP_PATH_COLLISION = "IPDP_PATH_COLLISION";
 
     /**
-     * 资料项目目录内待上传文件名后缀（不含扩展名），默认 {@code _最终版本}
+     * 资料项目目录内待上传文件名关键字（主文件名不含扩展名须包含此子串），默认 {@code 最终版本}
      */
-    public static final String DEFAULT_FINAL_VERSION_SUFFIX = "_最终版本";
+    public static final String DEFAULT_FINAL_VERSION_SUFFIX = "最终版本";
 
     private ShareDriveConstants() {
     }

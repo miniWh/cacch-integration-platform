@@ -35,7 +35,7 @@ public class ShareDriveProperties {
     private final String domain;
 
     /**
-     * 最终版本文件名后缀（主文件名不含扩展名须以此结尾），默认 {@code _最终版本}
+     * 最终版本文件名关键字（主文件名不含扩展名须包含此子串），默认 {@code 最终版本}
      */
     private final String finalVersionSuffix;
 

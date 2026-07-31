@@ -35,35 +35,35 @@ public final class ShareDriveFinalVersionSupport {
     }
 
     /**
-     * 判断文件名（不含扩展名）是否以最终版本后缀结尾
+     * 判断文件名（不含扩展名）是否包含最终版本关键字
      *
      * @param fileName 文件名
-     * @param suffix   最终版本后缀，如 {@code _最终版本}
+     * @param keyword  最终版本关键字，如 {@code 最终版本}
      * @return true 表示符合上传条件
      */
-    public static boolean isFinalVersionFileName(String fileName, String suffix) {
-        if (!StringUtils.hasText(fileName) || !StringUtils.hasText(suffix)) {
+    public static boolean isFinalVersionFileName(String fileName, String keyword) {
+        if (!StringUtils.hasText(fileName) || !StringUtils.hasText(keyword)) {
             return false;
         }
         String trimmed = fileName.trim();
         int dot = trimmed.lastIndexOf('.');
         String baseName = dot > 0 ? trimmed.substring(0, dot) : trimmed;
-        return baseName.endsWith(suffix.trim());
+        return baseName.contains(keyword.trim());
     }
 
     /**
      * 从候选文件中选取创建时间最新的「最终版本」文件
      *
      * @param candidates 目录内全部候选文件元数据
-     * @param suffix     最终版本后缀
+     * @param keyword    最终版本关键字
      * @return 最新最终版本文件；无匹配时返回 null
      */
-    public static CandidateFile pickLatestFinalVersion(List<CandidateFile> candidates, String suffix) {
-        if (candidates == null || candidates.isEmpty() || !StringUtils.hasText(suffix)) {
+    public static CandidateFile pickLatestFinalVersion(List<CandidateFile> candidates, String keyword) {
+        if (candidates == null || candidates.isEmpty() || !StringUtils.hasText(keyword)) {
             return null;
         }
         return candidates.stream()
-                .filter(candidate -> isFinalVersionFileName(candidate.fileName(), suffix))
+                .filter(candidate -> isFinalVersionFileName(candidate.fileName(), keyword))
                 .max(Comparator
                         .comparing(CandidateFile::createdAt, Comparator.nullsFirst(Comparator.naturalOrder()))
                         .thenComparing(CandidateFile::modifiedAt, Comparator.nullsFirst(Comparator.naturalOrder()))

@@ -61,7 +61,7 @@ public class ShareDirProvisionProperties {
                                        Boolean alertNotEmptySkipped,
                                        List<String> ignoreSystemFiles) {
         this.enabled = enabled != null && enabled;
-        this.cron = blankToDefault(cron, "0 0 3 * * ?");
+        this.cron = blankToDefault(cron, "0 0 * * * ?");
         this.formBatchSize = formBatchSize != null && formBatchSize > 0 ? formBatchSize : 50;
         this.subRowBatchSize = subRowBatchSize != null && subRowBatchSize > 0 ? subRowBatchSize : 500;
         this.ownerAllowlist = ownerAllowlist == null || ownerAllowlist.isEmpty()
