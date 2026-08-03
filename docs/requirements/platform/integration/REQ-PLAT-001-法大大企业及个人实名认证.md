@@ -28,7 +28,7 @@
 
 - OA 供应商准入时需验证供应商企业的工商注册信息（企业实名认证）
 - 外部企业联系人登录系统时需要验证个人身份（个人实名认证）
-- CRM 客户入驻时需对客户企业及对接人进行实名核验
+- CRM 客户入驻时需对客户企业及对接人进行实名核验，且须明确所属内部法人主体（如南通泰禾化工股份有限公司、上海泰禾国际贸易有限公司等）
 
 ### 2.2 痛点
 
@@ -84,13 +84,28 @@
 | 原则 | 说明 |
 |------|------|
 | 集成平台为唯一入口 | 所有外部系统的实名认证需求统一走集成平台，禁止业务系统直连法大大 |
-| 认证记录复用 | 同一企业统一社会信用代码 / 同一人身份证号只认证一次；后续系统查询时直接返回已有结果 |
+| 认证记录复用 | 按 **内部企业全称 + uscc**（企业）或 **内部企业全称 + idNumber**（个人）判定：同一组合仅一条 `SUCCESS`；`FAILED` 可有多条 |
+| 内部企业归属 | 每条认证记录归属唯一内部法人企业；同一外部企业/个人对不同内部企业须**分别认证**（如张三对 A 公司、B 公司各认证一次） |
+| 逐次留痕 | 每次发起认证新增一条记录；`sourceSystem` 写入该条记录，**仅作来源审计，无查询/去重/状态判定作用** |
 | 异步回调解耦 | 认证为异步流程：发起认证后立即返回 `PENDING` 及认证 URL，法大大回调到达后更新为 `SUCCESS` / `FAILED` |
-| 业务唯一键 | 企业按**统一社会信用代码（uscc）**去重，个人按**身份证号（idNumber）**去重；接口不返回 bizNo，业务系统以 uscc 或 idNumber 追踪认证状态 |
-| 幂等查询 | 业务系统可反复调用查询接口，每次返回最新认证状态，不重复发起认证 |
+| 业务唯一键 | 企业：**internalCompanyName + uscc**；个人：**internalCompanyName + idNumber**（结合 `authType` 区分表）；与 `sourceSystem` 无关 |
+| 来源系统记录 | `sourceSystem` 取值 **`CRM`** / **`OA`**；**仅在 STEP 2 新发起认证时**必填并写入记录，供审计溯源 |
+| 幂等查询 | 业务系统调用查询接口时**必须传入 internalCompanyName**；若该组合已有 `SUCCESS` 或进行中 `PENDING`，不重复发起认证 |
 | 回调匿名接收 | 回调接口为匿名接口，不需要验签，仅限法大大平台访问（通过网络层 ACL 控制） |
 
-### 3.3 认证类型
+### 3.3 内部企业（法人主体）
+
+认证记录按**内部法人企业**隔离。外部系统调用时必须传入 **`internalCompanyName`（内部企业全称）**。
+
+| 内部企业全称（示例） | 说明 |
+|---------------------|------|
+| 南通泰禾化工股份有限公司 | 泰禾集团下属法人主体之一 |
+| 上海泰禾国际贸易有限公司 | 泰禾集团下属法人主体之一 |
+| … | 其他法人主体，见配置 `fdd.internal-companies` |
+
+> **规则**：单条认证记录仅对应一家内部企业。同一外部供应商（uscc）或个人（idNumber）为不同内部企业办理业务时，须按「内部企业 + uscc/idNumber」组合**分别查询与认证**。
+
+### 3.4 认证类型
 
 | 认证类型 | 认证对象 | 法大大对应能力 | 典型场景 |
 |----------|----------|---------------|----------|
@@ -107,7 +122,8 @@
 业务系统                      集成平台                         法大大
    │                            │                               │
    │  ① 查询/认证请求             │                               │
-   │  (企业名称+uscc 或           │                               │
+   │  (内部企业全称 +             │                               │
+   │   企业名称+uscc 或           │                               │
    │   姓名+身份证号)              │                               │
    │ ──────────────────────────→ │                               │
    │                            │                               │
@@ -134,7 +150,7 @@
    │                            │     SUCCESS / FAILED           │
    │                            │                               │
    │  ⑩ 业务系统再次查询          │                               │
-   │  (按 uscc 或身份证号)          │                               │
+   │  (内部企业+uscc/身份证号)      │                               │
    │ ──────────────────────────→ │                               │
    │   ← ─ ─ 返回 SUCCESS ─ ─ ─  │                               │
 ```
@@ -144,22 +160,29 @@
 业务系统调用查询接口时的处理逻辑：
 
 ```
-输入：认证类型（ENTERPRISE/PERSON）+ 业务唯一键（uscc 或 idNumber）
+输入：
+  查询判定键：authType（ENTERPRISE/PERSON）+ internalCompanyName（内部企业全称，必填）
+            + uscc（企业）或 idNumber（个人）
+  审计字段（仅 STEP 2 发起新认证）：sourceSystem（CRM/OA）、sourceBizNo（可选）
 
-STEP 1：查本地认证记录表
-  ├─ 有记录 + 状态 = SUCCESS → 返回 { certified: true, 认证信息, certifiedAt }
-  ├─ 有记录 + 状态 = PENDING → 返回 { certified: false, status: "PENDING", authUrl, message: "认证处理中" }
-  ├─ 有记录 + 状态 = FAILED → 返回 { certified: false, status: "FAILED", failReason, canRetry: true }
-  └─ 无记录                  → STEP 2
+STEP 1：按 internalCompanyName + uscc / idNumber 查本地认证记录表（可有多条 FAILED）
+  ├─ 存在 SUCCESS 记录（该组合唯一）→ 返回 { certified: true, 认证信息, certifiedAt }
+  ├─ 不存在 SUCCESS，但存在 PENDING 记录 → 取最新一条 PENDING
+  │     返回 { certified: false, status: "PENDING", authUrl, message: "认证处理中" }
+  ├─ 不存在 SUCCESS/PENDING，仅有 FAILED 记录 → 取最新一条 FAILED
+  │     返回 { certified: false, status: "FAILED", failReason, canRetry: true }；若 autoAuth=true 则进入 STEP 2
+  └─ 无任何记录 → 若 autoAuth=true 则 STEP 2，否则返回需认证提示
 
-STEP 2：自动发起认证（如有 autoAuth 标记）
+STEP 2：自动发起认证（autoAuth=true 且该 internalCompanyName+uscc/idNumber 组合无 SUCCESS、无进行中 PENDING）
+  ├─ 校验 internalCompanyName 非空且在配置允许列表内（见 §9.2 `fdd.internal-companies`）
+  ├─ 校验 sourceSystem ∈ { CRM, OA }（本步骤必填）
   ├─ 调用法大大企业/个人认证 URL 接口
   ├─ 获取法大大返回的认证页面 URL
-  ├─ 入库认证记录（状态 PENDING）
+  ├─ **新增**一条认证记录（状态 PENDING；写入 internalCompanyName、sourceSystem、sourceBizNo）
   └─ 返回 { certified: false, needAuth: true, status: "PENDING", authUrl }
 ```
 
-> **说明**：查询接口支持 `autoAuth` 参数。当 `autoAuth=true`（默认）时，未查到记录自动发起认证；当 `autoAuth=false` 时，仅返回是否需要认证，由业务系统决定是否发起。认证发起后，业务系统通过原有的 uscc（企业）或 idNumber（个人）再次查询即可获取最新状态，接口不返回 bizNo。
+> **说明**：查询与状态判定依赖 **internalCompanyName + uscc** 或 **internalCompanyName + idNumber**。同一 idNumber 对不同内部企业视为不同认证主体，须分别认证。`sourceSystem` 仅审计。同一组合仅一条 `SUCCESS`，`FAILED` 可有多条。
 
 ### 4.3 回调处理流程
 
@@ -182,17 +205,17 @@ STEP 2：自动发起认证（如有 autoAuth 标记）
 ### 4.4 状态流转
 
 ```
-（无记录）
+（无 SUCCESS 记录）
     │
-    ↓ 发起认证（获取 URL）
- PENDING ──────────→ SUCCESS（法大大回调认证通过）
+    ↓ 每次发起认证新增一条记录（sourceSystem 写入该条，不参与判定）
+ PENDING ──────────→ SUCCESS（法大大回调认证通过；同一 internalCompanyName+uscc/idNumber 仅一条 SUCCESS）
     │
-    └──────────────→ FAILED（法大大回调认证失败）
+    └──────────────→ FAILED（法大大回调认证失败；可有多条 FAILED 历史记录）
 
 状态说明：
   PENDING   — 已发起认证，等待法大大回调
-  SUCCESS   — 实名认证通过
-  FAILED    — 实名认证不通过
+  SUCCESS   — 实名认证通过（internalCompanyName+uscc/idNumber 组合下唯一）
+  FAILED    — 实名认证不通过（可多次重试，每次新增记录）
 ```
 
 > **说明**：认证结果暂不设置有效期，SUCCESS 状态长期有效。如后续业务需要过期重认证，再行扩展。
@@ -203,15 +226,18 @@ STEP 2：自动发起认证（如有 autoAuth 标记）
 
 | 序号 | 功能点 | 描述 | 必选/可选 |
 |------|--------|------|-----------|
-| F1 | 统一查询接口 | 对外提供企业/个人实名认证状态查询，按 uscc/idNumber 返回认证结果 | 必选 |
-| F2 | 自动发起认证 | 查询无记录时自动调用法大大 API 获取认证 URL；支持 autoAuth 参数控制 | 必选 |
+| F1 | 统一查询接口 | 对外提供企业/个人实名认证状态查询，按 internalCompanyName+uscc/idNumber 返回结果 | 必选 |
+| F2 | 自动发起认证 | 该组合无 SUCCESS 且无进行中 PENDING 时，autoAuth=true 自动调用法大大并新增记录 | 必选 |
 | F3 | 企业实名认证 URL | 调法大大 `/user/api/verify/company/url` 获取企业认证页面 URL | 必选 |
 | F4 | 个人实名认证 URL | 调法大大 `/user/api/verify/person/url` 获取个人认证页面 URL | 必选 |
 | F5 | 认证回调接收 | 接收法大大异步认证结果回调（匿名接口），更新认证状态 | 必选 |
-| F6 | 认证记录复用 | 同一企业/个人已认证通过时，后续系统查询直接返回，不重复认证 | 必选 |
+| F6 | 认证记录复用 | 同一 internalCompanyName+uscc/idNumber 仅一条 SUCCESS；跨来源系统查询同一组合直接返回 | 必选 |
 | F7 | 原始报文留存 | 法大大请求与回调原始报文 JSONB 完整保存，便于问题排查 | 必选 |
-| F8 | 认证记录查询 API | 按认证类型、状态、时间范围分页查询认证记录（管理后台用） | 可选 |
+| F8 | 认证记录查询 API | 按认证类型、内部企业、状态、来源系统、时间范围分页查询（管理后台用） | 可选 |
 | F9 | 认证失败告警 | 认证 FAILED 或回调超时（3 分钟）触发企微 Webhook 告警 | 可选 |
+| F10 | API Key 鉴权 | 与法大大功能同期实现：对外接口校验 API Key，回调接口除外 | 必选 |
+| F11 | 逐次认证留痕 | 每次发起认证新增一条记录；FAILED 可多条；SUCCESS 按 internalCompanyName+uscc/idNumber 唯一 | 必选 |
+| F12 | 内部企业归属 | 每条记录绑定内部企业全称；同一人/企业对不同内部企业须分别认证 | 必选 |
 
 **明确不做**：
 
@@ -223,6 +249,7 @@ STEP 2：自动发起认证（如有 autoAuth 标记）
 | 认证有效期 | 暂不设置认证结果有效期，SUCCESS 长期有效 |
 | 个人四要素/人脸认证 | 个人认证仅使用三要素（姓名+身份证号+手机号），法大大页面完成剩余验证 |
 | API 频率限制 | 法大大侧暂未限制调用频率，集成平台暂不做限流 |
+| 身份证号/手机号加密 | 本期明文存储与接口传输，不做 AES/SM4 加密 |
 
 ---
 
@@ -236,12 +263,15 @@ STEP 2：自动发起认证（如有 autoAuth 标记）
 | 法大大平台 | 认证结果回调 | 异步通知认证结果 |
 | 致远 OA | 供应商/客户管理模块 | 调用集成平台查询/认证接口 |
 | 勤策 CRM | 客户管理模块 | 调用集成平台查询/认证接口 |
-| 集成中台 integration | `FddClient`（HTTP 客户端）、`FddCallbackController` | 调用法大大 API、接收回调 |
+| 集成中台 integration | `FddClient`（HTTP 客户端） | 调用法大大 API |
 | 集成中台 service | `FddEnterpriseAuthService`、`FddPersonAuthService` | 企业/个人认证业务逻辑 |
 | 集成中台 manager | `FddAuthManager` | 编排查询、认证、回调更新 |
 | 集成中台 dao（PG） | 认证记录 Mapper | 企业/个人认证记录 CRUD |
-| 集成中台 web | `FddAuthController` | 对外查询/认证接口 |
-| 集成中台 common | `FddProperties`、`FddConstants` | 配置绑定、常量定义 |
+| 集成中台 web | `FddAuthController`、`FddCallbackController` | 对外查询/认证接口、法大大回调接收 |
+| 集成中台 web | `ApiKeyAuthFilter`（或等价拦截器） | API Key 鉴权（与法大大同期实现） |
+| 集成中台 common | `FddProperties`、`FddConstants`、`FddSourceSystem` | 配置绑定、常量、来源系统枚举；`internal-companies` 内部企业白名单 |
+| 集成中台 dao | `ApiKeyDO`、`ApiKeyMapper` | API Key 持久化（复用 `t_integration_api_key`） |
+| 集成中台 service | `IApiKeyService` / `ApiKeyServiceImpl` | API Key 校验逻辑 |
 
 ---
 
@@ -260,14 +290,15 @@ POST /api/v1/fdd/auth/query
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
 | authType | String | 是 | 认证类型：ENTERPRISE（企业）/ PERSON（个人） |
-| enterpriseName | String | 条件 | 企业名称（authType=ENTERPRISE 时必填） |
-| uscc | String | 条件 | 统一社会信用代码（authType=ENTERPRISE 时必填，业务唯一键） |
+| internalCompanyName | String | 是 | **内部企业全称**（如「南通泰禾化工股份有限公司」），查询判定键之一；须在配置 `fdd.internal-companies` 允许列表内 |
+| enterpriseName | String | 条件 | **外部**企业名称（authType=ENTERPRISE 时必填） |
+| uscc | String | 条件 | 统一社会信用代码（authType=ENTERPRISE 时必填，与 internalCompanyName 组成业务键） |
 | personName | String | 条件 | 姓名（authType=PERSON 时必填） |
-| idNumber | String | 条件 | 身份证号（authType=PERSON 时必填，业务唯一键） |
+| idNumber | String | 条件 | 身份证号（authType=PERSON 时必填，与 internalCompanyName 组成业务键） |
 | mobile | String | 条件 | 手机号（authType=PERSON 时必填，三要素认证） |
 | autoAuth | Boolean | 否 | 是否自动发起认证，默认 true |
-| sourceSystem | String | 是 | 调用来源：OA / CRM / …（用于审计追踪） |
-| sourceBizNo | String | 否 | 来源系统业务单号（便于溯源） |
+| sourceSystem | String | 条件 | 发起来源，**仅允许** `CRM` 或 `OA`；STEP 2 新发起认证时必填；审计字段 |
+| sourceBizNo | String | 否 | 来源系统业务单号（审计溯源） |
 
 **响应参数**：
 
@@ -277,25 +308,28 @@ POST /api/v1/fdd/auth/query
 | needAuth | Boolean | 是否已发起认证（true 表示本次发起或已有 PENDING 记录） |
 | status | String | 认证状态：PENDING / SUCCESS / FAILED |
 | authType | String | 认证类型：ENTERPRISE / PERSON |
+| internalCompanyName | String | 内部企业全称 |
 | authUrl | String | 法大大认证页面 URL（status=PENDING 且本次发起或首次查询时返回） |
-| enterpriseName | String | 企业名称（authType=ENTERPRISE 时返回） |
+| enterpriseName | String | 外部企业名称（authType=ENTERPRISE 时返回） |
 | uscc | String | 统一社会信用代码（authType=ENTERPRISE 时返回，业务追踪用） |
 | personName | String | 姓名（authType=PERSON 时返回） |
-| idNumber | String | 身份证号（authType=PERSON 时返回，业务追踪用，脱敏） |
+| idNumber | String | 身份证号（authType=PERSON 时返回，明文） |
+| mobile | String | 手机号（authType=PERSON 时返回，明文） |
+| sourceSystem | String | 当前命中记录的发起来源（审计回显，CRM / OA）；**非查询条件** |
 | failReason | String | 失败原因（status=FAILED 时返回） |
 | certifiedAt | String | 认证通过时间（ISO 8601，status=SUCCESS 时返回） |
 | message | String | 提示信息 |
 
-> **说明**：接口不返回 bizNo。业务系统通过请求时传入的 uscc（企业）或 idNumber（个人）作为追踪标识，后续查询时使用相同的唯一键即可获取最新认证状态。
+> **说明**：查询与追踪使用 **internalCompanyName + uscc（企业）或 internalCompanyName + idNumber（个人）**。同一外部主体对不同内部企业须分别调用。
 
 #### 7.1.2 认证状态查询接口
 
 ```
-GET /api/v1/fdd/auth/status?authType=ENTERPRISE&uscc={uscc}
-GET /api/v1/fdd/auth/status?authType=PERSON&idNumber={idNumber}
+GET /api/v1/fdd/auth/status?authType=ENTERPRISE&internalCompanyName={name}&uscc={uscc}
+GET /api/v1/fdd/auth/status?authType=PERSON&internalCompanyName={name}&idNumber={idNumber}
 ```
 
-按业务唯一键查询单条认证记录的最新状态。返回结构与 7.1.1 响应一致。
+按 **internalCompanyName + uscc / idNumber** 查询当前有效认证状态（优先 SUCCESS，其次最新 PENDING，再次最新 FAILED）。返回结构与 7.1.1 响应一致。
 
 ### 7.2 法大大回调接口（集成平台接收）
 
@@ -319,8 +353,8 @@ POST /api/v1/fdd/callback
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/api/v1/fdd/auth/records` | 分页查询认证记录（按类型/状态/时间） |
-| POST | `/api/v1/fdd/auth/retry` | 手动重试失败的认证（传入 authType + uscc/idNumber） |
+| GET | `/api/v1/fdd/auth/records` | 分页查询认证记录（按类型/内部企业/状态/来源系统/时间） |
+| POST | `/api/v1/fdd/auth/retry` | 手动重试失败的认证（传入 authType + internalCompanyName + uscc/idNumber） |
 
 ---
 
@@ -332,29 +366,37 @@ POST /api/v1/fdd/callback
 t_integration_fdd_enterprise_auth（法大大企业实名认证记录）
 
 ├─ id                      BIGINT PK              -- 雪花主键
+├─ internal_company_name   VARCHAR(256) NOT NULL  -- 内部企业全称（业务判定键之一）
 ├─ transaction_no          VARCHAR(64)            -- 法大大侧认证流水号（回调匹配用）
-├─ enterprise_name         VARCHAR(256) NOT NULL  -- 企业名称
-├─ uscc                    VARCHAR(32) NOT NULL   -- 统一社会信用代码（业务唯一键）
+├─ enterprise_name         VARCHAR(256) NOT NULL  -- 外部企业名称
+├─ uscc                    VARCHAR(32) NOT NULL   -- 统一社会信用代码（业务判定键之一）
 ├─ auth_url                VARCHAR(1024)          -- 法大大认证页面 URL
 ├─ auth_status             VARCHAR(16) NOT NULL   -- PENDING / SUCCESS / FAILED
+├─ request_detail          JSONB                  -- 发起认证时法大大请求/响应原始报文
 ├─ auth_detail             JSONB                  -- 法大大回调原始报文
 ├─ fail_reason             VARCHAR(512)           -- 失败原因
-├─ source_system           VARCHAR(32)            -- 首次调用来源系统
-├─ source_biz_no           VARCHAR(128)           -- 来源系统业务单号
-├─ certified_at            TIMESTAMP              -- 认证通过时间
-├─ retry_count             INT DEFAULT 0          -- 重试次数
+├─ source_system           VARCHAR(16) NOT NULL   -- 审计：本次发起来源（CRM/OA），不参与业务判定
+├─ source_biz_no           VARCHAR(128)           -- 审计：来源系统业务单号
+├─ certified_at            TIMESTAMP              -- 认证通过时间（SUCCESS 时写入）
 ├─ created_at              TIMESTAMP NOT NULL
 ├─ updated_at              TIMESTAMP NOT NULL
 ├─ is_deleted              INT DEFAULT 0
 
 索引：
-  UNIQUE (uscc) WHERE is_deleted = 0 AND auth_status = 'SUCCESS'
+  UNIQUE (internal_company_name, uscc) WHERE is_deleted = 0 AND auth_status = 'SUCCESS'
   INDEX (transaction_no)
+  INDEX (internal_company_name, uscc, auth_status, created_at DESC)
+  INDEX (internal_company_name, created_at)
+  INDEX (source_system, created_at)
   INDEX (auth_status, created_at)
   INDEX (enterprise_name)
 ```
 
-> **说明**：`uscc` 唯一索引仅约束 `SUCCESS` 状态的记录，PENDING/FAILED 允许重新发起认证产生新记录。`transaction_no` 用于回调匹配，非业务唯一键。
+> **记录策略**：
+> - **查询与去重键**：`internal_company_name` + `uscc`（与 `source_system` 无关）。
+> - 同一外部企业（uscc）对不同内部企业须分别认证、分别存储。
+> - **`SUCCESS` 唯一**：同一 `(internal_company_name, uscc)` 仅一条 `SUCCESS`。
+> - **`FAILED` / `PENDING` 可多条**；`transaction_no` 用于回调匹配。
 
 ### 8.2 个人实名认证记录表
 
@@ -362,30 +404,34 @@ t_integration_fdd_enterprise_auth（法大大企业实名认证记录）
 t_integration_fdd_person_auth（法大大个人实名认证记录）
 
 ├─ id                      BIGINT PK              -- 雪花主键
+├─ internal_company_name   VARCHAR(256) NOT NULL  -- 内部企业全称（业务判定键之一）
 ├─ transaction_no          VARCHAR(64)            -- 法大大侧认证流水号（回调匹配用）
 ├─ person_name             VARCHAR(64) NOT NULL   -- 姓名
-├─ id_number               VARCHAR(128) NOT NULL  -- 身份证号（业务唯一键，加密存储 ⚠️）
-├─ mobile                  VARCHAR(64)            -- 手机号（三要素，加密存储）
+├─ id_number               VARCHAR(18) NOT NULL   -- 身份证号（业务判定键之一，明文存储）
+├─ mobile                  VARCHAR(11)            -- 手机号（三要素，明文存储）
 ├─ auth_url                VARCHAR(1024)          -- 法大大认证页面 URL
 ├─ auth_status             VARCHAR(16) NOT NULL   -- PENDING / SUCCESS / FAILED
+├─ request_detail          JSONB                  -- 发起认证时法大大请求/响应原始报文
 ├─ auth_detail             JSONB                  -- 法大大回调原始报文
 ├─ fail_reason             VARCHAR(512)           -- 失败原因
-├─ source_system           VARCHAR(32)            -- 首次调用来源系统
-├─ source_biz_no           VARCHAR(128)           -- 来源系统业务单号
-├─ certified_at            TIMESTAMP              -- 认证通过时间
-├─ retry_count             INT DEFAULT 0          -- 重试次数
+├─ source_system           VARCHAR(16) NOT NULL   -- 审计：本次发起来源（CRM/OA），不参与业务判定
+├─ source_biz_no           VARCHAR(128)           -- 审计：来源系统业务单号
+├─ certified_at            TIMESTAMP              -- 认证通过时间（SUCCESS 时写入）
 ├─ created_at              TIMESTAMP NOT NULL
 ├─ updated_at              TIMESTAMP NOT NULL
 ├─ is_deleted              INT DEFAULT 0
 
 索引：
-  UNIQUE (id_number) WHERE is_deleted = 0 AND auth_status = 'SUCCESS'
+  UNIQUE (internal_company_name, id_number) WHERE is_deleted = 0 AND auth_status = 'SUCCESS'
   INDEX (transaction_no)
+  INDEX (internal_company_name, id_number, auth_status, created_at DESC)
+  INDEX (internal_company_name, created_at)
+  INDEX (source_system, created_at)
   INDEX (auth_status, created_at)
   INDEX (person_name)
 ```
 
-> ⚠️ **数据安全提醒**：身份证号、手机号等个人敏感信息须加密存储（AES-256 或应用层加密），日志打印须脱敏，遵守《个人信息保护法》要求。`id_number`、`mobile` 字段存储密文，因此 VARCHAR 长度按密文长度设定。
+> **数据说明**：查询键为 `internal_company_name` + `id_number`。同一自然人对不同内部企业须分别认证。`SUCCESS` 按组合唯一；`FAILED`/`PENDING` 可多条；`source_system` 仅审计。
 
 ---
 
@@ -419,6 +465,7 @@ fdd:
   connect-timeout: 10s
   read-timeout: 30s
   # 回调配置（作为企业/个人认证接口 notifyUrl 参数传递，无需在法大大后台单独配置）
+  # 具体地址开发阶段按部署环境补充
   callback-url: http://{集成平台地址}/api/v1/fdd/callback
   # 回调超时（分钟）：发起认证后超过此时间未收到回调，标记超时并告警
   callback-timeout-minutes: 3
@@ -430,6 +477,10 @@ fdd:
   person-verified-way: 0
   # 重试配置
   max-retry: 3
+  # 内部法人企业全称白名单（调用方 internalCompanyName 须精确匹配）
+  internal-companies:
+    - 南通泰禾化工股份有限公司
+    - 上海泰禾国际贸易有限公司
 ```
 
 **application-test.yml**：
@@ -445,12 +496,16 @@ fdd:
   connect-timeout: 10s
   read-timeout: 30s
   # 回调配置（作为企业/个人认证接口 notifyUrl 参数传递，无需在法大大后台单独配置）
+  # 具体地址开发阶段按测试部署环境补充
   callback-url: http://{集成平台测试地址}/api/v1/fdd/callback
   callback-timeout-minutes: 3
   token-cache-minutes: 25
   enterprise-verified-way: 0
   person-verified-way: 0
   max-retry: 3
+  internal-companies:
+    - 南通泰禾化工股份有限公司
+    - 上海泰禾国际贸易有限公司
 ```
 
 ### 9.3 代码模块预估
@@ -459,7 +514,8 @@ fdd:
 |------|---------|------|
 | common | `FddProperties` | 法大大配置绑定（构造器注入） |
 | common | `FddConstants` | 常量：接口路径、`LOG_BIZ = "Fdd"` |
-| common | `FddEnums` | `AuthType`（ENTERPRISE/PERSON）、`AuthStatus`（PENDING/SUCCESS/FAILED） |
+| common | `FddEnums` | `AuthType`（ENTERPRISE/PERSON）、`AuthStatus`（PENDING/SUCCESS/FAILED）、`FddSourceSystem`（CRM/OA） |
+| dao | `ApiKeyDO`、`ApiKeyMapper` | API Key 实体与 Mapper（复用 `t_integration_api_key`） |
 | dao | `FddEnterpriseAuthDO` | 企业认证记录实体 |
 | dao | `FddPersonAuthDO` | 个人认证记录实体 |
 | dao | `FddEnterpriseAuthMapper` | 企业认证记录 Mapper |
@@ -467,33 +523,38 @@ fdd:
 | integration | `FddClient` | 法大大 HTTP 客户端（OAuth2 Token 获取 + 认证 URL 获取） |
 | integration | `FddClient.dto.*` | `FddEnterpriseAuthRequest/Response`、`FddPersonAuthRequest/Response`、`FddCallbackRequest` |
 | integration | `FddTokenSupport` | OAuth2 Token 获取与缓存（加密模式：SHA256(timestamp+appKey)） |
-| integration | `FddCallbackController` | 法大大回调接收（匿名接口，直接处理 + 状态更新） |
-| service | `IFddEnterpriseAuthService` / `FddEnterpriseAuthServiceImpl` | 企业认证业务逻辑（查库、发起认证） |
+| service | `IApiKeyService` / `ApiKeyServiceImpl` | API Key 校验（BCrypt 哈希比对） |
+| service | `IFddEnterpriseAuthService` / `FddEnterpriseAuthServiceImpl` | 企业认证业务逻辑（查库、发起认证、逐次留痕） |
 | service | `IFddPersonAuthService` / `FddPersonAuthServiceImpl` | 个人认证业务逻辑 |
-| manager | `IFddAuthManager` / `FddAuthManagerImpl` | 编排：统一查询入口、路由企业/个人、回调处理 |
+| manager | `IFddAuthManager` / `FddAuthManagerImpl` | 编排：统一查询入口、路由企业/个人、回调更新 |
 | web | `FddAuthController` | 对外查询/认证 REST 接口 |
+| web | `FddCallbackController` | 法大大回调接收（匿名接口） |
+| web | `ApiKeyAuthFilter`（或等价拦截器） | 对外接口 API Key 鉴权，`/api/v1/fdd/callback` 除外 |
 | web | `FddAuthConverter`（MapStruct） | DO ↔ VO 转换 |
-| web | `dto/fdd/request/FddAuthQueryRequest` | 查询请求 DTO |
+| web | `dto/fdd/request/FddAuthQueryRequest` | 查询请求 DTO（含 internalCompanyName、sourceSystem 校验） |
 | web | `dto/fdd/vo/FddAuthQueryVO` | 查询响应 VO |
 
 ### 9.4 依赖关系
 
 ```
 web ──→ manager ──→ service ──→ dao ──→ common
-  │                    │
-  │                    └──→ integration (FddClient)
+  │         │
+  │         └──→ integration (FddClient)
   │
-  └──→ integration (FddCallbackController)
+  ├──→ ApiKeyAuthFilter ──→ service (ApiKey 校验)
+  └──→ FddCallbackController（匿名，不走 API Key）
 ```
 
 ### 9.5 安全设计要点
 
 | 项 | 方案 |
 |----|------|
-| 接口鉴权 | 对外查询/认证接口使用 API Key 鉴权（复用现有 `security` 模块），各业务系统分配独立 Key |
+| 接口鉴权 | **与法大大功能同期实现** API Key 鉴权：复用表 `t_integration_api_key`，新增 Entity/Mapper/Service 及 `ApiKeyAuthFilter`；对外 `/api/v1/fdd/auth/**` 需携带 API Key，回调 `/api/v1/fdd/callback` 除外 |
 | 回调访问控制 | 回调接口为匿名接口，不验签；回调地址通过企业/个人认证接口请求参数 `notifyUrl` 传递（无需在法大大后台预配置）；通过网络层 ACL（Nginx/防火墙）限制仅法大大服务器 IP 可访问 |
-| 敏感数据加密 | 身份证号、手机号使用 AES-256 加密存储 |
-| 日志脱敏 | 日志打印时自动脱敏姓名（仅保留姓）、身份证号（仅保留前 6 + 后 4）、手机号（仅保留前 3 + 后 4） |
+| 个人敏感数据 | 身份证号、手机号**明文存储**，接口**明文传输**（本期不做 AES/SM4 加密） |
+| 日志脱敏 | 日志打印时仍须脱敏姓名（仅保留姓）、身份证号（仅保留前 6 + 后 4）、手机号（仅保留前 3 + 后 4） |
+| 来源系统 | `sourceSystem` 仅在新发起认证时必填（CRM/OA）；不参与查询、去重或状态判定 |
+| 内部企业 | `internalCompanyName` **必填**；与 uscc/idNumber 组成业务键；须在 `fdd.internal-companies` 白名单内 |
 | 传输安全 | 法大大为内网地址（HTTP）；对外接口视部署环境决定是否启用 HTTPS |
 
 ### 9.6 法大大 Client 设计要点
@@ -520,7 +581,7 @@ FddTokenSupport（@Component）
 │      sign = SHA256(timestamp + appSecret).toUpperCase()
 │
 
-FddCallbackController（@RestController，构造器注入 FddAuthManager）
+FddCallbackController（web 模块，构造器注入 FddAuthManager）
 └─ POST /api/v1/fdd/callback
     ├─ 解析回调 JSON
     ├─ 委托 FddAuthManager.handleCallback()
@@ -532,6 +593,8 @@ FddCallbackController（@RestController，构造器注入 FddAuthManager）
 ---
 
 ## 10. 字段映射（法大大接口 → 集成平台）
+
+> **说明**：`internalCompanyName` 为集成平台业务字段，**不传法大大**；法大大侧仍使用 uscc / idNumber 作为 tpOrgId / tpAccountId。
 
 ### 10.1 企业认证请求 `/user/api/verify/company/url`
 
@@ -625,19 +688,24 @@ FddCallbackController（@RestController，构造器注入 FddAuthManager）
 
 | 序号 | 验收点 | 验收方式 | 通过标准 |
 |------|--------|----------|----------|
-| 1 | 统一查询接口 | 手动 | 传入企业名称+uscc，无记录时返回 needAuth=true + status=PENDING + authUrl |
-| 2 | 自动发起认证 | 手动 | 查询无记录且 autoAuth=true 时，法大大侧返回认证 URL |
-| 3 | 企业认证成功 | 手动 | 法大大回调 status=3（已认证）后，按 uscc 查询返回 certified=true |
-| 4 | 个人认证成功 | 手动 | 法大大回调 status=1（已认证）后，按 idNumber 查询返回 certified=true |
-| 5 | 认证记录复用 | 自动 | 同一 uscc 已 SUCCESS 时，另一个系统查询直接返回 certified=true，法大大侧无新请求 |
-| 6 | 回调匿名接收 | 自动 | 回调接口无需签名即可正常处理；非法大大 IP 被网络层拒绝 |
-| 7 | 原始报文留存 | 手动 | auth_detail 字段包含完整的回调 JSON |
-| 8 | 认证失败处理 | 手动 | 法大大回调 FAILED 后，查询返回 failReason，支持 retry |
-| 9 | 接口鉴权 | 自动 | 无 API Key 的请求返回 401 |
-| 10 | 日志脱敏 | 手动 | 日志中姓名、身份证号、手机号均脱敏展示 |
-| 11 | 回调超时告警 | 手动 | 认证发起 3 分钟后未收到回调，标记超时并触发告警 |
-| 12 | OAuth2 Token | 自动 | Token 获取成功并缓存，过期前自动刷新 |
-| 13 | 认证 URL 可访问 | 手动 | 返回的 authUrl 可在浏览器打开并进入法大大认证页面 |
+| 1 | 统一查询接口 | 手动 | 传入 internalCompanyName+企业名称+uscc，无记录时返回 needAuth=true + status=PENDING + authUrl |
+| 2 | 自动发起认证 | 手动 | 该组合无记录且 autoAuth=true 时，法大大侧返回认证 URL |
+| 3 | 企业认证成功 | 手动 | 回调成功后，按 internalCompanyName+uscc 查询返回 certified=true |
+| 4 | 个人认证成功 | 手动 | 回调成功后，按 internalCompanyName+idNumber 查询返回 certified=true |
+| 5 | 认证记录复用 | 自动 | 同一 internalCompanyName+uscc 已 SUCCESS 时，再次查询直接返回，法大大无新请求 |
+| 6 | 内部企业隔离 | 手动 | 同一 idNumber 对 A、B 两家内部企业分别认证，各自独立 SUCCESS 记录 |
+| 7 | 逐次留痕 | 手动 | 同一组合多次失败产生多条 FAILED 记录 |
+| 8 | SUCCESS 唯一 | 自动 | 同一 internalCompanyName+uscc/idNumber 的 SUCCESS 最多一条 |
+| 9 | 内部企业校验 | 自动 | internalCompanyName 不在白名单返回参数错误 |
+| 10 | 来源系统 | 手动 | 新发起认证时 sourceSystem 非 CRM/OA 报参数错误 |
+| 11 | 回调匿名接收 | 自动 | 回调接口无需签名；非法大大 IP 被网络层拒绝 |
+| 12 | 原始报文留存 | 手动 | request_detail、auth_detail 含完整 JSON |
+| 13 | 认证失败处理 | 手动 | FAILED 后查询返回 failReason；autoAuth=true 可再次发起 |
+| 14 | 接口鉴权 | 自动 | 无 API Key 返回 401 |
+| 15 | 日志脱敏 | 手动 | 日志中姓名、身份证号、手机号脱敏 |
+| 16 | 回调超时告警 | 手动 | 3 分钟未回调标记超时并告警 |
+| 17 | OAuth2 Token | 自动 | Token 获取成功并缓存 |
+| 18 | 认证 URL 可访问 | 手动 | authUrl 可在浏览器打开法大大认证页 |
 
 ---
 
@@ -662,17 +730,22 @@ FddCallbackController（@RestController，构造器注入 FddAuthManager）
 
 ### 12.2 集成平台
 
-| 编号 | 确认项 | 确认结果 | 备注 |
-|------|--------|----------|------|
+| 编号 | 确认项 | 确认结果                    | 备注 |
+|------|--------|-------------------------|------|
 | P1 ★ | `app-secret` 管理方案 | ✅ 环境变量 `FDD_APP_SECRET` | 测试/生产分别配置 |
-| P2 ★ | 身份证号加密方案（AES-256 / SM4） | | 密钥托管位置待确认 |
-| P3 ★ | 认证结果有效期 | ✅ 暂不设置有效期 | SUCCESS 长期有效，后续按需扩展 |
-| P4 | 是否需要定时扫描 PENDING 超时记录并告警 | ✅ 需要 | 超过 3 分钟未回调标记超时 |
-| P5 | 是否需要认证次数统计看板 | | |
-| P6 ★ | callback URL 是否需要配置到法大大后台 | ✅ 无需单独配置 | 回调地址通过企业/个人认证接口请求参数 `notifyUrl` 传递，无需在法大大后台预配置 |
-| P7 ★ | 集成平台地址是否可被法大大服务器访问 | ✅ 内网地址，法大大与集成平台在同一内网 | 法大大为内网部署 |
-| P8 | 回调接口网络层 ACL 配置（限制来源 IP） | | 需运维配合配置 Nginx/防火墙规则 |
-| P9 | 认证 URL 是否需要业务系统缓存 | ✅ 无需缓存 | 业务系统直接透传给终端用户，不存储 |
+| P2 ★ | 身份证号加密方案（AES-256 / SM4） | ✅ 无需加密                  | 明文存储与接口传输；日志仍脱敏 |
+| P3 ★ | 认证结果有效期 | ✅ 暂不设置有效期               | SUCCESS 长期有效，后续按需扩展 |
+| P4 | 是否需要定时扫描 PENDING 超时记录并告警 | ✅ 需要                    | 超过 3 分钟未回调标记超时 |
+| P5 | 是否需要认证次数统计看板 | ✅ 暂不设置                  | |
+| P6 ★ | callback URL 是否需要配置到法大大后台 | ✅ 无需单独配置                | 回调地址通过 notifyUrl 参数传递 |
+| P7 ★ | callback URL 具体地址 | ✅ 开发阶段补充                | 占位符 `{集成平台地址}`，联调前按部署环境写入 yml |
+| P8 ★ | 集成平台地址是否可被法大大服务器访问 | ✅ 内网地址，法大大与集成平台在同一内网    | 法大大为内网部署 |
+| P9 | 回调接口网络层 ACL 配置（限制来源 IP） |      ✅ 暂不设置                   | 需运维配合配置 Nginx/防火墙规则 |
+| P10 | 认证 URL 是否需要业务系统缓存 | ✅ 无需缓存                  | 业务系统直接透传给终端用户，不存储 |
+| P11 ★ | API Key 鉴权实现 | ✅ 与法大大同期实现              | 复用 `t_integration_api_key`，新增 Filter/Service |
+| P12 ★ | 来源系统枚举 | ✅ CRM、OA                | 固定文本；**仅新发起认证时必填**；审计字段，不参与查询去重 |
+| P13 ★ | 认证记录留痕策略 | ✅ 逐次新增                  | 查询键 internalCompanyName+uscc/idNumber；SUCCESS 唯一；FAILED 可多条 |
+| P14 ★ | 内部企业归属 | ✅ 每条记录绑定一家内部企业          | 全称白名单配置；同一人/企业对多内部企业分别认证 |
 
 ---
 
@@ -682,8 +755,8 @@ FddCallbackController（@RestController，构造器注入 FddAuthManager）
 |-----------|------|----------|
 | 法大大页面认证 URL 无法打开 | 用户无法完成认证 | 集成平台记录完整请求/响应报文；联系法大大排查 |
 | 回调接口匿名无验签 | 存在伪造回调风险 | 网络层 ACL 限制仅法大大 IP 可访问回调接口 |
-| 身份证号存储合规 | 法律风险 | AES-256 加密存储 + 日志脱敏 + 合规评审 |
-| 并发认证 | 同一企业/个人重复发起认证 | DB 唯一索引 + 幂等判断 |
+| 个人敏感信息明文 | 内网环境存储与传输风险 | 内网部署 + 日志脱敏；后续按需评估加密 |
+| 并发认证 | 同一组合重复发起认证 | `(internal_company_name, uscc/id_number)` SUCCESS 部分唯一索引 + PENDING 幂等 |
 | 回调网络波动 | 回调丢失或延迟 | 3 分钟超时告警 + 法大大侧重试机制 |
 | OAuth2 Token 过期 | 认证 API 调用失败 | Token 带本地缓存，25 分钟刷新一次 |
 | 法大大回调状态语义差异 | 企业/个人状态码不一致 | 统一映射为 PENDING/SUCCESS/FAILED |
@@ -698,3 +771,5 @@ FddCallbackController（@RestController，构造器注入 FddAuthManager）
 | 2026-08-03 | — | 根据反馈优化：回调改为匿名接口不验签；个人认证仅三要素；接口不返回 bizNo 改用 uscc/idNumber 追踪；填充法大大环境地址与凭证；回调超时 3 分钟；支持测试环境不支持沙箱；暂不设认证有效期；删除业务系统确认项 |
 | 2026-08-03 | — | 根据法大大接口文档更新：企业/个人认证改为页面级 URL 模式；补齐 `/user/api/verify/company/url`、`/user/api/verify/person/url` 请求/响应字段；更新回调结构 `ENTERPRISE_IDENTIFY` / `PERSONAL_IDENTIFY`；明确 API 调用频率暂不限制；调整数据库字段及 Client 设计 |
 | 2026-08-03 | — | 确认剩余待确认项：认证 URL 无有效期；Token 有效期 30 分钟（接口文档加密模式）；认证中间态业务系统无需感知；回调 URL 通过 notifyUrl 参数传递无需法大大后台配置；认证 URL 无需业务系统缓存 |
+| 2026-08-03 | — | 明确：身份证号/手机号明文存储与传输；callback-url 开发阶段补充；API Key 与法大大同期实现；认证记录逐次留痕；SUCCESS 唯一、FAILED 可多条 |
+| 2026-08-03 | — | 澄清：sourceSystem 仅审计；业务键为 internalCompanyName+uscc/idNumber；同一人/企业对多内部企业分别认证 |
