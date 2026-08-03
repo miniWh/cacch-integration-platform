@@ -106,3 +106,4 @@ draft → reviewing → approved → in-progress → testing → done → closed
 | REQ-CRM-001 | CRM订单同步OA表单 | CRM | integration | reviewing | [crm/integration/REQ-CRM-001-CRM订单同步OA表单.md](./crm/integration/REQ-CRM-001-CRM订单同步OA表单.md) |
 | REQ-OA-001 | 国内登记报告资料列表附件上传 | OA | feature | draft | [oa/feature/REQ-OA-001-国内登记报告资料列表附件上传.md](./oa/feature/REQ-OA-001-国内登记报告资料列表附件上传.md) |
 | REQ-WECOM-001 | 智能表格人员忙闲状态 | WECOM | feature | draft | wecom/feature/ (待创建) |
+| REQ-PLAT-001 | 法大大企业及个人实名认证 | PLAT | integration | draft | [platform/integration/REQ-PLAT-001-法大大企业及个人实名认证.md](./platform/integration/REQ-PLAT-001-法大大企业及个人实名认证.md) |
