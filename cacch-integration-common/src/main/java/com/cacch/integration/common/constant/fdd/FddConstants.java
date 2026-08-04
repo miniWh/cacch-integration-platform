@@ -73,6 +73,31 @@ public final class FddConstants {
     public static final int ENTERPRISE_STATUS_FAILED = 4;
 
     /**
+     * 个人回调：已认证
+     */
+    public static final int PERSON_STATUS_CERTIFIED = 1;
+
+    /**
+     * 个人回调：认证失败
+     */
+    public static final int PERSON_STATUS_FAILED = 2;
+
+    /**
+     * 证件类型：身份证
+     */
+    public static final String CERT_TYPE_ID_CARD = "0";
+
+    /**
+     * 是否支持其他证件：否（仅身份证）
+     */
+    public static final int OTHER_CERT_TYPE_NO = 0;
+
+    /**
+     * 非小程序
+     */
+    public static final int MINI_PROGRAM_NO = 0;
+
+    /**
      * OAuth2 Token Redis Key
      *
      * @param appId 法大大应用 ID

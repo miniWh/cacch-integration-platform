@@ -2,6 +2,7 @@ package com.cacch.integration.controller.fdd;
 
 import com.cacch.integration.common.dto.fdd.FddAuthQueryResult;
 import com.cacch.integration.common.dto.fdd.FddEnterpriseAuthQueryCommand;
+import com.cacch.integration.common.dto.fdd.FddPersonAuthQueryCommand;
 import com.cacch.integration.common.enums.fdd.FddAuthTypeEnum;
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.Result;
@@ -23,7 +24,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 法大大实名认证对外接口（企业认证）
+ * 法大大实名认证对外接口（企业 / 个人）
  *
  * @author hongfu_zhou@cacch.com
  */
@@ -40,7 +41,7 @@ public class FddAuthController {
     /**
      * 统一查询 / 自动发起认证
      *
-     * @param request 查询请求（须含 internalCompanyName；企业认证须含 uscc）
+     * @param request 查询请求（须含 internalCompanyName；企业含 uscc，个人含 idNumber）
      * @return 认证状态与可选 authUrl
      */
     @PostMapping("/query")
@@ -49,47 +50,64 @@ public class FddAuthController {
         if (authType == null) {
             throw new BizException(ResultCode.PARAM_INVALID, "authType 仅允许 ENTERPRISE 或 PERSON");
         }
-        if (authType == FddAuthTypeEnum.PERSON) {
-            log.info("【FddAuth】个人认证暂未实现, internalCompany={}", request.getInternalCompanyName());
-            throw new BizException(ResultCode.PARAM_INVALID, "个人认证能力暂未开放，请使用 ENTERPRISE");
-        }
-        FddAuthQueryResult result = fddAuthManager.queryOrAuthEnterprise(
-                new FddEnterpriseAuthQueryCommand(
-                        request.getInternalCompanyName(),
-                        request.getEnterpriseName(),
-                        request.getUscc(),
-                        request.getAutoAuth(),
-                        request.getSourceSystem(),
-                        request.getSourceBizNo()
-                ));
+        FddAuthQueryResult result = switch (authType) {
+            case ENTERPRISE -> fddAuthManager.queryOrAuthEnterprise(
+                    new FddEnterpriseAuthQueryCommand(
+                            request.getInternalCompanyName(),
+                            request.getEnterpriseName(),
+                            request.getUscc(),
+                            request.getAutoAuth(),
+                            request.getSourceSystem(),
+                            request.getSourceBizNo()
+                    ));
+            case PERSON -> fddAuthManager.queryOrAuthPerson(
+                    new FddPersonAuthQueryCommand(
+                            request.getInternalCompanyName(),
+                            request.getPersonName(),
+                            request.getIdNumber(),
+                            request.getMobile(),
+                            request.getAutoAuth(),
+                            request.getSourceSystem(),
+                            request.getSourceBizNo()
+                    ));
+        };
         return Result.success(fddAuthConverter.toVO(result));
     }
 
     /**
-     * 按业务键查询企业认证最新状态（不自动发起）
+     * 按业务键查询认证最新状态（不自动发起）
      *
-     * @param authType            认证类型，当前仅支持 ENTERPRISE
+     * @param authType            认证类型 ENTERPRISE / PERSON
      * @param internalCompanyName 内部企业全称
-     * @param uscc                统一社会信用代码
+     * @param uscc                统一社会信用代码（企业必填）
+     * @param idNumber            身份证号（个人必填）
      * @return 认证状态
      */
     @GetMapping("/status")
     public Result<FddAuthQueryVO> status(@RequestParam String authType,
                                          @RequestParam String internalCompanyName,
-                                         @RequestParam(required = false) String uscc) {
+                                         @RequestParam(required = false) String uscc,
+                                         @RequestParam(required = false) String idNumber) {
         FddAuthTypeEnum type = FddAuthTypeEnum.fromCode(authType);
         if (type == null) {
             throw new BizException(ResultCode.PARAM_INVALID, "authType 仅允许 ENTERPRISE 或 PERSON");
         }
-        if (type == FddAuthTypeEnum.PERSON) {
-            throw new BizException(ResultCode.PARAM_INVALID, "个人认证能力暂未开放，请使用 ENTERPRISE");
+        FddAuthQueryResult result;
+        if (type == FddAuthTypeEnum.ENTERPRISE) {
+            if (!StringUtils.hasText(uscc)) {
+                throw new BizException(ResultCode.PARAM_MISSING, "uscc 不能为空");
+            }
+            result = fddAuthManager.queryOrAuthEnterprise(
+                    new FddEnterpriseAuthQueryCommand(
+                            internalCompanyName, null, uscc, Boolean.FALSE, null, null));
+        } else {
+            if (!StringUtils.hasText(idNumber)) {
+                throw new BizException(ResultCode.PARAM_MISSING, "idNumber 不能为空");
+            }
+            result = fddAuthManager.queryOrAuthPerson(
+                    new FddPersonAuthQueryCommand(
+                            internalCompanyName, null, idNumber, null, Boolean.FALSE, null, null));
         }
-        if (!StringUtils.hasText(uscc)) {
-            throw new BizException(ResultCode.PARAM_MISSING, "uscc 不能为空");
-        }
-        FddAuthQueryResult result = fddAuthManager.queryOrAuthEnterprise(
-                new FddEnterpriseAuthQueryCommand(
-                        internalCompanyName, null, uscc, Boolean.FALSE, null, null));
         return Result.success(fddAuthConverter.toVO(result));
     }
 }

@@ -6,6 +6,8 @@ import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.ResultCode;
 import com.cacch.integration.integration.fdd.client.dto.FddEnterpriseAuthRequest;
 import com.cacch.integration.integration.fdd.client.dto.FddEnterpriseAuthResponse;
+import com.cacch.integration.integration.fdd.client.dto.FddPersonAuthRequest;
+import com.cacch.integration.integration.fdd.client.dto.FddPersonAuthResponse;
 import com.cacch.integration.integration.fdd.support.FddTokenSupport;
 import com.cacch.integration.integration.support.ThirdPartyHttpLogSupport;
 import lombok.RequiredArgsConstructor;
@@ -21,7 +23,7 @@ import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * 法大大 HTTP 客户端（企业实名认证 URL 获取）
+ * 法大大 HTTP 客户端（企业/个人实名认证 URL 获取）
  *
  * @author hongfu_zhou@cacch.com
  */
@@ -32,6 +34,7 @@ public class FddClient {
 
     private static final String BIZ = FddConstants.LOG_BIZ;
     private static final String ACTION_ENTERPRISE = "企业认证URL";
+    private static final String ACTION_PERSON = "个人认证URL";
     private static final ObjectMapper OBJECT_MAPPER = JsonMapper.builder().build();
 
     private final RestTemplate restTemplate;
@@ -97,8 +100,83 @@ public class FddClient {
         }
     }
 
+    /**
+     * 获取个人实名认证页面 URL
+     *
+     * @param request 个人认证请求体
+     * @return 法大大响应（含 url、transactionNo）
+     * @throws BizException 配置缺失、HTTP 失败或业务码非成功时抛出
+     */
+    public FddPersonAuthResponse getPersonAuthUrl(FddPersonAuthRequest request) {
+        if (request == null) {
+            log.info("【{}】{}终止, reason=请求体为空", BIZ, ACTION_PERSON);
+            throw new BizException(ResultCode.PARAM_MISSING, "个人认证请求不能为空");
+        }
+        if (!StringUtils.hasText(fddProperties.getPersonAuthUrl())) {
+            log.info("【{}】{}终止, reason=personAuthUrl 未配置", BIZ, ACTION_PERSON);
+            throw new BizException(ResultCode.PARAM_INVALID, "法大大个人认证地址未配置");
+        }
+
+        String accessToken = fddTokenSupport.getAccessToken();
+        String url = appendAccessToken(fddProperties.getPersonAuthUrl(), accessToken);
+
+        try {
+            String bodyJson = OBJECT_MAPPER.writeValueAsString(request);
+            ThirdPartyHttpLogSupport.logRequest(BIZ, ACTION_PERSON, url, bodyJson);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            HttpEntity<String> entity = new HttpEntity<>(bodyJson, headers);
+
+            FddPersonAuthResponse response = restTemplate.postForObject(url, entity, FddPersonAuthResponse.class);
+            ThirdPartyHttpLogSupport.logResponse(BIZ, ACTION_PERSON, response);
+
+            if (response == null) {
+                log.info("【{}】{}终止, reason=响应为空, tpAccountId={}",
+                        BIZ, ACTION_PERSON, maskIdNumber(request.getTpAccountId()));
+                throw new BizException(ResultCode.INTEGRATION_ERROR, "法大大个人认证接口返回空响应");
+            }
+            if (!response.isSuccess()) {
+                log.info("【{}】{}终止, code={}, message={}, tpAccountId={}",
+                        BIZ, ACTION_PERSON, response.getCode(), response.getMessage(),
+                        maskIdNumber(request.getTpAccountId()));
+                throw new BizException(ResultCode.INTEGRATION_ERROR,
+                        "法大大个人认证失败: code=" + response.getCode() + ", message=" + response.getMessage());
+            }
+
+            log.info("【{}】{}成功, tpAccountId={}, transactionNo={}",
+                    BIZ, ACTION_PERSON, maskIdNumber(request.getTpAccountId()),
+                    response.getData() != null ? response.getData().getTransactionNo() : null);
+            return response;
+        } catch (BizException e) {
+            throw e;
+        } catch (RestClientException e) {
+            log.info("【{}】{}终止, tpAccountId={}, reason={}",
+                    BIZ, ACTION_PERSON, maskIdNumber(request.getTpAccountId()), e.getMessage());
+            log.error("【{}】{} HTTP 调用失败, tpAccountId={}",
+                    BIZ, ACTION_PERSON, maskIdNumber(request.getTpAccountId()), e);
+            throw new BizException(ResultCode.INTEGRATION_TIMEOUT, "法大大个人认证接口超时或网络异常", e);
+        } catch (Exception e) {
+            log.info("【{}】{}终止, tpAccountId={}, reason={}",
+                    BIZ, ACTION_PERSON, maskIdNumber(request.getTpAccountId()), e.getMessage());
+            log.error("【{}】{} 处理失败, tpAccountId={}",
+                    BIZ, ACTION_PERSON, maskIdNumber(request.getTpAccountId()), e);
+            throw new BizException(ResultCode.INTEGRATION_ERROR, "法大大个人认证调用失败", e);
+        }
+    }
+
     private static String appendAccessToken(String baseUrl, String accessToken) {
         String separator = baseUrl.contains("?") ? "&" : "?";
         return baseUrl + separator + "access_token=" + accessToken;
+    }
+
+    /**
+     * 身份证号脱敏：保留前 6 + 后 4
+     */
+    private static String maskIdNumber(String idNumber) {
+        if (!StringUtils.hasText(idNumber) || idNumber.length() < 10) {
+            return "****";
+        }
+        return idNumber.substring(0, 6) + "********" + idNumber.substring(idNumber.length() - 4);
     }
 }

@@ -45,8 +45,9 @@ public class FddCallbackController {
             throw new BizException(ResultCode.PARAM_MISSING, "回调请求体不能为空");
         }
         FddCallbackRequest request = OBJECT_MAPPER.convertValue(body, FddCallbackRequest.class);
-        log.info("【FddCallback】收到回调, notifyType={}, transactionNo={}, status={}, tpOrgId={}",
-                request.getNotifyType(), request.getTransactionNo(), request.getStatus(), request.getTpOrgId());
+        log.info("【FddCallback】收到回调, notifyType={}, transactionNo={}, status={}, tpOrgId={}, tpAccountId={}",
+                request.getNotifyType(), request.getTransactionNo(), request.getStatus(),
+                request.getTpOrgId(), maskIdNumber(request.getTpAccountId()));
 
         String notifyType = request.getNotifyType();
         if (!StringUtils.hasText(notifyType)) {
@@ -58,10 +59,17 @@ public class FddCallbackController {
             return "success";
         }
         if (FddConstants.NOTIFY_TYPE_PERSON.equalsIgnoreCase(notifyType.trim())) {
-            log.info("【FddCallback】个人认证回调暂未实现, transactionNo={}", request.getTransactionNo());
-            throw new BizException(ResultCode.PARAM_INVALID, "个人认证回调暂未开放");
+            fddAuthManager.handlePersonCallback(request, body);
+            return "success";
         }
         log.info("【FddCallback】回调终止, reason=未知 notifyType={}", notifyType);
         throw new BizException(ResultCode.PARAM_INVALID, "未知 notifyType: " + notifyType);
+    }
+
+    private static String maskIdNumber(String idNumber) {
+        if (!StringUtils.hasText(idNumber) || idNumber.length() < 10) {
+            return idNumber;
+        }
+        return idNumber.substring(0, 6) + "********" + idNumber.substring(idNumber.length() - 4);
     }
 }
