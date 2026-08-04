@@ -6,7 +6,7 @@
 $ProjectDir = "D:\Software\IdeaProject\cacch-integration-platform"
 $JavaHome   = "D:\Software\Java\jdk21.0.10_7"
 $MavenHome  = "D:\Software\apache-maven-3.9.9"
-$Python     = "C:\Users\Administrator\.workbuddy\binaries\python\versions\3.13.12\python.exe"
+$Python     = "C:\Users\Administrator\.workbuddy\binaries\python\envs\deploy\Scripts\python.exe"  # 含 paramiko 的 venv
 
 # 设置环境变量
 $env:JAVA_HOME = $JavaHome
