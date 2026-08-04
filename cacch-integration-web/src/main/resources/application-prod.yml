@@ -110,6 +110,27 @@ share-drive:
   password: taihe@cac2016
   domain: ""
 
+# ---------- 法大大实名认证 ----------
+fdd:
+  base-url: http://10.80.61.92
+  auth-url: http://10.80.61.92/base/login/oauth2/accessToken
+  app-id: "345011"
+  app-secret: ${FDD_APP_SECRET:}
+  enterprise-auth-url: http://10.80.61.92/user/api/verify/company/url
+  person-auth-url: http://10.80.61.92/user/api/verify/person/url
+  connect-timeout-seconds: 10
+  read-timeout-seconds: 30
+  # 具体地址上线前按生产部署环境补充
+  callback-url: http://10.80.86.94/gw_cip/v1/fdd/callback
+  callback-timeout-minutes: 3
+  token-cache-minutes: 25
+  enterprise-verified-way: 0
+  person-verified-way: 0
+  max-retry: 3
+  internal-companies:
+    - 南通泰禾化工股份有限公司
+    - 上海泰禾国际贸易有限公司
+
 # ---------- 腾讯会议 REST API（智能纪要） ----------
 # 未配置时会继承 application.yml 的 enabled=false，导致正式环境跳过纪要拉取。
 # 密钥建议由环境变量覆盖：TENCENT_MEETING_APP_ID / SDK_ID / SECRET_ID / SECRET_KEY

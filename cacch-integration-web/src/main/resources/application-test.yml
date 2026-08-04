@@ -103,6 +103,27 @@ share-drive:
   password: taihe@cac2016
   domain: ""
 
+# ---------- 法大大实名认证 ----------
+fdd:
+  base-url: http://10.80.61.82
+  auth-url: http://10.80.61.82/base/login/oauth2/accessToken
+  app-id: "268282"
+  app-secret: ${FDD_APP_SECRET:}
+  enterprise-auth-url: http://10.80.61.82/user/api/verify/company/url
+  person-auth-url: http://10.80.61.82/user/api/verify/person/url
+  connect-timeout-seconds: 10
+  read-timeout-seconds: 30
+  # 具体地址联调前按测试部署环境补充
+  callback-url: http://10.80.86.94/gw_cip_test/v1/fdd/callback
+  callback-timeout-minutes: 3
+  token-cache-minutes: 25
+  enterprise-verified-way: 0
+  person-verified-way: 0
+  max-retry: 3
+  internal-companies:
+    - 南通泰禾化工股份有限公司
+    - 上海泰禾国际贸易有限公司
+
 # ---------- 腾讯会议 REST API（智能纪要） ----------
 tencent-meeting:
   enabled: true

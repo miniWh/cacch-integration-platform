@@ -182,6 +182,28 @@ oa:
     alert-not-empty-skipped: true
     # 空目录判定时忽略的文件名（默认空=不忽略，更安全）
     ignore-system-files: []
+# ==================== 法大大实名认证（公共占位） ====================
+# 实际值请在 application-{profile}.yml 中覆盖；app-secret 通过环境变量 FDD_APP_SECRET 注入
+fdd:
+  base-url: http://10.80.61.82
+  auth-url: http://10.80.61.82/base/login/oauth2/accessToken
+  app-id: placeholder
+  app-secret: ${FDD_APP_SECRET:}
+  enterprise-auth-url: http://10.80.61.82/user/api/verify/company/url
+  person-auth-url: http://10.80.61.82/user/api/verify/person/url
+  connect-timeout-seconds: 10
+  read-timeout-seconds: 30
+  # 具体地址开发阶段按部署环境补充
+  callback-url: http://10.80.86.94/gw_cip_test/v1/fdd/callback
+  callback-timeout-minutes: 3
+  token-cache-minutes: 25
+  enterprise-verified-way: 0
+  person-verified-way: 0
+  max-retry: 3
+  internal-companies:
+    - 南通泰禾化工股份有限公司
+    - 上海泰禾国际贸易有限公司
+
 share-drive:
   protocol: smb
   root-path: "\\\\192.168.1.8\\国内登记资料"
