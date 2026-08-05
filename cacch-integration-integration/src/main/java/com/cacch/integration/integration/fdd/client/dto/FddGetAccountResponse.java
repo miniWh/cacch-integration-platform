@@ -3,10 +3,17 @@ package com.cacch.integration.integration.fdd.client.dto;
 import com.cacch.integration.common.constant.fdd.FddConstants;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import lombok.Data;
+import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
+
+import java.util.List;
 
 /**
  * 法大大查询用户详情响应
+ *
+ * <p>私有化部署实际返回 {@code data} 为数组；取首条有效用户。</p>
  *
  * @author hongfu_zhou@cacch.com
  */
@@ -18,9 +25,25 @@ public class FddGetAccountResponse {
 
     private String message;
 
-    private FddAccountData data;
+    /**
+     * 用户列表（接口文档写 object，实际多为 array；兼容 object）
+     */
+    @JsonDeserialize(using = FddObjectOrArrayDeserializer.class)
+    private List<FddAccountData> data;
 
     private Long timestamp;
+
+    /**
+     * 取首条用户数据
+     *
+     * @return 首条用户；无数据时返回 null
+     */
+    public FddAccountData firstAccount() {
+        if (CollectionUtils.isEmpty(data)) {
+            return null;
+        }
+        return data.getFirst();
+    }
 
     /**
      * 是否业务成功且有用户数据
@@ -28,11 +51,12 @@ public class FddGetAccountResponse {
      * @return true 表示查到用户
      */
     public boolean hasAccount() {
-        return code != null
-                && (code == FddConstants.SUCCESS_CODE || code == FddConstants.TOKEN_SUCCESS_CODE)
-                && data != null
-                && data.getAccountId() != null
-                && !data.getAccountId().isBlank();
+        if (code == null
+                || (code != FddConstants.SUCCESS_CODE && code != FddConstants.TOKEN_SUCCESS_CODE)) {
+            return false;
+        }
+        FddAccountData account = firstAccount();
+        return account != null && StringUtils.hasText(account.getAccountId());
     }
 
     /**
@@ -41,8 +65,10 @@ public class FddGetAccountResponse {
      * @return true 表示已认证
      */
     public boolean isCertified() {
+        FddAccountData account = firstAccount();
         return hasAccount()
-                && FddConstants.PERSON_VERIFY_CERTIFIED.equals(data.getVerifyStatus());
+                && account != null
+                && FddConstants.PERSON_VERIFY_CERTIFIED.equals(account.getVerifyStatus());
     }
 
     /**

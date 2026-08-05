@@ -20,13 +20,18 @@ public enum FddSourceSystemEnum {
     /**
      * 致远 OA
      */
-    OA("OA", "致远 OA");
+    OA("OA", "致远 OA"),
+
+    /**
+     * 从法大大侧查询同步落库（非业务系统主动发起）
+     */
+    SYNC("SYNC", "法大大侧同步");
 
     private final String code;
     private final String desc;
 
     /**
-     * 按 code 解析枚举（大小写敏感，须精确匹配 CRM / OA）
+     * 按 code 解析枚举（大小写敏感）
      *
      * @param code 来源系统编码
      * @return 枚举；无法识别时返回 null
@@ -39,6 +44,20 @@ public enum FddSourceSystemEnum {
             if (value.code.equals(code.trim())) {
                 return value;
             }
+        }
+        return null;
+    }
+
+    /**
+     * 发起认证时仅允许 CRM / OA
+     *
+     * @param code 来源系统编码
+     * @return 枚举；非 CRM/OA 时返回 null
+     */
+    public static FddSourceSystemEnum fromInitiateCode(String code) {
+        FddSourceSystemEnum value = fromCode(code);
+        if (value == CRM || value == OA) {
+            return value;
         }
         return null;
     }

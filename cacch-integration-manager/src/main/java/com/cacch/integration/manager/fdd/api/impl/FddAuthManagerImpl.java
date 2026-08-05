@@ -70,7 +70,8 @@ public class FddAuthManagerImpl implements IFddAuthManager {
             return toEnterpriseResult(success, true, false, null, null);
         }
 
-        FddEnterpriseAuthDO synced = syncEnterpriseIfRemoteCertified(internalCompanyName, uscc, command.enterpriseName());
+        FddEnterpriseAuthDO synced = syncEnterpriseIfRemoteCertified(
+                internalCompanyName, uscc, command.enterpriseName(), command.sourceSystem(), command.sourceBizNo());
         if (synced != null) {
             log.info("【{}】企业认证法大大侧已通过并同步本地, internalCompany={}, uscc={}, fddCompanyId={}",
                     LOG_BIZ, internalCompanyName, uscc, synced.getFddCompanyId());
@@ -121,7 +122,8 @@ public class FddAuthManagerImpl implements IFddAuthManager {
         }
 
         FddPersonAuthDO synced = syncPersonIfRemoteCertified(
-                internalCompanyName, idNumber, command.personName(), command.mobile());
+                internalCompanyName, idNumber, command.personName(), command.mobile(),
+                command.sourceSystem(), command.sourceBizNo());
         if (synced != null) {
             log.info("【{}】个人认证法大大侧已通过并同步本地, internalCompany={}, idNumber={}, fddAccountId={}",
                     LOG_BIZ, internalCompanyName, maskIdNumber(idNumber), synced.getFddAccountId());
@@ -372,14 +374,14 @@ public class FddAuthManagerImpl implements IFddAuthManager {
         FddGetAccountResponse existing = fddClient.getAccount(idNumber, null);
         if (existing != null && existing.hasAccount()) {
             log.info("【{}】法大大用户已存在, accountId={}, idNumber={}",
-                    LOG_BIZ, existing.getData().getAccountId(), maskIdNumber(idNumber));
-            return existing.getData().getAccountId();
+                    LOG_BIZ, existing.firstAccount().getAccountId(), maskIdNumber(idNumber));
+            return existing.firstAccount().getAccountId();
         }
         existing = fddClient.getAccount(null, mobile);
         if (existing != null && existing.hasAccount()) {
             log.info("【{}】法大大用户已存在(按手机号), accountId={}, mobile={}",
-                    LOG_BIZ, existing.getData().getAccountId(), maskMobile(mobile));
-            return existing.getData().getAccountId();
+                    LOG_BIZ, existing.firstAccount().getAccountId(), maskMobile(mobile));
+            return existing.firstAccount().getAccountId();
         }
 
         FddCreateAccountRequest createRequest = FddCreateAccountRequest.builder()
@@ -402,8 +404,8 @@ public class FddAuthManagerImpl implements IFddAuthManager {
         } catch (BizException e) {
             FddGetAccountResponse retry = fddClient.getAccount(idNumber, mobile);
             if (retry != null && retry.hasAccount()) {
-                log.info("【{}】创建用户冲突后查询到已有账号, accountId={}", LOG_BIZ, retry.getData().getAccountId());
-                return retry.getData().getAccountId();
+                log.info("【{}】创建用户冲突后查询到已有账号, accountId={}", LOG_BIZ, retry.firstAccount().getAccountId());
+                return retry.firstAccount().getAccountId();
             }
             throw e;
         }
@@ -417,7 +419,7 @@ public class FddAuthManagerImpl implements IFddAuthManager {
                                          String preferredAccountId) {
         FddGetCompanyResponse existing = fddClient.getCompany(uscc, uscc);
         if (existing != null && existing.hasCompany()) {
-            String companyId = existing.getData().getCompanyId();
+            String companyId = existing.firstCompany().getCompanyId();
             String accountId = StringUtils.hasText(preferredAccountId)
                     ? preferredAccountId
                     : ensureAccount(adminName, adminMobile, adminIdNumber);
@@ -456,15 +458,16 @@ public class FddAuthManagerImpl implements IFddAuthManager {
                 String accountId = StringUtils.hasText(preferredAccountId)
                         ? preferredAccountId
                         : ensureAccount(adminName, adminMobile, adminIdNumber);
-                log.info("【{}】创建企业冲突后查询到已有企业, companyId={}", LOG_BIZ, retry.getData().getCompanyId());
-                return new CompanyBinding(retry.getData().getCompanyId(), accountId);
+                log.info("【{}】创建企业冲突后查询到已有企业, companyId={}", LOG_BIZ, retry.firstCompany().getCompanyId());
+                return new CompanyBinding(retry.firstCompany().getCompanyId(), accountId);
             }
             throw e;
         }
     }
 
     private FddPersonAuthDO syncPersonIfRemoteCertified(String internalCompanyName, String idNumber,
-                                                        String personName, String mobile) {
+                                                        String personName, String mobile,
+                                                        String sourceSystem, String sourceBizNo) {
         try {
             FddGetAccountResponse remote = fddClient.getAccount(idNumber, null);
             if (remote == null || !remote.isCertified()) {
@@ -475,14 +478,20 @@ public class FddAuthManagerImpl implements IFddAuthManager {
             if (remote == null || !remote.isCertified()) {
                 return null;
             }
+            FddGetAccountResponse.FddAccountData account = remote.firstAccount();
+            String resolvedName = StringUtils.hasText(personName) ? personName.trim() : account.getUserName();
+            if (!StringUtils.hasText(resolvedName)) {
+                resolvedName = "未知";
+            }
             FddPersonAuthDO record = new FddPersonAuthDO();
             record.setInternalCompanyName(internalCompanyName);
-            record.setPersonName(StringUtils.hasText(personName) ? personName.trim()
-                    : remote.getData().getUserName());
+            record.setPersonName(resolvedName);
             record.setIdNumber(idNumber);
-            record.setMobile(StringUtils.hasText(mobile) ? mobile.trim() : remote.getData().getMobile());
-            record.setFddAccountId(remote.getData().getAccountId());
-            record.setRequestDetail(Map.of("syncFrom", "getAccount", "accountId", remote.getData().getAccountId()));
+            record.setMobile(StringUtils.hasText(mobile) ? mobile.trim() : account.getMobile());
+            record.setFddAccountId(account.getAccountId());
+            record.setSourceSystem(resolveSyncSourceSystem(sourceSystem));
+            record.setSourceBizNo(StringUtils.hasText(sourceBizNo) ? sourceBizNo.trim() : null);
+            record.setRequestDetail(Map.of("syncFrom", "getAccount", "accountId", account.getAccountId()));
             return fddPersonAuthService.insertSuccessFromRemote(record);
         } catch (BizException e) {
             log.info("【{}】同步个人认证状态跳过, idNumber={}, reason={}",
@@ -492,19 +501,27 @@ public class FddAuthManagerImpl implements IFddAuthManager {
     }
 
     private FddEnterpriseAuthDO syncEnterpriseIfRemoteCertified(String internalCompanyName, String uscc,
-                                                                String enterpriseName) {
+                                                                String enterpriseName,
+                                                                String sourceSystem, String sourceBizNo) {
         try {
             FddGetCompanyResponse remote = fddClient.getCompany(uscc, uscc);
             if (remote == null || !remote.isCertified()) {
                 return null;
             }
+            FddGetCompanyResponse.FddCompanyData company = remote.firstCompany();
+            String resolvedName = StringUtils.hasText(enterpriseName) ? enterpriseName.trim()
+                    : company.getCompanyName();
+            if (!StringUtils.hasText(resolvedName)) {
+                resolvedName = "未知企业";
+            }
             FddEnterpriseAuthDO record = new FddEnterpriseAuthDO();
             record.setInternalCompanyName(internalCompanyName);
-            record.setEnterpriseName(StringUtils.hasText(enterpriseName) ? enterpriseName.trim()
-                    : remote.getData().getCompanyName());
+            record.setEnterpriseName(resolvedName);
             record.setUscc(uscc);
-            record.setFddCompanyId(remote.getData().getCompanyId());
-            record.setRequestDetail(Map.of("syncFrom", "getCompany", "companyId", remote.getData().getCompanyId()));
+            record.setFddCompanyId(company.getCompanyId());
+            record.setSourceSystem(resolveSyncSourceSystem(sourceSystem));
+            record.setSourceBizNo(StringUtils.hasText(sourceBizNo) ? sourceBizNo.trim() : null);
+            record.setRequestDetail(Map.of("syncFrom", "getCompany", "companyId", company.getCompanyId()));
             return fddEnterpriseAuthService.insertSuccessFromRemote(record);
         } catch (BizException e) {
             log.info("【{}】同步企业认证状态跳过, uscc={}, reason={}", LOG_BIZ, uscc, e.getMessage());
@@ -521,12 +538,23 @@ public class FddAuthManagerImpl implements IFddAuthManager {
     }
 
     private FddSourceSystemEnum requireSourceSystem(String sourceSystemCode) {
-        FddSourceSystemEnum sourceSystem = FddSourceSystemEnum.fromCode(sourceSystemCode);
+        FddSourceSystemEnum sourceSystem = FddSourceSystemEnum.fromInitiateCode(sourceSystemCode);
         if (sourceSystem == null) {
             log.info("【{}】发起认证终止, reason=sourceSystem 非法, value={}", LOG_BIZ, sourceSystemCode);
             throw new BizException(ResultCode.PARAM_INVALID, "sourceSystem 仅允许 CRM 或 OA");
         }
         return sourceSystem;
+    }
+
+    /**
+     * 同步落库审计来源：优先用请求中的 CRM/OA，否则标记为 SYNC
+     */
+    private static String resolveSyncSourceSystem(String sourceSystemCode) {
+        FddSourceSystemEnum initiate = FddSourceSystemEnum.fromInitiateCode(sourceSystemCode);
+        if (initiate != null) {
+            return initiate.getCode();
+        }
+        return FddSourceSystemEnum.SYNC.getCode();
     }
 
     private void requireCallbackUrl() {

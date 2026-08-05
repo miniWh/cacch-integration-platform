@@ -153,6 +153,9 @@ public class FddEnterpriseAuthServiceImpl implements IFddEnterpriseAuthService {
             throw new BizException(ResultCode.PARAM_MISSING, "企业认证同步记录必填字段缺失");
         }
         record.setAuthStatus(FddAuthStatusEnum.SUCCESS.getCode());
+        if (!StringUtils.hasText(record.getSourceSystem())) {
+            record.setSourceSystem("SYNC");
+        }
         if (record.getCertifiedAt() == null) {
             record.setCertifiedAt(LocalDateTime.now());
         }

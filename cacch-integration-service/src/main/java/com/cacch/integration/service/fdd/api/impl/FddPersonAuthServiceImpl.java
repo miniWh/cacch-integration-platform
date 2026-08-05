@@ -150,6 +150,9 @@ public class FddPersonAuthServiceImpl implements IFddPersonAuthService {
             throw new BizException(ResultCode.PARAM_MISSING, "个人认证同步记录必填字段缺失");
         }
         record.setAuthStatus(FddAuthStatusEnum.SUCCESS.getCode());
+        if (!StringUtils.hasText(record.getSourceSystem())) {
+            record.setSourceSystem("SYNC");
+        }
         if (record.getCertifiedAt() == null) {
             record.setCertifiedAt(LocalDateTime.now());
         }
