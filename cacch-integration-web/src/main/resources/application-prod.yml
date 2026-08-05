@@ -115,7 +115,7 @@ fdd:
   base-url: http://10.80.61.92
   auth-url: http://10.80.61.92/base/login/oauth2/accessToken
   app-id: "345011"
-  app-secret: ${FDD_APP_SECRET:}
+  app-secret: oVRdRA94s0hxqGBPuqgM8jNTUAKD31qt
   enterprise-auth-url: http://10.80.61.92/user/api/verify/company/url
   person-auth-url: http://10.80.61.92/user/api/verify/person/url
   connect-timeout-seconds: 10

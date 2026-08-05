@@ -59,7 +59,7 @@ public class FddClient {
         }
 
         String accessToken = fddTokenSupport.getAccessToken();
-        String url = appendAccessToken(fddProperties.getEnterpriseAuthUrl(), accessToken);
+        String url = fddProperties.getEnterpriseAuthUrl();
 
         try {
             String bodyJson = OBJECT_MAPPER.writeValueAsString(request);
@@ -67,6 +67,7 @@ public class FddClient {
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.set(HttpHeaders.AUTHORIZATION, "bearer " + accessToken);
             HttpEntity<String> entity = new HttpEntity<>(bodyJson, headers);
 
             FddEnterpriseAuthResponse response = restTemplate.postForObject(url, entity, FddEnterpriseAuthResponse.class);
@@ -118,7 +119,7 @@ public class FddClient {
         }
 
         String accessToken = fddTokenSupport.getAccessToken();
-        String url = appendAccessToken(fddProperties.getPersonAuthUrl(), accessToken);
+        String url = fddProperties.getPersonAuthUrl();
 
         try {
             String bodyJson = OBJECT_MAPPER.writeValueAsString(request);
@@ -126,6 +127,7 @@ public class FddClient {
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.set(HttpHeaders.AUTHORIZATION, "bearer " + accessToken);
             HttpEntity<String> entity = new HttpEntity<>(bodyJson, headers);
 
             FddPersonAuthResponse response = restTemplate.postForObject(url, entity, FddPersonAuthResponse.class);
@@ -163,11 +165,6 @@ public class FddClient {
                     BIZ, ACTION_PERSON, maskIdNumber(request.getTpAccountId()), e);
             throw new BizException(ResultCode.INTEGRATION_ERROR, "法大大个人认证调用失败", e);
         }
-    }
-
-    private static String appendAccessToken(String baseUrl, String accessToken) {
-        String separator = baseUrl.contains("?") ? "&" : "?";
-        return baseUrl + separator + "access_token=" + accessToken;
     }
 
     /**

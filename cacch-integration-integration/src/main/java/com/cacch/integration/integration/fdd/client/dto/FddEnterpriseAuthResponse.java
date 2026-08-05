@@ -1,5 +1,6 @@
 package com.cacch.integration.integration.fdd.client.dto;
 
+import com.cacch.integration.common.constant.fdd.FddConstants;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
@@ -27,7 +28,9 @@ public class FddEnterpriseAuthResponse {
      * @return true 表示成功
      */
     public boolean isSuccess() {
-        return code != null && code == 100000 && data != null
+        return code != null
+                && (code == FddConstants.SUCCESS_CODE || code == FddConstants.TOKEN_SUCCESS_CODE)
+                && data != null
                 && data.getUrl() != null && !data.getUrl().isBlank();
     }
 

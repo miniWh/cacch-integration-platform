@@ -18,9 +18,19 @@ public final class FddConstants {
     public static final String LOG_BIZ = "Fdd";
 
     /**
-     * 法大大成功返回码
+     * 法大大业务接口成功返回码
      */
     public static final int SUCCESS_CODE = 100000;
+
+    /**
+     * OAuth2 Token 接口成功返回码（与 ESB/接口文档一致）
+     */
+    public static final int TOKEN_SUCCESS_CODE = 0;
+
+    /**
+     * OAuth2 加密模式时间戳格式（文档要求，非 Unix 毫秒）
+     */
+    public static final String TOKEN_TIMESTAMP_PATTERN = "yyyyMMddHHmmss";
 
     /**
      * 企业认证渠道：标准实名认证

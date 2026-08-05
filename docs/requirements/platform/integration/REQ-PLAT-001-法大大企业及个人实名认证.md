@@ -578,7 +578,9 @@ FddTokenSupport（@Component）
 │   ├─ 缓存未过期 → 直接返回
 │   └─ 缓存过期/无缓存 → POST auth-url 获取新 token，缓存后返回
 │      请求体：{ appId, sign, timestamp }
+│      timestamp = yyyyMMddHHmmss（非 Unix 毫秒）
 │      sign = SHA256(timestamp + appSecret).toUpperCase()
+│      成功码 code=0；后续业务请求头 Authorization: bearer {accessToken}
 │
 
 FddCallbackController（web 模块，构造器注入 FddAuthManager）

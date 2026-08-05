@@ -1,5 +1,6 @@
 package com.cacch.integration.integration.fdd.client.dto;
 
+import com.cacch.integration.common.constant.fdd.FddConstants;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
@@ -22,12 +23,12 @@ public class FddTokenResponse {
     private Long timestamp;
 
     /**
-     * 是否成功
+     * 是否成功（OAuth2 Token 接口成功码为 0，与 ESB/接口文档一致）
      *
      * @return true 表示成功
      */
     public boolean isSuccess() {
-        return code != null && code == 100000 && data != null
+        return code != null && code == FddConstants.TOKEN_SUCCESS_CODE && data != null
                 && data.getAccessToken() != null && !data.getAccessToken().isBlank();
     }
 

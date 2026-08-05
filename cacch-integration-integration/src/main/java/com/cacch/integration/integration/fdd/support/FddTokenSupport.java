@@ -21,6 +21,8 @@ import tools.jackson.databind.json.JsonMapper;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -29,7 +31,7 @@ import java.util.concurrent.atomic.AtomicReference;
 /**
  * 法大大 OAuth2 Token 获取与进程内缓存（加密模式）
  *
- * <p>sign = SHA256(timestamp + appSecret).toUpperCase()</p>
+ * <p>对齐 ESB / 接口文档：timestamp = yyyyMMddHHmmss，sign = SHA256(timestamp + appSecret).toUpperCase()，成功码 code=0。</p>
  *
  * @author hongfu_zhou@cacch.com
  */
@@ -39,6 +41,8 @@ import java.util.concurrent.atomic.AtomicReference;
 public class FddTokenSupport {
 
     private static final String ACTION = "获取 accessToken";
+    private static final DateTimeFormatter TIMESTAMP_FORMATTER =
+            DateTimeFormatter.ofPattern(FddConstants.TOKEN_TIMESTAMP_PATTERN);
     private static final ObjectMapper OBJECT_MAPPER = JsonMapper.builder().build();
 
     private final RestTemplate restTemplate;
@@ -62,12 +66,18 @@ public class FddTokenSupport {
 
         if (!StringUtils.hasText(fddProperties.getAppId())
                 || !StringUtils.hasText(fddProperties.getAppSecret())
-                || !StringUtils.hasText(fddProperties.getAuthUrl())) {
-            log.info("【{}】获取 Token 终止, reason=appId/appSecret/authUrl 未配置", FddConstants.LOG_BIZ);
-            throw new BizException(ResultCode.PARAM_INVALID, "法大大鉴权配置不完整");
+                || !StringUtils.hasText(fddProperties.getAuthUrl())
+                || "placeholder".equalsIgnoreCase(fddProperties.getAppId())) {
+            log.info("【{}】获取 Token 终止, reason=鉴权配置不完整, appIdConfigured={}, appSecretConfigured={}, authUrlConfigured={}",
+                    FddConstants.LOG_BIZ,
+                    StringUtils.hasText(fddProperties.getAppId()) && !"placeholder".equalsIgnoreCase(fddProperties.getAppId()),
+                    StringUtils.hasText(fddProperties.getAppSecret()),
+                    StringUtils.hasText(fddProperties.getAuthUrl()));
+            throw new BizException(ResultCode.PARAM_INVALID,
+                    "法大大鉴权配置不完整：请检查 fdd.app-id / fdd.app-secret / fdd.auth-url（test/prod 配置或环境变量 FDD_APP_SECRET）");
         }
 
-        String timestamp = String.valueOf(System.currentTimeMillis());
+        String timestamp = LocalDateTime.now().format(TIMESTAMP_FORMATTER);
         String sign = sha256Upper(timestamp + fddProperties.getAppSecret());
 
         Map<String, String> body = new LinkedHashMap<>();
@@ -94,15 +104,15 @@ public class FddTokenSupport {
             if (response == null || !response.isSuccess()) {
                 String msg = response == null ? "响应为空"
                         : "code=" + response.getCode() + ", message=" + response.getMessage();
-                log.info("【{}】获取 Token 终止, reason={}", FddConstants.LOG_BIZ, msg);
+                log.info("【{}】获取 Token 终止, reason={}, requestTimestamp={}", FddConstants.LOG_BIZ, msg, timestamp);
                 throw new BizException(ResultCode.INTEGRATION_AUTH_FAILED, "法大大获取 accessToken 失败: " + msg);
             }
 
             String token = response.getData().getAccessToken();
-            long cacheMillis = Math.max(1, fddProperties.getTokenCacheMinutes()) * 60_000L;
-            cachedToken.set(new CachedToken(token, now + cacheMillis));
-            log.info("【{}】accessToken 获取成功并缓存, appId={}, cacheMinutes={}",
-                    FddConstants.LOG_BIZ, fddProperties.getAppId(), fddProperties.getTokenCacheMinutes());
+            long cacheMillis = resolveCacheMillis(response);
+            cachedToken.set(new CachedToken(token, System.currentTimeMillis() + cacheMillis));
+            log.info("【{}】accessToken 获取成功并缓存, appId={}, cacheMillis={}, requestTimestamp={}",
+                    FddConstants.LOG_BIZ, fddProperties.getAppId(), cacheMillis, timestamp);
             return token;
         } catch (BizException e) {
             throw e;
@@ -115,6 +125,17 @@ public class FddTokenSupport {
             log.error("【{}】获取 Token 处理失败", FddConstants.LOG_BIZ, e);
             throw new BizException(ResultCode.INTEGRATION_ERROR, "法大大获取 accessToken 失败", e);
         }
+    }
+
+    /**
+     * 优先使用法大大返回的 expiresIn（秒），并提前 200 秒刷新；否则回退到配置的 token-cache-minutes。
+     */
+    private long resolveCacheMillis(FddTokenResponse response) {
+        Long expiresIn = response.getData() != null ? response.getData().getExpiresIn() : null;
+        if (expiresIn != null && expiresIn > 200) {
+            return (expiresIn - 200) * 1000L;
+        }
+        return Math.max(1, fddProperties.getTokenCacheMinutes()) * 60_000L;
     }
 
     private static String sha256Upper(String raw) {
