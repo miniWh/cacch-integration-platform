@@ -16,17 +16,17 @@ import lombok.Data;
 public class FddEnterpriseAuthRequest {
 
     /**
-     * 法大大本地企业唯一标识（创建企业后回填；有则优先传）
+     * 法大大本地企业唯一标识（与 tpOrgId 二选一；创建企业后必传本字段）
      */
     private String companyId;
 
     /**
-     * 企业系统管理员法大大本地用户标识（创建企业绑定后回填）
+     * 企业系统管理员法大大本地用户标识（创建企业/用户后回填）
      */
     private String accountId;
 
     /**
-     * 第三方组织唯一标识，本场景使用 uscc
+     * 第三方组织唯一标识（与 companyId 二选一；无 companyId 时使用）
      */
     private String tpOrgId;
 

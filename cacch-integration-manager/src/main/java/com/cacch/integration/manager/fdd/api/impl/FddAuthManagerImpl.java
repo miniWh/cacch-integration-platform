@@ -270,10 +270,10 @@ public class FddAuthManagerImpl implements IFddAuthManager {
         CompanyBinding binding = ensureCompany(enterpriseName, uscc, adminName, adminIdNumber, adminMobile,
                 adminPerson.getFddAccountId());
 
+        // companyId 与 tpOrgId 二选一；已创建/查询到企业后只传 companyId、accountId
         FddEnterpriseAuthRequest request = FddEnterpriseAuthRequest.builder()
                 .companyId(binding.companyId())
                 .accountId(binding.accountId())
-                .tpOrgId(uscc)
                 .verifiedChannel(FddConstants.VERIFIED_CHANNEL_STANDARD)
                 .verifiedWay(fddProperties.getEnterpriseVerifiedWay())
                 .isRepeatVerified(repeat ? FddConstants.REPEAT_VERIFY : FddConstants.FIRST_VERIFY)
@@ -327,9 +327,9 @@ public class FddAuthManagerImpl implements IFddAuthManager {
 
         String accountId = ensureAccount(personName, mobile, idNumber);
 
+        // accountId 与 tpAccountId 法大大要求二选一；已创建/查询到用户后只传 accountId
         FddPersonAuthRequest request = FddPersonAuthRequest.builder()
                 .accountId(accountId)
-                .tpAccountId(idNumber)
                 .verifiedChannel(FddConstants.VERIFIED_CHANNEL_STANDARD)
                 .verifiedWay(fddProperties.getPersonVerifiedWay())
                 .verifiedType(repeat ? FddConstants.REPEAT_VERIFY : FddConstants.FIRST_VERIFY)
