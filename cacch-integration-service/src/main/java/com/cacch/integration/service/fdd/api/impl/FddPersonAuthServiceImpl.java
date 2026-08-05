@@ -32,6 +32,23 @@ public class FddPersonAuthServiceImpl implements IFddPersonAuthService {
 
     @Override
     @Transactional(propagation = Propagation.SUPPORTS, readOnly = true, timeout = 10, rollbackFor = Exception.class)
+    public FddPersonAuthDO findSuccessByContact(String internalCompanyName, String personName, String mobile) {
+        if (!StringUtils.hasText(internalCompanyName)
+                || !StringUtils.hasText(personName)
+                || !StringUtils.hasText(mobile)) {
+            return null;
+        }
+        return fddPersonAuthMapper.selectOne(new LambdaQueryWrapper<FddPersonAuthDO>()
+                .eq(FddPersonAuthDO::getInternalCompanyName, internalCompanyName.trim())
+                .eq(FddPersonAuthDO::getPersonName, personName.trim())
+                .eq(FddPersonAuthDO::getMobile, mobile.trim())
+                .eq(FddPersonAuthDO::getAuthStatus, FddAuthStatusEnum.SUCCESS.getCode())
+                .orderByDesc(FddPersonAuthDO::getCertifiedAt)
+                .last("LIMIT 1"));
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.SUPPORTS, readOnly = true, timeout = 10, rollbackFor = Exception.class)
     public FddPersonAuthDO findSuccess(String internalCompanyName, String idNumber, String mobile) {
         if (!StringUtils.hasText(internalCompanyName)
                 || !StringUtils.hasText(idNumber)

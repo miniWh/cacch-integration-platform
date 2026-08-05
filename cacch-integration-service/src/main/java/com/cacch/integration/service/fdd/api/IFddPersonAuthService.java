@@ -10,6 +10,16 @@ import com.cacch.integration.entity.fdd.FddPersonAuthDO;
 public interface IFddPersonAuthService {
 
     /**
+     * 按内部企业 + 联系人姓名 + 手机号 查询 SUCCESS 记录（企业认证前置校验，避免仅姓名重名）
+     *
+     * @param internalCompanyName 内部企业全称
+     * @param personName          联系人姓名
+     * @param mobile              手机号
+     * @return SUCCESS 记录；不存在时返回 null
+     */
+    FddPersonAuthDO findSuccessByContact(String internalCompanyName, String personName, String mobile);
+
+    /**
      * 按内部企业 + 身份证号 + 手机号 查询 SUCCESS 记录（组合下最多一条）
      *
      * @param internalCompanyName 内部企业全称

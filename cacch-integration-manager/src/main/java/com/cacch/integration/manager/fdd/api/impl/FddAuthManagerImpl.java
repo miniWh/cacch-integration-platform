@@ -62,12 +62,27 @@ public class FddAuthManagerImpl implements IFddAuthManager {
         }
         String internalCompanyName = trimRequired(command.internalCompanyName(), "internalCompanyName");
         String uscc = trimRequired(command.uscc(), "uscc");
+        String personName = trimRequired(command.personName(), "personName（企业联系人）");
+        String mobile = trimRequired(command.mobile(), "mobile（企业联系人）");
         validateInternalCompany(internalCompanyName);
+
+        // 企业认证前置：联系人须已个人实名（按内部企业+姓名+手机号，避免仅姓名重名）
+        FddPersonAuthDO contact = fddPersonAuthService.findSuccessByContact(
+                internalCompanyName, personName, mobile);
+        if (contact == null) {
+            log.info("【{}】企业认证终止, reason=联系人未个人实名, internalCompany={}, personName={}, mobile={}",
+                    LOG_BIZ, internalCompanyName, personName, maskMobile(mobile));
+            return new FddAuthQueryResult(
+                    false, false, null, FddAuthTypeEnum.ENTERPRISE.getCode(),
+                    internalCompanyName, null, command.enterpriseName(), uscc,
+                    personName, null, mobile, null, null, null, true,
+                    "联系人未完成个人实名认证，无法进行企业认证");
+        }
 
         FddEnterpriseAuthDO success = fddEnterpriseAuthService.findSuccess(internalCompanyName, uscc);
         if (success != null) {
             log.info("【{}】企业认证已通过, internalCompany={}, uscc={}", LOG_BIZ, internalCompanyName, uscc);
-            return toEnterpriseResult(success, true, false, null, null);
+            return toEnterpriseResult(success, true, false, null, null, personName, contact.getIdNumber(), mobile);
         }
 
         FddEnterpriseAuthDO synced = syncEnterpriseIfRemoteCertified(
@@ -75,14 +90,15 @@ public class FddAuthManagerImpl implements IFddAuthManager {
         if (synced != null) {
             log.info("【{}】企业认证法大大侧已通过并同步本地, internalCompany={}, uscc={}, fddCompanyId={}",
                     LOG_BIZ, internalCompanyName, uscc, synced.getFddCompanyId());
-            return toEnterpriseResult(synced, true, false, null, null);
+            return toEnterpriseResult(synced, true, false, null, null, personName, contact.getIdNumber(), mobile);
         }
 
         FddEnterpriseAuthDO pending = fddEnterpriseAuthService.findLatestPending(internalCompanyName, uscc);
         if (pending != null) {
             log.info("【{}】企业认证处理中, internalCompany={}, uscc={}, id={}",
                     LOG_BIZ, internalCompanyName, uscc, pending.getId());
-            return toEnterpriseResult(pending, false, true, null, "认证处理中");
+            return toEnterpriseResult(pending, false, true, null, "认证处理中",
+                    personName, contact.getIdNumber(), mobile);
         }
 
         FddEnterpriseAuthDO failed = fddEnterpriseAuthService.findLatestFailed(internalCompanyName, uscc);
@@ -91,17 +107,18 @@ public class FddAuthManagerImpl implements IFddAuthManager {
             if (failed != null) {
                 log.info("【{}】企业认证仅查询返回 FAILED, internalCompany={}, uscc={}",
                         LOG_BIZ, internalCompanyName, uscc);
-                return toEnterpriseResult(failed, false, false, true, failed.getFailReason());
+                return toEnterpriseResult(failed, false, false, true, failed.getFailReason(),
+                        personName, contact.getIdNumber(), mobile);
             }
             log.info("【{}】企业认证无记录且 autoAuth=false, internalCompany={}, uscc={}",
                     LOG_BIZ, internalCompanyName, uscc);
             return new FddAuthQueryResult(
                     false, false, null, FddAuthTypeEnum.ENTERPRISE.getCode(),
                     internalCompanyName, null, command.enterpriseName(), uscc,
-                    null, null, null, null, null, null, true, "需要发起实名认证");
+                    personName, contact.getIdNumber(), mobile, null, null, null, true, "需要发起实名认证");
         }
 
-        return initiateEnterpriseAuth(command, internalCompanyName, uscc, failed != null
+        return initiateEnterpriseAuth(command, internalCompanyName, uscc, contact, failed != null
                 || fddEnterpriseAuthService.hasFailedHistory(internalCompanyName, uscc));
     }
 
@@ -250,25 +267,25 @@ public class FddAuthManagerImpl implements IFddAuthManager {
     private FddAuthQueryResult initiateEnterpriseAuth(FddEnterpriseAuthQueryCommand command,
                                                       String internalCompanyName,
                                                       String uscc,
+                                                      FddPersonAuthDO contact,
                                                       boolean repeat) {
         String enterpriseName = trimRequired(command.enterpriseName(), "enterpriseName");
-        String adminName = trimRequired(command.personName(), "personName（企业管理员）");
-        String adminIdNumber = trimRequired(command.idNumber(), "idNumber（企业管理员）");
-        String adminMobile = trimRequired(command.mobile(), "mobile（企业管理员）");
+        String adminName = contact.getPersonName();
+        String adminIdNumber = contact.getIdNumber();
+        String adminMobile = contact.getMobile();
+        // 发起时可额外传 idNumber：须与已实名联系人一致
+        if (StringUtils.hasText(command.idNumber())
+                && !command.idNumber().trim().equals(adminIdNumber)) {
+            log.info("【{}】企业认证终止, reason=联系人身份证与已实名记录不一致, requestIdNumber={}, contactIdNumber={}",
+                    LOG_BIZ, maskIdNumber(command.idNumber()), maskIdNumber(adminIdNumber));
+            throw new BizException(ResultCode.PARAM_INVALID,
+                    "idNumber 与已实名联系人（姓名+手机号）不一致");
+        }
         FddSourceSystemEnum sourceSystem = requireSourceSystem(command.sourceSystem());
         requireCallbackUrl();
 
-        FddPersonAuthDO adminPerson = fddPersonAuthService.findSuccess(
-                internalCompanyName, adminIdNumber, adminMobile);
-        if (adminPerson == null) {
-            log.info("【{}】企业认证终止, reason=管理员未完成个人实名, internalCompany={}, idNumber={}, mobile={}",
-                    LOG_BIZ, internalCompanyName, maskIdNumber(adminIdNumber), maskMobile(adminMobile));
-            throw new BizException(ResultCode.PARAM_INVALID,
-                    "发起企业认证前须先完成企业管理员个人实名认证（internalCompanyName + idNumber + mobile）");
-        }
-
         CompanyBinding binding = ensureCompany(enterpriseName, uscc, adminName, adminIdNumber, adminMobile,
-                adminPerson.getFddAccountId());
+                contact.getFddAccountId());
 
         // companyId 与 tpOrgId 二选一；已创建/查询到企业后只传 companyId、accountId
         FddEnterpriseAuthRequest request = FddEnterpriseAuthRequest.builder()
@@ -295,6 +312,10 @@ public class FddAuthManagerImpl implements IFddAuthManager {
         requestDetail.put("createOrGetCompany", Map.of(
                 "companyId", binding.companyId(),
                 "accountId", binding.accountId()));
+        requestDetail.put("contact", Map.of(
+                "personName", adminName,
+                "mobile", adminMobile,
+                "idNumber", adminIdNumber));
         requestDetail.put("request", request);
         requestDetail.put("response", response);
 
@@ -313,7 +334,8 @@ public class FddAuthManagerImpl implements IFddAuthManager {
         FddEnterpriseAuthDO saved = fddEnterpriseAuthService.insertPending(record);
         log.info("【{}】企业认证已发起, id={}, internalCompany={}, uscc={}, companyId={}, transactionNo={}",
                 LOG_BIZ, saved.getId(), internalCompanyName, uscc, binding.companyId(), transactionNo);
-        return toEnterpriseResult(saved, false, true, null, "已发起认证，请引导用户完成实名");
+        return toEnterpriseResult(saved, false, true, null, "已发起认证，请引导用户完成实名",
+                adminName, adminIdNumber, adminMobile);
     }
 
     private FddAuthQueryResult initiatePersonAuth(FddPersonAuthQueryCommand command,
@@ -625,7 +647,10 @@ public class FddAuthManagerImpl implements IFddAuthManager {
                                                          boolean certified,
                                                          boolean needAuth,
                                                          Boolean canRetry,
-                                                         String message) {
+                                                         String message,
+                                                         String personName,
+                                                         String idNumber,
+                                                         String mobile) {
         return new FddAuthQueryResult(
                 certified,
                 needAuth,
@@ -635,9 +660,9 @@ public class FddAuthManagerImpl implements IFddAuthManager {
                 record.getAuthUrl(),
                 record.getEnterpriseName(),
                 record.getUscc(),
-                null,
-                null,
-                null,
+                personName,
+                idNumber,
+                mobile,
                 record.getSourceSystem(),
                 record.getFailReason(),
                 record.getCertifiedAt(),

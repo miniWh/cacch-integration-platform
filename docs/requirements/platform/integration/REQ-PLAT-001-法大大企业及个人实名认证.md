@@ -136,7 +136,10 @@
 结束（签署相关：文件上传 / 创建推送签署 / 回调，本期不做）
 ```
 
-> **顺序约束**：发起企业认证前，企业管理员必须在同一 `internalCompanyName` 下已有个人 `SUCCESS` 记录（业务键含管理员 `idNumber + mobile`）；请求体需同时传管理员 `personName` / `idNumber` / `mobile`。
+> **顺序约束**：发起企业认证前，企业联系人必须在同一 `internalCompanyName` 下已有个人 `SUCCESS` 记录。  
+> **联系人定位键**（避免仅姓名重名）：`internalCompanyName + personName + mobile`；未命中则企业认证不可进行。  
+> 查询/状态接口须传 `personName`、`mobile`；发起时可选传 `idNumber`（须与已实名联系人一致），用于法大大 `createCompany` 的 `adminName`/`adminMobile` 绑定。  
+> 个人实名业务唯一键仍为：`internalCompanyName + idNumber + mobile`（与联系人定位键不同）。
 
 ### 4.2 查询 → 判断 → 获取 URL → 页面认证 → 回调（原流程细化）
 
@@ -315,9 +318,9 @@ POST /api/v1/fdd/auth/query
 | internalCompanyName | String | 是 | **内部企业全称**（如「南通泰禾化工股份有限公司」），查询判定键之一；须在配置 `fdd.internal-companies` 允许列表内 |
 | enterpriseName | String | 条件 | **外部**企业名称（authType=ENTERPRISE 时必填） |
 | uscc | String | 条件 | 统一社会信用代码（authType=ENTERPRISE 时必填，与 internalCompanyName 组成业务键） |
-| personName | String | 条件 | 姓名（authType=PERSON 时必填） |
-| idNumber | String | 条件 | 身份证号（authType=PERSON 时必填，与 internalCompanyName、mobile 组成业务键） |
-| mobile | String | 条件 | 手机号（authType=PERSON 时必填，业务判定键之一；换号视为未认证） |
+| personName | String | 条件 | 姓名：PERSON 为本人必填；ENTERPRISE 为企业联系人姓名必填（与 mobile 联合定位，避免重名） |
+| idNumber | String | 条件 | 身份证号：PERSON 必填（业务键之一）；ENTERPRISE 发起时可传，须与已实名联系人一致 |
+| mobile | String | 条件 | 手机号：PERSON / ENTERPRISE 均必填；企业场景与 personName 联合校验联系人是否已个人实名 |
 | autoAuth | Boolean | 否 | 是否自动发起认证，默认 true |
 | sourceSystem | String | 条件 | 发起来源，**仅允许** `CRM` 或 `OA`；STEP 2 新发起认证时必填；审计字段 |
 | sourceBizNo | String | 否 | 来源系统业务单号（审计溯源） |

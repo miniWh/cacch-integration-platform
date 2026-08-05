@@ -41,7 +41,7 @@ public class FddAuthController {
     /**
      * 统一查询 / 自动发起认证
      *
-     * @param request 查询请求（须含 internalCompanyName；企业含 uscc，个人含 idNumber+mobile）
+     * @param request 查询请求（须含 internalCompanyName；企业含 uscc+personName+mobile，个人含 idNumber+mobile）
      * @return 认证状态与可选 authUrl
      */
     @PostMapping("/query")
@@ -83,14 +83,16 @@ public class FddAuthController {
      * @param authType            认证类型 ENTERPRISE / PERSON
      * @param internalCompanyName 内部企业全称
      * @param uscc                统一社会信用代码（企业必填）
+     * @param personName          企业联系人姓名（企业必填）或个人姓名
      * @param idNumber            身份证号（个人必填）
-     * @param mobile              手机号（个人必填，业务判定键之一）
+     * @param mobile              手机号（企业联系人/个人均必填）
      * @return 认证状态
      */
     @GetMapping("/status")
     public Result<FddAuthQueryVO> status(@RequestParam String authType,
                                          @RequestParam String internalCompanyName,
                                          @RequestParam(required = false) String uscc,
+                                         @RequestParam(required = false) String personName,
                                          @RequestParam(required = false) String idNumber,
                                          @RequestParam(required = false) String mobile) {
         FddAuthTypeEnum type = FddAuthTypeEnum.fromCode(authType);
@@ -102,9 +104,16 @@ public class FddAuthController {
             if (!StringUtils.hasText(uscc)) {
                 throw new BizException(ResultCode.PARAM_MISSING, "uscc 不能为空");
             }
+            if (!StringUtils.hasText(personName)) {
+                throw new BizException(ResultCode.PARAM_MISSING, "personName 不能为空");
+            }
+            if (!StringUtils.hasText(mobile)) {
+                throw new BizException(ResultCode.PARAM_MISSING, "mobile 不能为空");
+            }
             result = fddAuthManager.queryOrAuthEnterprise(
                     new FddEnterpriseAuthQueryCommand(
-                            internalCompanyName, null, uscc, null, null, null, Boolean.FALSE, null, null));
+                            internalCompanyName, null, uscc, personName, null, mobile,
+                            Boolean.FALSE, null, null));
         } else {
             if (!StringUtils.hasText(idNumber)) {
                 throw new BizException(ResultCode.PARAM_MISSING, "idNumber 不能为空");

@@ -15,7 +15,7 @@ public interface IFddAuthManager {
     /**
      * 企业实名认证查询 / 自动发起
      *
-     * <p>按 internalCompanyName + uscc 判定；已 SUCCESS 直接返回；无 SUCCESS 且无 PENDING 时可自动发起。</p>
+     * <p>按 internalCompanyName + uscc 判定企业状态；前置校验联系人已按 internalCompanyName + personName + mobile 个人实名。</p>
      *
      * @param command 查询/发起命令
      * @return 认证查询结果
