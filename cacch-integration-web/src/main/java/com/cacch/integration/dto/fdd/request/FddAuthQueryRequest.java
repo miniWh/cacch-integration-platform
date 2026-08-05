@@ -34,17 +34,17 @@ public class FddAuthQueryRequest {
     private String uscc;
 
     /**
-     * 姓名（authType=PERSON 时必填）
+     * 姓名：authType=PERSON 为本人；authType=ENTERPRISE 发起时为企业管理员姓名
      */
     private String personName;
 
     /**
-     * 身份证号（authType=PERSON 时必填）
+     * 身份证号：authType=PERSON 为本人；authType=ENTERPRISE 发起时为企业管理员身份证号
      */
     private String idNumber;
 
     /**
-     * 手机号（authType=PERSON 时必填）
+     * 手机号：authType=PERSON 为本人；authType=ENTERPRISE 发起时为企业管理员手机号
      */
     private String mobile;
 

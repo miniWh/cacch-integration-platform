@@ -14,8 +14,14 @@ import com.cacch.integration.entity.fdd.FddEnterpriseAuthDO;
 import com.cacch.integration.entity.fdd.FddPersonAuthDO;
 import com.cacch.integration.integration.fdd.client.FddClient;
 import com.cacch.integration.integration.fdd.client.dto.FddCallbackRequest;
+import com.cacch.integration.integration.fdd.client.dto.FddCreateAccountRequest;
+import com.cacch.integration.integration.fdd.client.dto.FddCreateAccountResponse;
+import com.cacch.integration.integration.fdd.client.dto.FddCreateCompanyRequest;
+import com.cacch.integration.integration.fdd.client.dto.FddCreateCompanyResponse;
 import com.cacch.integration.integration.fdd.client.dto.FddEnterpriseAuthRequest;
 import com.cacch.integration.integration.fdd.client.dto.FddEnterpriseAuthResponse;
+import com.cacch.integration.integration.fdd.client.dto.FddGetAccountResponse;
+import com.cacch.integration.integration.fdd.client.dto.FddGetCompanyResponse;
 import com.cacch.integration.integration.fdd.client.dto.FddPersonAuthRequest;
 import com.cacch.integration.integration.fdd.client.dto.FddPersonAuthResponse;
 import com.cacch.integration.manager.fdd.api.IFddAuthManager;
@@ -32,6 +38,8 @@ import java.util.Map;
 /**
  * 法大大认证编排实现（企业 / 个人）
  *
+ * <p>对齐法大大标准流程：个人 = 查询 → 创建用户 → 实名认证；企业 = 查询 →（管理员须已个人实名）创建企业并绑定管理员 → 实名认证。</p>
+ *
  * @author hongfu_zhou@cacch.com
  */
 @Slf4j
@@ -40,6 +48,7 @@ import java.util.Map;
 public class FddAuthManagerImpl implements IFddAuthManager {
 
     private static final String LOG_BIZ = "FddAuth";
+    private static final String AREA_CODE_CN = "+86";
 
     private final IFddEnterpriseAuthService fddEnterpriseAuthService;
     private final IFddPersonAuthService fddPersonAuthService;
@@ -59,6 +68,13 @@ public class FddAuthManagerImpl implements IFddAuthManager {
         if (success != null) {
             log.info("【{}】企业认证已通过, internalCompany={}, uscc={}", LOG_BIZ, internalCompanyName, uscc);
             return toEnterpriseResult(success, true, false, null, null);
+        }
+
+        FddEnterpriseAuthDO synced = syncEnterpriseIfRemoteCertified(internalCompanyName, uscc, command.enterpriseName());
+        if (synced != null) {
+            log.info("【{}】企业认证法大大侧已通过并同步本地, internalCompany={}, uscc={}, fddCompanyId={}",
+                    LOG_BIZ, internalCompanyName, uscc, synced.getFddCompanyId());
+            return toEnterpriseResult(synced, true, false, null, null);
         }
 
         FddEnterpriseAuthDO pending = fddEnterpriseAuthService.findLatestPending(internalCompanyName, uscc);
@@ -102,6 +118,14 @@ public class FddAuthManagerImpl implements IFddAuthManager {
             log.info("【{}】个人认证已通过, internalCompany={}, idNumber={}",
                     LOG_BIZ, internalCompanyName, maskIdNumber(idNumber));
             return toPersonResult(success, true, false, null, null);
+        }
+
+        FddPersonAuthDO synced = syncPersonIfRemoteCertified(
+                internalCompanyName, idNumber, command.personName(), command.mobile());
+        if (synced != null) {
+            log.info("【{}】个人认证法大大侧已通过并同步本地, internalCompany={}, idNumber={}, fddAccountId={}",
+                    LOG_BIZ, internalCompanyName, maskIdNumber(idNumber), synced.getFddAccountId());
+            return toPersonResult(synced, true, false, null, null);
         }
 
         FddPersonAuthDO pending = fddPersonAuthService.findLatestPending(internalCompanyName, idNumber);
@@ -158,7 +182,8 @@ public class FddAuthManagerImpl implements IFddAuthManager {
         }
         if (status == FddConstants.ENTERPRISE_STATUS_CERTIFIED) {
             fddEnterpriseAuthService.updateByCallback(
-                    record.getId(), FddAuthStatusEnum.SUCCESS.getCode(), rawPayload, null);
+                    record.getId(), FddAuthStatusEnum.SUCCESS.getCode(), rawPayload, null,
+                    request.getCompanyId(), request.getAccountId());
             log.info("【{}】企业回调认证通过, id={}, uscc={}, transactionNo={}",
                     LOG_BIZ, record.getId(), record.getUscc(), transactionNo);
             return;
@@ -166,7 +191,8 @@ public class FddAuthManagerImpl implements IFddAuthManager {
         if (status == FddConstants.ENTERPRISE_STATUS_FAILED) {
             String failReason = "法大大企业认证失败, status=" + status;
             fddEnterpriseAuthService.updateByCallback(
-                    record.getId(), FddAuthStatusEnum.FAILED.getCode(), rawPayload, failReason);
+                    record.getId(), FddAuthStatusEnum.FAILED.getCode(), rawPayload, failReason,
+                    request.getCompanyId(), request.getAccountId());
             log.info("【{}】企业回调认证失败, id={}, uscc={}, transactionNo={}",
                     LOG_BIZ, record.getId(), record.getUscc(), transactionNo);
             return;
@@ -201,7 +227,7 @@ public class FddAuthManagerImpl implements IFddAuthManager {
         }
         if (status == FddConstants.PERSON_STATUS_CERTIFIED) {
             fddPersonAuthService.updateByCallback(
-                    record.getId(), FddAuthStatusEnum.SUCCESS.getCode(), rawPayload, null);
+                    record.getId(), FddAuthStatusEnum.SUCCESS.getCode(), rawPayload, null, request.getAccountId());
             log.info("【{}】个人回调认证通过, id={}, idNumber={}, transactionNo={}",
                     LOG_BIZ, record.getId(), maskIdNumber(record.getIdNumber()), transactionNo);
             return;
@@ -209,7 +235,7 @@ public class FddAuthManagerImpl implements IFddAuthManager {
         if (status == FddConstants.PERSON_STATUS_FAILED) {
             String failReason = "法大大个人认证失败, status=" + status;
             fddPersonAuthService.updateByCallback(
-                    record.getId(), FddAuthStatusEnum.FAILED.getCode(), rawPayload, failReason);
+                    record.getId(), FddAuthStatusEnum.FAILED.getCode(), rawPayload, failReason, request.getAccountId());
             log.info("【{}】个人回调认证失败, id={}, idNumber={}, transactionNo={}",
                     LOG_BIZ, record.getId(), maskIdNumber(record.getIdNumber()), transactionNo);
             return;
@@ -223,10 +249,26 @@ public class FddAuthManagerImpl implements IFddAuthManager {
                                                       String uscc,
                                                       boolean repeat) {
         String enterpriseName = trimRequired(command.enterpriseName(), "enterpriseName");
+        String adminName = trimRequired(command.personName(), "personName（企业管理员）");
+        String adminIdNumber = trimRequired(command.idNumber(), "idNumber（企业管理员）");
+        String adminMobile = trimRequired(command.mobile(), "mobile（企业管理员）");
         FddSourceSystemEnum sourceSystem = requireSourceSystem(command.sourceSystem());
         requireCallbackUrl();
 
+        FddPersonAuthDO adminPerson = fddPersonAuthService.findSuccess(internalCompanyName, adminIdNumber);
+        if (adminPerson == null) {
+            log.info("【{}】企业认证终止, reason=管理员未完成个人实名, internalCompany={}, idNumber={}",
+                    LOG_BIZ, internalCompanyName, maskIdNumber(adminIdNumber));
+            throw new BizException(ResultCode.PARAM_INVALID,
+                    "发起企业认证前须先完成企业管理员个人实名认证（internalCompanyName + idNumber）");
+        }
+
+        CompanyBinding binding = ensureCompany(enterpriseName, uscc, adminName, adminIdNumber, adminMobile,
+                adminPerson.getFddAccountId());
+
         FddEnterpriseAuthRequest request = FddEnterpriseAuthRequest.builder()
+                .companyId(binding.companyId())
+                .accountId(binding.accountId())
                 .tpOrgId(uscc)
                 .verifiedChannel(FddConstants.VERIFIED_CHANNEL_STANDARD)
                 .verifiedWay(fddProperties.getEnterpriseVerifiedWay())
@@ -246,6 +288,9 @@ public class FddAuthManagerImpl implements IFddAuthManager {
         String transactionNo = response.getData().getTransactionNo();
 
         Map<String, Object> requestDetail = new LinkedHashMap<>();
+        requestDetail.put("createOrGetCompany", Map.of(
+                "companyId", binding.companyId(),
+                "accountId", binding.accountId()));
         requestDetail.put("request", request);
         requestDetail.put("response", response);
 
@@ -253,6 +298,8 @@ public class FddAuthManagerImpl implements IFddAuthManager {
         record.setInternalCompanyName(internalCompanyName);
         record.setEnterpriseName(enterpriseName);
         record.setUscc(uscc);
+        record.setFddCompanyId(binding.companyId());
+        record.setFddAccountId(binding.accountId());
         record.setAuthUrl(authUrl);
         record.setTransactionNo(transactionNo);
         record.setSourceSystem(sourceSystem.getCode());
@@ -260,8 +307,8 @@ public class FddAuthManagerImpl implements IFddAuthManager {
         record.setRequestDetail(requestDetail);
 
         FddEnterpriseAuthDO saved = fddEnterpriseAuthService.insertPending(record);
-        log.info("【{}】企业认证已发起, id={}, internalCompany={}, uscc={}, transactionNo={}",
-                LOG_BIZ, saved.getId(), internalCompanyName, uscc, transactionNo);
+        log.info("【{}】企业认证已发起, id={}, internalCompany={}, uscc={}, companyId={}, transactionNo={}",
+                LOG_BIZ, saved.getId(), internalCompanyName, uscc, binding.companyId(), transactionNo);
         return toEnterpriseResult(saved, false, true, null, "已发起认证，请引导用户完成实名");
     }
 
@@ -274,7 +321,10 @@ public class FddAuthManagerImpl implements IFddAuthManager {
         FddSourceSystemEnum sourceSystem = requireSourceSystem(command.sourceSystem());
         requireCallbackUrl();
 
+        String accountId = ensureAccount(personName, mobile, idNumber);
+
         FddPersonAuthRequest request = FddPersonAuthRequest.builder()
+                .accountId(accountId)
                 .tpAccountId(idNumber)
                 .verifiedChannel(FddConstants.VERIFIED_CHANNEL_STANDARD)
                 .verifiedWay(fddProperties.getPersonVerifiedWay())
@@ -293,6 +343,7 @@ public class FddAuthManagerImpl implements IFddAuthManager {
         String transactionNo = response.getData().getTransactionNo();
 
         Map<String, Object> requestDetail = new LinkedHashMap<>();
+        requestDetail.put("accountId", accountId);
         requestDetail.put("request", request);
         requestDetail.put("response", response);
 
@@ -301,6 +352,7 @@ public class FddAuthManagerImpl implements IFddAuthManager {
         record.setPersonName(personName);
         record.setIdNumber(idNumber);
         record.setMobile(mobile);
+        record.setFddAccountId(accountId);
         record.setAuthUrl(authUrl);
         record.setTransactionNo(transactionNo);
         record.setSourceSystem(sourceSystem.getCode());
@@ -308,9 +360,156 @@ public class FddAuthManagerImpl implements IFddAuthManager {
         record.setRequestDetail(requestDetail);
 
         FddPersonAuthDO saved = fddPersonAuthService.insertPending(record);
-        log.info("【{}】个人认证已发起, id={}, internalCompany={}, idNumber={}, transactionNo={}",
-                LOG_BIZ, saved.getId(), internalCompanyName, maskIdNumber(idNumber), transactionNo);
+        log.info("【{}】个人认证已发起, id={}, internalCompany={}, idNumber={}, accountId={}, transactionNo={}",
+                LOG_BIZ, saved.getId(), internalCompanyName, maskIdNumber(idNumber), accountId, transactionNo);
         return toPersonResult(saved, false, true, null, "已发起认证，请引导用户完成实名");
+    }
+
+    /**
+     * 查询或创建法大大用户，返回 accountId
+     */
+    private String ensureAccount(String personName, String mobile, String idNumber) {
+        FddGetAccountResponse existing = fddClient.getAccount(idNumber, null);
+        if (existing != null && existing.hasAccount()) {
+            log.info("【{}】法大大用户已存在, accountId={}, idNumber={}",
+                    LOG_BIZ, existing.getData().getAccountId(), maskIdNumber(idNumber));
+            return existing.getData().getAccountId();
+        }
+        existing = fddClient.getAccount(null, mobile);
+        if (existing != null && existing.hasAccount()) {
+            log.info("【{}】法大大用户已存在(按手机号), accountId={}, mobile={}",
+                    LOG_BIZ, existing.getData().getAccountId(), maskMobile(mobile));
+            return existing.getData().getAccountId();
+        }
+
+        FddCreateAccountRequest createRequest = FddCreateAccountRequest.builder()
+                .userName(personName)
+                .areaCode(AREA_CODE_CN)
+                .mobile(mobile)
+                .tpAccountId(idNumber)
+                .build();
+        try {
+            FddCreateAccountResponse created = fddClient.createAccount(createRequest);
+            if (created == null || !created.isSuccess()) {
+                String msg = created == null ? "响应为空"
+                        : "code=" + created.getCode() + ", message=" + created.getMessage();
+                log.info("【{}】创建用户失败, reason={}, idNumber={}", LOG_BIZ, msg, maskIdNumber(idNumber));
+                throw new BizException(ResultCode.INTEGRATION_ERROR, "法大大创建用户失败: " + msg);
+            }
+            log.info("【{}】创建用户成功, accountId={}, idNumber={}",
+                    LOG_BIZ, created.getData().getAccountId(), maskIdNumber(idNumber));
+            return created.getData().getAccountId();
+        } catch (BizException e) {
+            FddGetAccountResponse retry = fddClient.getAccount(idNumber, mobile);
+            if (retry != null && retry.hasAccount()) {
+                log.info("【{}】创建用户冲突后查询到已有账号, accountId={}", LOG_BIZ, retry.getData().getAccountId());
+                return retry.getData().getAccountId();
+            }
+            throw e;
+        }
+    }
+
+    /**
+     * 查询或创建法大大企业并绑定管理员
+     */
+    private CompanyBinding ensureCompany(String enterpriseName, String uscc,
+                                         String adminName, String adminIdNumber, String adminMobile,
+                                         String preferredAccountId) {
+        FddGetCompanyResponse existing = fddClient.getCompany(uscc, uscc);
+        if (existing != null && existing.hasCompany()) {
+            String companyId = existing.getData().getCompanyId();
+            String accountId = StringUtils.hasText(preferredAccountId)
+                    ? preferredAccountId
+                    : ensureAccount(adminName, adminMobile, adminIdNumber);
+            log.info("【{}】法大大企业已存在, companyId={}, uscc={}", LOG_BIZ, companyId, uscc);
+            return new CompanyBinding(companyId, accountId);
+        }
+
+        FddCreateCompanyRequest createRequest = FddCreateCompanyRequest.builder()
+                .companyName(enterpriseName)
+                .tpOrgId(uscc)
+                .adminName(adminName)
+                .tpAccountId(adminIdNumber)
+                .adminMobile(adminMobile)
+                .areaCode(AREA_CODE_CN)
+                .build();
+        try {
+            FddCreateCompanyResponse created = fddClient.createCompany(createRequest);
+            if (created == null || !created.isSuccess()) {
+                String msg = created == null ? "响应为空"
+                        : "code=" + created.getCode() + ", message=" + created.getMessage();
+                log.info("【{}】创建企业失败, reason={}, uscc={}", LOG_BIZ, msg, uscc);
+                throw new BizException(ResultCode.INTEGRATION_ERROR, "法大大创建企业失败: " + msg);
+            }
+            String companyId = created.getData().getCompanyId();
+            String accountId = StringUtils.hasText(created.getData().getAccountId())
+                    ? created.getData().getAccountId()
+                    : (StringUtils.hasText(preferredAccountId)
+                    ? preferredAccountId
+                    : ensureAccount(adminName, adminMobile, adminIdNumber));
+            log.info("【{}】创建企业成功, companyId={}, accountId={}, uscc={}",
+                    LOG_BIZ, companyId, accountId, uscc);
+            return new CompanyBinding(companyId, accountId);
+        } catch (BizException e) {
+            FddGetCompanyResponse retry = fddClient.getCompany(uscc, uscc);
+            if (retry != null && retry.hasCompany()) {
+                String accountId = StringUtils.hasText(preferredAccountId)
+                        ? preferredAccountId
+                        : ensureAccount(adminName, adminMobile, adminIdNumber);
+                log.info("【{}】创建企业冲突后查询到已有企业, companyId={}", LOG_BIZ, retry.getData().getCompanyId());
+                return new CompanyBinding(retry.getData().getCompanyId(), accountId);
+            }
+            throw e;
+        }
+    }
+
+    private FddPersonAuthDO syncPersonIfRemoteCertified(String internalCompanyName, String idNumber,
+                                                        String personName, String mobile) {
+        try {
+            FddGetAccountResponse remote = fddClient.getAccount(idNumber, null);
+            if (remote == null || !remote.isCertified()) {
+                if (StringUtils.hasText(mobile)) {
+                    remote = fddClient.getAccount(null, mobile);
+                }
+            }
+            if (remote == null || !remote.isCertified()) {
+                return null;
+            }
+            FddPersonAuthDO record = new FddPersonAuthDO();
+            record.setInternalCompanyName(internalCompanyName);
+            record.setPersonName(StringUtils.hasText(personName) ? personName.trim()
+                    : remote.getData().getUserName());
+            record.setIdNumber(idNumber);
+            record.setMobile(StringUtils.hasText(mobile) ? mobile.trim() : remote.getData().getMobile());
+            record.setFddAccountId(remote.getData().getAccountId());
+            record.setRequestDetail(Map.of("syncFrom", "getAccount", "accountId", remote.getData().getAccountId()));
+            return fddPersonAuthService.insertSuccessFromRemote(record);
+        } catch (BizException e) {
+            log.info("【{}】同步个人认证状态跳过, idNumber={}, reason={}",
+                    LOG_BIZ, maskIdNumber(idNumber), e.getMessage());
+            return null;
+        }
+    }
+
+    private FddEnterpriseAuthDO syncEnterpriseIfRemoteCertified(String internalCompanyName, String uscc,
+                                                                String enterpriseName) {
+        try {
+            FddGetCompanyResponse remote = fddClient.getCompany(uscc, uscc);
+            if (remote == null || !remote.isCertified()) {
+                return null;
+            }
+            FddEnterpriseAuthDO record = new FddEnterpriseAuthDO();
+            record.setInternalCompanyName(internalCompanyName);
+            record.setEnterpriseName(StringUtils.hasText(enterpriseName) ? enterpriseName.trim()
+                    : remote.getData().getCompanyName());
+            record.setUscc(uscc);
+            record.setFddCompanyId(remote.getData().getCompanyId());
+            record.setRequestDetail(Map.of("syncFrom", "getCompany", "companyId", remote.getData().getCompanyId()));
+            return fddEnterpriseAuthService.insertSuccessFromRemote(record);
+        } catch (BizException e) {
+            log.info("【{}】同步企业认证状态跳过, uscc={}, reason={}", LOG_BIZ, uscc, e.getMessage());
+            return null;
+        }
     }
 
     private void validateInternalCompany(String internalCompanyName) {
@@ -350,6 +549,13 @@ public class FddAuthManagerImpl implements IFddAuthManager {
             return "****";
         }
         return idNumber.substring(0, 6) + "********" + idNumber.substring(idNumber.length() - 4);
+    }
+
+    private static String maskMobile(String mobile) {
+        if (!StringUtils.hasText(mobile) || mobile.length() < 7) {
+            return "****";
+        }
+        return mobile.substring(0, 3) + "****" + mobile.substring(mobile.length() - 4);
     }
 
     private static FddAuthQueryResult toEnterpriseResult(FddEnterpriseAuthDO record,
@@ -400,5 +606,8 @@ public class FddAuthManagerImpl implements IFddAuthManager {
                 canRetry,
                 message
         );
+    }
+
+    private record CompanyBinding(String companyId, String accountId) {
     }
 }

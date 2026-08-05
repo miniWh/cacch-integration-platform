@@ -44,6 +44,16 @@ public class FddEnterpriseAuthDO {
     private String uscc;
 
     /**
+     * 法大大本地企业唯一标识 companyId
+     */
+    private String fddCompanyId;
+
+    /**
+     * 企业管理员法大大本地用户唯一标识 accountId
+     */
+    private String fddAccountId;
+
+    /**
      * 法大大认证页面 URL
      */
     private String authUrl;

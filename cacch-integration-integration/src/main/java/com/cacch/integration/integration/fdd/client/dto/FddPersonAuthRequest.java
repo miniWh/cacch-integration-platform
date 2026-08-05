@@ -15,6 +15,11 @@ import lombok.Data;
 public class FddPersonAuthRequest {
 
     /**
+     * 法大大本地用户唯一标识（创建用户后回填；有则优先传）
+     */
+    private String accountId;
+
+    /**
      * 第三方用户唯一标识，本场景使用身份证号
      */
     private String tpAccountId;

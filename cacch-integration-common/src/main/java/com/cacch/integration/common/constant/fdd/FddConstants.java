@@ -58,6 +58,11 @@ public final class FddConstants {
     public static final int SEND_SMS_NO = 0;
 
     /**
+     * 是否发送短信：是
+     */
+    public static final int SEND_SMS_YES = 1;
+
+    /**
      * 页面信息是否可修改：不允许
      */
     public static final int PAGE_MODIFY_FORBIDDEN = 2;
@@ -106,6 +111,36 @@ public final class FddConstants {
      * 非小程序
      */
     public static final int MINI_PROGRAM_NO = 0;
+
+    /**
+     * 创建用户
+     */
+    public static final String PATH_CREATE_ACCOUNT = "/user/api/account/createAccount";
+
+    /**
+     * 查询用户详情
+     */
+    public static final String PATH_GET_ACCOUNT = "/user/api/account/getAccount";
+
+    /**
+     * 创建企业（同时绑定系统管理员）
+     */
+    public static final String PATH_CREATE_COMPANY = "/user/api/company/createCompany";
+
+    /**
+     * 查询企业详情
+     */
+    public static final String PATH_GET_COMPANY = "/user/api/company/getCompany";
+
+    /**
+     * 个人认证状态：已认证（getAccount.verifyStatus）
+     */
+    public static final String PERSON_VERIFY_CERTIFIED = "1";
+
+    /**
+     * 企业认证状态：已认证（getCompany.isCerdit，文档字段名如此）
+     */
+    public static final String ENTERPRISE_IS_CERT_CERTIFIED = "3";
 
     /**
      * OAuth2 Token Redis Key

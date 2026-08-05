@@ -116,7 +116,8 @@ public class FddEnterpriseAuthServiceImpl implements IFddEnterpriseAuthService {
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, readOnly = false, timeout = 30, rollbackFor = Exception.class)
-    public void updateByCallback(Long id, String authStatus, Object authDetail, String failReason) {
+    public void updateByCallback(Long id, String authStatus, Object authDetail, String failReason,
+                                 String fddCompanyId, String fddAccountId) {
         if (id == null || !StringUtils.hasText(authStatus)) {
             log.info("【{}】回调更新终止, reason=参数无效, id={}", LOG_BIZ, id);
             throw new BizException(ResultCode.PARAM_INVALID, "回调更新参数无效");
@@ -129,10 +130,36 @@ public class FddEnterpriseAuthServiceImpl implements IFddEnterpriseAuthService {
         existing.setAuthStatus(authStatus);
         existing.setAuthDetail(authDetail);
         existing.setFailReason(failReason);
+        if (StringUtils.hasText(fddCompanyId)) {
+            existing.setFddCompanyId(fddCompanyId.trim());
+        }
+        if (StringUtils.hasText(fddAccountId)) {
+            existing.setFddAccountId(fddAccountId.trim());
+        }
         if (FddAuthStatusEnum.SUCCESS.getCode().equals(authStatus)) {
             existing.setCertifiedAt(LocalDateTime.now());
         }
         fddEnterpriseAuthMapper.updateById(existing);
         log.info("【{}】回调更新完成, id={}, authStatus={}", LOG_BIZ, id, authStatus);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false, timeout = 30, rollbackFor = Exception.class)
+    public FddEnterpriseAuthDO insertSuccessFromRemote(FddEnterpriseAuthDO record) {
+        if (record == null
+                || !StringUtils.hasText(record.getInternalCompanyName())
+                || !StringUtils.hasText(record.getUscc())) {
+            log.info("【{}】同步 SUCCESS 终止, reason=必填字段缺失", LOG_BIZ);
+            throw new BizException(ResultCode.PARAM_MISSING, "企业认证同步记录必填字段缺失");
+        }
+        record.setAuthStatus(FddAuthStatusEnum.SUCCESS.getCode());
+        if (record.getCertifiedAt() == null) {
+            record.setCertifiedAt(LocalDateTime.now());
+        }
+        fddEnterpriseAuthMapper.insert(record);
+        log.info("【{}】同步 SUCCESS 成功, id={}, internalCompany={}, uscc={}, fddCompanyId={}",
+                LOG_BIZ, record.getId(), record.getInternalCompanyName(),
+                record.getUscc(), record.getFddCompanyId());
+        return record;
     }
 }

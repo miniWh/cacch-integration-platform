@@ -56,6 +56,9 @@ public class FddAuthController {
                             request.getInternalCompanyName(),
                             request.getEnterpriseName(),
                             request.getUscc(),
+                            request.getPersonName(),
+                            request.getIdNumber(),
+                            request.getMobile(),
                             request.getAutoAuth(),
                             request.getSourceSystem(),
                             request.getSourceBizNo()
@@ -99,7 +102,7 @@ public class FddAuthController {
             }
             result = fddAuthManager.queryOrAuthEnterprise(
                     new FddEnterpriseAuthQueryCommand(
-                            internalCompanyName, null, uscc, Boolean.FALSE, null, null));
+                            internalCompanyName, null, uscc, null, null, null, Boolean.FALSE, null, null));
         } else {
             if (!StringUtils.hasText(idNumber)) {
                 throw new BizException(ResultCode.PARAM_MISSING, "idNumber 不能为空");

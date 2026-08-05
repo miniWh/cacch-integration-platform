@@ -64,10 +64,21 @@ public interface IFddEnterpriseAuthService {
     /**
      * 回调更新认证结果
      *
-     * @param id         记录主键
-     * @param authStatus SUCCESS / FAILED
-     * @param authDetail 回调原始报文
-     * @param failReason 失败原因（失败时）
+     * @param id           记录主键
+     * @param authStatus   SUCCESS / FAILED
+     * @param authDetail   回调原始报文
+     * @param failReason   失败原因（失败时）
+     * @param fddCompanyId 法大大 companyId（可空）
+     * @param fddAccountId 法大大管理员 accountId（可空）
      */
-    void updateByCallback(Long id, String authStatus, Object authDetail, String failReason);
+    void updateByCallback(Long id, String authStatus, Object authDetail, String failReason,
+                          String fddCompanyId, String fddAccountId);
+
+    /**
+     * 法大大侧已实名时落库 SUCCESS（查询同步）
+     *
+     * @param record 认证通过记录
+     * @return 插入后的记录
+     */
+    FddEnterpriseAuthDO insertSuccessFromRemote(FddEnterpriseAuthDO record);
 }

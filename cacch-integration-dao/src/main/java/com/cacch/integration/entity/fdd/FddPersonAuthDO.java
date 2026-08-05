@@ -49,6 +49,11 @@ public class FddPersonAuthDO {
     private String mobile;
 
     /**
+     * 法大大本地用户唯一标识 accountId
+     */
+    private String fddAccountId;
+
+    /**
      * 法大大认证页面 URL
      */
     private String authUrl;

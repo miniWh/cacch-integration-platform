@@ -117,7 +117,7 @@ public class FddPersonAuthServiceImpl implements IFddPersonAuthService {
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, readOnly = false, timeout = 30, rollbackFor = Exception.class)
-    public void updateByCallback(Long id, String authStatus, Object authDetail, String failReason) {
+    public void updateByCallback(Long id, String authStatus, Object authDetail, String failReason, String fddAccountId) {
         if (id == null || !StringUtils.hasText(authStatus)) {
             log.info("【{}】回调更新终止, reason=参数无效, id={}", LOG_BIZ, id);
             throw new BizException(ResultCode.PARAM_INVALID, "回调更新参数无效");
@@ -130,11 +130,34 @@ public class FddPersonAuthServiceImpl implements IFddPersonAuthService {
         existing.setAuthStatus(authStatus);
         existing.setAuthDetail(authDetail);
         existing.setFailReason(failReason);
+        if (StringUtils.hasText(fddAccountId)) {
+            existing.setFddAccountId(fddAccountId.trim());
+        }
         if (FddAuthStatusEnum.SUCCESS.getCode().equals(authStatus)) {
             existing.setCertifiedAt(LocalDateTime.now());
         }
         fddPersonAuthMapper.updateById(existing);
         log.info("【{}】回调更新完成, id={}, authStatus={}", LOG_BIZ, id, authStatus);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false, timeout = 30, rollbackFor = Exception.class)
+    public FddPersonAuthDO insertSuccessFromRemote(FddPersonAuthDO record) {
+        if (record == null
+                || !StringUtils.hasText(record.getInternalCompanyName())
+                || !StringUtils.hasText(record.getIdNumber())) {
+            log.info("【{}】同步 SUCCESS 终止, reason=必填字段缺失", LOG_BIZ);
+            throw new BizException(ResultCode.PARAM_MISSING, "个人认证同步记录必填字段缺失");
+        }
+        record.setAuthStatus(FddAuthStatusEnum.SUCCESS.getCode());
+        if (record.getCertifiedAt() == null) {
+            record.setCertifiedAt(LocalDateTime.now());
+        }
+        fddPersonAuthMapper.insert(record);
+        log.info("【{}】同步 SUCCESS 成功, id={}, internalCompany={}, idNumber={}, fddAccountId={}",
+                LOG_BIZ, record.getId(), record.getInternalCompanyName(),
+                maskIdNumber(record.getIdNumber()), record.getFddAccountId());
+        return record;
     }
 
     private static String maskIdNumber(String idNumber) {
