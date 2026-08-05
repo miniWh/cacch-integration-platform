@@ -445,18 +445,20 @@ public class FddAuthManagerImpl implements IFddAuthManager {
     }
 
     /**
-     * 查询或创建法大大企业并绑定管理员
+     * 查询或创建法大大企业并绑定管理员。
+     * <p>同一企业不可重复创建，但可重复认证：createCompany 返回 22033（名称已存在）时，
+     * 通过 getCompany 取 companyId 后跳过创建，直接进入认证。</p>
      */
     private CompanyBinding ensureCompany(String enterpriseName, String uscc,
                                          String adminName, String adminIdNumber, String adminMobile,
                                          String preferredAccountId) {
-        FddGetCompanyResponse existing = fddClient.getCompany(uscc, uscc);
+        FddGetCompanyResponse existing = findExistingCompany(enterpriseName, uscc);
         if (existing != null && existing.hasCompany()) {
             String companyId = existing.firstCompany().getCompanyId();
-            String accountId = StringUtils.hasText(preferredAccountId)
-                    ? preferredAccountId
-                    : ensureAccount(adminName, adminMobile, adminIdNumber);
-            log.info("【{}】法大大企业已存在, companyId={}, uscc={}", LOG_BIZ, companyId, uscc);
+            String accountId = resolveCompanyAccountId(preferredAccountId, null,
+                    adminName, adminMobile, adminIdNumber);
+            log.info("【{}】法大大企业已存在, companyId={}, uscc={}, enterpriseName={}",
+                    LOG_BIZ, companyId, uscc, enterpriseName);
             return new CompanyBinding(companyId, accountId);
         }
 
@@ -468,34 +470,77 @@ public class FddAuthManagerImpl implements IFddAuthManager {
                 .adminMobile(adminMobile)
                 .areaCode(AREA_CODE_CN)
                 .build();
-        try {
-            FddCreateCompanyResponse created = fddClient.createCompany(createRequest);
-            if (created == null || !created.isSuccess()) {
-                String msg = created == null ? "响应为空"
-                        : "code=" + created.getCode() + ", message=" + created.getMessage();
-                log.info("【{}】创建企业失败, reason={}, uscc={}", LOG_BIZ, msg, uscc);
-                throw new BizException(ResultCode.INTEGRATION_ERROR, "法大大创建企业失败: " + msg);
-            }
+        FddCreateCompanyResponse created = fddClient.createCompany(createRequest);
+        if (created != null && created.isSuccess()) {
             String companyId = created.getData().getCompanyId();
-            String accountId = StringUtils.hasText(created.getData().getAccountId())
-                    ? created.getData().getAccountId()
-                    : (StringUtils.hasText(preferredAccountId)
-                    ? preferredAccountId
-                    : ensureAccount(adminName, adminMobile, adminIdNumber));
+            String accountId = resolveCompanyAccountId(preferredAccountId, created.getData().getAccountId(),
+                    adminName, adminMobile, adminIdNumber);
             log.info("【{}】创建企业成功, companyId={}, accountId={}, uscc={}",
                     LOG_BIZ, companyId, accountId, uscc);
             return new CompanyBinding(companyId, accountId);
-        } catch (BizException e) {
-            FddGetCompanyResponse retry = fddClient.getCompany(uscc, uscc);
-            if (retry != null && retry.hasCompany()) {
-                String accountId = StringUtils.hasText(preferredAccountId)
-                        ? preferredAccountId
-                        : ensureAccount(adminName, adminMobile, adminIdNumber);
-                log.info("【{}】创建企业冲突后查询到已有企业, companyId={}", LOG_BIZ, retry.firstCompany().getCompanyId());
-                return new CompanyBinding(retry.firstCompany().getCompanyId(), accountId);
-            }
-            throw e;
         }
+
+        Integer failCode = created == null ? null : created.getCode();
+        String failMsg = created == null ? "响应为空"
+                : "code=" + created.getCode() + ", message=" + created.getMessage();
+        log.info("【{}】创建企业未成功, reason={}, uscc={}, enterpriseName={}",
+                LOG_BIZ, failMsg, uscc, enterpriseName);
+
+        // 企业名称已存在等冲突：查询复用 companyId，跳过创建直接认证
+        FddGetCompanyResponse retry = findExistingCompany(enterpriseName, uscc);
+        if (retry != null && retry.hasCompany()) {
+            String companyId = retry.firstCompany().getCompanyId();
+            String accountId = resolveCompanyAccountId(preferredAccountId, null,
+                    adminName, adminMobile, adminIdNumber);
+            log.info("【{}】企业已存在跳过创建并复用 companyId, failCode={}, companyId={}, uscc={}",
+                    LOG_BIZ, failCode, companyId, uscc);
+            return new CompanyBinding(companyId, accountId);
+        }
+
+        if (failCode != null && failCode == FddConstants.CODE_COMPANY_NAME_EXISTS) {
+            log.info("【{}】创建企业终止, reason=名称已存在但 getCompany 未查到, uscc={}, enterpriseName={}",
+                    LOG_BIZ, uscc, enterpriseName);
+        }
+        throw new BizException(ResultCode.INTEGRATION_ERROR, "法大大创建企业失败: " + failMsg);
+    }
+
+    /**
+     * 按单条件依次查询已存在企业（creditNo → tpOrgId → companyName）。
+     * <p>法大大 getCompany 多参数为 AND，禁止同时传多个条件以免查不到。</p>
+     *
+     * @param enterpriseName 外部企业名称
+     * @param uscc           统一社会信用代码
+     * @return 命中的企业响应；均未命中返回 null
+     */
+    private FddGetCompanyResponse findExistingCompany(String enterpriseName, String uscc) {
+        if (StringUtils.hasText(uscc)) {
+            FddGetCompanyResponse byCredit = fddClient.getCompany(null, null, uscc.trim(), null);
+            if (byCredit != null && byCredit.hasCompany()) {
+                return byCredit;
+            }
+            FddGetCompanyResponse byTpOrgId = fddClient.getCompany(null, null, null, uscc.trim());
+            if (byTpOrgId != null && byTpOrgId.hasCompany()) {
+                return byTpOrgId;
+            }
+        }
+        if (StringUtils.hasText(enterpriseName)) {
+            FddGetCompanyResponse byName = fddClient.getCompany(null, enterpriseName.trim(), null, null);
+            if (byName != null && byName.hasCompany()) {
+                return byName;
+            }
+        }
+        return null;
+    }
+
+    private String resolveCompanyAccountId(String preferredAccountId, String createdAccountId,
+                                           String adminName, String adminMobile, String adminIdNumber) {
+        if (StringUtils.hasText(createdAccountId)) {
+            return createdAccountId;
+        }
+        if (StringUtils.hasText(preferredAccountId)) {
+            return preferredAccountId;
+        }
+        return ensureAccount(adminName, adminMobile, adminIdNumber);
     }
 
     private FddPersonAuthDO syncPersonIfRemoteCertified(String internalCompanyName, String idNumber,
@@ -554,7 +599,7 @@ public class FddAuthManagerImpl implements IFddAuthManager {
                                                                 String enterpriseName,
                                                                 String sourceSystem, String sourceBizNo) {
         try {
-            FddGetCompanyResponse remote = fddClient.getCompany(uscc, uscc);
+            FddGetCompanyResponse remote = findExistingCompany(enterpriseName, uscc);
             if (remote == null || !remote.isCertified()) {
                 return null;
             }

@@ -143,6 +143,11 @@ public final class FddConstants {
     public static final String ENTERPRISE_IS_CERT_CERTIFIED = "3";
 
     /**
+     * 法大大业务码：企业名称已存在，不允许重复创建（可查询后复用 companyId 继续认证）
+     */
+    public static final int CODE_COMPANY_NAME_EXISTS = 22033;
+
+    /**
      * OAuth2 Token Redis Key
      *
      * @param appId 法大大应用 ID

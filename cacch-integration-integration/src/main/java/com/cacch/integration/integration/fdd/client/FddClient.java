@@ -106,26 +106,38 @@ public class FddClient {
     }
 
     /**
-     * 按第三方企业标识或统一社会信用代码查询企业
+     * 查询企业详情
      *
-     * @param tpOrgId  第三方企业标识（可空）
-     * @param creditNo 统一社会信用代码（可空）
+     * <p>法大大多条件为 AND，调用方宜单条件查询（companyId / companyName / creditNo / tpOrgId 择一）。</p>
+     *
+     * @param companyId   法大大企业 ID（可空）
+     * @param companyName 企业名称（可空）
+     * @param creditNo    统一社会信用代码（可空）
+     * @param tpOrgId     第三方企业标识（可空）
      * @return 查询响应；无企业时 data 为空
-     * @throws BizException HTTP 失败时抛出
+     * @throws BizException 参数全空或 HTTP 失败时抛出
      */
-    public FddGetCompanyResponse getCompany(String tpOrgId, String creditNo) {
+    public FddGetCompanyResponse getCompany(String companyId, String companyName,
+                                            String creditNo, String tpOrgId) {
         Map<String, String> query = new LinkedHashMap<>();
-        if (StringUtils.hasText(tpOrgId)) {
-            query.put("tpOrgId", tpOrgId.trim());
+        if (StringUtils.hasText(companyId)) {
+            query.put("companyId", companyId.trim());
+        }
+        if (StringUtils.hasText(companyName)) {
+            query.put("companyName", companyName.trim());
         }
         if (StringUtils.hasText(creditNo)) {
             query.put("creditNo", creditNo.trim());
         }
+        if (StringUtils.hasText(tpOrgId)) {
+            query.put("tpOrgId", tpOrgId.trim());
+        }
         if (query.isEmpty()) {
-            throw new BizException(ResultCode.PARAM_MISSING, "查询企业须提供 tpOrgId 或 creditNo");
+            throw new BizException(ResultCode.PARAM_MISSING,
+                    "查询企业须提供 companyId、companyName、creditNo 或 tpOrgId 之一");
         }
         return getForm(ACTION_GET_COMPANY, joinBase(FddConstants.PATH_GET_COMPANY), query,
-                FddGetCompanyResponse.class, "tpOrgId=" + tpOrgId);
+                FddGetCompanyResponse.class, "queryKeys=" + query.keySet());
     }
 
     /**

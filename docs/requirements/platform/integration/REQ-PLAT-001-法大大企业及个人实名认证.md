@@ -139,7 +139,8 @@
 > **顺序约束**：发起企业认证前，企业联系人必须在同一 `internalCompanyName` 下已有个人 `SUCCESS` 记录。  
 > **联系人定位键**（避免仅姓名重名）：`internalCompanyName + personName + mobile`；未命中则企业认证不可进行。  
 > 查询/状态接口须传 `personName`、`mobile`；发起时可选传 `idNumber`（须与已实名联系人一致），用于法大大 `createCompany` 的 `adminName`/`adminMobile` 绑定。  
-> 个人实名业务唯一键仍为：`internalCompanyName + idNumber + mobile`（与联系人定位键不同）。
+> 个人实名业务唯一键仍为：`internalCompanyName + idNumber + mobile`（与联系人定位键不同）。  
+> **创建与认证**：同一企业不可重复创建（法大大 `22033`），但可重复发起认证。`createCompany` 失败且企业已存在时，按 `creditNo` / `tpOrgId` / `companyName` **单条件**调用 `getCompany` 取 `companyId`，跳过创建直接进企业实名。
 
 ### 4.2 查询 → 判断 → 获取 URL → 页面认证 → 回调（原流程细化）
 
