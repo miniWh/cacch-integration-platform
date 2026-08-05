@@ -10,45 +10,49 @@ import com.cacch.integration.entity.fdd.FddPersonAuthDO;
 public interface IFddPersonAuthService {
 
     /**
-     * 按内部企业 + 身份证号 查询 SUCCESS 记录（组合下最多一条）
+     * 按内部企业 + 身份证号 + 手机号 查询 SUCCESS 记录（组合下最多一条）
      *
      * @param internalCompanyName 内部企业全称
      * @param idNumber            身份证号
+     * @param mobile              手机号
      * @return SUCCESS 记录；不存在时返回 null
      */
-    FddPersonAuthDO findSuccess(String internalCompanyName, String idNumber);
+    FddPersonAuthDO findSuccess(String internalCompanyName, String idNumber, String mobile);
 
     /**
-     * 按内部企业 + 身份证号 查询最新一条 PENDING 记录
+     * 按内部企业 + 身份证号 + 手机号 查询最新一条 PENDING 记录
      *
      * @param internalCompanyName 内部企业全称
      * @param idNumber            身份证号
+     * @param mobile              手机号
      * @return 最新 PENDING；不存在时返回 null
      */
-    FddPersonAuthDO findLatestPending(String internalCompanyName, String idNumber);
+    FddPersonAuthDO findLatestPending(String internalCompanyName, String idNumber, String mobile);
 
     /**
-     * 按内部企业 + 身份证号 查询最新一条 FAILED 记录
+     * 按内部企业 + 身份证号 + 手机号 查询最新一条 FAILED 记录
      *
      * @param internalCompanyName 内部企业全称
      * @param idNumber            身份证号
+     * @param mobile              手机号
      * @return 最新 FAILED；不存在时返回 null
      */
-    FddPersonAuthDO findLatestFailed(String internalCompanyName, String idNumber);
+    FddPersonAuthDO findLatestFailed(String internalCompanyName, String idNumber, String mobile);
 
     /**
      * 是否存在任一 FAILED 历史记录（用于判定 verifiedType）
      *
      * @param internalCompanyName 内部企业全称
      * @param idNumber            身份证号
+     * @param mobile              手机号
      * @return true 表示曾失败过
      */
-    boolean hasFailedHistory(String internalCompanyName, String idNumber);
+    boolean hasFailedHistory(String internalCompanyName, String idNumber, String mobile);
 
     /**
      * 新增 PENDING 认证记录
      *
-     * @param record 待插入记录
+     * @param record 待插入记录（须含 mobile）
      * @return 插入后的记录（含主键）
      */
     FddPersonAuthDO insertPending(FddPersonAuthDO record);
@@ -75,7 +79,7 @@ public interface IFddPersonAuthService {
     /**
      * 法大大侧已实名时落库 SUCCESS（查询同步）
      *
-     * @param record 认证通过记录
+     * @param record 认证通过记录（须含 mobile）
      * @return 插入后的记录
      */
     FddPersonAuthDO insertSuccessFromRemote(FddPersonAuthDO record);

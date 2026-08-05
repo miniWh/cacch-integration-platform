@@ -41,7 +41,7 @@ public class FddAuthController {
     /**
      * 统一查询 / 自动发起认证
      *
-     * @param request 查询请求（须含 internalCompanyName；企业含 uscc，个人含 idNumber）
+     * @param request 查询请求（须含 internalCompanyName；企业含 uscc，个人含 idNumber+mobile）
      * @return 认证状态与可选 authUrl
      */
     @PostMapping("/query")
@@ -84,13 +84,15 @@ public class FddAuthController {
      * @param internalCompanyName 内部企业全称
      * @param uscc                统一社会信用代码（企业必填）
      * @param idNumber            身份证号（个人必填）
+     * @param mobile              手机号（个人必填，业务判定键之一）
      * @return 认证状态
      */
     @GetMapping("/status")
     public Result<FddAuthQueryVO> status(@RequestParam String authType,
                                          @RequestParam String internalCompanyName,
                                          @RequestParam(required = false) String uscc,
-                                         @RequestParam(required = false) String idNumber) {
+                                         @RequestParam(required = false) String idNumber,
+                                         @RequestParam(required = false) String mobile) {
         FddAuthTypeEnum type = FddAuthTypeEnum.fromCode(authType);
         if (type == null) {
             throw new BizException(ResultCode.PARAM_INVALID, "authType 仅允许 ENTERPRISE 或 PERSON");
@@ -107,9 +109,12 @@ public class FddAuthController {
             if (!StringUtils.hasText(idNumber)) {
                 throw new BizException(ResultCode.PARAM_MISSING, "idNumber 不能为空");
             }
+            if (!StringUtils.hasText(mobile)) {
+                throw new BizException(ResultCode.PARAM_MISSING, "mobile 不能为空");
+            }
             result = fddAuthManager.queryOrAuthPerson(
                     new FddPersonAuthQueryCommand(
-                            internalCompanyName, null, idNumber, null, Boolean.FALSE, null, null));
+                            internalCompanyName, null, idNumber, mobile, Boolean.FALSE, null, null));
         }
         return Result.success(fddAuthConverter.toVO(result));
     }

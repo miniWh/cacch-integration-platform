@@ -25,7 +25,7 @@ public interface IFddAuthManager {
     /**
      * 个人实名认证查询 / 自动发起
      *
-     * <p>按 internalCompanyName + idNumber 判定；已 SUCCESS 直接返回；无 SUCCESS 且无 PENDING 时可自动发起。</p>
+     * <p>按 internalCompanyName + idNumber + mobile 判定；已 SUCCESS 直接返回；无 SUCCESS 且无 PENDING 时可自动发起。换手机号视为未认证。</p>
      *
      * @param command 查询/发起命令
      * @return 认证查询结果

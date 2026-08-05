@@ -44,7 +44,7 @@ public class FddPersonAuthDO {
     private String idNumber;
 
     /**
-     * 手机号（三要素业务记录，明文；法大大页面补充验证）
+     * 手机号（业务判定键之一，三要素明文；同一内部企业+身份证号下换号视为未认证）
      */
     private String mobile;
 
