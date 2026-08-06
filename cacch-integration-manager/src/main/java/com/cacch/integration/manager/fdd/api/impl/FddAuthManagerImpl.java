@@ -300,7 +300,7 @@ public class FddAuthManagerImpl implements IFddAuthManager {
                         .build())
                 .applicationType(FddConstants.APPLICATION_TYPE_ALL)
                 .notifyUrl(fddProperties.getCallbackUrl())
-                .isSendSms(FddConstants.SEND_SMS_NO)
+                .isSendSms(FddConstants.SEND_SMS_YES)
                 .pageModify(FddConstants.PAGE_MODIFY_FORBIDDEN)
                 .build();
 
@@ -359,7 +359,7 @@ public class FddAuthManagerImpl implements IFddAuthManager {
                 .certType(FddConstants.CERT_TYPE_ID_CARD)
                 .idCard(idNumber)
                 .notifyUrl(fddProperties.getCallbackUrl())
-                .isSendSms(FddConstants.SEND_SMS_NO)
+                .isSendSms(FddConstants.SEND_SMS_YES)
                 .otherCertType(FddConstants.OTHER_CERT_TYPE_NO)
                 .miniProgram(FddConstants.MINI_PROGRAM_NO)
                 .build();
@@ -506,7 +506,8 @@ public class FddAuthManagerImpl implements IFddAuthManager {
 
     /**
      * 按单条件依次查询已存在企业（creditNo → tpOrgId → companyName）。
-     * <p>法大大 getCompany 多参数为 AND，禁止同时传多个条件以免查不到。</p>
+     * <p>法大大 getCompany 多参数为 AND，禁止同时传多个条件以免查不到。
+     * 单次查询失败不阻断后续条件。</p>
      *
      * @param enterpriseName 外部企业名称
      * @param uscc           统一社会信用代码
@@ -514,22 +515,35 @@ public class FddAuthManagerImpl implements IFddAuthManager {
      */
     private FddGetCompanyResponse findExistingCompany(String enterpriseName, String uscc) {
         if (StringUtils.hasText(uscc)) {
-            FddGetCompanyResponse byCredit = fddClient.getCompany(null, null, uscc.trim(), null);
+            FddGetCompanyResponse byCredit = tryGetCompany(null, null, uscc.trim(), null, "creditNo");
             if (byCredit != null && byCredit.hasCompany()) {
                 return byCredit;
             }
-            FddGetCompanyResponse byTpOrgId = fddClient.getCompany(null, null, null, uscc.trim());
+            FddGetCompanyResponse byTpOrgId = tryGetCompany(null, null, null, uscc.trim(), "tpOrgId");
             if (byTpOrgId != null && byTpOrgId.hasCompany()) {
                 return byTpOrgId;
             }
         }
         if (StringUtils.hasText(enterpriseName)) {
-            FddGetCompanyResponse byName = fddClient.getCompany(null, enterpriseName.trim(), null, null);
+            FddGetCompanyResponse byName = tryGetCompany(null, enterpriseName.trim(), null, null, "companyName");
             if (byName != null && byName.hasCompany()) {
                 return byName;
             }
         }
         return null;
+    }
+
+    /**
+     * 单条件查询企业，失败时记日志并返回 null（不抛出，避免阻断后续条件）
+     */
+    private FddGetCompanyResponse tryGetCompany(String companyId, String companyName,
+                                                String creditNo, String tpOrgId, String byField) {
+        try {
+            return fddClient.getCompany(companyId, companyName, creditNo, tpOrgId);
+        } catch (BizException e) {
+            log.info("【{}】getCompany 单条件查询跳过, by={}, reason={}", LOG_BIZ, byField, e.getMessage());
+            return null;
+        }
     }
 
     private String resolveCompanyAccountId(String preferredAccountId, String createdAccountId,

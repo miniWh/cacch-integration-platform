@@ -241,9 +241,10 @@ public class FddClient {
     private <T> T getForm(String action, String url, Map<String, String> query, Class<T> responseType, String bizKey) {
         String accessToken = fddTokenSupport.getAccessToken();
         try {
+            // build() 后再 encode，避免中文等非 ASCII 查询参数触发 IllegalArgumentException
             UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(url);
             query.forEach(builder::queryParam);
-            URI uri = builder.build(true).toUri();
+            URI uri = builder.build().encode().toUri();
             ThirdPartyHttpLogSupport.logRequest(BIZ, action, uri.toString(), query);
 
             HttpHeaders headers = authHeaders(accessToken);

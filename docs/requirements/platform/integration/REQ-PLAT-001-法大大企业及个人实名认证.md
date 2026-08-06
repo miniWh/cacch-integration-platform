@@ -645,7 +645,7 @@ FddCallbackController（web 模块，构造器注入 FddAuthManager）
 | notifyUrl | `fdd.callback-url` | 异步回调地址，必传 |
 | tpAccountId | — | 用户在第三方业务系统唯一标识，本期不传 |
 | returnUrl | — | 同步跳转地址，可选，业务系统可配置 |
-| isSendSms | 固定 0 | 是否发送实名认证短信，默认 0 否 |
+| isSendSms | 固定 1 | 是否发送实名认证短信，默认发短信（1 是 / 0 否） |
 | pageModify | 固定 2 | 用户是否能修改扫码后的认证页面信息，默认 2 不允许 |
 
 ### 10.2 个人认证请求 `/user/api/verify/person/url`
@@ -667,7 +667,7 @@ FddCallbackController（web 模块，构造器注入 FddAuthManager）
 | personalBankCard | — | 银行卡号，本期不传 |
 | notifyUrl | `fdd.callback-url` | 异步回调地址，必传 |
 | returnUrl | — | 同步跳转地址，可选 |
-| isSendSms | 固定 0 | 默认 0 否 |
+| isSendSms | 固定 1 | 默认发短信（1 是 / 0 否） |
 | resultType | — | 刷脸结果页面显示，本期不传 |
 | otherCertType | 固定 0 | 是否支持其他证件类型，默认 0 身份证 |
 | miniProgram | 固定 0 | 0 非小程序（默认） |
