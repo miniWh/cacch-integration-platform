@@ -16,4 +16,13 @@ public interface IOaRegAttachmentSyncManager {
      * @return 本轮统计
      */
     OaRegAttachmentSyncResult syncAttachments(Long formMainId);
+
+    /**
+     * 按产品名称（OA field0160 / IPDP 名称）触发单项目或多项目附件同步
+     *
+     * @param productName 产品名称，须与 OA 主表 field0160 精确一致（首尾空白忽略）
+     * @return 本轮统计；匹配多个主表时对每个主表各执行一轮并汇总计数
+     * @throws com.cacch.integration.common.exception.BizException 产品名称无对应主表时抛出
+     */
+    OaRegAttachmentSyncResult syncAttachmentsByProductName(String productName);
 }

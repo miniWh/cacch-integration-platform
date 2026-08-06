@@ -37,7 +37,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class OaRegAttachmentSyncController {
 
-    private static final String BIZ = "OaRegAttachmentSync";
+    private static final String BIZ = "国内登记报告附件同步";
 
     private final IOaRegAttachmentSyncManager syncManager;
     private final IOaRegAttachmentSyncService syncService;
@@ -46,20 +46,18 @@ public class OaRegAttachmentSyncController {
     /**
      * 手动触发附件同步
      *
-     * @param formMainId 可选 OA 主表 ID；不传则按 batch-size 扫描
-     * @param formBizNo  可选表单业务编号（如 REG-202607-0128）；暂不支持，请使用 formMainId
+     * @param productName 可选产品名称（OA field0160 / IPDP 名称，精确匹配）；不传则按游标全量扫描
      * @return 本轮同步统计
      */
     @PostMapping("/attachment-sync/trigger")
     public Result<OaRegAttachmentSyncResult> trigger(
-            @RequestParam(required = false) Long formMainId,
-            @RequestParam(required = false) String formBizNo) {
-        if (formMainId == null && StringUtils.hasText(formBizNo)) {
-            log.info("【{}】触发同步终止, reason=formBizNo暂不支持, formBizNo={}", BIZ, formBizNo.trim());
-            throw new BizException(ResultCode.PARAM_INVALID,
-                    "formBizNo 查询暂未实现，请传 formMainId（OA 主表 ID）");
+            @RequestParam(required = false) String productName) {
+        if (StringUtils.hasText(productName)) {
+            log.info("【{}】手动触发同步, productName={}", BIZ, productName.trim());
+            return Result.success(syncManager.syncAttachmentsByProductName(productName.trim()));
         }
-        return Result.success(syncManager.syncAttachments(formMainId));
+        log.info("【{}】手动触发同步, productName=未指定(全量游标批次)", BIZ);
+        return Result.success(syncManager.syncAttachments(null));
     }
 
     /**

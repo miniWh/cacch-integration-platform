@@ -40,7 +40,7 @@ import java.util.stream.Collectors;
 @Component
 public class OaRegReportDbClient {
 
-    private static final String BIZ = "OaRegReportDb";
+    private static final String BIZ = "国内登记报告";
 
     private final ObjectProvider<JdbcTemplate> oaJdbcTemplateProvider;
     private final OaRegReportProperties regReportProperties;
@@ -178,6 +178,60 @@ public class OaRegReportDbClient {
         }
         DbProduct product = OaDbDialectSupport.detect(jdbc);
         return queryItemRows(jdbc, product, formMainIds, 0, null, false);
+    }
+
+    /**
+     * 按产品名称（主表 field0160 / IPDP 名称）查询主表 ID 列表
+     *
+     * <p>精确匹配 TRIM 后的 field0160；同一产品名称可能对应多个主表（不同项目编号）。</p>
+     *
+     * @param productName 产品名称，对应 OA field0160
+     * @return 主表 ID 列表（升序）；无匹配或 OA 未配置时返回空列表
+     */
+    public List<String> listFormMainIdsByProductName(String productName) {
+        if (!StringUtils.hasText(productName)) {
+            return Collections.emptyList();
+        }
+        JdbcTemplate jdbc = oaJdbcTemplateProvider.getIfAvailable();
+        if (jdbc == null) {
+            log.info("【{}】按产品名称查主表终止, reason=OA数据源未配置", BIZ);
+            return Collections.emptyList();
+        }
+        DbProduct product = OaDbDialectSupport.detect(jdbc);
+        String mainTable = regReportProperties.getFormMainTable();
+        String subTable = regReportProperties.getFormSubTable();
+        String fieldIpdp = regReportProperties.getFieldIpdpName();
+        String subFk = regReportProperties.getSubTableFk();
+        String ipdpColumn = OaDbDialectSupport.castColumnAsText("m." + fieldIpdp, product);
+        String formMainIdSelect = OaDbDialectSupport.selectFormMainIdColumn("m", product);
+
+        String sql = """
+                SELECT DISTINCT %s
+                FROM %s m
+                INNER JOIN %s s ON s.%s = m.id
+                WHERE TRIM(%s) = ?
+                ORDER BY m.id
+                """.formatted(formMainIdSelect, mainTable, subTable, subFk, ipdpColumn);
+
+        ReadOnlyOaJdbcTemplate.assertSelectOnly(sql);
+        String trimmed = productName.trim();
+        log.info("【{}】按产品名称查主表, productName={}", BIZ, trimmed);
+        try {
+            List<String> ids = jdbc.query(sql,
+                    (rs, rowNum) -> OaJdbcResultSetSupport.readIdAsString(rs, "form_main_id"),
+                    trimmed);
+            List<String> distinct = ids.stream().filter(StringUtils::hasText).distinct().toList();
+            if (distinct.isEmpty()) {
+                log.info("【{}】按产品名称查主表无结果, productName={}", BIZ, trimmed);
+            } else {
+                log.info("【{}】按产品名称查主表命中, productName={}, formMainIds={}", BIZ, trimmed, distinct);
+            }
+            return distinct;
+        } catch (Exception e) {
+            log.info("【{}】按产品名称查主表失败, productName={}, reason={}", BIZ, trimmed, e.getMessage());
+            log.error("【{}】按产品名称查主表异常, productName={}", BIZ, trimmed, e);
+            throw e;
+        }
     }
 
     /**

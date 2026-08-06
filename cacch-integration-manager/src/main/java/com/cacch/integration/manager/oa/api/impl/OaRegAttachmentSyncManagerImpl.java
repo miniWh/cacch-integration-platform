@@ -7,6 +7,7 @@ import com.cacch.integration.common.dto.oa.OaRegAttachmentSyncResult;
 import com.cacch.integration.common.dto.wecom.WeComAlertCommand;
 import com.cacch.integration.common.enums.oa.OaRegAttachmentSyncStatusEnum;
 import com.cacch.integration.common.exception.BizException;
+import com.cacch.integration.common.result.ResultCode;
 import com.cacch.integration.entity.oa.OaRegAttachmentSyncDO;
 import com.cacch.integration.integration.oa.client.OaRegReportDbClient;
 import com.cacch.integration.integration.oa.client.dto.OaRegReportAttachmentBindResult;
@@ -62,6 +63,29 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
     private final OaRegAttachmentSyncProperties syncProperties;
     private final IOaRegAttachmentSyncFormMainCursorService formMainCursorService;
     private final IWeComWebhookManager weComWebhookManager;
+
+    @Override
+    public OaRegAttachmentSyncResult syncAttachmentsByProductName(String productName) {
+        if (!StringUtils.hasText(productName)) {
+            throw new BizException(ResultCode.PARAM_MISSING, "productName 不能为空");
+        }
+        List<String> formMainIds = oaRegReportDbClient.listFormMainIdsByProductName(productName.trim());
+        if (formMainIds.isEmpty()) {
+            log.info("【{}】按产品名称触发同步终止, reason=未匹配主表, productName={}", BIZ, productName.trim());
+            throw new BizException(ResultCode.PARAM_INVALID,
+                    "未找到产品名称对应的主表，请核对 OA field0160: " + productName.trim());
+        }
+        if (formMainIds.size() == 1) {
+            return syncAttachments(parseFormMainId(formMainIds.getFirst()));
+        }
+        log.info("【{}】按产品名称命中多个主表, productName={}, formMainIds={}, 将逐个项目同步",
+                BIZ, productName.trim(), formMainIds);
+        OaRegAttachmentSyncResult aggregated = emptyResult();
+        for (String formMainId : formMainIds) {
+            aggregated = mergeResults(aggregated, syncAttachments(parseFormMainId(formMainId)));
+        }
+        return aggregated;
+    }
 
     @Override
     public OaRegAttachmentSyncResult syncAttachments(Long formMainId) {
@@ -487,5 +511,29 @@ public class OaRegAttachmentSyncManagerImpl implements IOaRegAttachmentSyncManag
                 .dedupId(String.valueOf(row.subRowId()))
                 .mention(true)
                 .build());
+    }
+
+    private static Long parseFormMainId(String formMainId) {
+        try {
+            return Long.parseLong(formMainId.trim());
+        } catch (NumberFormatException e) {
+            throw new BizException(ResultCode.PARAM_INVALID, "OA 主表 ID 格式无效: " + formMainId);
+        }
+    }
+
+    private static OaRegAttachmentSyncResult emptyResult() {
+        return OaRegAttachmentSyncResult.builder()
+                .scanned(0).success(0).retry(0).failed(0).skipped(0).build();
+    }
+
+    private static OaRegAttachmentSyncResult mergeResults(OaRegAttachmentSyncResult left,
+                                                          OaRegAttachmentSyncResult right) {
+        return OaRegAttachmentSyncResult.builder()
+                .scanned(left.getScanned() + right.getScanned())
+                .success(left.getSuccess() + right.getSuccess())
+                .retry(left.getRetry() + right.getRetry())
+                .failed(left.getFailed() + right.getFailed())
+                .skipped(left.getSkipped() + right.getSkipped())
+                .build();
     }
 }

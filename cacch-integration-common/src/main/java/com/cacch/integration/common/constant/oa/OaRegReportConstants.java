@@ -7,7 +7,7 @@ package com.cacch.integration.common.constant.oa;
  */
 public final class OaRegReportConstants {
 
-    public static final String LOG_BIZ = "OaRegAttachmentSync";
+    public static final String LOG_BIZ = "国内登记报告附件同步";
 
     public static final int DEFAULT_BATCH_SIZE = 50;
 
@@ -32,7 +32,9 @@ public final class OaRegReportConstants {
 
     public static final String SKIP_IDEMPOTENT = "ALREADY_SYNCED";
 
-    /** OA 资料项 field0216=1（不需要），跳过附件同步（REQ-OA-001 B-6 / REQ-OA-002 联动） */
+    /**
+     * OA 资料项 field0216=1（不需要），跳过附件同步（REQ-OA-001 B-6 / REQ-OA-002 联动）
+     */
     public static final String SKIP_NOT_REQUIRED = "NOT_REQUIRED";
 
     /**
