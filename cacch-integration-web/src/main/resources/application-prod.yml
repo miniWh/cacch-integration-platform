@@ -97,6 +97,11 @@ oa:
     username: ${OA_DB_USERNAME:V5}
     password: ${OA_DB_PASSWORD:Seeyon123456}
     driver-class-name: oracle.jdbc.OracleDriver
+  # REQ-OA-001 登记报告附件同步（正式环境开启定时任务）
+  attachment-sync:
+    enabled: true
+    # cron 继承 application.yml：每 4 小时（0/4/8/12/16/20 点）
+    owner-name-filter: ""
   # REQ-OA-002 共享盘目录治理（正式环境开启定时任务）
   share-dir-provision:
     enabled: true
