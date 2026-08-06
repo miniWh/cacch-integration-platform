@@ -81,4 +81,12 @@ public interface IFddEnterpriseAuthService {
      * @return 插入后的记录
      */
     FddEnterpriseAuthDO insertSuccessFromRemote(FddEnterpriseAuthDO record);
+
+    /**
+     * 将历史终态记录重置为 PENDING，供测试环境回放企业回调（正式认证流程禁止调用）
+     *
+     * @param id 企业认证记录主键
+     * @return 重置后的记录
+     */
+    FddEnterpriseAuthDO resetToPendingForCallbackTest(Long id);
 }

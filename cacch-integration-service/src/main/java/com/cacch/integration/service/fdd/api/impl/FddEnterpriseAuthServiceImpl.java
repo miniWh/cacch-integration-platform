@@ -165,4 +165,26 @@ public class FddEnterpriseAuthServiceImpl implements IFddEnterpriseAuthService {
                 record.getUscc(), record.getFddCompanyId());
         return record;
     }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = false, timeout = 30, rollbackFor = Exception.class)
+    public FddEnterpriseAuthDO resetToPendingForCallbackTest(Long id) {
+        if (id == null) {
+            throw new BizException(ResultCode.PARAM_MISSING, "企业认证记录 id 不能为空");
+        }
+        FddEnterpriseAuthDO existing = fddEnterpriseAuthMapper.selectById(id);
+        if (existing == null) {
+            log.info("【{}】回调回放重置终止, reason=记录不存在, id={}", LOG_BIZ, id);
+            throw new BizException(ResultCode.PARAM_INVALID, "认证记录不存在, id=" + id);
+        }
+        String previousStatus = existing.getAuthStatus();
+        existing.setAuthStatus(FddAuthStatusEnum.PENDING.getCode());
+        existing.setFailReason(null);
+        existing.setCertifiedAt(null);
+        existing.setAuthDetail(null);
+        fddEnterpriseAuthMapper.updateById(existing);
+        log.info("【{}】回调回放已重置为 PENDING, id={}, previousStatus={}, transactionNo={}",
+                LOG_BIZ, id, previousStatus, existing.getTransactionNo());
+        return existing;
+    }
 }

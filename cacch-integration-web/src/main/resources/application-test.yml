@@ -116,6 +116,8 @@ fdd:
   # 具体地址联调前按测试部署环境补充
   callback-url: http://10.80.86.94/gw_cip_test/v1/fdd/callback
   callback-timeout-minutes: 3
+  # 仅测试环境：允许 POST /api/v1/fdd/callback/test/enterprise 回放历史企业回调
+  callback-test-enabled: true
   token-cache-minutes: 25
   enterprise-verified-way: 0
   person-verified-way: 0
