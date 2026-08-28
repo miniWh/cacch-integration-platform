@@ -35,7 +35,7 @@ public class MinutesSyncTask {
      * 会议已开始后即可查询，以录制/纪要就绪为真正触发条件；
      * 上一轮未结束则跳过本次；异常时发送 Webhook 告警，不向上抛出以免影响调度线程。</p>
      */
-    @Scheduled(cron = "${meeting.sync.minutes-cron:0 */3 * * * ?}")
+    //@Scheduled(cron = "${meeting.sync.minutes-cron:0 */3 * * * ?}")
     public void syncMinutes() {
         ScheduledTaskGuard.runExclusive(TASK_NAME, running, () -> {
             log.info("【MeetingTask】开始执行{}", TASK_NAME);

@@ -35,7 +35,7 @@ public class MeetingSyncTask {
      * <p>触发频率由 {@code meeting.sync.meeting-cron} 配置，默认每 3 分钟；
      * 上一轮未结束则跳过本次；异常时发送 Webhook 告警，不阻断同一次调度中的反向同步步骤。</p>
      */
-    @Scheduled(cron = "${meeting.sync.meeting-cron:0 */3 * * * ?}")
+    //@Scheduled(cron = "${meeting.sync.meeting-cron:0 */3 * * * ?}")
     public void syncMeetings() {
         ScheduledTaskGuard.runExclusive(TASK_NAME, running, () -> {
             log.info("【MeetingTask】开始执行{}", TASK_NAME);

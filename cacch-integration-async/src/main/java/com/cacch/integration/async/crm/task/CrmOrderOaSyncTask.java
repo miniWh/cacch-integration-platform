@@ -34,7 +34,7 @@ public class CrmOrderOaSyncTask {
      * <p>触发频率由 {@code crm.sync.cron} 配置，默认每 5 分钟；
      * 上一轮未结束则跳过；异常时 Webhook 告警。</p>
      */
-    @Scheduled(cron = "${crm.sync.cron:0 */5 * * * ?}")
+    //@Scheduled(cron = "${crm.sync.cron:0 */5 * * * ?}")
     public void syncOrdersToOa() {
         ScheduledTaskGuard.runExclusive(TASK_NAME, running, () -> {
             log.info("【CrmTask】开始执行{}", TASK_NAME);
