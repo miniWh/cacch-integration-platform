@@ -2,12 +2,14 @@ package com.cacch.integration.common.config.tencentmeeting;
 
 import lombok.Getter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.bind.DefaultValue;
 
 /**
  * 腾讯会议 REST API 配置
  *
- * <p>采用构造器绑定：{@code private final} 字段 + 显式构造器，未配置项回退默认值；
- * 嵌套对象 {@link SmartMinutes} 同样为构造器绑定。</p>
+ * <p>采用构造器绑定：单一构造器即被 Spring Boot 自动识别为目标构造器；所有参数均通过
+ * {@link DefaultValue} 在 yml 缺失对应 key 时回退默认值；嵌套对象 {@link SmartMinutes}
+ * 同样为单一构造器自动绑定。</p>
  *
  * @author hongfu_zhou@cacch.com
  */
@@ -45,30 +47,32 @@ public class TencentMeetingProperties {
      */
     private final SmartMinutes smartMinutes;
 
-    public TencentMeetingProperties(Boolean enabled,
-                                    String appId,
-                                    String sdkId,
-                                    String secretId,
-                                    String secretKey,
-                                    Integer operatorIdType,
-                                    Integer instanceId,
-                                    String defaultOperatorId,
-                                    SmartMinutes smartMinutes) {
-        this.enabled = enabled != null && enabled;
+    public TencentMeetingProperties(
+            @DefaultValue("false") boolean enabled,
+            @DefaultValue("") String appId,
+            @DefaultValue("") String sdkId,
+            @DefaultValue("") String secretId,
+            @DefaultValue("") String secretKey,
+            @DefaultValue("1") Integer operatorIdType,
+            @DefaultValue("1") Integer instanceId,
+            @DefaultValue("") String defaultOperatorId,
+            @DefaultValue SmartMinutes smartMinutes) {
+        this.enabled = enabled;
         this.appId = appId;
         this.sdkId = sdkId;
         this.secretId = secretId;
         this.secretKey = secretKey;
-        this.operatorIdType = operatorIdType != null ? operatorIdType : 1;
-        this.instanceId = instanceId != null ? instanceId : 1;
+        this.operatorIdType = operatorIdType;
+        this.instanceId = instanceId;
         this.defaultOperatorId = defaultOperatorId;
+        // 显式 null-兜底：当 smart-minutes 整段缺失时构造默认实例
         this.smartMinutes = smartMinutes != null
                 ? smartMinutes
-                : new SmartMinutes(null, null, null, null);
+                : new SmartMinutes(2, 1, 1, "default");
     }
 
     /**
-     * 智能纪要接口参数
+     * 智能纪要接口参数 — 嵌套值对象，单一构造器自动绑定
      */
     @Getter
     public static class SmartMinutes {
@@ -93,11 +97,15 @@ public class TencentMeetingProperties {
          */
         private final String lang;
 
-        public SmartMinutes(Integer textType, Integer llm, Integer minuteType, String lang) {
-            this.textType = textType != null ? textType : 2;
-            this.llm = llm != null ? llm : 1;
-            this.minuteType = minuteType != null ? minuteType : 1;
-            this.lang = lang != null ? lang : "default";
+        public SmartMinutes(
+                @DefaultValue("2") Integer textType,
+                @DefaultValue("1") Integer llm,
+                @DefaultValue("1") Integer minuteType,
+                @DefaultValue("default") String lang) {
+            this.textType = textType;
+            this.llm = llm;
+            this.minuteType = minuteType;
+            this.lang = lang;
         }
     }
 }

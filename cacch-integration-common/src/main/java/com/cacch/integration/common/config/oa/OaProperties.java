@@ -2,12 +2,14 @@ package com.cacch.integration.common.config.oa;
 
 import lombok.Getter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.bind.DefaultValue;
 
 /**
  * 致远 OA REST 配置属性
  *
- * <p>采用构造器绑定：{@code private final} 字段 + 显式构造器，未配置项回退默认值。
- * 敏感字段（{@link #restPassword}）不设默认值，必须由外部配置注入，缺失时由上层在使用处校验。</p>
+ * <p>采用构造器绑定：单一构造器即被 Spring Boot 自动识别为目标构造器，所有参数均通过
+ * {@link DefaultValue} 在 yml 缺失对应 key 时回退默认值；{@link #restPassword}
+ * 不设默认字符串，必须由外部配置注入，使用方会在缺失时主动校验失败。</p>
  *
  * @author hongfu_zhou@cacch.com
  */
@@ -26,7 +28,7 @@ public class OaProperties {
     private final String restUserName;
 
     /**
-     * REST 账号密码（path 中的 password，禁止写入日志；无默认值，须外部配置）
+     * REST 账号密码（path 中的 password，禁止写入日志；无默认值，须外部配置注入）
      */
     private final String restPassword;
 
@@ -50,21 +52,22 @@ public class OaProperties {
      */
     private final int attachmentUploadReadTimeoutSeconds;
 
-    public OaProperties(String baseUrl,
-                        String restUserName,
-                        String restPassword,
-                        String defaultLoginName,
-                        Long tokenTtlSeconds,
-                        String templateCode,
-                        Integer attachmentUploadReadTimeoutSeconds) {
-        this.baseUrl = baseUrl != null ? baseUrl : "http://10.80.64.18:900";
-        this.restUserName = restUserName != null ? restUserName : "zhouhufu";
+    public OaProperties(
+            @DefaultValue("http://10.80.64.18:900") String baseUrl,
+            @DefaultValue("zhouhufu") String restUserName,
+            String restPassword,
+            @DefaultValue("zhouhongfu") String defaultLoginName,
+            @DefaultValue("840") Long tokenTtlSeconds,
+            @DefaultValue("CRM_ZYXS_001") String templateCode,
+            @DefaultValue("1800") Integer attachmentUploadReadTimeoutSeconds) {
+        this.baseUrl = baseUrl;
+        this.restUserName = restUserName;
+        // restPassword 无 @DefaultValue：缺失时传 null，使用方需自行校验
         this.restPassword = restPassword;
         this.defaultLoginName = defaultLoginName;
-        this.tokenTtlSeconds = tokenTtlSeconds != null ? tokenTtlSeconds : 840L;
-        this.templateCode = templateCode != null ? templateCode : "CRM_ZYXS_001";
-        this.attachmentUploadReadTimeoutSeconds = attachmentUploadReadTimeoutSeconds != null
-                ? attachmentUploadReadTimeoutSeconds : 1800;
+        this.tokenTtlSeconds = tokenTtlSeconds;
+        this.templateCode = templateCode;
+        this.attachmentUploadReadTimeoutSeconds = attachmentUploadReadTimeoutSeconds;
     }
 
     /**
@@ -73,7 +76,7 @@ public class OaProperties {
      * @return Base URL
      */
     public String resolvedBaseUrl() {
-        if (baseUrl.isBlank()) {
+        if (baseUrl == null || baseUrl.isBlank()) {
             return "http://placeholder-oa-host";
         }
         return baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;

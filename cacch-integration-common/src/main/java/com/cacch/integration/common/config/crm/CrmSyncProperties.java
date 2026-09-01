@@ -2,11 +2,13 @@ package com.cacch.integration.common.config.crm;
 
 import lombok.Getter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.bind.DefaultValue;
 
 /**
  * CRM 订单 OA 同步配置
  *
- * <p>采用构造器绑定：{@code private final} 字段 + 显式构造器，未配置项回退默认值。</p>
+ * <p>采用构造器绑定：单一构造器即被 Spring Boot 自动识别为目标构造器；
+ * 所有参数均通过 {@link DefaultValue} 在 yml 缺失对应 key 时回退默认值。</p>
  *
  * @author hongfu_zhou@cacch.com
  */
@@ -24,8 +26,10 @@ public class CrmSyncProperties {
      */
     private final int maxRetry;
 
-    public CrmSyncProperties(Integer batchSize, Integer maxRetry) {
-        this.batchSize = batchSize != null ? batchSize : 100;
-        this.maxRetry = maxRetry != null ? maxRetry : 3;
+    public CrmSyncProperties(
+            @DefaultValue("100") Integer batchSize,
+            @DefaultValue("3") Integer maxRetry) {
+        this.batchSize = batchSize;
+        this.maxRetry = maxRetry;
     }
 }

@@ -2,11 +2,13 @@ package com.cacch.integration.common.config.meeting;
 
 import lombok.Getter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.bind.DefaultValue;
 
 /**
  * 会议同步相关配置属性 — 由 yml 的 meeting.sync 绑定
  *
- * <p>采用构造器绑定：{@code private final} 字段 + 显式构造器，未配置项回退默认值。</p>
+ * <p>采用构造器绑定：单一构造器即被 Spring Boot 自动识别为目标构造器；
+ * 所有参数均通过 {@link DefaultValue} 在 yml 缺失对应 key 时回退默认值。</p>
  *
  * @author hongfu_zhou@cacch.com
  */
@@ -49,19 +51,20 @@ public class MeetingSyncProperties {
      */
     private final int maxRunSeconds;
 
-    public MeetingSyncProperties(Integer minutesStartGraceMinutes,
-                                 Integer minutesMaxWaitHours,
-                                 Integer masterRecordBatchSize,
-                                 Integer meetingTableBatchSize,
-                                 Integer meetingRecordBatchSize,
-                                 Integer todoBatchSize,
-                                 Integer maxRunSeconds) {
-        this.minutesStartGraceMinutes = minutesStartGraceMinutes != null ? minutesStartGraceMinutes : 0;
-        this.minutesMaxWaitHours = minutesMaxWaitHours != null ? minutesMaxWaitHours : 48;
-        this.masterRecordBatchSize = masterRecordBatchSize != null ? masterRecordBatchSize : 50;
-        this.meetingTableBatchSize = meetingTableBatchSize != null ? meetingTableBatchSize : 50;
-        this.meetingRecordBatchSize = meetingRecordBatchSize != null ? meetingRecordBatchSize : 100;
-        this.todoBatchSize = todoBatchSize != null ? todoBatchSize : 100;
-        this.maxRunSeconds = maxRunSeconds != null ? maxRunSeconds : 120;
+    public MeetingSyncProperties(
+            @DefaultValue("0") Integer minutesStartGraceMinutes,
+            @DefaultValue("48") Integer minutesMaxWaitHours,
+            @DefaultValue("50") Integer masterRecordBatchSize,
+            @DefaultValue("50") Integer meetingTableBatchSize,
+            @DefaultValue("100") Integer meetingRecordBatchSize,
+            @DefaultValue("100") Integer todoBatchSize,
+            @DefaultValue("120") Integer maxRunSeconds) {
+        this.minutesStartGraceMinutes = minutesStartGraceMinutes;
+        this.minutesMaxWaitHours = minutesMaxWaitHours;
+        this.masterRecordBatchSize = masterRecordBatchSize;
+        this.meetingTableBatchSize = meetingTableBatchSize;
+        this.meetingRecordBatchSize = meetingRecordBatchSize;
+        this.todoBatchSize = todoBatchSize;
+        this.maxRunSeconds = maxRunSeconds;
     }
 }

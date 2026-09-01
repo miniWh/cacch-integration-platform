@@ -46,20 +46,20 @@ server:
 
 # ---------- Actuator 健康监控 ----------
 # ---------- 企业微信多应用配置 ----------
-# 生产环境 List 无法整体用 ${ENV} 注入，secret 使用索引占位符逐项注入：
-#   export WECOM_APPS_0_CORPID=wwxxx WECOM_APPS_0_SECRET=xxx
-#   export WECOM_APPS_1_CORPID=wwxxx WECOM_APPS_1_SECRET=xxx
+# secret 由语义化环境变量注入（WECOM_SELF_BUILT_SECRET / WECOM_ADDRESS_BOOK_SECRET）
+# 注意：环境变量名严禁使用 WECOM_APPS_N_SECRET 形式 —— 会被 Spring 映射为 wecom.apps[N].secret，
+# 导致 List 绑定整体从 SystemEnvironment 取值（优先级高于 yml），corpid/app-key 被覆盖为 null
 # corpid 可保留默认（半敏感标识），secret 必须由环境变量注入（缺失时对应应用鉴权不可用）
 wecom:
   apps:
     # 泰禾 — 自建应用（智能表格等文档 API 使用此配置鉴权）
     - corpid: ww0ae0c799548c75bd
       app-key: self-built
-      secret: ${WECOM_APPS_0_SECRET:}
+      secret: ${WECOM_SELF_BUILT_SECRET:}
     # 泰禾 — 通讯录（读取成员姓名等）
     - corpid: ww0ae0c799548c75bd
       app-key: address-book
-      secret: ${WECOM_APPS_1_SECRET:}
+      secret: ${WECOM_ADDRESS_BOOK_SECRET:}
   # 群机器人 Webhook — 目录治理/附件同步异常告警（key 经 WECOM_WEBHOOK_KEY 注入）
   webhook:
     enabled: true

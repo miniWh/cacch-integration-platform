@@ -48,14 +48,16 @@ server:
 # ---------- 企业微信多应用配置 ----------
 wecom:
   apps:
-    # 泰禾 — 自建应用（智能表格等文档 API 使用此配置鉴权）；secret 经 WECOM_APPS_0_SECRET 注入
+    # 泰禾 — 自建应用（智能表格等文档 API 使用此配置鉴权）；secret 经 WECOM_SELF_BUILT_SECRET 注入
+    # 注意：环境变量名严禁使用 WECOM_APPS_N_SECRET 形式 —— 会被 Spring 映射为 wecom.apps[N].secret，
+    # 导致 List 绑定整体从 SystemEnvironment 取值（优先级高于 yml），corpid/app-key 被覆盖为 null
     - corpid: ww0ae0c799548c75bd
       app-key: self-built
-      secret: ${WECOM_APPS_0_SECRET:}
-    # 泰禾 — 通讯录（读取成员姓名等）；secret 经 WECOM_APPS_1_SECRET 注入
+      secret: ${WECOM_SELF_BUILT_SECRET:}
+    # 泰禾 — 通讯录（读取成员姓名等）；secret 经 WECOM_ADDRESS_BOOK_SECRET 注入
     - corpid: ww0ae0c799548c75bd
       app-key: address-book
-      secret: ${WECOM_APPS_1_SECRET:}
+      secret: ${WECOM_ADDRESS_BOOK_SECRET:}
   # 群机器人 Webhook 告警（测试环境按需开启；key 经 WECOM_WEBHOOK_KEY 注入，勿提交版本库）
   webhook:
     enabled: true
