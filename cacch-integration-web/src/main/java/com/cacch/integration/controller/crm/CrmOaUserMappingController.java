@@ -2,8 +2,9 @@ package com.cacch.integration.controller.crm;
 
 import com.cacch.integration.common.dto.crm.CrmOaUserMappingResult;
 import com.cacch.integration.common.result.Result;
+import com.cacch.integration.convert.crm.CrmOaUserMappingConverter;
 import com.cacch.integration.dto.crm.request.CrmOaUserMappingResolveRequest;
-import com.cacch.integration.entity.crm.CrmOaUserMappingDO;
+import com.cacch.integration.dto.crm.vo.CrmOaUserMappingVO;
 import com.cacch.integration.manager.crm.api.ICrmOaUserMappingManager;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class CrmOaUserMappingController {
 
     private final ICrmOaUserMappingManager crmOaUserMappingManager;
+    private final CrmOaUserMappingConverter crmOaUserMappingConverter;
 
     /**
      * 解析 CRM 员工 → OA 人员（优先读库，未命中则调 CRM/OA 并落库）
@@ -44,10 +46,11 @@ public class CrmOaUserMappingController {
      * 仅查询库表缓存（不调三方）
      *
      * @param crmEmployeeId CRM 员工 ID
-     * @return 映射记录；不存在时 data 为 null
+     * @return 映射视图对象；不存在时 data 为 null
      */
     @GetMapping("/{crmEmployeeId}")
-    public Result<CrmOaUserMappingDO> getCached(@PathVariable String crmEmployeeId) {
-        return Result.success(crmOaUserMappingManager.getCached(crmEmployeeId));
+    public Result<CrmOaUserMappingVO> getCached(@PathVariable String crmEmployeeId) {
+        return Result.success(crmOaUserMappingConverter.toVO(
+                crmOaUserMappingManager.getCached(crmEmployeeId)));
     }
 }

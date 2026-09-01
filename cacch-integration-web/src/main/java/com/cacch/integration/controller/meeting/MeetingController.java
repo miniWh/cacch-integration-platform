@@ -90,8 +90,7 @@ public class MeetingController {
     @PutMapping("/smart-tables/{id}")
     public Result<SmartTableConfigVO> updateSmartTable(@PathVariable Long id,
                                                        @Valid @RequestBody SaveSmartTableRequest request) {
-        var smartTable = meetingConverter.toSmartTableDO(request);
-        smartTable.setId(id);
+        var smartTable = meetingConverter.toSmartTableDO(request, id);
         smartTableService.updateById(smartTable);
         return Result.success(meetingConverter.toSmartTableVO(smartTableService.getById(id)));
     }

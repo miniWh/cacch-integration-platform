@@ -6,11 +6,11 @@ app:
   role: api
 
 spring:
-  # ---------- PostgreSQL 数据源（与 prod 共用同一库 cdb） ----------
+  # ---------- PostgreSQL 数据源（与 prod 共用同一库 cdb；密码经环境变量 DB_PASSWORD 注入） ----------
   datasource:
     url: jdbc:postgresql://10.80.86.93:5432/cdb
-    username: esb
-    password: esb
+    username: ${DB_USERNAME:esb}
+    password: ${DB_PASSWORD:}
     driver-class-name: org.postgresql.Driver
 
   # ---------- Redis 配置 ----------
@@ -18,7 +18,8 @@ spring:
     redis:
       host: 10.80.86.95
       port: 6379
-      password: cacredis0826
+      # 密码经环境变量 REDIS_PASSWORD 注入
+      password: ${REDIS_PASSWORD:}
       lettuce:
         pool:
           # 最大活跃连接数
@@ -47,26 +48,27 @@ server:
 # ---------- 企业微信多应用配置 ----------
 wecom:
   apps:
-    # 泰禾 — 自建应用（智能表格等文档 API 使用此配置鉴权）
+    # 泰禾 — 自建应用（智能表格等文档 API 使用此配置鉴权）；secret 经 WECOM_APPS_0_SECRET 注入
     - corpid: ww0ae0c799548c75bd
       app-key: self-built
-      secret: rJ4TpwlW7s1Z64xBHgUd35zNOUIQ14figIs5sfgqgaI
-    # 泰禾 — 通讯录（读取成员姓名等）
+      secret: ${WECOM_APPS_0_SECRET:}
+    # 泰禾 — 通讯录（读取成员姓名等）；secret 经 WECOM_APPS_1_SECRET 注入
     - corpid: ww0ae0c799548c75bd
       app-key: address-book
-      secret: _V82sWWijuUgDVsNcssQcwbFQIyu9FKr1L_xH6L2Q-0
-  # 群机器人 Webhook 告警（测试环境按需开启，key 勿提交到版本库）
+      secret: ${WECOM_APPS_1_SECRET:}
+  # 群机器人 Webhook 告警（测试环境按需开启；key 经 WECOM_WEBHOOK_KEY 注入，勿提交版本库）
   webhook:
     enabled: true
-    key: "4432e2bc-1a69-4fc3-945a-5acb52e399c5"
+    key: ${WECOM_WEBHOOK_KEY:}
     mention-mobiles: [ ]
     alert-interval-seconds: 1800
 
 # ---------- 勤策 CRM OpenAPI ----------
+# app-key 经环境变量 CRM_APP_KEY 注入
 crm:
   base-url: https://crm.cacch.com:50001
   open-id: "8858965636174056137"
-  app-key: "0H4aAHGY0htrsglQKm"
+  app-key: ${CRM_APP_KEY:}
   employee-base-url: https://crm.cacch.com:50001
   collect:
     cron: "0 */5 * * * ?"
@@ -79,36 +81,37 @@ crm:
     max-retry: 3
 
 # ---------- 致远 OA REST ----------
-# 部署前请替换为真实 OA 地址与 REST 账号
+# 部署前请替换为真实 OA 地址与 REST 账号；密码经 OA_REST_PASSWORD 注入
 oa:
   base-url: http://10.80.64.18:900
   rest-user-name: zhouhufu
-  rest-password: 1a884fa3-affe-4533-8e1d-3af3c162361e
+  rest-password: ${OA_REST_PASSWORD:}
   default-login-name: zhouhongfu
   token-ttl-seconds: 840
   template-code: CRM_ZYXS_001
-  # OA Oracle 只读库（勿写入 spring.datasource，Flyway 仅迁移 PG 集成库）
+  # OA Oracle 只读库（勿写入 spring.datasource，Flyway 仅迁移 PG 集成库）；密码经 OA_DB_PASSWORD 注入
   datasource:
     url: jdbc:oracle:thin:@//10.80.64.19:1521/seeyon
     username: V5
-    password: Seeyon123456
+    password: ${OA_DB_PASSWORD:}
     driver-class-name: oracle.jdbc.OracleDriver
   attachment-sync:
     # 测试阶段仅联调李庆辉负责的资料
     owner-name-filter:
 
-# ---------- 共享盘 SMB（与 Windows 访问 \\192.168.1.8\国内登记资料 的域账号一致，直接写在本文件） ----------
+# ---------- 共享盘 SMB（与 Windows 访问 \\192.168.1.8\国内登记资料 的域账号一致；密码经 SHARE_DRIVE_PASSWORD 注入） ----------
 share-drive:
   username: liuyanmiao
-  password: taihe@cac2016
+  password: ${SHARE_DRIVE_PASSWORD:}
   domain: ""
 
 # ---------- 法大大实名认证 ----------
+# app-secret 经环境变量 FDD_APP_SECRET 注入
 fdd:
   base-url: http://10.80.61.82
   auth-url: http://10.80.61.82/base/login/oauth2/accessToken
   app-id: "268282"
-  app-secret: frjgCXOQX83yfKG8Aslnval4O6eY6mXi
+  app-secret: ${FDD_APP_SECRET:}
   enterprise-auth-url: http://10.80.61.82/user/api/verify/company/url
   person-auth-url: http://10.80.61.82/user/api/verify/person/url
   connect-timeout-seconds: 10
@@ -127,12 +130,13 @@ fdd:
     - 上海泰禾国际贸易有限公司
 
 # ---------- 腾讯会议 REST API（智能纪要） ----------
+# secret-id / secret-key 分别经 TENCENT_MEETING_SECRET_ID / TENCENT_MEETING_SECRET_KEY 注入
 tencent-meeting:
   enabled: true
   app-id: "311670505"
   sdk-id: "32470112674"
-  secret-id: "fGwpRaVWxDNY1DYuRTki6OFHdMDNyIT3"
-  secret-key: "gEKLMzKjWSRQPr9gZZGEIHZHa6jQBXFlCNMMqtp47YjE3NhC"
+  secret-id: ${TENCENT_MEETING_SECRET_ID:}
+  secret-key: ${TENCENT_MEETING_SECRET_KEY:}
   operator-id-type: 1
   smart-minutes:
     text-type: 2

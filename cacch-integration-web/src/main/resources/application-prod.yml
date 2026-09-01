@@ -1,6 +1,7 @@
 # ==================== 生产环境配置 ====================
-# 安全要求：密码、密钥等敏感信息严禁在此文件中明文写入，
-# 必须通过环境变量注入。本地默认值仅用于应急，上线前需覆盖。
+# 安全要求：密码、密钥等敏感信息严禁在此文件中明文写入，严禁保留明文默认值。
+# 全部通过环境变量注入；未设置对应环境变量时应用启动即失败（fail-fast），
+# 部署前请按 docs/security/env-variables.md 完成环境变量配置。
 #
 # 角色：all = HTTP 接口 + 定时任务（本进程同时承担调度，勿再在测试环境开调度）
 
@@ -10,24 +11,22 @@ app:
 spring:
   # ---------- PostgreSQL 数据源 ----------
   datasource:
-    # 数据库地址通过环境变量 DB_URL 注入
-    # 部署时务必设置：export DB_URL=jdbc:postgresql://your-host:5432/cacch_integration
-    url: jdbc:postgresql://10.80.86.93:5432/cdb
-    # 数据库用户名，由运维通过环境变量注入
-    username: esb
-    # 数据库密码，由运维通过环境变量注入（严禁明文写在文件中）
-    password: esb
+    # 地址经 DB_URL 注入；用户名/密码分别经 DB_USERNAME / DB_PASSWORD 注入
+    url: ${DB_URL:jdbc:postgresql://10.80.86.93:5432/cdb}
+    username: ${DB_USERNAME:esb}
+    # 数据库密码，必须由环境变量注入（缺失即启动失败）
+    password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
 
   # ---------- Redis 配置 ----------
   data:
     redis:
       # 生产 Redis 地址通过环境变量 REDIS_HOST 注入
-      host: 10.80.86.95
+      host: ${REDIS_HOST:10.80.86.95}
       # Redis 端口
       port: 6379
-      # Redis 密码，通过环境变量 REDIS_PASSWORD 注入
-      password: cacredis0826
+      # Redis 密码，必须由环境变量 REDIS_PASSWORD 注入（缺失即启动失败）
+      password: ${REDIS_PASSWORD}
       lettuce:
         pool:
           # 最大活跃连接数（生产环境适当放大）
@@ -47,30 +46,31 @@ server:
 
 # ---------- Actuator 健康监控 ----------
 # ---------- 企业微信多应用配置 ----------
-# 生产环境 List 结构无法逐字段用简单 ${ENV} 注入，使用 JSON 字符串整体注入
-# 部署时运维设置环境变量：
-#   export WECOM_APPS_JSON='[{"corpid":"ww001","app-key":"address-book","secret":"xxx"},...]'
-#
-# Spring Boot 原生支持将 JSON 格式的环境变量值自动反序列化为 List<WeComAppConfig>
+# 生产环境 List 无法整体用 ${ENV} 注入，secret 使用索引占位符逐项注入：
+#   export WECOM_APPS_0_CORPID=wwxxx WECOM_APPS_0_SECRET=xxx
+#   export WECOM_APPS_1_CORPID=wwxxx WECOM_APPS_1_SECRET=xxx
+# corpid 可保留默认（半敏感标识），secret 必须由环境变量注入（缺失时对应应用鉴权不可用）
 wecom:
   apps:
     # 泰禾 — 自建应用（智能表格等文档 API 使用此配置鉴权）
     - corpid: ww0ae0c799548c75bd
       app-key: self-built
-      secret: rJ4TpwlW7s1Z64xBHgUd35zNOUIQ14figIs5sfgqgaI
+      secret: ${WECOM_APPS_0_SECRET:}
     # 泰禾 — 通讯录（读取成员姓名等）
     - corpid: ww0ae0c799548c75bd
       app-key: address-book
-      secret: _V82sWWijuUgDVsNcssQcwbFQIyu9FKr1L_xH6L2Q-0
-  # 群机器人 Webhook — 目录治理/附件同步异常告警
+      secret: ${WECOM_APPS_1_SECRET:}
+  # 群机器人 Webhook — 目录治理/附件同步异常告警（key 经 WECOM_WEBHOOK_KEY 注入）
   webhook:
     enabled: true
+    key: ${WECOM_WEBHOOK_KEY:}
 
 # ---------- 勤策 CRM OpenAPI ----------
+# app-key 必须由环境变量 CRM_APP_KEY 注入（缺失即启动失败）
 crm:
   base-url: ${CRM_BASE_URL:https://crm.cacch.com:50001}
   open-id: ${CRM_OPEN_ID:8858965636174056137}
-  app-key: ${CRM_APP_KEY:0H4aAHGY0htrsglQKm}
+  app-key: ${CRM_APP_KEY}
   employee-base-url: ${CRM_EMPLOYEE_BASE_URL:https://crm.cacch.com:50001}
   collect:
     cron: "0 */5 * * * ?"
@@ -83,19 +83,20 @@ crm:
     max-retry: 3
 
 # ---------- 致远 OA REST ----------
-# 密钥建议由环境变量注入：OA_BASE_URL / OA_REST_USER_NAME / OA_REST_PASSWORD
+# 密钥由环境变量注入：OA_BASE_URL / OA_REST_USER_NAME / OA_REST_PASSWORD；
+# rest-password 必须设置（缺失即启动失败）
 oa:
   base-url: ${OA_BASE_URL:http://10.80.64.18:900}
   rest-user-name: ${OA_REST_USER_NAME:zhouhufu}
-  rest-password: ${OA_REST_PASSWORD:1a884fa3-affe-4533-8e1d-3af3c162361e}
+  rest-password: ${OA_REST_PASSWORD}
   default-login-name: ${OA_DEFAULT_LOGIN_NAME:zhouhongfu}
   token-ttl-seconds: ${OA_TOKEN_TTL_SECONDS:840}
   template-code: ${OA_TEMPLATE_CODE:CRM_ZYXS_001}
-  # OA Oracle 只读库（独立第二数据源，勿覆盖 spring.datasource）
+  # OA Oracle 只读库（独立第二数据源，勿覆盖 spring.datasource）；密码经 OA_DB_PASSWORD 注入（缺失即启动失败）
   datasource:
     url: ${OA_DB_URL:jdbc:oracle:thin:@//10.80.64.19:1521/seeyon}
     username: ${OA_DB_USERNAME:V5}
-    password: ${OA_DB_PASSWORD:Seeyon123456}
+    password: ${OA_DB_PASSWORD}
     driver-class-name: oracle.jdbc.OracleDriver
   # REQ-OA-001 登记报告附件同步（正式环境开启定时任务）
   attachment-sync:
@@ -109,18 +110,19 @@ oa:
     owner-allowlist: []
     alert-not-empty-skipped: true
 
-# ---------- 共享盘 SMB（与 Windows 访问 \\192.168.1.8\国内登记资料 的域账号一致，直接写在本文件） ----------
+# ---------- 共享盘 SMB（与 Windows 访问 \\192.168.1.8\国内登记资料 的域账号一致；密码经 SHARE_DRIVE_PASSWORD 注入，缺失即启动失败） ----------
 share-drive:
   username: liuyanmiao
-  password: taihe@cac2016
+  password: ${SHARE_DRIVE_PASSWORD}
   domain: ""
 
 # ---------- 法大大实名认证 ----------
+# app-secret 必须由环境变量 FDD_APP_SECRET 注入（缺失即启动失败）
 fdd:
   base-url: http://10.80.61.92
   auth-url: http://10.80.61.92/base/login/oauth2/accessToken
   app-id: "345011"
-  app-secret: oVRdRA94s0hxqGBPuqgM8jNTUAKD31qt
+  app-secret: ${FDD_APP_SECRET}
   enterprise-auth-url: http://10.80.61.92/user/api/verify/company/url
   person-auth-url: http://10.80.61.92/user/api/verify/person/url
   connect-timeout-seconds: 10
@@ -138,13 +140,13 @@ fdd:
 
 # ---------- 腾讯会议 REST API（智能纪要） ----------
 # 未配置时会继承 application.yml 的 enabled=false，导致正式环境跳过纪要拉取。
-# 密钥建议由环境变量覆盖：TENCENT_MEETING_APP_ID / SDK_ID / SECRET_ID / SECRET_KEY
+# secret-id / secret-key 必须分别由 TENCENT_MEETING_SECRET_ID / TENCENT_MEETING_SECRET_KEY 注入（缺失即启动失败）
 tencent-meeting:
   enabled: ${TENCENT_MEETING_ENABLED:true}
   app-id: ${TENCENT_MEETING_APP_ID:311670505}
   sdk-id: ${TENCENT_MEETING_SDK_ID:32470112674}
-  secret-id: ${TENCENT_MEETING_SECRET_ID:fGwpRaVWxDNY1DYuRTki6OFHdMDNyIT3}
-  secret-key: ${TENCENT_MEETING_SECRET_KEY:gEKLMzKjWSRQPr9gZZGEIHZHa6jQBXFlCNMMqtp47YjE3NhC}
+  secret-id: ${TENCENT_MEETING_SECRET_ID}
+  secret-key: ${TENCENT_MEETING_SECRET_KEY}
   operator-id-type: 1
   default-operator-id: ${TENCENT_MEETING_DEFAULT_OPERATOR_ID:}
   smart-minutes:
