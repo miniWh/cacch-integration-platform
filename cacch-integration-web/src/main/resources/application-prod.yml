@@ -65,6 +65,12 @@ wecom:
     enabled: true
     key: ${WECOM_WEBHOOK_KEY:}
 
+# ---------- IHR 开放平台 OpenAPI ----------
+# app-key / app-secret 必须由 IHR_APP_KEY / IHR_APP_SECRET 注入（缺失即启动失败）
+ihr:
+  app-key: ${IHR_APP_KEY}
+  app-secret: ${IHR_APP_SECRET}
+
 # ---------- 勤策 CRM OpenAPI ----------
 # app-key 必须由环境变量 CRM_APP_KEY 注入（缺失即启动失败）
 crm:

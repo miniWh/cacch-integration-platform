@@ -44,6 +44,8 @@
 | `FDD_APP_SECRET` | `fdd.app-secret` | **法大大 App Secret** | 启动失败 |
 | `TENCENT_MEETING_SECRET_ID` | `tencent-meeting.secret-id` | **腾讯会议 SecretId** | 启动失败 |
 | `TENCENT_MEETING_SECRET_KEY` | `tencent-meeting.secret-key` | **腾讯会议 SecretKey** | 启动失败 |
+| `IHR_APP_KEY` | `ihr.app-key` | **IHR360 开放平台 AppKey** | 启动失败 |
+| `IHR_APP_SECRET` | `ihr.app-secret` | **IHR360 开放平台 AppSecret** | 启动失败 |
 | `CRM_BASE_URL` / `CRM_OPEN_ID` / `CRM_EMPLOYEE_BASE_URL` | `crm.*` | CRM 地址与租户标识（半敏感，有默认） | 走默认 |
 | `OA_BASE_URL` / `OA_DEFAULT_LOGIN_NAME` / `OA_TOKEN_TTL_SECONDS` / `OA_TEMPLATE_CODE` / `OA_DB_URL` / `OA_DB_USERNAME` | `oa.*` | OA 地址与业务参数（有默认） | 走默认 |
 | `TENCENT_MEETING_APP_ID` / `SDK_ID` / `ENABLED` / `DEFAULT_OPERATOR_ID` | `tencent-meeting.*` | 腾讯会议账号参数（有默认） | 走默认 |
@@ -73,6 +75,8 @@ export SHARE_DRIVE_PASSWORD='<共享盘密码>'
 export FDD_APP_SECRET='<法大大 App Secret>'
 export TENCENT_MEETING_SECRET_ID='<腾讯会议 SecretId>'
 export TENCENT_MEETING_SECRET_KEY='<腾讯会议 SecretKey>'
+export IHR_APP_KEY='<IHR360 AppKey>'
+export IHR_APP_SECRET='<IHR360 AppSecret>'
 ```
 
 校验：`source /home/zhf/app/startup.sh && env | grep -c 'DB_PASSWORD\|FDD_APP_SECRET'`，然后重启服务并观察 `actuator/health`。
@@ -92,7 +96,7 @@ export TENCENT_MEETING_SECRET_KEY='<腾讯会议 SecretKey>'
 本地以 `test` profile 运行（`application-test.yml`）时，在 Run Configuration → Environment variables 中补齐密钥变量即可（值从测试环境获取）：
 
 ```
-DB_PASSWORD=...;REDIS_PASSWORD=...;WECOM_SELF_BUILT_SECRET=...;WECOM_ADDRESS_BOOK_SECRET=...;CRM_APP_KEY=...;OA_REST_PASSWORD=...;OA_DB_PASSWORD=...;SHARE_DRIVE_PASSWORD=...;FDD_APP_SECRET=...;TENCENT_MEETING_SECRET_ID=...;TENCENT_MEETING_SECRET_KEY=...
+DB_PASSWORD=...;REDIS_PASSWORD=...;WECOM_SELF_BUILT_SECRET=...;WECOM_ADDRESS_BOOK_SECRET=...;CRM_APP_KEY=...;OA_REST_PASSWORD=...;OA_DB_PASSWORD=...;SHARE_DRIVE_PASSWORD=...;FDD_APP_SECRET=...;TENCENT_MEETING_SECRET_ID=...;TENCENT_MEETING_SECRET_KEY=...;IHR_APP_KEY=...;IHR_APP_SECRET=...
 ```
 
 [返回顶部](#目录)
@@ -101,7 +105,7 @@ DB_PASSWORD=...;REDIS_PASSWORD=...;WECOM_SELF_BUILT_SECRET=...;WECOM_ADDRESS_BOO
 
 | 缺失变量 | 生产（fail-fast） | 测试（空默认） |
 |----------|------------------|----------------|
-| `DB_PASSWORD` / `REDIS_PASSWORD` / `OA_REST_PASSWORD` / `OA_DB_PASSWORD` / `SHARE_DRIVE_PASSWORD` / `FDD_APP_SECRET` / `CRM_APP_KEY` / `TENCENT_MEETING_SECRET_*` | **启动失败**（占位符无法解析） | 启动正常，连接/调用失败 |
+| `DB_PASSWORD` / `REDIS_PASSWORD` / `OA_REST_PASSWORD` / `OA_DB_PASSWORD` / `SHARE_DRIVE_PASSWORD` / `FDD_APP_SECRET` / `CRM_APP_KEY` / `TENCENT_MEETING_SECRET_*` / `IHR_APP_KEY` / `IHR_APP_SECRET` | **启动失败**（占位符无法解析） | 启动正常，连接/调用失败 |
 | `WECOM_SELF_BUILT_SECRET` / `WECOM_ADDRESS_BOOK_SECRET` | 启动正常，对应企微应用鉴权不可用 | 启动正常，对应企微应用鉴权不可用 |
 | `WECOM_WEBHOOK_KEY` | 启动正常，企微告警失效 | 启动正常，企微告警失效 |
 

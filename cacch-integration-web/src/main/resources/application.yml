@@ -99,6 +99,14 @@ wecom:
     mention-mobiles: [ ]
     alert-interval-seconds: 1800
 
+# ==================== IHR 开放平台 OpenAPI（公共占位） ====================
+# 实际值请在 application-{profile}.yml 中覆盖
+# 鉴权使用 OAuth2 client_credentials 模式：Authorization: Basic base64(appKey:appSecret)
+# app-key / app-secret 必须分别由 IHR_APP_KEY / IHR_APP_SECRET 注入（test 允许空值，prod 缺失即启动失败）
+ihr:
+  app-key: ${IHR_APP_KEY:}
+  app-secret: ${IHR_APP_SECRET:}
+
 # ==================== 勤策 CRM OpenAPI（公共占位） ====================
 # 实际值请在 application-{profile}.yml 中覆盖；签名算法为 MD5(json|appkey|timestamp)
 crm:
