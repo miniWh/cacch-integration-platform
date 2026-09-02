@@ -65,6 +65,13 @@ wecom:
     mention-mobiles: [ ]
     alert-interval-seconds: 1800
 
+# ---------- IHR 开放平台 OpenAPI ----------
+# 鉴权走 OAuth2 client_credentials（appKey:appSecret → Basic base64）
+# 测试环境允许空值（未配置时 IHR 业务接口在首次调用时 fail-fast）
+ihr:
+  app-key: ${IHR_APP_KEY:}
+  app-secret: ${IHR_APP_SECRET:}
+
 # ---------- 勤策 CRM OpenAPI ----------
 # app-key 经环境变量 CRM_APP_KEY 注入
 crm:
