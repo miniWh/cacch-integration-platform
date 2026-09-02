@@ -34,7 +34,7 @@ public class IhrDepartmentController {
     private final IhrOrgConverter ihrOrgConverter;
 
     /**
-     * 分页查询 IHR 部门清单
+     * 分页查询 IHR 部门清单（获取部门清单v3）
      *
      * <p>调用方可在 {@code conditions} 中传入 0..N 个搜索条件；空集合视为全量查询。
      * 典型搜索字段：{@code departmentName} / {@code departmentCode} / {@code departmentId}，

@@ -23,7 +23,7 @@ public final class IhrConstants {
     /**
      * IHR 开放平台网关域名
      */
-    public static final String BASE_URL = "https://10.80.87.11";
+    public static final String BASE_URL = "https://openapi.cacch.com:776";
 
     /**
      * OAuth2 Token 获取 / 刷新地址。
