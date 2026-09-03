@@ -21,31 +21,24 @@ public final class IhrConstants {
     public static final String LOG_BIZ = "iHR";
 
     /**
-     * IHR 开放平台网关域名
-     */
-    public static final String BASE_URL = "https://openapi.cacch.com:776";
-
-    /**
-     * OAuth2 Token 获取 / 刷新地址。
-     * <p>通过 {@code grant_type} query 参数区分：
+     * OAuth2 Token 获取 / 刷新路径 —— 相对 {@code IhrProperties#getBaseUrl()} 拼接
+     *
+     * <p>同一路径通过 {@code grant_type} query 参数区分两种模式：
      * <ul>
      *     <li>{@code client_credentials} — 首次或 refresh_token 过期后获取</li>
      *     <li>{@code refresh_token} — 用 refresh_token 续期</li>
      * </ul>
+     *
+     * <p>网关地址严禁在此硬编码，由 yml 的 {@code ihr.base-url} 提供，
+     * 便于测试 / 生产 / 内网域名切换时只改配置不发版。</p>
      */
-    public static final String TOKEN_URL =
-            BASE_URL + "/openapi/oauth/token?grant_type=client_credentials&scope=client";
+    public static final String TOKEN_PATH = "/openapi/oauth/token";
 
     /**
-     * IHR OAuth2 refresh_token 续期 URL（grant_type=refresh_token）
+     * 获取部门清单 v3 — 组织架构/部门（相对 {@code IhrProperties#getBaseUrl()} 拼接）
      */
-    public static final String REFRESH_TOKEN_URL = BASE_URL + "/openapi/oauth/token";
-
-    /**
-     * 获取部门清单 v3 — 组织架构/部门
-     */
-    public static final String ORG_SEARCH_DEPARTMENT_URL =
-            BASE_URL + "/openapi/thirdparty/api/org/v1/organizations/search";
+    public static final String ORG_SEARCH_DEPARTMENT_PATH =
+            "/openapi/thirdparty/api/org/v1/organizations/search";
 
     /**
      * access_token 有效期（秒）—— IHR 官方文档约定 2 小时

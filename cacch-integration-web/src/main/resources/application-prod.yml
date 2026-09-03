@@ -67,7 +67,9 @@ wecom:
 
 # ---------- IHR 开放平台 OpenAPI ----------
 # app-key / app-secret 必须由 IHR_APP_KEY / IHR_APP_SECRET 注入（缺失即启动失败）
+# base-url：开放平台网关根地址，默认内网 http://10.80.87.11，可用环境变量 IHR_BASE_URL 覆盖
 ihr:
+  base-url: ${IHR_BASE_URL:http://10.80.87.11}
   app-key: ${IHR_APP_KEY}
   app-secret: ${IHR_APP_SECRET}
 

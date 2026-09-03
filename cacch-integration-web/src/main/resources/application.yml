@@ -103,7 +103,10 @@ wecom:
 # 实际值请在 application-{profile}.yml 中覆盖
 # 鉴权使用 OAuth2 client_credentials 模式：Authorization: Basic base64(appKey:appSecret)
 # app-key / app-secret 必须分别由 IHR_APP_KEY / IHR_APP_SECRET 注入（test 允许空值，prod 缺失即启动失败）
+# base-url：开放平台网关根地址（不含结尾斜杠），业务 URL 由代码在运行时拼接
+#   默认内网 http://10.80.87.11，可用环境变量 IHR_BASE_URL 覆盖（如切域名 https://openapi.cacch.com:776）
 ihr:
+  base-url: ${IHR_BASE_URL:http://10.80.87.11}
   app-key: ${IHR_APP_KEY:}
   app-secret: ${IHR_APP_SECRET:}
 

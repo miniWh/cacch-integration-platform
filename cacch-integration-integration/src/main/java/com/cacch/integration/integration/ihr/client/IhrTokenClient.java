@@ -1,5 +1,6 @@
 package com.cacch.integration.integration.ihr.client;
 
+import com.cacch.integration.common.config.ihr.IhrProperties;
 import com.cacch.integration.common.constant.ihr.IhrConstants;
 import com.cacch.integration.integration.ihr.client.dto.IhrTokenResponse;
 import com.cacch.integration.integration.support.ThirdPartyHttpLogSupport;
@@ -32,6 +33,10 @@ import java.util.Collections;
  *
  * <p>所有请求以 HTTP Basic（{@code base64(appKey:appSecret)}）方式鉴权，Header {@code Content-Type=application/x-www-form-urlencoded}。</p>
  *
+ * <p>网关地址取自 {@link IhrProperties#getBaseUrl()}（yml {@code ihr.base-url}），
+ * 与 {@link IhrConstants#TOKEN_PATH} 在运行时拼接；代码中不硬编码任何环境地址，
+ * 测试 / 生产 / 内网域名切换只改配置，无需重新打包。</p>
+ *
  * @author hongfu_zhou@cacch.com
  */
 @Slf4j
@@ -39,14 +44,16 @@ import java.util.Collections;
 @RequiredArgsConstructor
 public class IhrTokenClient {
 
-    private static final String BIZ = "IHR 开放平台 OAuth2 Token HTTP 客户端";
+    private static final String BIZ = IhrConstants.LOG_BIZ;
     private static final String ACTION_FETCH = "获取 access_token";
     private static final String ACTION_REFRESH = "刷新 access_token";
     private static final String GRANT_TYPE_CLIENT = "client_credentials";
     private static final String GRANT_TYPE_REFRESH = "refresh_token";
     private static final String SCOPE = "client";
+    private static final String PARAM_REFRESH_TOKEN = "refresh_token";
 
     private final RestTemplate restTemplate;
+    private final IhrProperties ihrProperties;
 
     /**
      * 通过 client_credentials 模式获取 access_token / refresh_token
@@ -57,11 +64,7 @@ public class IhrTokenClient {
      * @throws RestClientException 网络或响应解析失败时抛出
      */
     public IhrTokenResponse fetchToken(String appKey, String appSecret) {
-        URI uri = UriComponentsBuilder
-                .fromUriString(IhrConstants.TOKEN_URL)
-                .build(true)
-                .toUri();
-        return exchange(ACTION_FETCH, uri, appKey, appSecret, null);
+        return exchange(ACTION_FETCH, tokenUri(GRANT_TYPE_CLIENT, null), appKey, appSecret, null);
     }
 
     /**
@@ -74,14 +77,26 @@ public class IhrTokenClient {
      * @throws RestClientException 网络或响应解析失败时抛出
      */
     public IhrTokenResponse refreshToken(String appKey, String appSecret, String refreshToken) {
-        URI uri = UriComponentsBuilder
-                .fromUriString(IhrConstants.REFRESH_TOKEN_URL)
-                .queryParam("grant_type", GRANT_TYPE_REFRESH)
-                .queryParam("scope", SCOPE)
-                .queryParam("refresh_token", refreshToken)
-                .build(true)
-                .toUri();
-        return exchange(ACTION_REFRESH, uri, appKey, appSecret, refreshToken);
+        return exchange(ACTION_REFRESH, tokenUri(GRANT_TYPE_REFRESH, refreshToken),
+                appKey, appSecret, refreshToken);
+    }
+
+    /**
+     * 拼接 Token 接口完整 URL：{@code IhrProperties#getBaseUrl() + IhrConstants#TOKEN_PATH}
+     *
+     * @param grantType    OAuth2 授权模式：client_credentials / refresh_token
+     * @param refreshToken 续期用的 refresh_token；client_credentials 模式传 null
+     * @return 带 query 参数的完整 URI
+     */
+    private URI tokenUri(String grantType, String refreshToken) {
+        UriComponentsBuilder builder = UriComponentsBuilder
+                .fromUriString(ihrProperties.getBaseUrl() + IhrConstants.TOKEN_PATH)
+                .queryParam("grant_type", grantType)
+                .queryParam("scope", SCOPE);
+        if (refreshToken != null) {
+            builder.queryParam(PARAM_REFRESH_TOKEN, refreshToken);
+        }
+        return builder.build(true).toUri();
     }
 
     private IhrTokenResponse exchange(String action, URI uri, String appKey, String appSecret,

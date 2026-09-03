@@ -68,7 +68,9 @@ wecom:
 # ---------- IHR 开放平台 OpenAPI ----------
 # 鉴权走 OAuth2 client_credentials（appKey:appSecret → Basic base64）
 # 测试环境允许空值（未配置时 IHR 业务接口在首次调用时 fail-fast）
+# base-url：开放平台网关根地址，默认内网 http://10.80.87.11，可用环境变量 IHR_BASE_URL 覆盖
 ihr:
+  base-url: ${IHR_BASE_URL:http://10.80.87.11}
   app-key: ${IHR_APP_KEY:}
   app-secret: ${IHR_APP_SECRET:}
 

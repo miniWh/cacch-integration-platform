@@ -1,5 +1,6 @@
 package com.cacch.integration.integration.ihr.client;
 
+import com.cacch.integration.common.config.ihr.IhrProperties;
 import com.cacch.integration.common.constant.ihr.IhrConstants;
 import com.cacch.integration.integration.ihr.client.dto.IhrOrgSearchRequest;
 import com.cacch.integration.integration.ihr.client.dto.IhrOrgSearchResponse;
@@ -29,6 +30,10 @@ import java.util.Collections;
  *
  * <p>所有业务接口统一在 Header 中携带 {@code Authorization: Bearer {access_token}}。</p>
  *
+ * <p>网关地址取自 {@link IhrProperties#getBaseUrl()}（yml {@code ihr.base-url}），
+ * 与 {@link IhrConstants#ORG_SEARCH_DEPARTMENT_PATH} 在运行时拼接；代码中不硬编码任何环境地址，
+ * 测试 / 生产 / 内网域名切换只改配置，无需重新打包。</p>
+ *
  * @author hongfu_zhou@cacch.com
  */
 @Slf4j
@@ -36,10 +41,11 @@ import java.util.Collections;
 @RequiredArgsConstructor
 public class IhrOrgClient {
 
-    private static final String BIZ = "IHR 组织架构/部门 HTTP 客户端";
+    private static final String BIZ = IhrConstants.LOG_BIZ;
     private static final String ACTION_SEARCH_DEPARTMENTS = "获取部门清单v3";
 
     private final RestTemplate restTemplate;
+    private final IhrProperties ihrProperties;
 
     /**
      * 获取部门清单（分页 + 条件查询）
@@ -54,11 +60,12 @@ public class IhrOrgClient {
             throw new RestClientException("IHR 部门查询请求体为空");
         }
 
+        String url = ihrProperties.getBaseUrl() + IhrConstants.ORG_SEARCH_DEPARTMENT_PATH;
         URI uri;
         try {
-            uri = new URI(IhrConstants.ORG_SEARCH_DEPARTMENT_URL);
+            uri = new URI(url);
         } catch (URISyntaxException e) {
-            throw new RestClientException("IHR 部门查询 URL 非法: " + IhrConstants.ORG_SEARCH_DEPARTMENT_URL, e);
+            throw new RestClientException("IHR 部门查询 URL 非法: " + url, e);
         }
 
         HttpHeaders headers = new HttpHeaders();
