@@ -7,6 +7,7 @@ import com.cacch.integration.integration.ihr.client.dto.IhrDepartment;
 import com.cacch.integration.integration.ihr.client.dto.IhrOrgSearchRequest;
 import com.cacch.integration.integration.ihr.client.dto.IhrOrgSearchResponse;
 import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 
 import java.util.Collections;
 import java.util.List;
@@ -55,7 +56,12 @@ public interface IhrOrgConverter {
 
     /**
      * integration 部门实体 → web VO
+     *
+     * <p>字段名不一致的映射（IHR 实测字段名 → VO 字段名）：
+     * storeNumber → shortNumber、createdDate → createDate</p>
      */
+    @Mapping(source = "storeNumber", target = "shortNumber")
+    @Mapping(source = "createdDate", target = "createDate")
     DepartmentVO toVO(IhrDepartment source);
 
     /**

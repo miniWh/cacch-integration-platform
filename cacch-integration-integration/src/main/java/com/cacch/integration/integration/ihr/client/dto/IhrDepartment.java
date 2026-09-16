@@ -19,7 +19,7 @@ public class IhrDepartment {
     private String uuid;
 
     /**
-     * 部门 ID
+     * 部门 ID（IHR 实测返回数字，Jackson 自动转 String）
      */
     private String id;
 
@@ -29,7 +29,7 @@ public class IhrDepartment {
     private String name;
 
     /**
-     * 上级部门 ID（无上级部门时该字段不返回）
+     * 上级部门 ID（IHR 实测返回数字，Jackson 自动转 String；无上级部门时该字段不返回）
      */
     @JsonProperty("parentId")
     private String parentId;
@@ -46,10 +46,10 @@ public class IhrDepartment {
     private String departmentCode;
 
     /**
-     * 门店简称
+     * 门店编号（实测字段名为 storeNumber）
      */
-    @JsonProperty("shortNumber")
-    private String shortNumber;
+    @JsonProperty("storeNumber")
+    private String storeNumber;
 
     /**
      * 部门负责人 staffId
@@ -75,7 +75,7 @@ public class IhrDepartment {
     private Boolean virtual;
 
     /**
-     * 部门状态（ENABLED / DISABLED / DELETED 等）
+     * 部门状态（实测枚举值：ENABLE 等）
      */
     @JsonProperty("departmentStatus")
     private String departmentStatus;
@@ -99,10 +99,10 @@ public class IhrDepartment {
     private String lastUpdate;
 
     /**
-     * 创建时间（IHR 返回 Unix 毫秒时间戳）
+     * 创建时间（实测字段名为 createdDate，IHR 返回 Unix 毫秒时间戳）
      */
-    @JsonProperty("createDate")
-    private Long createDate;
+    @JsonProperty("createdDate")
+    private Long createdDate;
 
     /**
      * 部门简称
