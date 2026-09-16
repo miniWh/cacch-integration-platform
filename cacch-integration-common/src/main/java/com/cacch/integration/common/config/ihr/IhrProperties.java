@@ -37,8 +37,10 @@ public class IhrProperties {
 
     /**
      * IHR 开放平台根地址兜底值 —— yml 未配置 base-url 时使用
+     * <p>注意：即使是 IP 直连模式也必须走 HTTPS（网络/安全侧要求），
+     * 不允许回退到 HTTP；如确需切回 HTTP 调试，请在 yml 中显式覆盖 base-url。</p>
      */
-    private static final String DEFAULT_BASE_URL = "http://10.80.87.11";
+    private static final String DEFAULT_BASE_URL = "https://10.80.87.11";
 
     /**
      * IHR 开放平台网关根地址（自动去除结尾斜杠）
