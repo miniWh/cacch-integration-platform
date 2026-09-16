@@ -67,9 +67,10 @@ wecom:
 
 # ---------- IHR 开放平台 OpenAPI ----------
 # app-key / app-secret 必须由 IHR_APP_KEY / IHR_APP_SECRET 注入（缺失即启动失败）
-# base-url：开放平台网关根地址，默认内网 https://10.80.87.11（即使是 IP 直连也必须走 HTTPS），可用环境变量 IHR_BASE_URL 覆盖
+# base-url：开放平台网关根地址，默认内网域名 https://openapi.cacch.com（内网 DNS 解析到 10.80.87.11，匹配网关通配符证书 *.cacch.com；
+# 禁止默认 IP 直连——Java 严格主机名校验会报 No subject alternative names matching IP address，可用环境变量 IHR_BASE_URL 覆盖）
 ihr:
-  base-url: ${IHR_BASE_URL:https://10.80.87.11}
+  base-url: ${IHR_BASE_URL:https://openapi.cacch.com}
   app-key: ${IHR_APP_KEY}
   app-secret: ${IHR_APP_SECRET}
 

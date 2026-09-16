@@ -36,11 +36,12 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class IhrProperties {
 
     /**
-     * IHR 开放平台根地址兜底值 —— yml 未配置 base-url 时使用
-     * <p>注意：即使是 IP 直连模式也必须走 HTTPS（网络/安全侧要求），
-     * 不允许回退到 HTTP；如确需切回 HTTP 调试，请在 yml 中显式覆盖 base-url。</p>
+     * IHR 开放平台网关根地址兜底值 —— yml 未配置 base-url 时使用
+     * <p>使用内网域名 openapi.cacch.com（内网 DNS 解析到 10.80.87.11），匹配网关通配符证书 *.cacch.com；
+     * 禁止回退到 IP 直连——Java 严格主机名校验会报 No subject alternative names matching IP address，
+     * 也不允许回退 HTTP（网络/安全侧要求）；如需临时调整，请在 yml 中显式覆盖 base-url。</p>
      */
-    private static final String DEFAULT_BASE_URL = "https://10.80.87.11";
+    private static final String DEFAULT_BASE_URL = "https://openapi.cacch.com";
 
     /**
      * IHR 开放平台网关根地址（自动去除结尾斜杠）
