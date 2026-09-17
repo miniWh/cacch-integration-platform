@@ -189,7 +189,8 @@ public class OaRegShareDirectoryProvisionManagerImpl implements IOaRegShareDirec
 
     /**
      * 遍历 OA 资料行，归一化路径段与 itemRequired，按 sharePath 分组；
-     * 归一化失败的行直接生成 FAILED 记录
+     * 负责人/产品名称为空的行仅记录日志直接跳过（不落库、不计失败）；
+     * 其余归一化失败的行生成 FAILED 记录
      */
     private void normalizeAndGroup(List<OaRegReportItemRow> itemRows,
                                    String rootPath,
@@ -199,7 +200,12 @@ public class OaRegShareDirectoryProvisionManagerImpl implements IOaRegShareDirec
                                    Map<String, List<NormalizedRow>> pathGroups) {
         LocalDateTime now = LocalDateTime.now();
         for (OaRegReportItemRow row : itemRows) {
-            if (!StringUtils.hasText(row.ownerName()) || looksLikeMemberId(row.ownerName())) {
+            if (!StringUtils.hasText(row.ownerName())) {
+                log.info("【{}】跳过行, reason=登记负责人为空, formMainId={}, subRowId={}, item={}",
+                        BIZ, row.formMainId(), row.subRowId(), row.itemName());
+                continue;
+            }
+            if (looksLikeMemberId(row.ownerName())) {
                 log.info("【{}】跳过行, reason=登记负责人未解析为姓名, formMainId={}, subRowId={}, owner={}, item={}",
                         BIZ, row.formMainId(), row.subRowId(), row.ownerName(), row.itemName());
                 failedRecords.add(buildFailedRecord(row, "登记负责人未解析为姓名", runId, now));
@@ -207,6 +213,11 @@ public class OaRegShareDirectoryProvisionManagerImpl implements IOaRegShareDirec
             }
             if (!ownerAllowlist.isEmpty() && !ownerAllowlist.contains(row.ownerName().trim())) {
                 log.info("【{}】跳过行, reason=不在白名单, owner={}", BIZ, row.ownerName());
+                continue;
+            }
+            if (!StringUtils.hasText(row.ipdpName())) {
+                log.info("【{}】跳过行, reason=产品名称为空, formMainId={}, subRowId={}, owner={}, item={}",
+                        BIZ, row.formMainId(), row.subRowId(), row.ownerName(), row.itemName());
                 continue;
             }
 
