@@ -94,6 +94,26 @@ public final class OaConstants {
     public static final String FORM_SON_DETAIL = "formson_2819";
 
     /**
+     * 内部购销合同表
+     */
+    public static final String CONTRACT_FORM_MAIN = "formmain_5296";
+
+    /**
+     * 内部购销合同表 NC 单号字段
+     */
+    public static final String CONTRACT_FIELD_NC_NO = "field0273";
+
+    /**
+     * 内部购销合同表 NC 单号附件引用字段（值对应 ctp_attachment.sub_reference）
+     */
+    public static final String CONTRACT_FIELD_ATTACHMENT_REF = "field0360";
+
+    /**
+     * 致远 OA 附件表（OA 原始表名）
+     */
+    public static final String CTP_ATTACHMENT_TABLE = "ctp_attachment";
+
+    /**
      * 按编码取人员默认页号
      */
     public static final int DEFAULT_PAGE_NO = 0;
