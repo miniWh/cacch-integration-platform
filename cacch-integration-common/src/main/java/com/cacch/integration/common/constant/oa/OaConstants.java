@@ -53,6 +53,11 @@ public final class OaConstants {
     public static final String ATTACHMENT_UPLOAD_FIELD = "file";
 
     /**
+     * 附件文件下载路径模板：/seeyon/rest/attachment/file/{fileId}
+     */
+    public static final String ATTACHMENT_FILE_DOWNLOAD_PATH = "/seeyon/rest/attachment/file/{fileId}";
+
+    /**
      * CAP4 无流程表单批量更新
      */
     public static final String CAP4_BATCH_UPDATE_PATH = "/seeyon/rest/cap4/form/soap/batch-update";
@@ -67,21 +72,6 @@ public final class OaConstants {
      */
     @Deprecated
     public static final String CAP4_GET_FORM_METADATA_PATH = "/seeyon/rest/cap4/form/soap/getFormMetadata";
-
-    /**
-     * 国内登记报告主表
-     */
-    public static final String REG_REPORT_FORM_MAIN = "formmain_4070";
-
-    /**
-     * 国内登记报告资料列表子表
-     */
-    public static final String REG_REPORT_FORM_SUB = "formson_5464";
-
-    /**
-     * 资料附件字段（存 subReference，非 fileUrl）
-     */
-    public static final String REG_REPORT_ATTACHMENT_FIELD = "field0218";
 
     /**
      * 默认协同应用名

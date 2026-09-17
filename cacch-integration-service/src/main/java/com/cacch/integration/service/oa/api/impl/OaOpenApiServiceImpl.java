@@ -6,6 +6,7 @@ import com.cacch.integration.common.config.oa.OaRegReportProperties;
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.ResultCode;
 import com.cacch.integration.integration.oa.client.OaClient;
+import com.cacch.integration.integration.oa.client.dto.OaFileDownloadResult;
 import com.cacch.integration.integration.oa.client.dto.OaFileUploadResult;
 import com.cacch.integration.integration.oa.client.dto.OaOrgMember;
 import com.cacch.integration.integration.oa.client.dto.OaProcessStartRequest;
@@ -132,6 +133,24 @@ public class OaOpenApiServiceImpl implements IOaOpenApiService {
         } catch (RestClientException e) {
             log.info("【OaOpenApi】上传附件终止, fileName={}, reason={}", fileName, e.getMessage());
             throw new BizException(ResultCode.INTEGRATION_ERROR, "致远 OA 上传附件失败: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public OaFileDownloadResult downloadAttachmentFile(String fileId, String loginName) {
+        if (!StringUtils.hasText(fileId)) {
+            log.info("【OaOpenApi】下载附件终止, reason=fileId为空");
+            throw new BizException(ResultCode.PARAM_MISSING, "fileId 不能为空");
+        }
+        String token = oaTokenService.getToken(loginName);
+        try {
+            OaFileDownloadResult result = oaClient.downloadAttachmentFile(token, fileId.trim());
+            log.info("【OaOpenApi】下载附件完成, fileId={}, fileName={}, byteLength={}",
+                    fileId.trim(), result.fileName(), result.contentLength());
+            return result;
+        } catch (RestClientException e) {
+            log.info("【OaOpenApi】下载附件终止, fileId={}, reason={}", fileId, e.getMessage());
+            throw new BizException(ResultCode.INTEGRATION_ERROR, "致远 OA 下载附件失败: " + e.getMessage(), e);
         }
     }
 

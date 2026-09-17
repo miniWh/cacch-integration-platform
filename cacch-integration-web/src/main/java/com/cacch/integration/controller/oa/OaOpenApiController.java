@@ -9,12 +9,19 @@ import com.cacch.integration.dto.oa.request.OaProcessStartApiRequest;
 import com.cacch.integration.dto.oa.request.OaTokenRequest;
 import com.cacch.integration.dto.oa.vo.OaFileUploadVO;
 import com.cacch.integration.dto.oa.vo.OaTokenVO;
+import com.cacch.integration.integration.oa.client.dto.OaFileDownloadResult;
 import com.cacch.integration.integration.oa.client.dto.OaFileUploadResult;
 import com.cacch.integration.integration.oa.client.dto.OaOrgMember;
 import com.cacch.integration.integration.oa.client.dto.OaProcessStartRequest;
 import com.cacch.integration.service.oa.api.IOaOpenApiService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -24,7 +31,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.util.UriUtils;
 import tools.jackson.databind.JsonNode;
+
+import java.nio.charset.StandardCharsets;
 
 /**
  * 致远 OA REST 联调接口（手动触发）
@@ -142,6 +152,48 @@ public class OaOpenApiController {
                 file.getContentType(),
                 loginName);
         return Result.success(new OaFileUploadVO(result.fileUrl(), result.fileName(), result.rawResponse()));
+    }
+
+    /**
+     * 下载附件文件（联调测试，按 fileId 直接调致远 OA 下载接口）
+     *
+     * <p>GET {@code /seeyon/rest/attachment/file/{fileId}}，Token 由平台管理。
+     * OA 返回 404/错误报文时由全局异常处理返回业务错误。</p>
+     *
+     * @param fileId    文件 ID（对应 CTP_ATTACHMENT.FILE_URL），不可为空
+     * @param loginName Token 绑定登录名，可空（默认使用配置 {@code oa.default-login-name}）
+     * @return 附件文件流，Content-Disposition 携带文件名（无文件名时回退 fileId）
+     * @throws BizException fileId 为空或 OA 下载失败时抛出，经全局异常处理返回
+     */
+    @GetMapping("/attachment/file/{fileId}")
+    public ResponseEntity<Resource> downloadAttachmentFile(@PathVariable String fileId,
+                                                           @RequestParam(required = false) String loginName) {
+        OaFileDownloadResult result = oaOpenApiService.downloadAttachmentFile(fileId, loginName);
+        String fileName = StringUtils.hasText(result.fileName()) ? result.fileName().trim() : fileId.trim();
+        String encodedFileName = UriUtils.encode(fileName, StandardCharsets.UTF_8);
+        MediaType contentType = resolveDownloadMediaType(result.contentType());
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename*=UTF-8''" + encodedFileName)
+                .contentType(contentType)
+                .contentLength(result.contentLength())
+                .body(new ByteArrayResource(result.content()));
+    }
+
+    /**
+     * 解析下载响应 Content-Type，非法或缺失时回退 application/octet-stream
+     *
+     * @param contentType OA 响应 MIME 类型，可空
+     * @return 可用的 MediaType，不为 null
+     */
+    private MediaType resolveDownloadMediaType(String contentType) {
+        if (!StringUtils.hasText(contentType)) {
+            return MediaType.APPLICATION_OCTET_STREAM;
+        }
+        try {
+            return MediaType.parseMediaType(contentType.trim());
+        } catch (Exception e) {
+            return MediaType.APPLICATION_OCTET_STREAM;
+        }
     }
 
     /**

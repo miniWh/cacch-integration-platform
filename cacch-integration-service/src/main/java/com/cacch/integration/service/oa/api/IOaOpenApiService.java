@@ -1,5 +1,6 @@
 package com.cacch.integration.service.oa.api;
 
+import com.cacch.integration.integration.oa.client.dto.OaFileDownloadResult;
 import com.cacch.integration.integration.oa.client.dto.OaFileUploadResult;
 import com.cacch.integration.integration.oa.client.dto.OaOrgMember;
 import com.cacch.integration.integration.oa.client.dto.OaProcessStartRequest;
@@ -74,6 +75,15 @@ public interface IOaOpenApiService {
      * @return 上传结果，含 fileUrl（文件 ID）
      */
     OaFileUploadResult uploadAttachment(byte[] fileBytes, String fileName, String contentType, String loginName);
+
+    /**
+     * 下载致远 OA 附件文件
+     *
+     * @param fileId    文件 ID（对应 CTP_ATTACHMENT.FILE_URL），不可为空
+     * @param loginName Token 绑定登录名，可空（默认使用配置 {@code oa.default-login-name}）
+     * @return 下载结果，含文件名、MIME 类型与内容
+     */
+    OaFileDownloadResult downloadAttachmentFile(String fileId, String loginName);
 
     /**
      * 获取 CAP4 表单元数据（通过 export 接口，响应 definition 节点）

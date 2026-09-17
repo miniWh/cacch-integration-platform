@@ -2,6 +2,7 @@ package com.cacch.integration.integration.oa.client;
 
 import com.cacch.integration.common.config.oa.OaProperties;
 import com.cacch.integration.common.constant.oa.OaConstants;
+import com.cacch.integration.integration.oa.client.dto.OaFileDownloadResult;
 import com.cacch.integration.integration.oa.client.dto.OaFileUploadResult;
 import com.cacch.integration.integration.oa.client.dto.OaProcessStartRequest;
 import com.cacch.integration.integration.oa.client.dto.OaTokenResponse;
@@ -9,6 +10,7 @@ import com.cacch.integration.integration.oa.support.OaResponseSupport;
 import com.cacch.integration.integration.support.ThirdPartyHttpLogSupport;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.core.io.Resource;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -50,13 +52,13 @@ public class OaClient {
     private final OaProperties oaProperties;
 
     /**
-     * @param restTemplate           通用 HTTP 客户端
-     * @param oaUploadRestTemplate   OA 大文件上传专用客户端（长读超时）
-     * @param oaProperties           OA 配置
+     * @param restTemplate         通用 HTTP 客户端
+     * @param oaUploadRestTemplate OA 大文件上传专用客户端（长读超时）
+     * @param oaProperties         OA 配置
      */
     public OaClient(RestTemplate restTemplate,
-                      @Qualifier("oaUploadRestTemplate") RestTemplate oaUploadRestTemplate,
-                      OaProperties oaProperties) {
+                    @Qualifier("oaUploadRestTemplate") RestTemplate oaUploadRestTemplate,
+                    OaProperties oaProperties) {
         this.restTemplate = restTemplate;
         this.oaUploadRestTemplate = oaUploadRestTemplate;
         this.oaProperties = oaProperties;
@@ -325,6 +327,76 @@ public class OaClient {
             log.info("【{}】{}终止, reason={}", BIZ, action, e.getMessage());
             log.error("【{}】{} 处理失败", BIZ, action, e);
             throw new RestClientException("致远 OA 上传附件处理失败: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 下载附件文件
+     *
+     * <p>GET {@code /seeyon/rest/attachment/file/{fileId}}；文件名取自响应 Content-Disposition。
+     * 若 OA 返回 JSON 报文（如错误信息）而非文件流，视为下载失败。</p>
+     *
+     * @param token  Rest Token，不可为空
+     * @param fileId 文件 ID（对应 CTP_ATTACHMENT.FILE_URL），不可为空
+     * @return 下载结果，含文件名、MIME 类型与内容
+     * @throws RestClientException 网络、HTTP 非 2xx、响应体为空或返回 JSON 错误报文时抛出
+     */
+    public OaFileDownloadResult downloadAttachmentFile(String token, String fileId) {
+        String action = "下载附件文件";
+        if (!StringUtils.hasText(token)) {
+            throw new RestClientException("致远 OA 下载附件失败：Token 为空");
+        }
+        if (!StringUtils.hasText(fileId)) {
+            throw new RestClientException("致远 OA 下载附件失败：fileId 为空");
+        }
+        URI uri = UriComponentsBuilder
+                .fromUriString(oaProperties.resolvedBaseUrl() + OaConstants.ATTACHMENT_FILE_DOWNLOAD_PATH)
+                .buildAndExpand(Map.of("fileId", fileId.trim()))
+                .encode()
+                .toUri();
+        ThirdPartyHttpLogSupport.logRequest(BIZ, action, uri.toString(),
+                ThirdPartyHttpLogSupport.queryParams("fileId", fileId.trim()));
+
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setAccept(List.of(MediaType.APPLICATION_OCTET_STREAM, MediaType.ALL));
+            headers.add(OaConstants.TOKEN_HEADER, token);
+            ResponseEntity<Resource> response = restTemplate.exchange(
+                    uri, HttpMethod.GET, new HttpEntity<>(headers), Resource.class);
+
+            HttpHeaders responseHeaders = response.getHeaders();
+            MediaType responseContentType = responseHeaders.getContentType();
+            String fileName = responseHeaders.getContentDisposition().getFilename();
+            byte[] body = response.getBody() == null
+                    ? new byte[0]
+                    : response.getBody().getContentAsByteArray();
+
+            if (body.length == 0) {
+                log.info("【{}】{}终止, reason=响应体为空, fileId={}", BIZ, action, fileId.trim());
+                throw new RestClientException("致远 OA 下载附件响应体为空, fileId=" + fileId.trim());
+            }
+            if (responseContentType != null && responseContentType.isCompatibleWith(MediaType.APPLICATION_JSON)) {
+                String errorText = new String(body, StandardCharsets.UTF_8);
+                ThirdPartyHttpLogSupport.logResponse(BIZ, action, errorText);
+                log.info("【{}】{}终止, reason=响应为 JSON 报文而非文件流, fileId={}", BIZ, action, fileId.trim());
+                throw new RestClientException("致远 OA 下载附件返回 JSON 报文而非文件流, fileId=" + fileId.trim());
+            }
+            ThirdPartyHttpLogSupport.logResponse(BIZ, action, ThirdPartyHttpLogSupport.queryParams(
+                    "statusCode", String.valueOf(response.getStatusCode().value()),
+                    "contentType", responseContentType == null ? "" : responseContentType.toString(),
+                    "byteLength", String.valueOf(body.length)));
+            log.info("【{}】{}成功, fileId={}, fileName={}, byteLength={}",
+                    BIZ, action, fileId.trim(), fileName, body.length);
+            return new OaFileDownloadResult(fileName,
+                    responseContentType == null ? null : responseContentType.toString(), body);
+        } catch (RestClientException e) {
+            log.info("【{}】{}终止, fileId={}, reason={}", BIZ, action, fileId, e.getMessage());
+            log.error("【{}】{} HTTP 调用失败, fileId={}", BIZ, action, fileId, e);
+            throw e;
+        } catch (Exception e) {
+            log.info("【{}】{}终止, fileId={}, reason={}", BIZ, action, fileId, e.getMessage());
+            log.error("【{}】{} 处理失败, fileId={}", BIZ, action, fileId, e);
+            throw new RestClientException("致远 OA 下载附件处理失败: " + e.getMessage(), e);
         }
     }
 
