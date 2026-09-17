@@ -110,6 +110,11 @@ ihr:
   base-url: ${IHR_BASE_URL:https://openapi.cacch.com}
   app-key: ${IHR_APP_KEY:}
   app-secret: ${IHR_APP_SECRET:}
+  # token 来源：self（默认）= 集成平台自管理 token；esb-redis = 只读 ESB 缓存 token
+  # （ESB 为唯一 token 生产者，仅 401 自愈时覆盖写回 ESB key，详见 IhrTokenServiceImpl）
+  token-source: ${IHR_TOKEN_SOURCE:self}
+  # esb-redis 模式必配：ESB access_token 完整 Redis Key（test 环境在 application-test.yml 配置）
+  esb-token-key: ${IHR_ESB_TOKEN_KEY:}
 
 # ==================== 勤策 CRM OpenAPI（公共占位） ====================
 # 实际值请在 application-{profile}.yml 中覆盖；签名算法为 MD5(json|appkey|timestamp)

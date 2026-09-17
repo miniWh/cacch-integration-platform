@@ -122,4 +122,36 @@ public final class IhrConstants {
     public static String refreshTokenRedisKey() {
         return RedisConstants.KEY_PREFIX + "ihr:refresh-token";
     }
+
+    // ==================== ESB 共享模式 Redis Key（与 RestCloud iHR360 认证插件对齐） ====================
+
+    /**
+     * ESB access_token 缓存 Key 后缀规则 —— refresh_token key = access key + 本后缀
+     */
+    public static final String ESB_REFRESH_TOKEN_KEY_SUFFIX = ":refresh_token";
+
+    /**
+     * ESB 过期时间戳（epoch 秒）缓存 Key 后缀规则 —— expires_at key = access key + 本后缀
+     */
+    public static final String ESB_EXPIRES_AT_KEY_SUFFIX = ":expires_at";
+
+    /**
+     * 由 ESB access_token key 派生 refresh_token key
+     *
+     * @param esbAccessTokenKey ESB access_token 完整 key（如 authorization-config:ihr360:{configId}）
+     * @return refresh_token key
+     */
+    public static String esbRefreshTokenRedisKey(String esbAccessTokenKey) {
+        return esbAccessTokenKey + ESB_REFRESH_TOKEN_KEY_SUFFIX;
+    }
+
+    /**
+     * 由 ESB access_token key 派生过期时间戳 key
+     *
+     * @param esbAccessTokenKey ESB access_token 完整 key（如 authorization-config:ihr360:{configId}）
+     * @return expires_at key
+     */
+    public static String esbExpiresAtRedisKey(String esbAccessTokenKey) {
+        return esbAccessTokenKey + ESB_EXPIRES_AT_KEY_SUFFIX;
+    }
 }

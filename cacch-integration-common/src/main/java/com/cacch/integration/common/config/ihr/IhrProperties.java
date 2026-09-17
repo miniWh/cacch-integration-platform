@@ -44,6 +44,17 @@ public class IhrProperties {
     private static final String DEFAULT_BASE_URL = "https://openapi.cacch.com";
 
     /**
+     * token 来源：自管理模式（集成平台自行申请/续期/缓存 token）
+     */
+    public static final String TOKEN_SOURCE_SELF = "self";
+
+    /**
+     * token 来源：ESB 共享模式 —— 只读 ESB 写入 Redis 的缓存 token，
+     * 集成平台不主动申请（保持 ESB 为唯一 token 生产者，避免双方互相作废对方缓存）
+     */
+    public static final String TOKEN_SOURCE_ESB_REDIS = "esb-redis";
+
+    /**
      * IHR 开放平台网关根地址（自动去除结尾斜杠）
      * -- GETTER --
      * 获取 IHR 开放平台网关根地址
@@ -58,11 +69,35 @@ public class IhrProperties {
      */
     private final IhrAppConfig credential;
 
-    public IhrProperties(String baseUrl, String appKey, String appSecret) {
+    /**
+     * token 来源模式：self（默认，自管理）/ esb-redis（只读 ESB 缓存）
+     * -- GETTER --
+     * 获取 token 来源模式原始配置值
+     */
+    private final String tokenSource;
+
+    /**
+     * ESB 共享模式下的 access_token Redis Key（ESB 写入的完整 key，含 configId）
+     * -- GETTER --
+     * 获取 ESB access_token Redis Key（trim 后；未配置时为空串）
+     */
+    private final String esbTokenKey;
+
+    public IhrProperties(String baseUrl, String appKey, String appSecret,
+                         String tokenSource, String esbTokenKey) {
         this.baseUrl = baseUrl != null && !baseUrl.isBlank()
                 ? trimTrailingSlash(baseUrl)
                 : DEFAULT_BASE_URL;
         this.credential = new IhrAppConfig(appKey, appSecret);
+        this.tokenSource = tokenSource != null ? tokenSource.trim() : TOKEN_SOURCE_SELF;
+        this.esbTokenKey = esbTokenKey != null ? esbTokenKey.trim() : "";
+    }
+
+    /**
+     * 是否为 ESB 共享模式（只读 ESB 缓存 token，不自行申请）
+     */
+    public boolean isEsbRedisSource() {
+        return TOKEN_SOURCE_ESB_REDIS.equalsIgnoreCase(tokenSource);
     }
 
     /**
