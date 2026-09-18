@@ -2,9 +2,11 @@ package com.cacch.integration.integration.moka.client;
 
 import com.cacch.integration.common.config.moka.MokaProperties;
 import com.cacch.integration.common.constant.moka.MokaConstants;
+import com.cacch.integration.integration.moka.client.dto.MokaDeptListResponse;
 import com.cacch.integration.integration.moka.client.dto.MokaDeptSyncRequest;
 import com.cacch.integration.integration.moka.client.dto.MokaDeptSyncResponse;
 import com.cacch.integration.integration.support.ThirdPartyHttpLogSupport;
+import org.springframework.util.StringUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpEntity;
@@ -28,6 +30,7 @@ import java.util.Collections;
  * <p>当前实现：
  * <ul>
  *     <li>{@link #syncDepartmentsFull(MokaDeptSyncRequest)} — 组织架构全量同步（PUT /api-platform/v2/departments）</li>
+ *     <li>{@link #getDepartments(String)} — 获取全量组织架构（GET /api-platform/v1/departments）</li>
  * </ul>
  *
  * <p>鉴权：HTTP Basic Auth，将机构 API Key 作为 username（password 为空），
@@ -35,7 +38,7 @@ import java.util.Collections;
  * {@link MokaProperties#getApiKey()} 注入，严禁记入日志。</p>
  *
  * <p>网关地址取自 {@link MokaProperties#getBaseUrl()}（yml {@code moka.base-url}），
- * 与 {@link MokaConstants#DEPT_FULL_SYNC_PATH} 在运行时拼接；代码中不硬编码任何环境地址，
+ * 与 {@link MokaConstants} 中的路径常量在运行时拼接；代码中不硬编码任何环境地址，
  * 测试 / 生产域名切换只改配置，无需重新打包。</p>
  *
  * @author hongfu_zhou@cacch.com
@@ -47,6 +50,7 @@ public class MokaOrgClient {
 
     private static final String BIZ = MokaConstants.LOG_BIZ;
     private static final String ACTION_FULL_SYNC = "组织架构全量同步";
+    private static final String ACTION_GET_DEPTS = "获取全量组织架构";
 
     private final RestTemplate restTemplate;
     private final MokaProperties mokaProperties;
@@ -124,6 +128,77 @@ public class MokaOrgClient {
         } catch (RestClientException e) {
             log.info("【{}】{}终止, reason={}", BIZ, ACTION_FULL_SYNC, e.getMessage());
             log.error("【{}】{} HTTP 调用失败", BIZ, ACTION_FULL_SYNC, e);
+            throw e;
+        }
+    }
+
+    /**
+     * 获取全量组织架构 —— 调用 Moka {@code GET /api-platform/v1/departments}
+     *
+     * <p>返回 Moka 侧全量部门列表。支持可选 {@code updateTimeStart} 增量查询参数
+     * （格式 {@code yyyy-MM-dd HH:mm:ss}），为空时返回全量数据。</p>
+     *
+     * @param updateTimeStart 增量查询起始时间（可选，格式 yyyy-MM-dd HH:mm:ss）；
+     *                        为空或空白时返回全量部门
+     * @return Moka 全量组织架构响应（data 为部门列表）
+     * @throws RestClientException API Key 未配置、URL 非法、HTTP 调用异常或响应体为空时抛出
+     */
+    public MokaDeptListResponse getDepartments(String updateTimeStart) {
+        // —— 前置守卫：API Key 必须已配置 ——
+        if (!mokaProperties.isApiKeyConfigured()) {
+            log.info("【{}】{}终止, reason=Moka API Key 未配置，请在 yml 或环境变量 MOKA_API_KEY 中设置",
+                    BIZ, ACTION_GET_DEPTS);
+            throw new RestClientException("Moka API Key 未配置");
+        }
+
+        // —— 拼接 URL（含可选 query 参数 updateTimeStart）——
+        String url = mokaProperties.getBaseUrl() + MokaConstants.DEPT_LIST_PATH;
+        if (StringUtils.hasText(updateTimeStart)) {
+            url += "?updateTimeStart=" + updateTimeStart;
+        }
+
+        URI uri;
+        try {
+            uri = new URI(url);
+        } catch (URISyntaxException e) {
+            log.info("【{}】{}终止, reason=URL 非法, url={}", BIZ, ACTION_GET_DEPTS, url);
+            throw new RestClientException("获取全量组织架构 URL 非法: " + url, e);
+        }
+
+        // —— 构造 Basic Auth Header（apiKey 作为 username，password 为空）——
+        String basicAuth = "Basic " + Base64.getEncoder()
+                .encodeToString((mokaProperties.getApiKey() + ":").getBytes(StandardCharsets.UTF_8));
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
+        headers.set(HttpHeaders.AUTHORIZATION, basicAuth);
+
+        ThirdPartyHttpLogSupport.logRequest(BIZ, ACTION_GET_DEPTS, uri.toString(), null);
+
+        try {
+            HttpEntity<Void> entity = new HttpEntity<>(headers);
+            ResponseEntity<MokaDeptListResponse> response = restTemplate.exchange(
+                    uri, HttpMethod.GET, entity, MokaDeptListResponse.class);
+            MokaDeptListResponse body = response.getBody();
+            ThirdPartyHttpLogSupport.logResponse(BIZ, ACTION_GET_DEPTS, body);
+
+            if (body == null) {
+                log.info("【{}】{}终止, reason=响应体为空", BIZ, ACTION_GET_DEPTS);
+                throw new RestClientException("获取全量组织架构响应为空");
+            }
+
+            if (body.isSuccess()) {
+                int deptCount = body.getData() == null ? 0 : body.getData().size();
+                log.info("【{}】{}成功, deptCount={}", BIZ, ACTION_GET_DEPTS, deptCount);
+            } else {
+                log.info("【{}】{}终止, code={}, msg={}",
+                        BIZ, ACTION_GET_DEPTS, body.getCode(), body.getMsg());
+            }
+            return body;
+
+        } catch (RestClientException e) {
+            log.info("【{}】{}终止, reason={}", BIZ, ACTION_GET_DEPTS, e.getMessage());
+            log.error("【{}】{} HTTP 调用失败", BIZ, ACTION_GET_DEPTS, e);
             throw e;
         }
     }

@@ -3,9 +3,11 @@ package com.cacch.integration.service.moka.api.impl;
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.ResultCode;
 import com.cacch.integration.integration.moka.client.MokaOrgClient;
+import com.cacch.integration.integration.moka.client.dto.MokaDeptListResponse;
 import com.cacch.integration.integration.moka.client.dto.MokaDeptSyncRequest;
 import com.cacch.integration.integration.moka.client.dto.MokaDeptSyncResponse;
 import com.cacch.integration.service.moka.api.IMokaOrgService;
+import org.springframework.util.StringUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -63,6 +65,39 @@ public class MokaOrgServiceImpl implements IMokaOrgService {
             log.error("【{}】未知异常", BIZ, e);
             throw new BizException(ResultCode.SYSTEM_ERROR,
                     "Moka 组织架构同步系统异常", e);
+        }
+    }
+
+    @Override
+    public MokaDeptListResponse getDepartments(String updateTimeStart) {
+        log.info("【{}】开始获取全量组织架构, updateTimeStart={}",
+                BIZ, StringUtils.hasText(updateTimeStart) ? updateTimeStart : "全量");
+
+        try {
+            MokaDeptListResponse response = mokaOrgClient.getDepartments(updateTimeStart);
+            if (!response.isSuccess()) {
+                log.info("【{}】获取全量组织架构终止, code={}, msg={}",
+                        BIZ, response.getCode(), response.getMsg());
+                throw new BizException(ResultCode.INTEGRATION_ERROR,
+                        String.format("Moka 获取全量组织架构业务失败: code=%d, msg=%s",
+                                response.getCode(), response.getMsg()));
+            }
+            int deptCount = response.getData() == null ? 0 : response.getData().size();
+            log.info("【{}】获取全量组织架构成功, deptCount={}", BIZ, deptCount);
+            return response;
+
+        } catch (BizException e) {
+            throw e;
+        } catch (RestClientException e) {
+            log.info("【{}】获取全量组织架构终止, reason={}", BIZ, e.getMessage());
+            log.error("【{}】Moka HTTP 调用失败", BIZ, e);
+            throw new BizException(ResultCode.INTEGRATION_ERROR,
+                    "Moka 获取全量组织架构失败: " + e.getMessage(), e);
+        } catch (Exception e) {
+            log.info("【{}】获取全量组织架构终止, reason={}", BIZ, e.getMessage());
+            log.error("【{}】未知异常", BIZ, e);
+            throw new BizException(ResultCode.SYSTEM_ERROR,
+                    "Moka 获取全量组织架构系统异常", e);
         }
     }
 }

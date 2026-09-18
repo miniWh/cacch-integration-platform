@@ -23,4 +23,12 @@ public final class MokaConstants {
      * 组织架构全量同步接口路径 —— 相对 {@code MokaProperties#getBaseUrl()} 拼接
      */
     public static final String DEPT_FULL_SYNC_PATH = "/api-platform/v2/departments";
+
+    /**
+     * 获取全量组织架构接口路径 —— 相对 {@code MokaProperties#getBaseUrl()} 拼接
+     *
+     * <p>GET 请求，返回 Moka 侧全量部门列表；支持可选 query 参数 {@code updateTimeStart}
+     * （格式 yyyy-MM-dd HH:mm:ss）做增量查询，为空时返回全量。</p>
+     */
+    public static final String DEPT_LIST_PATH = "/api-platform/v1/departments";
 }

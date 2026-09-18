@@ -4,6 +4,9 @@ import com.cacch.integration.dto.moka.request.MokaOrgSyncRequest;
 import com.cacch.integration.dto.moka.request.MokaOrgSyncRequest.MokaDepartmentItem;
 import com.cacch.integration.dto.moka.request.MokaOrgSyncRequest.MokaLocalizedNameItem;
 import com.cacch.integration.dto.moka.vo.MokaDeptSyncResultVO;
+import com.cacch.integration.dto.moka.vo.MokaDeptVO;
+import com.cacch.integration.integration.moka.client.dto.MokaDeptItem;
+import com.cacch.integration.integration.moka.client.dto.MokaDeptListResponse;
 import com.cacch.integration.integration.moka.client.dto.MokaDeptSyncRequest;
 import com.cacch.integration.integration.moka.client.dto.MokaDeptSyncResponse;
 import com.cacch.integration.integration.moka.client.dto.MokaDepartment;
@@ -97,5 +100,56 @@ public interface MokaOrgConverter {
         vo.setUpdateCount(response.getUpdateCount());
         vo.setDeleteCount(response.getDeleteCount());
         return vo;
+    }
+
+    /**
+     * integration 层全量组织架构响应 → web 层部门 VO 列表
+     *
+     * @param response Moka 全量组织架构响应
+     * @return 部门 VO 列表；data 为空时返回空列表
+     */
+    default List<MokaDeptVO> toDeptVOList(MokaDeptListResponse response) {
+        if (response == null || response.getData() == null || response.getData().isEmpty()) {
+            return Collections.emptyList();
+        }
+        return response.getData().stream().map(this::toDeptVO).toList();
+    }
+
+    /**
+     * integration 层部门项 → web 层部门 VO
+     */
+    default MokaDeptVO toDeptVO(MokaDeptItem source) {
+        if (source == null) {
+            return null;
+        }
+        MokaDeptVO vo = new MokaDeptVO();
+        vo.setId(source.getId());
+        vo.setName(source.getName());
+        vo.setDepartmentCode(source.getDepartmentCode());
+        vo.setParentCode(source.getParentCode());
+        vo.setParentId(source.getParentId());
+        vo.setType(source.getType());
+        vo.setSequence(source.getSequence());
+        vo.setStatus(source.getStatus());
+        vo.setIsDeleted(source.getIsDeleted());
+        vo.setCreatedTime(source.getCreatedTime());
+        vo.setLastModifiedTime(source.getLastModifiedTime());
+        vo.setLocalizedNames(toLocalizedVOList(source.getLocalizedNames()));
+        return vo;
+    }
+
+    /**
+     * integration 层多语言条目列表 → web 层多语言 VO 列表
+     */
+    default List<MokaDeptVO.MokaLocalizedVO> toLocalizedVOList(List<MokaLocalizedName> source) {
+        if (source == null || source.isEmpty()) {
+            return null;
+        }
+        return source.stream().map(item -> {
+            MokaDeptVO.MokaLocalizedVO vo = new MokaDeptVO.MokaLocalizedVO();
+            vo.setLocale(item.getLocale());
+            vo.setPropValue(item.getPropValue());
+            return vo;
+        }).toList();
     }
 }
