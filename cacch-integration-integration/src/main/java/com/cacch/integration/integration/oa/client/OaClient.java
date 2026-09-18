@@ -388,7 +388,7 @@ public class OaClient {
             log.info("【{}】{}成功, fileId={}, fileName={}, byteLength={}",
                     BIZ, action, fileId.trim(), fileName, body.length);
             return new OaFileDownloadResult(fileName,
-                    responseContentType == null ? null : responseContentType.toString(), body);
+                    responseContentType == null ? null : responseContentType.toString(), body, fileId.trim());
         } catch (RestClientException e) {
             log.info("【{}】{}终止, fileId={}, reason={}", BIZ, action, fileId, e.getMessage());
             log.error("【{}】{} HTTP 调用失败, fileId={}", BIZ, action, fileId, e);

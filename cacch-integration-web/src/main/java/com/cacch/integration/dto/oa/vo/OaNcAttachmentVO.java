@@ -7,12 +7,14 @@ package com.cacch.integration.dto.oa.vo;
  * @param contentType 附件 MIME 类型，无匹配时回退 application/octet-stream
  * @param fileSize    附件字节数
  * @param fileContent Base64 编码的文件内容；体积较原始二进制膨胀约 33%
+ * @param fileUrl     OA 附件表 FILE_URL（即下载接口的 fileId），来自 OA 库 ctp_attachment 表
  * @author hongfu_zhou@cacch.com
  */
 public record OaNcAttachmentVO(
         String fileName,
         String contentType,
         long fileSize,
-        String fileContent
+        String fileContent,
+        String fileUrl
 ) {
 }

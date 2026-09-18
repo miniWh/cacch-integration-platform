@@ -6,9 +6,10 @@ package com.cacch.integration.integration.oa.client.dto;
  * @param fileName    文件名，取自响应 Content-Disposition，可能为 null
  * @param contentType 响应 MIME 类型，可能为 null
  * @param content     文件内容，不为 null
+ * @param fileUrl     OA 附件表 FILE_URL（即下载接口的 fileId），由调用方传入
  * @author hongfu_zhou@cacch.com
  */
-public record OaFileDownloadResult(String fileName, String contentType, byte[] content) {
+public record OaFileDownloadResult(String fileName, String contentType, byte[] content, String fileUrl) {
 
     /**
      * 获取文件内容长度

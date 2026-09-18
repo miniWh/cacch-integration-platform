@@ -56,7 +56,7 @@ public class OaNcAttachmentController {
         String contentType = StringUtils.hasText(result.contentType())
                 ? result.contentType().trim() : "application/octet-stream";
         String fileContent = Base64.getEncoder().encodeToString(result.content());
-        OaNcAttachmentVO vo = new OaNcAttachmentVO(fileName, contentType, result.contentLength(), fileContent);
+        OaNcAttachmentVO vo = new OaNcAttachmentVO(fileName, contentType, result.contentLength(), fileContent, result.fileUrl());
         log.info("【NC附件】按NC单号下载成功, ncNo={}, fileName={}, fileSize={}", ncNo.trim(), fileName, result.contentLength());
         return Result.success(vo);
     }
