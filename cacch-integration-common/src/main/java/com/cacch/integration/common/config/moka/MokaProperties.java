@@ -24,8 +24,11 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * 部署环境差异一律通过 yml 或环境变量 {@code MOKA_BASE_URL} 覆盖。
  * </pre>
  *
+ * <p>鉴权方式：HTTP Basic Auth，API Key 作为 username（password 为空），
+ * 由 {@code MOKA_API_KEY} 环境变量注入。</p>
+ *
  * <p>敏感信息警告：{@code apiKey} 是 Moka 机构私密凭证，拥有访问所有 API 的权限，
- * 严禁打印到任何日志，禁止硬编码在代码中，必须由环境变量 {@code MOKA_API_KEY} 注入。</p>
+ * 严禁打印到任何日志，禁止硬编码在代码中，必须由环境变量注入。</p>
  *
  * @author hongfu_zhou@cacch.com
  */
