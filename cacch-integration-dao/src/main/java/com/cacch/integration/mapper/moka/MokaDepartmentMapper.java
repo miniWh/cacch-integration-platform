@@ -27,7 +27,7 @@ public interface MokaDepartmentMapper extends BaseMapper<MokaDepartmentDO> {
      * @param parentCode 父部门编码，一级部门传 "0"
      * @return 子部门列表；父部门不存在时返回空列表
      */
-    @Select("SELECT * FROM moka_department WHERE parent_code = #{parentCode} ORDER BY sequence NULLS LAST, create_time")
+    @Select("SELECT * FROM t_integration_moka_department WHERE parent_code = #{parentCode} ORDER BY sequence NULLS LAST, create_time")
     List<MokaDepartmentDO> selectByParentCode(@Param("parentCode") String parentCode);
 
     /**
@@ -36,7 +36,7 @@ public interface MokaDepartmentMapper extends BaseMapper<MokaDepartmentDO> {
      * @param type 部门类型：1-普通部门，2-门店部门
      * @return 匹配类型的部门列表
      */
-    @Select("SELECT * FROM moka_department WHERE type = #{type} ORDER BY sequence NULLS LAST, create_time")
+    @Select("SELECT * FROM t_integration_moka_department WHERE type = #{type} ORDER BY sequence NULLS LAST, create_time")
     List<MokaDepartmentDO> selectByType(@Param("type") Integer type);
 
     /**
@@ -52,7 +52,7 @@ public interface MokaDepartmentMapper extends BaseMapper<MokaDepartmentDO> {
      * @param operatorEmail  操作人邮箱
      * @return 受影响行数
      */
-    @Update("INSERT INTO moka_department (department_code, name, parent_code, type, sequence, operator_email) " +
+    @Update("INSERT INTO t_integration_moka_department (department_code, name, parent_code, type, sequence, operator_email) " +
             "VALUES (#{departmentCode}, #{name}, #{parentCode}, #{type}, #{sequence}, #{operatorEmail}) " +
             "ON CONFLICT (department_code) DO UPDATE SET " +
             "name = EXCLUDED.name, " +

@@ -22,7 +22,7 @@ import java.time.LocalDateTime;
  * @author hongfu_zhou@cacch.com
  */
 @Data
-@TableName("moka_department")
+@TableName("t_integration_moka_department")
 public class MokaDepartmentDO {
 
     /**

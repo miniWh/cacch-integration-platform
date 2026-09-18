@@ -15,7 +15,7 @@ import lombok.Data;
  * @author hongfu_zhou@cacch.com
  */
 @Data
-@TableName("moka_department_localized")
+@TableName("t_integration_moka_department_localized")
 public class MokaDepartmentLocalizedDO {
 
     /**

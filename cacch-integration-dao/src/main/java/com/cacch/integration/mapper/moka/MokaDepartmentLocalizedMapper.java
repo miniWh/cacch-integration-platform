@@ -26,7 +26,7 @@ public interface MokaDepartmentLocalizedMapper extends BaseMapper<MokaDepartment
      * @param departmentCode 部门编码
      * @return 该部门的多语言条目列表；无记录时返回空列表
      */
-    @Select("SELECT department_code, locale, prop_value FROM moka_department_localized WHERE department_code = #{departmentCode} ORDER BY locale")
+    @Select("SELECT department_code, locale, prop_value FROM t_integration_moka_department_localized WHERE department_code = #{departmentCode} ORDER BY locale")
     List<MokaDepartmentLocalizedDO> selectByDepartmentCode(@Param("departmentCode") String departmentCode);
 
     /**
@@ -35,7 +35,7 @@ public interface MokaDepartmentLocalizedMapper extends BaseMapper<MokaDepartment
      * @param locale 语言代码（如 zh_CN）
      * @return 指定语言的所有部门名称映射
      */
-    @Select("SELECT department_code, locale, prop_value FROM moka_department_localized WHERE locale = #{locale}")
+    @Select("SELECT department_code, locale, prop_value FROM t_integration_moka_department_localized WHERE locale = #{locale}")
     List<MokaDepartmentLocalizedDO> selectByLocale(@Param("locale") String locale);
 
     /**
@@ -44,7 +44,7 @@ public interface MokaDepartmentLocalizedMapper extends BaseMapper<MokaDepartment
      * @param departmentCode 部门编码
      * @return 受影响行数
      */
-    @Update("DELETE FROM moka_department_localized WHERE department_code = #{departmentCode}")
+    @Update("DELETE FROM t_integration_moka_department_localized WHERE department_code = #{departmentCode}")
     int deleteByDepartmentCode(@Param("departmentCode") String departmentCode);
 
     /**
@@ -57,7 +57,7 @@ public interface MokaDepartmentLocalizedMapper extends BaseMapper<MokaDepartment
      * @param propValue      语言对应的部门名称
      * @return 受影响行数
      */
-    @Update("INSERT INTO moka_department_localized (department_code, locale, prop_value) " +
+    @Update("INSERT INTO t_integration_moka_department_localized (department_code, locale, prop_value) " +
             "VALUES (#{departmentCode}, #{locale}, #{propValue}) " +
             "ON CONFLICT (department_code, locale) DO UPDATE SET " +
             "prop_value = EXCLUDED.prop_value")
