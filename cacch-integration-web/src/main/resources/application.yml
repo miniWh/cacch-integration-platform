@@ -116,6 +116,13 @@ ihr:
   # esb-redis 模式必配：ESB access_token 完整 Redis Key（test 环境在 application-test.yml 配置）
   esb-token-key: ${IHR_ESB_TOKEN_KEY:}
 
+# ==================== Moka 开放平台（公共占位） ====================
+# 实际值请在 application-{profile}.yml 中覆盖；鉴权使用 HTTP Basic Auth（api-key 作为 username，password 为空）
+# api-key 是 Moka 机构私密凭证，拥有访问所有 API 的权限，必须由环境变量 MOKA_API_KEY 注入，禁止记入日志
+moka:
+  base-url: ${MOKA_BASE_URL:https://api.mokahr.com}
+  api-key: ${MOKA_API_KEY:}
+
 # ==================== 勤策 CRM OpenAPI（公共占位） ====================
 # 实际值请在 application-{profile}.yml 中覆盖；签名算法为 MD5(json|appkey|timestamp)
 crm:

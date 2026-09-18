@@ -82,6 +82,12 @@ ihr:
   # 若 ESB 侧重建连接配置导致 configId 变化，需同步更新此值）
   esb-token-key: ${IHR_ESB_TOKEN_KEY:authorization-config:ihr360:4a754dd792fb43aa8762da29a9039a13}
 
+# ---------- Moka 开放平台 ----------
+# api-key 必须由环境变量 MOKA_API_KEY 注入（缺失即启动失败）；严禁记入日志
+moka:
+  base-url: ${MOKA_BASE_URL:https://api.mokahr.com}
+  api-key: ${MOKA_API_KEY}
+
 # ---------- 勤策 CRM OpenAPI ----------
 # app-key 必须由环境变量 CRM_APP_KEY 注入（缺失即启动失败）
 crm:
