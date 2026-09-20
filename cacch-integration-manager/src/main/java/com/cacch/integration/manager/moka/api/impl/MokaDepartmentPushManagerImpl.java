@@ -40,11 +40,6 @@ public class MokaDepartmentPushManagerImpl implements IMokaDepartmentPushManager
     private static final String BIZ = "Moka部门推送编排";
 
     /**
-     * 操作人邮箱默认值（Moka 侧日志记录用）
-     */
-    private static final String DEFAULT_OPERATOR_EMAIL = "system@cacch.com";
-
-    /**
      * moka_sync_status 常量
      */
     private static final int STATUS_SYNCED = 1;
@@ -54,7 +49,7 @@ public class MokaDepartmentPushManagerImpl implements IMokaDepartmentPushManager
     private final IMokaOrgService mokaOrgService;
 
     @Override
-    public MokaDeptPushResult pushToMoka(String operatorEmail) {
+    public MokaDeptPushResult pushToMoka() {
         // 1) 查询本地 PG 全量部门
         List<MokaDepartmentDO> localDepts = mokaDepartmentService.listAll();
         if (localDepts.isEmpty()) {
@@ -67,9 +62,6 @@ public class MokaDepartmentPushManagerImpl implements IMokaDepartmentPushManager
         List<MokaDepartment> apiDepts = convertToApiDepartments(localDepts);
         MokaDeptSyncRequest request = new MokaDeptSyncRequest();
         request.setDepartments(apiDepts);
-        request.setOperatorEmail((operatorEmail != null && !operatorEmail.isBlank())
-                ? operatorEmail
-                : DEFAULT_OPERATOR_EMAIL);
 
         // 3) 调用 Moka 开放平台全量同步 API
         MokaDeptSyncResponse response;
@@ -79,8 +71,7 @@ public class MokaDepartmentPushManagerImpl implements IMokaDepartmentPushManager
         Integer deleteCount = null;
 
         try {
-            log.info("【{}】开始推送 Moka, deptCount={}, operatorEmail={}",
-                    BIZ, apiDepts.size(), request.getOperatorEmail());
+            log.info("【{}】开始推送 Moka, deptCount={}", BIZ, apiDepts.size());
             response = mokaOrgService.syncDepartmentsFull(request);
             mokaSuccess = true;
             newCount = response.getNewCount();

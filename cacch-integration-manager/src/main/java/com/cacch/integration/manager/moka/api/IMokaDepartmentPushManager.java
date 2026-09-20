@@ -25,10 +25,9 @@ public interface IMokaDepartmentPushManager {
      *     <li>Moka API 调用异常 / code≠0 → 全部待推送部门置 2 (SYNC_FAILED)</li>
      * </ul>
      *
-     * @param operatorEmail 操作人邮箱（可选，写入 Moka 侧日志）；null 时传 "system@cacch.com"
      * @return 推送执行结果
      */
-    MokaDeptPushResult pushToMoka(String operatorEmail);
+    MokaDeptPushResult pushToMoka();
 
     /**
      * 推送执行结果

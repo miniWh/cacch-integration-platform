@@ -41,7 +41,6 @@ public interface MokaOrgConverter {
             return null;
         }
         MokaDeptSyncRequest target = new MokaDeptSyncRequest();
-        target.setOperatorEmail(source.getOperatorEmail());
         target.setDepartments(toDepartmentList(source.getDepartments()));
         return target;
     }

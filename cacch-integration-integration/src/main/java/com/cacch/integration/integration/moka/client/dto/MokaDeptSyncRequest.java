@@ -18,9 +18,4 @@ public class MokaDeptSyncRequest {
      * 部门数据列表（必填）
      */
     private List<MokaDepartment> departments;
-
-    /**
-     * 系统内操作人邮箱 —— 仅用于 Moka 侧日志记录（可选）
-     */
-    private String operatorEmail;
 }

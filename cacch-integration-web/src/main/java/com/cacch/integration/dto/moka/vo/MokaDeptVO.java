@@ -2,7 +2,6 @@ package com.cacch.integration.dto.moka.vo;
 
 import lombok.Data;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 /**
@@ -47,9 +46,9 @@ public class MokaDeptVO {
     private Integer type;
 
     /**
-     * 部门排序，0~10000 支持两位小数
+     * 部门排序，0~10000
      */
-    private BigDecimal sequence;
+    private Integer sequence;
 
     /**
      * 部门状态：1 正常 / 0 停用

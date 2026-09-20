@@ -63,9 +63,8 @@ public class MokaOrgController {
      */
     @PutMapping("/full-sync")
     public Result<MokaDeptSyncResultVO> syncDepartmentsFull(@Valid @RequestBody MokaOrgSyncRequest request) {
-        log.info("收到 Moka 组织架构全量同步请求, departmentCount={}, operatorEmail={}",
-                request.getDepartments() == null ? 0 : request.getDepartments().size(),
-                request.getOperatorEmail());
+        log.info("收到 Moka 组织架构全量同步请求, departmentCount={}",
+                request.getDepartments() == null ? 0 : request.getDepartments().size());
         MokaDeptSyncRequest upstreamRequest = mokaOrgConverter.toUpstreamRequest(request);
         return Result.success(mokaOrgConverter.toSyncResultVO(mokaOrgService.syncDepartmentsFull(upstreamRequest)));
     }
@@ -117,7 +116,7 @@ public class MokaOrgController {
      * <ol>
      *     <li>查询本地 PG 表 {@code t_integration_moka_department} 全量记录</li>
      *     <li>查询子表 {@code t_integration_moka_department_localized} 多语言数据</li>
-     *     <li>DO → Moka API DTO 字段映射（含 sequence Integer→BigDecimal、多语言填充）</li>
+     *     <li>DO → Moka API DTO 字段映射（含多语言填充）</li>
      *     <li>调用 Moka PUT /api-platform/v2/departments 全量同步</li>
      *     <li>根据 API 返回结果更新本地 moka_sync_status：成功→1(SYNCED)、失败→2(SYNC_FAILED)</li>
      * </ol>
@@ -125,14 +124,12 @@ public class MokaOrgController {
      * <p>全量推送语义：Moka API 以 departmentCode 为主键，本次传入的 departments 即 Moka 侧完整最新列表。
      * 因此推送范围必须是本地 PG 全量，不能只推 PENDING/FAILED 的子集。</p>
      *
-     * @param operatorEmail 操作人邮箱（可选，写入 Moka 侧日志），不传默认 system@cacch.com
      * @return 推送执行结果，含 Moka 侧 new/update/delete 计数 + 本地 moka_sync_status 更新条数
      */
     @PostMapping("/push-to-moka")
-    public Result<MokaDeptPushResultVO> pushToMoka(
-            @RequestParam(value = "operatorEmail", required = false) String operatorEmail) {
-        log.info("【MokaDeptPushToMoka】开始执行本地 PG → Moka 开放平台部门全量推送, operatorEmail={}", operatorEmail);
-        IMokaDepartmentPushManager.MokaDeptPushResult result = mokaDeptPushManager.pushToMoka(operatorEmail);
+    public Result<MokaDeptPushResultVO> pushToMoka() {
+        log.info("【MokaDeptPushToMoka】开始执行本地 PG → Moka 开放平台部门全量推送");
+        IMokaDepartmentPushManager.MokaDeptPushResult result = mokaDeptPushManager.pushToMoka();
         log.info("【MokaDeptPushToMoka】推送完成, totalPushed={}, newOnMoka={}, updatedOnMoka={}, deletedOnMoka={}, syncStatusSuccess={}",
                 result.totalPushed(), result.newOnMoka(), result.updatedOnMoka(), result.deletedOnMoka(), result.syncStatusSuccess());
         return Result.success(MokaDeptPushResultVO.from(result));

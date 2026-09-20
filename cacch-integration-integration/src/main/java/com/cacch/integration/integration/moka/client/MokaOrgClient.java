@@ -65,7 +65,7 @@ public class MokaOrgClient {
      *     <li>系统有、同步时没有 → 部门标记为已删除（需手动进入 Moka 后台合并删除）</li>
      * </ul>
      *
-     * @param request 同步请求体（departments 列表必填；operatorEmail 可选）
+     * @param request 同步请求体（departments 列表必填）
      * @return Moka 同步结果响应（含 new / update / delete 数量）
      * @throws RestClientException API Key 未配置、URL 非法、HTTP 调用异常或响应体为空时抛出
      */

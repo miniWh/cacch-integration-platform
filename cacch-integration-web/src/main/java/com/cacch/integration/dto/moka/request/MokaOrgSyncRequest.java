@@ -1,17 +1,13 @@
 package com.cacch.integration.dto.moka.request;
 
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.DecimalMax;
-import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 /**
@@ -31,12 +27,6 @@ public class MokaOrgSyncRequest {
     @NotEmpty(message = "部门列表至少包含一条记录")
     @Valid
     private List<MokaDepartmentItem> departments;
-
-    /**
-     * 系统内操作人邮箱 —— 仅用于 Moka 侧日志记录（可选）
-     */
-    @Email(message = "operatorEmail 格式不合法")
-    private String operatorEmail;
 
     /**
      * 单条部门数据
@@ -72,11 +62,11 @@ public class MokaOrgSyncRequest {
         private Integer type;
 
         /**
-         * 部门排序，范围 0~10000 支持两位小数；为空默认排在最后（可选）
+         * 部门排序，范围 0~10000；为空默认排在最后（可选）
          */
-        @DecimalMin(value = "0.0", message = "sequence 范围 0~10000")
-        @DecimalMax(value = "10000.0", message = "sequence 范围 0~10000")
-        private BigDecimal sequence;
+        @Min(value = 0, message = "sequence 范围 0~10000")
+        @Max(value = 10000, message = "sequence 范围 0~10000")
+        private Integer sequence;
 
         /**
          * 部门多语言名称（可选；locale 如 zh-CN、en-US；propValue 为对应语言名称）
