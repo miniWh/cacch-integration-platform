@@ -1,6 +1,7 @@
 package com.cacch.integration.service.ihr.api.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.ResultCode;
 import com.cacch.integration.entity.ihr.IhrDepartmentDO;
@@ -45,6 +46,11 @@ public class IhrDepartmentServiceImpl implements IIhrDepartmentService {
         }
         int upserted = 0;
         for (IhrDepartmentDO d : deptList) {
+            // @TableId(ASSIGN_ID) 只对 BaseMapper.insert() 自动生效，
+            // 手写 @Update 注解绕过了 IdentifierGenerator，需手动填雪花 ID
+            if (d.getId() == null) {
+                d.setId(IdWorker.getId());
+            }
             try {
                 upserted += mapper.upsert(d, syncBatch);
             } catch (Exception e) {
