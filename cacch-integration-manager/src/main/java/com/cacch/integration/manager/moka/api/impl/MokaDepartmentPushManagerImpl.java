@@ -54,7 +54,7 @@ public class MokaDepartmentPushManagerImpl implements IMokaDepartmentPushManager
         List<MokaDepartmentDO> localDepts = mokaDepartmentService.listAll();
         if (localDepts.isEmpty()) {
             log.info("【{}】本地 PG 无部门数据，跳过推送", BIZ);
-            return new MokaDeptPushResult(0, 0, null, null, null, 0);
+            return new MokaDeptPushResult(0, 0, false, null, null, null, 0, 0, 0);
         }
         log.info("【{}】查询本地 PG 部门全量, count={}", BIZ, localDepts.size());
 
@@ -87,14 +87,20 @@ public class MokaDepartmentPushManagerImpl implements IMokaDepartmentPushManager
 
         // 4) 更新本地 moka_sync_status
         int statusToSet = mokaSuccess ? STATUS_SYNCED : STATUS_SYNC_FAILED;
-        int updated = bulkUpdateSyncStatus(localDepts, statusToSet);
-        log.info("【{}】更新本地同步状态为 {}, 更新条数={}", BIZ, statusToSet, updated);
+        int[] statusResult = bulkUpdateSyncStatus(localDepts, statusToSet);
+        // statusResult[0] = 更新影响行数, statusResult[1] = DB 异常条数
+        int updated = statusResult[0];
+        int dbUpdateFailed = statusResult[1];
+        int syncedCount = mokaSuccess ? updated : 0;
+        int syncFailedCount = mokaSuccess ? 0 : updated;
+        log.info("【{}】更新本地同步状态为 {}, 更新条数={}, DB异常={}", BIZ, statusToSet, updated, dbUpdateFailed);
 
         return new MokaDeptPushResult(
                 localDepts.size(),
                 localDepts.size(),
+                mokaSuccess,
                 newCount, updateCount, deleteCount,
-                updated
+                syncedCount, syncFailedCount, dbUpdateFailed
         );
     }
 
@@ -143,8 +149,10 @@ public class MokaDepartmentPushManagerImpl implements IMokaDepartmentPushManager
      *
      * <p>逐条调用 updateMokaSyncStatus，复用 Service 层事务边界。
      * 百级数据量可接受；若后续上万级再改批量 SQL。</p>
+     *
+     * @return int[2]: [0]=update 影响行数累加, [1]=DB 异常条数
      */
-    private int bulkUpdateSyncStatus(List<MokaDepartmentDO> depts, int targetStatus) {
+    private int[] bulkUpdateSyncStatus(List<MokaDepartmentDO> depts, int targetStatus) {
         int updated = 0;
         int failed = 0;
         for (MokaDepartmentDO dept : depts) {
@@ -157,6 +165,6 @@ public class MokaDepartmentPushManagerImpl implements IMokaDepartmentPushManager
                         BIZ, dept.getDepartmentCode(), targetStatus, failed, e);
             }
         }
-        return updated;
+        return new int[]{updated, failed};
     }
 }

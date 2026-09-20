@@ -32,15 +32,21 @@ public interface IMokaDepartmentPushManager {
     /**
      * 推送执行结果
      *
-     * @param totalPushed       查询出的待推送部门总数
-     * @param syncedToMoka      本次推送到 Moka 的条数（等于 totalPushed，因为是全量推送）
-     * @param newOnMoka         Moka 侧新增数量（API 返回）
-     * @param updatedOnMoka     Moka 侧更新数量（API 返回）
-     * @param deletedOnMoka     Moka 侧标记删除数量（API 返回，本地无对应部门）
-     * @param syncStatusSuccess 本地 moka_sync_status 成功更新为 1 的条数
+     * @param totalPushed         查询出的待推送部门总数
+     * @param syncedToMoka        本次推送到 Moka 的条数（等于 totalPushed，因为是全量推送）
+     * @param mokaApiSuccess      Moka API 调用是否成功（true = code=0，false = 异常或 code≠0）
+     * @param newOnMoka           Moka 侧新增数量（API 返回；mokaApiSuccess=false 时为 null）
+     * @param updatedOnMoka       Moka 侧更新数量（API 返回；mokaApiSuccess=false 时为 null）
+     * @param deletedOnMoka       Moka 侧标记删除数量（API 返回；mokaApiSuccess=false 时为 null）
+     * @param syncedCount         本地 moka_sync_status 更新为 1（SYNCED）的条数
+     *                            （Moka API 成功时才会有值，失败时为 0）
+     * @param syncFailedCount     本地 moka_sync_status 更新为 2（SYNC_FAILED）的条数
+     *                            （Moka API 失败时才会有值，成功时为 0）
+     * @param dbUpdateFailedCount DB 状态更新自身抛异常的条数（逐条 try-catch 累计）
      */
     record MokaDeptPushResult(int totalPushed, int syncedToMoka,
+                              boolean mokaApiSuccess,
                               Integer newOnMoka, Integer updatedOnMoka, Integer deletedOnMoka,
-                              int syncStatusSuccess) {
+                              int syncedCount, int syncFailedCount, int dbUpdateFailedCount) {
     }
 }

@@ -130,8 +130,8 @@ public class MokaOrgController {
     public Result<MokaDeptPushResultVO> pushToMoka() {
         log.info("【MokaDeptPushToMoka】开始执行本地 PG → Moka 开放平台部门全量推送");
         IMokaDepartmentPushManager.MokaDeptPushResult result = mokaDeptPushManager.pushToMoka();
-        log.info("【MokaDeptPushToMoka】推送完成, totalPushed={}, newOnMoka={}, updatedOnMoka={}, deletedOnMoka={}, syncStatusSuccess={}",
-                result.totalPushed(), result.newOnMoka(), result.updatedOnMoka(), result.deletedOnMoka(), result.syncStatusSuccess());
+        log.info("【MokaDeptPushToMoka】推送完成, totalPushed={}, mokaApiSuccess={}, newOnMoka={}, updatedOnMoka={}, deletedOnMoka={}, syncedCount={}, syncFailedCount={}, dbUpdateFailed={}",
+                result.totalPushed(), result.mokaApiSuccess(), result.newOnMoka(), result.updatedOnMoka(), result.deletedOnMoka(), result.syncedCount(), result.syncFailedCount(), result.dbUpdateFailedCount());
         return Result.success(MokaDeptPushResultVO.from(result));
     }
 }
