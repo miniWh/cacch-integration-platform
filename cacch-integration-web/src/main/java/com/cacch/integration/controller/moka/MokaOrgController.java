@@ -87,22 +87,25 @@ public class MokaOrgController {
     }
 
     /**
-     * 从 IHR 全量同步部门到本地 Moka 表（手动触发）
+     * 从本地 IHR 部门快照同步到 Moka 表（手动触发）
      *
      * <p>执行流程：
      * <ol>
-     *     <li>调用 IHR 部门查询接口，循环翻页拉取全量数据</li>
+     *     <li>从本地 {@code t_integration_ihr_department} 表读取 {@code department_status='ENABLE'} 的部门快照</li>
      *     <li>字段映射：iHR 字段 → t_integration_moka_department 主表 + t_integration_moka_department_localized 子表</li>
      *     <li>批量 upsert 落库（主表按 department_code upsert，子表固定 locale=zh_CN）</li>
      * </ol>
      *
+     * <p>本接口不再回源调用 IHR 开放平台，IHR 数据刷新由独立的
+     * {@code POST /api/v1/ihr/departments/sync} 接口负责。建议先刷新 IHR 快照再调用本接口。</p>
+     *
      * <p>请求体为空（{} 或不传）即可触发；同步过程为同步阻塞，建议在低峰期执行。</p>
      *
-     * @return 同步执行结果，含总拉取数 / 主表成功数 / 子表成功数 / 跳过数
+     * @return 同步执行结果，含总读取数 / 主表成功数 / 子表成功数 / 跳过数
      */
     @PostMapping("/sync-from-ihr")
     public Result<MokaDeptSyncFromIhrResultVO> syncFromIhr() {
-        log.info("【MokaDeptSyncFromIhr】开始执行 IHR → Moka 全量部门同步");
+        log.info("【MokaDeptSyncFromIhr】开始执行 IHR 本地快照 → Moka 部门同步");
         IMokaDepartmentSyncManager.MokaDeptSyncResult result = mokaDeptSyncManager.syncFromIhr();
         log.info("【MokaDeptSyncFromIhr】同步完成, totalFetched={}, deptUpserted={}, localizedUpserted={}, deptSkipped={}",
                 result.totalFetched(), result.deptUpserted(), result.localizedUpserted(), result.deptSkipped());

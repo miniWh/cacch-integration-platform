@@ -1,6 +1,6 @@
 package com.cacch.integration.service.ihr.api.impl;
 
-import com.baomidou.mybatisplus.core.toolkit.IdWorker;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.ResultCode;
 import com.cacch.integration.entity.ihr.IhrDepartmentDO;
@@ -11,6 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -24,6 +25,11 @@ import java.util.List;
 public class IhrDepartmentServiceImpl implements IIhrDepartmentService {
 
     private static final String BIZ = "IHR 部门快照 Service";
+
+    /**
+     * 部门启用状态枚举值（对齐 iHR 接口返回）
+     */
+    private static final String DEPARTMENT_STATUS_ENABLE = "ENABLE";
 
     private final IhrDepartmentMapper mapper;
 
@@ -39,11 +45,6 @@ public class IhrDepartmentServiceImpl implements IIhrDepartmentService {
         }
         int upserted = 0;
         for (IhrDepartmentDO d : deptList) {
-            // @TableId(ASSIGN_ID) 只对 BaseMapper.insert() 自动生效，
-            // 手写 @Update 注解绕过了 IdentifierGenerator，需手动填雪花 ID
-            if (d.getId() == null) {
-                d.setId(IdWorker.getId());
-            }
             try {
                 upserted += mapper.upsert(d, syncBatch);
             } catch (Exception e) {
@@ -53,5 +54,20 @@ public class IhrDepartmentServiceImpl implements IIhrDepartmentService {
             }
         }
         return upserted;
+    }
+
+    @Override
+    public List<IhrDepartmentDO> listEnabled() {
+        LambdaQueryWrapper<IhrDepartmentDO> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(IhrDepartmentDO::getDepartmentStatus, DEPARTMENT_STATUS_ENABLE)
+                .orderByAsc(IhrDepartmentDO::getSequence)
+                .orderByAsc(IhrDepartmentDO::getId);
+        List<IhrDepartmentDO> list = mapper.selectList(wrapper);
+        if (list == null || list.isEmpty()) {
+            log.info("【{}】listEnabled 返回空, 无 ENABLE 状态部门", BIZ);
+            return Collections.emptyList();
+        }
+        log.info("【{}】listEnabled 命中, count={}", BIZ, list.size());
+        return list;
     }
 }

@@ -1,13 +1,10 @@
 package com.cacch.integration.manager.moka.api.impl;
 
-import com.cacch.integration.common.exception.BizException;
+import com.cacch.integration.entity.ihr.IhrDepartmentDO;
 import com.cacch.integration.entity.moka.MokaDepartmentDO;
 import com.cacch.integration.entity.moka.MokaDepartmentLocalizedDO;
-import com.cacch.integration.integration.ihr.client.dto.IhrDepartment;
-import com.cacch.integration.integration.ihr.client.dto.IhrOrgSearchRequest;
-import com.cacch.integration.integration.ihr.client.dto.IhrOrgSearchResponse;
-import com.cacch.integration.manager.ihr.api.IIhrOrgManager;
 import com.cacch.integration.manager.moka.api.IMokaDepartmentSyncManager;
+import com.cacch.integration.service.ihr.api.IIhrDepartmentService;
 import com.cacch.integration.service.moka.api.IMokaDepartmentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,13 +14,17 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Moka 部门同步编排实现 — 从 IHR 翻页拉取全量部门，映射后批量 upsert 到 Moka 表
+ * Moka 部门同步编排实现 — 从本地 IHR 部门快照表读取启用状态部门，映射后批量 upsert 到 Moka 表
  *
- * <p>调用链：Controller → syncFromIhr() → IIhrOrgManager.searchDepartments()（循环翻页）
+ * <p>调用链：Controller → syncFromIhr() → IIhrDepartmentService.listEnabled()
+ * （一次性读取 {@code t_integration_ihr_department} 中 {@code department_status='ENABLE'} 的记录）
  * → 字段映射 → IMokaDepartmentService.batchUpsert()（主表）+ batchUpsertLocalized()（子表）</p>
  *
- * <p>事务策略：每次批量 upsert 独立事务（Propagation.REQUIRES_NEW 由 Service 内部控制），
+ * <p>事务策略：每次批量 upsert 独立事务（由 Service 内部 {@code @Transactional} 控制），
  * Manager 层不在外层包裹大事务，避免长事务锁表。</p>
+ *
+ * <p>变更说明：原实现通过 {@code IIhrOrgManager.searchDepartments()} 循环翻页回源调用 IHR 开放平台，
+ * 现改为只读本地快照表。IHR 数据刷新由独立的 {@code POST /api/v1/ihr/departments/sync} 接口负责。</p>
  *
  * @author hongfu_zhou@cacch.com
  */
@@ -35,11 +36,6 @@ public class MokaDepartmentSyncManagerImpl implements IMokaDepartmentSyncManager
     private static final String BIZ = "Moka部门同步编排";
 
     /**
-     * 每次从 IHR 拉取的条数（分页 size）
-     */
-    private static final int PAGE_SIZE = 100;
-
-    /**
      * 子表 locale 固定值
      */
     private static final String LOCALE_ZH_CN = "zh_CN";
@@ -49,76 +45,52 @@ public class MokaDepartmentSyncManagerImpl implements IMokaDepartmentSyncManager
      */
     private static final String ROOT_PARENT_CODE = "0";
 
-    private final IIhrOrgManager ihrOrgManager;
+    private final IIhrDepartmentService ihrDepartmentService;
     private final IMokaDepartmentService mokaDepartmentService;
 
     @Override
     public MokaDeptSyncResult syncFromIhr() {
-        log.info("【{}】开始从 IHR 全量同步部门到 Moka 表, pageSize={}", BIZ, PAGE_SIZE);
+        log.info("【{}】开始从本地 IHR 部门快照表同步启用状态部门到 Moka 表", BIZ);
 
-        int totalFetched = 0;
+        // 一次性读取本地 IHR 部门快照表（department_status='ENABLE' 且未逻辑删除）
+        List<IhrDepartmentDO> ihrDepts = ihrDepartmentService.listEnabled();
+        int totalFetched = ihrDepts.size();
+        log.info("【{}】本地 IHR 部门快照命中, count={}", BIZ, totalFetched);
+
+        if (ihrDepts.isEmpty()) {
+            log.info("【{}】本地 IHR 快照为空, 同步结束（请先调用 POST /api/v1/ihr/departments/sync 刷新快照）", BIZ);
+            return new MokaDeptSyncResult(0, 0, 0, 0);
+        }
+
+        // 逐条转换并加入批次
+        List<MokaDepartmentDO> deptBatch = new ArrayList<>(totalFetched);
+        List<MokaDepartmentLocalizedDO> localBatch = new ArrayList<>(totalFetched);
         int deptSkipped = 0;
 
-        // 逐页拉取 IHR 数据，每次收集一批（PAGE_SIZE * BATCH_PAGES）后批量 upsert
-        // 这里简化为每 PAGE_SIZE 条一批，避免单次 upsert 列表过大
-        List<MokaDepartmentDO> deptBatch = new ArrayList<>(PAGE_SIZE);
-        List<MokaDepartmentLocalizedDO> localBatch = new ArrayList<>(PAGE_SIZE);
-
-        int page = 0;
-        boolean end = false;
-        while (!end) {
-            IhrOrgSearchRequest request = new IhrOrgSearchRequest();
-            request.setPage(page);
-            request.setSize(PAGE_SIZE);
-            // searchArgsList 留空 = 全量查询
-
-            IhrOrgSearchResponse response;
-            try {
-                response = ihrOrgManager.searchDepartments(request);
-            } catch (BizException e) {
-                log.info("【{}】IHR 查询终止, page={}, reason={}", BIZ, page, e.getMessage());
-                throw e;
+        for (IhrDepartmentDO ihrDept : ihrDepts) {
+            // 校验：departmentCode 为空则跳过
+            if (ihrDept.getDepartmentCode() == null || ihrDept.getDepartmentCode().isBlank()) {
+                deptSkipped++;
+                log.info("【{}】跳过无 departmentCode 的部门, uuid={}, name={}",
+                        BIZ, ihrDept.getUuid(), ihrDept.getName());
+                continue;
             }
 
-            List<IhrDepartment> content = response.getData();
-            if (content == null || content.isEmpty()) {
-                log.info("【{}】IHR 返回空页, page={}, 结束拉取", BIZ, page);
-                break;
-            }
+            // 主表映射
+            MokaDepartmentDO mokaDept = mapMainTable(ihrDept);
+            deptBatch.add(mokaDept);
 
-            totalFetched += content.size();
-            log.info("【{}】IHR 分页拉取, page={}, currentSize={}, totalFetched={}, ihrEnd={}",
-                    BIZ, page, content.size(), totalFetched, response.getEnd());
-
-            // 逐条转换并加入批次
-            for (IhrDepartment ihrDept : content) {
-                // 校验：departmentCode 为空则跳过
-                if (ihrDept.getDepartmentCode() == null || ihrDept.getDepartmentCode().isBlank()) {
-                    deptSkipped++;
-                    log.info("【{}】跳过无 departmentCode 的部门, uuid={}, name={}",
-                            BIZ, ihrDept.getUuid(), ihrDept.getName());
-                    continue;
-                }
-
-                // 主表映射
-                MokaDepartmentDO mokaDept = mapMainTable(ihrDept);
-                deptBatch.add(mokaDept);
-
-                // 子表映射（固定 zh_CN，prop_value = name）
-                MokaDepartmentLocalizedDO localized = new MokaDepartmentLocalizedDO();
-                localized.setDepartmentCode(mokaDept.getDepartmentCode());
-                localized.setLocale(LOCALE_ZH_CN);
-                localized.setPropValue(mokaDept.getName());
-                localBatch.add(localized);
-            }
-
-            // 翻页终止条件
-            end = Boolean.TRUE.equals(response.getEnd());
-            page++;
+            // 子表映射（固定 zh_CN，prop_value = name）
+            MokaDepartmentLocalizedDO localized = new MokaDepartmentLocalizedDO();
+            localized.setDepartmentCode(mokaDept.getDepartmentCode());
+            localized.setLocale(LOCALE_ZH_CN);
+            localized.setPropValue(mokaDept.getName());
+            localBatch.add(localized);
         }
 
         if (deptBatch.isEmpty()) {
-            log.info("【{}】IHR 未拉取到有效部门, 同步结束", BIZ);
+            log.info("【{}】本地 IHR 快照无有效部门（全部缺 departmentCode）, 同步结束, totalFetched={}, skipped={}",
+                    BIZ, totalFetched, deptSkipped);
             return new MokaDeptSyncResult(totalFetched, 0, 0, deptSkipped);
         }
 
@@ -138,7 +110,7 @@ public class MokaDepartmentSyncManagerImpl implements IMokaDepartmentSyncManager
     // —— 字段映射 ——
 
     /**
-     * IhrDepartment → MokaDepartmentDO 字段映射
+     * IhrDepartmentDO → MokaDepartmentDO 字段映射
      *
      * <p>映射规则：
      * <ul>
@@ -150,7 +122,7 @@ public class MokaDepartmentSyncManagerImpl implements IMokaDepartmentSyncManager
      *     <li>mokaSyncStatus → 0（PENDING，未同步到 Moka 开放平台）</li>
      * </ul>
      */
-    private MokaDepartmentDO mapMainTable(IhrDepartment ihr) {
+    private MokaDepartmentDO mapMainTable(IhrDepartmentDO ihr) {
         MokaDepartmentDO moka = new MokaDepartmentDO();
 
         moka.setDepartmentCode(ihr.getDepartmentCode());
