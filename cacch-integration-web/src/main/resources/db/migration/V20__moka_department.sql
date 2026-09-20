@@ -9,7 +9,6 @@ CREATE TABLE IF NOT EXISTS t_integration_moka_department (
     parent_code      VARCHAR(500) NOT NULL,
     type            SMALLINT,
     sequence        NUMERIC(10, 2),
-    operator_email  VARCHAR(255),
     create_time     TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
@@ -19,7 +18,6 @@ COMMENT ON COLUMN t_integration_moka_department.name            IS '部门名称
 COMMENT ON COLUMN t_integration_moka_department.parent_code     IS '上级部门唯一id，一级部门传"0"';
 COMMENT ON COLUMN t_integration_moka_department.type            IS '部门类型：1-普通部门（默认），2-门店部门';
 COMMENT ON COLUMN t_integration_moka_department.sequence         IS '部门排序，支持0~10000两位小数，为空默认排在最后';
-COMMENT ON COLUMN t_integration_moka_department.operator_email   IS '系统内操作人邮箱（用于记录日志）';
 COMMENT ON COLUMN t_integration_moka_department.create_time     IS '记录创建时间';
 
 -- 多语言子表：外键关联主表，on delete cascade 级联删除

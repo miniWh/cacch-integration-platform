@@ -13,7 +13,6 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -64,8 +63,7 @@ public class MokaDepartmentServiceImpl implements IMokaDepartmentService {
                 dept.getName(),
                 dept.getParentCode(),
                 dept.getType(),
-                dept.getSequence(),
-                dept.getOperatorEmail()
+                dept.getSequence()
         );
         if (rows == 0) {
             log.warn("【MokaDept】upsert 主表影响 0 行, departmentCode={}", dept.getDepartmentCode());
@@ -89,8 +87,7 @@ public class MokaDepartmentServiceImpl implements IMokaDepartmentService {
                         dept.getName(),
                         dept.getParentCode(),
                         dept.getType(),
-                        dept.getSequence(),
-                        dept.getOperatorEmail()
+                        dept.getSequence()
                 );
                 success++;
             } catch (Exception e) {

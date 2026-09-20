@@ -3,16 +3,19 @@ package com.cacch.integration.controller.moka;
 import com.cacch.integration.common.result.Result;
 import com.cacch.integration.convert.moka.MokaOrgConverter;
 import com.cacch.integration.dto.moka.request.MokaOrgSyncRequest;
+import com.cacch.integration.dto.moka.vo.MokaDeptSyncFromIhrResultVO;
 import com.cacch.integration.dto.moka.vo.MokaDeptSyncResultVO;
 import com.cacch.integration.dto.moka.vo.MokaDeptVO;
 import com.cacch.integration.integration.moka.client.dto.MokaDeptListResponse;
 import com.cacch.integration.integration.moka.client.dto.MokaDeptSyncRequest;
+import com.cacch.integration.manager.moka.api.IMokaDepartmentSyncManager;
 import com.cacch.integration.service.moka.api.IMokaOrgService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -24,8 +27,13 @@ import java.util.List;
 /**
  * Moka 组织架构 REST 接口（测试用）
  *
- * <p>对外暴露「组织架构全量同步」接口，调用方传入部门列表，本服务透传至 Moka。
- * 鉴权：Moka API Key 由配置文件 {@code moka.api-key}（经环境变量 {@code MOKA_API_KEY} 注入）注入，
+ * <p>对外暴露三类接口：
+ * <ul>
+ *     <li>Moka 开放平台 API 透传（PUT full-sync / GET departments）—— 调用方 → 本服务 → Moka</li>
+ *     <li>IHR → Moka 本地表同步（POST sync-from-ihr）—— 本服务 → IHR 拉全量 → 落 PG 表</li>
+ * </ul>
+ *
+ * <p>鉴权：Moka API Key 由配置文件 {@code moka.api-key}（经环境变量 {@code MOKA_API_KEY} 注入）注入，
  * 调用方无需传递密钥。</p>
  *
  * @author hongfu_zhou@cacch.com
@@ -39,6 +47,7 @@ public class MokaOrgController {
 
     private final IMokaOrgService mokaOrgService;
     private final MokaOrgConverter mokaOrgConverter;
+    private final IMokaDepartmentSyncManager mokaDeptSyncManager;
 
     /**
      * 组织架构全量同步 —— 透传 Moka API {@code PUT /api-platform/v2/departments}
@@ -73,5 +82,28 @@ public class MokaOrgController {
         log.info("收到 Moka 获取全量组织架构请求, updateTimeStart={}", updateTimeStart);
         MokaDeptListResponse response = mokaOrgService.getDepartments(updateTimeStart);
         return Result.success(mokaOrgConverter.toDeptVOList(response));
+    }
+
+    /**
+     * 从 IHR 全量同步部门到本地 Moka 表（手动触发）
+     *
+     * <p>执行流程：
+     * <ol>
+     *     <li>调用 IHR 部门查询接口，循环翻页拉取全量数据</li>
+     *     <li>字段映射：iHR 字段 → t_integration_moka_department 主表 + t_integration_moka_department_localized 子表</li>
+     *     <li>批量 upsert 落库（主表按 department_code upsert，子表固定 locale=zh_CN）</li>
+     * </ol>
+     *
+     * <p>请求体为空（{} 或不传）即可触发；同步过程为同步阻塞，建议在低峰期执行。</p>
+     *
+     * @return 同步执行结果，含总拉取数 / 主表成功数 / 子表成功数 / 跳过数
+     */
+    @PostMapping("/sync-from-ihr")
+    public Result<MokaDeptSyncFromIhrResultVO> syncFromIhr() {
+        log.info("【MokaDeptSyncFromIhr】开始执行 IHR → Moka 全量部门同步");
+        IMokaDepartmentSyncManager.MokaDeptSyncResult result = mokaDeptSyncManager.syncFromIhr();
+        log.info("【MokaDeptSyncFromIhr】同步完成, totalFetched={}, deptUpserted={}, localizedUpserted={}, deptSkipped={}",
+                result.totalFetched(), result.deptUpserted(), result.localizedUpserted(), result.deptSkipped());
+        return Result.success(MokaDeptSyncFromIhrResultVO.from(result));
     }
 }

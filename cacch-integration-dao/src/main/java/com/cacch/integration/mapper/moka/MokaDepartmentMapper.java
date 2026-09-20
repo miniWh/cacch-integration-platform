@@ -49,21 +49,18 @@ public interface MokaDepartmentMapper extends BaseMapper<MokaDepartmentDO> {
      * @param parentCode     父部门编码
      * @param type           部门类型
      * @param sequence       排序
-     * @param operatorEmail  操作人邮箱
      * @return 受影响行数
      */
-    @Update("INSERT INTO t_integration_moka_department (department_code, name, parent_code, type, sequence, operator_email) " +
-            "VALUES (#{departmentCode}, #{name}, #{parentCode}, #{type}, #{sequence}, #{operatorEmail}) " +
+    @Update("INSERT INTO t_integration_moka_department (department_code, name, parent_code, type, sequence) " +
+            "VALUES (#{departmentCode}, #{name}, #{parentCode}, #{type}, #{sequence}) " +
             "ON CONFLICT (department_code) DO UPDATE SET " +
             "name = EXCLUDED.name, " +
             "parent_code = EXCLUDED.parent_code, " +
             "type = EXCLUDED.type, " +
-            "sequence = EXCLUDED.sequence, " +
-            "operator_email = EXCLUDED.operator_email")
+            "sequence = EXCLUDED.sequence")
     int upsert(@Param("departmentCode") String departmentCode,
                @Param("name") String name,
                @Param("parentCode") String parentCode,
                @Param("type") Integer type,
-               @Param("sequence") BigDecimal sequence,
-               @Param("operatorEmail") String operatorEmail);
+               @Param("sequence") BigDecimal sequence);
 }

@@ -52,11 +52,6 @@ public class MokaDepartmentDO {
     private BigDecimal sequence;
 
     /**
-     * 系统内操作人邮箱（用于记录日志）
-     */
-    private String operatorEmail;
-
-    /**
      * 记录创建时间
      */
     @TableField(fill = com.baomidou.mybatisplus.annotation.FieldFill.INSERT)
