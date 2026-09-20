@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS t_integration_ihr_department (
     establish_date          VARCHAR(32),              -- 设立日期（iHR 返回 String）
     effective_date          VARCHAR(32),              -- 生效日期（iHR 返回 String）
     remark                  VARCHAR(500),             -- 备注
-    sequence                BIGINT,                   -- 顺序
+    sequence                INTEGER,                   -- 顺序（iHR 返回 Integer）
     -- ========== 审计/辅助字段 ==========
     sync_batch              VARCHAR(64),              -- 同步批次号（每次全量/增量同步生成唯一值，便于追溯）
     created_at              TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
