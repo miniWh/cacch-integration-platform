@@ -2,7 +2,6 @@ package com.cacch.integration.integration.moka.client.dto;
 
 import lombok.Data;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 /**
@@ -39,9 +38,9 @@ public class MokaDepartment {
     private Integer type;
 
     /**
-     * 部门排序，范围 0~10000 支持两位小数；为空默认排在最后，按排序从小到大、创建时间从先到后（可选）
+     * 部门排序，范围 0~10000；为空默认排在最后，按排序从小到大、创建时间从先到后（可选）
      */
-    private BigDecimal sequence;
+    private Integer sequence;
 
     /**
      * 部门名称的多语言信息（可选；只能传入 Moka 已开通的语言；name 字段默认作为 zh-CN）
