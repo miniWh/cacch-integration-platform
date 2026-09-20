@@ -13,7 +13,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -147,7 +146,8 @@ public class MokaDepartmentSyncManagerImpl implements IMokaDepartmentSyncManager
      *     <li>name → name</li>
      *     <li>parentDepartmentCode → parent_code（null/空兜底 "0"）</li>
      *     <li>type（COMPANY/DEPARTMENT/STORE）→ type（1/1/2）</li>
-     *     <li>sequence → sequence（Long → BigDecimal）</li>
+     *     <li>sequence → sequence（Integer 直接赋值，默认 null → 9999）</li>
+     *     <li>mokaSyncStatus → 0（PENDING，未同步到 Moka 开放平台）</li>
      * </ul>
      */
     private MokaDepartmentDO mapMainTable(IhrDepartment ihr) {
@@ -165,10 +165,11 @@ public class MokaDepartmentSyncManagerImpl implements IMokaDepartmentSyncManager
         // type 枚举转换
         moka.setType(convertType(ihr.getType()));
 
-        // sequence：Long → BigDecimal
-        if (ihr.getSequence() != null) {
-            moka.setSequence(BigDecimal.valueOf(ihr.getSequence().longValue()));
-        }
+        // sequence：iHR 为 Integer，直接赋值；null 时兜底 9999（排到最后）
+        moka.setSequence(ihr.getSequence() != null ? ihr.getSequence() : 9999);
+
+        // Moka 开放平台同步状态：默认 0-未同步，等后续调 Moka API 写入成功后置 1
+        moka.setMokaSyncStatus(0);
 
         return moka;
     }

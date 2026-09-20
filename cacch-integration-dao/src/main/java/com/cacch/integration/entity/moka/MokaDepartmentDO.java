@@ -6,14 +6,13 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * Moka 组织架构部门主表 DO —— 映射 PG 表 {@code moka_department}
+ * Moka 组织架构部门主表 DO —— 映射 PG 表 {@code t_integration_moka_department}
  *
  * <p>主键为客户系统的 department_code（业务唯一标识），
- * 并非雪花 BIGINT 主键。MyBatis-Plus 需使用 {@link IdType#INPUT} 或 {@link IdType#NONE}。</p>
+ * 并非雪花 BIGINT 主键。MyBatis-Plus 需使用 {@link IdType#INPUT}。</p>
  *
  * <p>注意：该表与本项目其他业务表（{@code t_integration_*}）结构不同，
  * 缺少 {@code is_deleted} 逻辑删除字段和 {@code updated_at} 更新时间字段，
@@ -47,9 +46,14 @@ public class MokaDepartmentDO {
     private Integer type;
 
     /**
-     * 部门排序，支持 0~10000 两位小数，为空默认排在最后
+     * 部门排序号（整数），值越小越靠前，默认 9999 表示排在最后
      */
-    private BigDecimal sequence;
+    private Integer sequence;
+
+    /**
+     * Moka 开放平台同步状态：0-未同步 1-已同步 2-同步失败
+     */
+    private Integer mokaSyncStatus;
 
     /**
      * 记录创建时间

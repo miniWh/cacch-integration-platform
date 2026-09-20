@@ -56,6 +56,11 @@ public class MokaDepartmentServiceImpl implements IMokaDepartmentService {
     }
 
     @Override
+    public List<MokaDepartmentDO> listByMokaSyncStatus(Integer mokaSyncStatus) {
+        return deptMapper.selectByMokaSyncStatus(mokaSyncStatus);
+    }
+
+    @Override
     @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED, readOnly = false, timeout = 10)
     public MokaDepartmentDO upsert(MokaDepartmentDO dept) {
         int rows = deptMapper.upsert(
@@ -63,7 +68,8 @@ public class MokaDepartmentServiceImpl implements IMokaDepartmentService {
                 dept.getName(),
                 dept.getParentCode(),
                 dept.getType(),
-                dept.getSequence()
+                dept.getSequence(),
+                dept.getMokaSyncStatus()
         );
         if (rows == 0) {
             log.warn("【MokaDept】upsert 主表影响 0 行, departmentCode={}", dept.getDepartmentCode());
@@ -87,7 +93,8 @@ public class MokaDepartmentServiceImpl implements IMokaDepartmentService {
                         dept.getName(),
                         dept.getParentCode(),
                         dept.getType(),
-                        dept.getSequence()
+                        dept.getSequence(),
+                        dept.getMokaSyncStatus()
                 );
                 success++;
             } catch (Exception e) {
@@ -106,6 +113,12 @@ public class MokaDepartmentServiceImpl implements IMokaDepartmentService {
     public int deleteByCode(String departmentCode) {
         // 子表通过外键 ON DELETE CASCADE 自动清除，主表直接删
         return deptMapper.deleteById(departmentCode);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED, readOnly = false, timeout = 10)
+    public int updateMokaSyncStatus(String departmentCode, Integer mokaSyncStatus) {
+        return deptMapper.updateMokaSyncStatus(departmentCode, mokaSyncStatus);
     }
 
     @Override

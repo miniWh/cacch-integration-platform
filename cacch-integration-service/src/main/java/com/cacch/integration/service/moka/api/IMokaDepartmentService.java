@@ -49,6 +49,14 @@ public interface IMokaDepartmentService {
     List<MokaDepartmentDO> listByType(Integer type);
 
     /**
+     * 按 Moka 开放平台同步状态筛选
+     *
+     * @param mokaSyncStatus 同步状态：0-未同步 1-已同步 2-同步失败
+     * @return 匹配状态的部门列表
+     */
+    List<MokaDepartmentDO> listByMokaSyncStatus(Integer mokaSyncStatus);
+
+    /**
      * 单条 upsert（INSERT ... ON CONFLICT DO UPDATE）
      *
      * @param dept 部门实体，departmentCode 不可为空
@@ -71,6 +79,15 @@ public interface IMokaDepartmentService {
      * @return 删除条数
      */
     int deleteByCode(String departmentCode);
+
+    /**
+     * 更新指定部门的 Moka 开放平台同步状态
+     *
+     * @param departmentCode 部门编码
+     * @param mokaSyncStatus 目标状态：0-未同步 1-已同步 2-同步失败
+     * @return 受影响行数
+     */
+    int updateMokaSyncStatus(String departmentCode, Integer mokaSyncStatus);
 
     /**
      * 清空所有部门数据（谨慎使用）

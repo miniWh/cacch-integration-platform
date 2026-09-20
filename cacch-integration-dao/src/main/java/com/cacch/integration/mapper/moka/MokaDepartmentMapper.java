@@ -7,7 +7,6 @@ import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 /**
@@ -27,7 +26,7 @@ public interface MokaDepartmentMapper extends BaseMapper<MokaDepartmentDO> {
      * @param parentCode 父部门编码，一级部门传 "0"
      * @return 子部门列表；父部门不存在时返回空列表
      */
-    @Select("SELECT * FROM t_integration_moka_department WHERE parent_code = #{parentCode} ORDER BY sequence NULLS LAST, create_time")
+    @Select("SELECT * FROM t_integration_moka_department WHERE parent_code = #{parentCode} ORDER BY sequence, create_time")
     List<MokaDepartmentDO> selectByParentCode(@Param("parentCode") String parentCode);
 
     /**
@@ -36,8 +35,17 @@ public interface MokaDepartmentMapper extends BaseMapper<MokaDepartmentDO> {
      * @param type 部门类型：1-普通部门，2-门店部门
      * @return 匹配类型的部门列表
      */
-    @Select("SELECT * FROM t_integration_moka_department WHERE type = #{type} ORDER BY sequence NULLS LAST, create_time")
+    @Select("SELECT * FROM t_integration_moka_department WHERE type = #{type} ORDER BY sequence, create_time")
     List<MokaDepartmentDO> selectByType(@Param("type") Integer type);
+
+    /**
+     * 按 Moka 同步状态筛选部门列表
+     *
+     * @param mokaSyncStatus 同步状态：0-未同步 1-已同步 2-同步失败
+     * @return 匹配状态的部门列表
+     */
+    @Select("SELECT * FROM t_integration_moka_department WHERE moka_sync_status = #{mokaSyncStatus} ORDER BY sequence, create_time")
+    List<MokaDepartmentDO> selectByMokaSyncStatus(@Param("mokaSyncStatus") Integer mokaSyncStatus);
 
     /**
      * UPSERT：INSERT ON CONFLICT (department_code) DO UPDATE
@@ -48,19 +56,33 @@ public interface MokaDepartmentMapper extends BaseMapper<MokaDepartmentDO> {
      * @param name           部门名称
      * @param parentCode     父部门编码
      * @param type           部门类型
-     * @param sequence       排序
+     * @param sequence       排序号（整数）
+     * @param mokaSyncStatus Moka 同步状态
      * @return 受影响行数
      */
-    @Update("INSERT INTO t_integration_moka_department (department_code, name, parent_code, type, sequence) " +
-            "VALUES (#{departmentCode}, #{name}, #{parentCode}, #{type}, #{sequence}) " +
+    @Update("INSERT INTO t_integration_moka_department (department_code, name, parent_code, type, sequence, moka_sync_status) " +
+            "VALUES (#{departmentCode}, #{name}, #{parentCode}, #{type}, #{sequence}, #{mokaSyncStatus}) " +
             "ON CONFLICT (department_code) DO UPDATE SET " +
             "name = EXCLUDED.name, " +
             "parent_code = EXCLUDED.parent_code, " +
             "type = EXCLUDED.type, " +
-            "sequence = EXCLUDED.sequence")
+            "sequence = EXCLUDED.sequence, " +
+            "moka_sync_status = EXCLUDED.moka_sync_status")
     int upsert(@Param("departmentCode") String departmentCode,
                @Param("name") String name,
                @Param("parentCode") String parentCode,
                @Param("type") Integer type,
-               @Param("sequence") BigDecimal sequence);
+               @Param("sequence") Integer sequence,
+               @Param("mokaSyncStatus") Integer mokaSyncStatus);
+
+    /**
+     * 更新指定部门的 Moka 同步状态
+     *
+     * @param departmentCode 部门编码
+     * @param mokaSyncStatus 目标状态：0-未同步 1-已同步 2-同步失败
+     * @return 受影响行数
+     */
+    @Update("UPDATE t_integration_moka_department SET moka_sync_status = #{mokaSyncStatus} WHERE department_code = #{departmentCode}")
+    int updateMokaSyncStatus(@Param("departmentCode") String departmentCode,
+                             @Param("mokaSyncStatus") Integer mokaSyncStatus);
 }
