@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS t_integration_ihr_department (
     establish_date          VARCHAR(32),              -- 设立日期（iHR 返回 String）
     effective_date          VARCHAR(32),              -- 生效日期（iHR 返回 String）
     remark                  VARCHAR(500),             -- 备注
-    sequence                BIGINT,                   -- 顺序（iHR 返回 Integer，PostgreSQL 自动兼容）
+    sequence                Integer,                   -- 顺序（iHR 返回 Integer，PostgreSQL 自动兼容）
     -- ========== 审计/辅助字段 ==========
     sync_batch              VARCHAR(64),              -- 同步批次号（每次全量/增量同步生成唯一值，便于追溯）
     created_at              TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS t_integration_ihr_department (
     CONSTRAINT uk_t_integration_ihr_department_uuid UNIQUE (uuid)
 );
 
-COMMENT ON TABLE  t_integration_ihr_department IS 'IHR开放平台组织架构部门快照表';
+COMMENT ON TABLE  t_integration_ihr_department IS 'IHR部门信息表';
 
 COMMENT ON COLUMN t_integration_ihr_department.id                     IS '内部主键（雪花生成）';
 COMMENT ON COLUMN t_integration_ihr_department.uuid                  IS 'iHR 部门主键id（业务主键，UNIQUE）';
