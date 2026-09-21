@@ -22,6 +22,8 @@ docs/requirements/
 │   ├── optimization/                  ← 优化改进
 │   ├── bug/                           ← 缺陷修复
 │   └── integration/                   ← 集成对接
+├── moka/                              ← Moka HR SaaS相关需求
+│   └── integration/                   ← 集成对接
 └── platform/                          ← 平台基础（部署、配置、基础设施）
     ├── feature/
     ├── optimization/
@@ -41,6 +43,7 @@ REQ-{系统缩写}-{3位序号}
 | CRM | 勤策CRM | REQ-CRM-001 |
 | OA | 致远OA | REQ-OA-001 |
 | PLAT | 平台基础 | REQ-PLAT-001 |
+| MOKA | Moka HR SaaS | REQ-MOKA-001 |
 
 > 序号按各系统独立递增，不补零对齐（001 → 002 → ... → 999）
 
@@ -107,3 +110,4 @@ draft → reviewing → approved → in-progress → testing → done → closed
 | REQ-OA-001 | 国内登记报告资料列表附件上传 | OA | feature | draft | [oa/feature/REQ-OA-001-国内登记报告资料列表附件上传.md](./oa/feature/REQ-OA-001-国内登记报告资料列表附件上传.md) |
 | REQ-WECOM-001 | 智能表格人员忙闲状态 | WECOM | feature | draft | wecom/feature/ (待创建) |
 | REQ-PLAT-001 | 法大大企业及个人实名认证 | PLAT | integration | draft | [platform/integration/REQ-PLAT-001-法大大企业及个人实名认证.md](./platform/integration/REQ-PLAT-001-法大大企业及个人实名认证.md) |
+| REQ-MOKA-001 | iHR人员信息同步Moka | MOKA | integration | draft | [moka/integration/REQ-MOKA-001-iHR人员信息同步Moka.md](./moka/integration/REQ-MOKA-001-iHR人员信息同步Moka.md) |
