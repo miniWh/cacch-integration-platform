@@ -13,6 +13,8 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 
+import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -98,6 +100,50 @@ public class MokaPersonServiceImpl implements IMokaPersonService {
         }
         log.info("【{}】批量 upsert 完成, 总计={}, 成功={}, 失败={}",
                 BIZ, persons.size(), success, failed);
+        return success;
+    }
+
+    @Override
+    public List<MokaPersonDO> listBySyncStatusIn(List<Integer> syncStatuses) {
+        if (CollectionUtils.isEmpty(syncStatuses)) {
+            log.info("【{}】listBySyncStatusIn 入参为空, 返回空列表", BIZ);
+            return Collections.emptyList();
+        }
+        return personMapper.selectList(new LambdaQueryWrapper<MokaPersonDO>()
+                .in(MokaPersonDO::getMokaSyncStatus, syncStatuses)
+                .orderByAsc(MokaPersonDO::getUserId));
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED, readOnly = false, timeout = 120)
+    public int batchUpdateSyncStatus(List<Long> ids, Integer syncStatus,
+                                     LocalDateTime syncTime, String syncResult) {
+        if (CollectionUtils.isEmpty(ids)) {
+            log.info("【{}】批量更新同步状态入参 ids 为空, 跳过", BIZ);
+            return 0;
+        }
+        int success = 0;
+        int failed = 0;
+        for (Long id : ids) {
+            if (id == null) {
+                log.info("【{}】批量更新同步状态遇 null id, 跳过", BIZ);
+                continue;
+            }
+            try {
+                int rows = personMapper.updateSyncStatus(id, syncStatus, syncTime, syncResult);
+                if (rows > 0) {
+                    success++;
+                } else {
+                    log.info("【{}】批量更新同步状态影响 0 行, id={}（可能已逻辑删除）", BIZ, id);
+                }
+            } catch (Exception e) {
+                failed++;
+                log.error("【{}】批量更新同步状态单条失败, id={}, 已失败={}",
+                        BIZ, id, failed, e);
+            }
+        }
+        log.info("【{}】批量更新同步状态完成, 总计={}, 成功={}, 失败={}, syncStatus={}",
+                BIZ, ids.size(), success, failed, syncStatus);
         return success;
     }
 }

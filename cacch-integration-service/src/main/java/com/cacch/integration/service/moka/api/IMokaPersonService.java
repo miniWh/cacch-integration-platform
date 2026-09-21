@@ -2,6 +2,7 @@ package com.cacch.integration.service.moka.api;
 
 import com.cacch.integration.entity.moka.MokaPersonDO;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -51,4 +52,34 @@ public interface IMokaPersonService {
      * @return 成功 upsert 的条数
      */
     int batchUpsert(List<MokaPersonDO> persons);
+
+    /**
+     * 按 moka_sync_status 集合查询人员 —— 接口 2 推送前过滤待同步记录
+     *
+     * <p>典型调用：传入 {@code [0, 2]}（PENDING + SYNC_FAILED）做重试推送，
+     * 不传 {@code 1}（SYNCED）避免重复推送已成功记录。</p>
+     *
+     * @param syncStatuses 同步状态集合；null 或空时返回空列表
+     * @return 匹配的人员列表（按 user_id 升序）；无数据时返回空列表
+     */
+    List<MokaPersonDO> listBySyncStatusIn(List<Integer> syncStatuses);
+
+    /**
+     * 批量更新同步状态 —— 接口 2 推送后回写
+     *
+     * <p>逐条 try-catch，单条失败不阻断其余；用于 Moka API 整批推送结果回写：
+     * <ul>
+     *     <li>整批成功 → status=1（SYNCED），result="success"</li>
+     *     <li>整批失败 → status=2（SYNC_FAILED），result="code={xxx},msg={yyy}"</li>
+     * </ul>
+     * 同一批的所有记录共享相同的 status 与 result。</p>
+     *
+     * @param ids        待更新的主键列表；null 或空时直接返回 0
+     * @param syncStatus 同步状态：1=SYNCED, 2=SYNC_FAILED
+     * @param syncTime   推送时间
+     * @param syncResult 推送结果摘要（允许为空）
+     * @return 成功更新的条数
+     */
+    int batchUpdateSyncStatus(List<Long> ids, Integer syncStatus,
+                              LocalDateTime syncTime, String syncResult);
 }

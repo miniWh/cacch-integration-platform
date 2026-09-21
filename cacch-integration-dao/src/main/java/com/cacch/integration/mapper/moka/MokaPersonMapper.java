@@ -6,6 +6,8 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Update;
 
+import java.time.LocalDateTime;
+
 /**
  * Moka 人员信息中间表 Mapper
  *
@@ -71,4 +73,33 @@ public interface MokaPersonMapper extends BaseMapper<MokaPersonDO> {
                @Param("departmentCode") String departmentCode,
                @Param("employeeStatus") String employeeStatus,
                @Param("deactivated") Integer deactivated);
+
+    /**
+     * 按 id 更新 Moka 同步状态字段
+     *
+     * <p>用于接口 2 推送 Moka 后回写同步结果：成功→1（SYNCED），
+     * 失败→2（SYNC_FAILED）。{@code lastSyncTime} 由 Manager 层调用
+     * {@link LocalDateTime#now()} 传入，{@code lastSyncResult}
+     * 存放 Moka API 返回的 {@code msg} 摘要（失败时含 code+msg）。</p>
+     *
+     * <p>更新字段：{@code moka_sync_status / last_sync_time /
+     * last_sync_result / updated_at}；不更新 {@code id / user_id} 等业务字段，
+     * 不动 {@code is_deleted} 逻辑删除标记。</p>
+     *
+     * @param id         中间表主键
+     * @param syncStatus 同步状态：1=SYNCED, 2=SYNC_FAILED
+     * @param syncTime   最近一次推送时间
+     * @param syncResult 最近一次推送结果摘要（允许为空）
+     * @return 受影响行数；id 不存在或已逻辑删除时返回 0
+     */
+    @Update("UPDATE t_integration_moka_person " +
+            "SET moka_sync_status = #{syncStatus}, " +
+            "    last_sync_time = #{syncTime}, " +
+            "    last_sync_result = #{syncResult}, " +
+            "    updated_at = NOW() " +
+            "WHERE id = #{id} AND is_deleted = 0")
+    int updateSyncStatus(@Param("id") Long id,
+                         @Param("syncStatus") Integer syncStatus,
+                         @Param("syncTime") LocalDateTime syncTime,
+                         @Param("syncResult") String syncResult);
 }
