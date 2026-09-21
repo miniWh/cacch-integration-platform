@@ -48,7 +48,7 @@ public interface OrganizationsdepartmentMapper {
      */
     @Select("<script>" +
             "SELECT id AS department_id, departmentcode FROM organizationsdepartment " +
-            "WHERE id IN " +
+            "WHERE id::text IN " +
             "<foreach collection='departmentIds' item='deptId' open='(' separator=',' close=')'>" +
             "#{deptId}" +
             "</foreach>" +
