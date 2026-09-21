@@ -78,6 +78,10 @@ public class MokaPersonSyncManagerImpl implements IMokaPersonSyncManager {
         // —— 2. 收集 departmentId，批量查 organizationsdepartment.departmentcode ——
         Set<String> deptIds = new LinkedHashSet<>();
         for (PersondetailDO p : persondetails) {
+            if (p == null) {
+                log.info("【{}】persondetail 返回列表含 null 元素, 跳过", BIZ);
+                continue;
+            }
             if (StringUtils.hasText(p.getDepartmentId())) {
                 deptIds.add(p.getDepartmentId());
             }
@@ -109,6 +113,10 @@ public class MokaPersonSyncManagerImpl implements IMokaPersonSyncManager {
         int invalidSkipped = 0;
 
         for (PersondetailDO p : persondetails) {
+            if (p == null) {
+                log.info("【{}】persondetail 返回列表含 null 元素, 跳过", BIZ);
+                continue;
+            }
             // userId 为空：无业务主键无法 upsert
             if (!StringUtils.hasText(p.getUserId())) {
                 invalidSkipped++;

@@ -33,15 +33,22 @@ public interface OrganizationsdepartmentMapper {
      * <p>用于 Moka 人员同步时将 persondetail.departmentId 批量映射为
      * departmentcode。SQL 使用 {@code IN} 批量查询，避免 N+1。</p>
      *
-     * <p>注意：PostgreSQL 默认将未加引号的标识符存为小写，
-     * 因此含大写字母的列名必须用双引号包裹：{@code "departmentId"}。
-     * {@code departmentcode} 全小写无需引号。</p>
+     * <p>注意：
+     * <ul>
+     *   <li>PostgreSQL 默认将未加引号的标识符存为小写，
+     *   含大写字母的列名必须用双引号包裹：{@code "departmentId"}</li>
+     *   <li>MyBatis 开启 {@code map-underscore-to-camel-case}，
+     *   AS 别名必须用 snake_case（{@code department_id}），
+     *   自动转驼峰 {@code departmentId} 匹配 DO 字段</li>
+     *   <li>{@code departmentcode} 全小写无下划线，不用别名也能直接匹配</li>
+     * </ul>
+     * </p>
      *
      * @param departmentIds 部门 ID 列表
      * @return 匹配的部门 DO 列表；无数据时返回空列表（非 null）
      */
     @Select("<script>" +
-            "SELECT \"departmentId\", departmentcode FROM organizationsdepartment " +
+            "SELECT \"departmentId\" AS department_id, departmentcode FROM organizationsdepartment " +
             "WHERE \"departmentId\" IN " +
             "<foreach collection='departmentIds' item='id' open='(' separator=',' close=')'>" +
             "#{id}" +

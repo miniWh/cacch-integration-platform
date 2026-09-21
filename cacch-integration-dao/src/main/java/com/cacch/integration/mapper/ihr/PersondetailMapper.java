@@ -35,22 +35,25 @@ public interface PersondetailMapper {
     /**
      * 查询 persondetail 表全量员工记录
      *
-     * <p>列名已联调确认为 camelCase，但 PostgreSQL 默认将未加引号的标识符存为小写，
-     * 因此所有含大写字母的列名（staffNo / staffName / nickName / workEmail /
-     * mobileNo / departmentId / staffStatus）必须用双引号包裹才能正确引用。
-     * 列别名 AS 后的 Java 驼峰名由 MyBatis 自动映射。</p>
+     * <p>MyBatis 配置了 {@code map-underscore-to-camel-case: true}，
+     * SQL 列别名必须使用 <strong>snake_case</strong>，才能被自动转驼峰
+     * 匹配 Java DO 字段（如 employee_no → employeeNo）。
+     * PG JDBC 老版本会把 AS 别名转小写，snake_case 天然是小写，不受影响。</p>
+     *
+     * <p>PostgreSQL 默认将未加引号的标识符存为小写，
+     * 因此外部表的 camelCase 列名必须用双引号包裹才能正确引用。</p>
      *
      * @return persondetail 全量记录；无数据时返回空列表（非 null）
      */
     @Select("SELECT " +
-            "id AS userId, " +
-            "\"staffNo\" AS employeeNo, " +
-            "\"staffName\" AS userName, " +
+            "id AS user_id, " +
+            "\"staffNo\" AS employee_no, " +
+            "\"staffName\" AS user_name, " +
             "\"nickName\" AS nickname, " +
-            "\"workEmail\" AS companyEmail, " +
-            "\"mobileNo\" AS contactPhone, " +
-            "\"departmentId\", " +
-            "\"staffStatus\" AS employeeStatus " +
+            "\"workEmail\" AS company_email, " +
+            "\"mobileNo\" AS contact_phone, " +
+            "\"departmentId\" AS department_id, " +
+            "\"staffStatus\" AS employee_status " +
             "FROM persondetail")
     List<PersondetailDO> selectAll();
 }
