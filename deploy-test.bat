@@ -22,7 +22,7 @@ set DEPLOY_BRANCH=test
 
 cd /d "%PROJECT_DIR%"
 
-echo [1/4] Git branch check (must be %DEPLOY_BRANCH%) ...
+echo [1/5] Git branch check (must be %DEPLOY_BRANCH%) ...
 echo.
 
 set CUR_BRANCH=
@@ -63,7 +63,7 @@ for /f "delims=" %%i in ('git rev-parse --short HEAD') do set CUR_COMMIT=%%i
 echo    [OK] Commit: %CUR_COMMIT%
 echo.
 
-echo [2/4] Maven packaging (mvn clean package -DskipTests) ...
+echo [2/5] Maven packaging (mvn clean package -DskipTests) ...
 echo.
 
 call "%MAVEN_HOME%\bin\mvn.cmd" clean package -DskipTests 2>&1
@@ -80,7 +80,24 @@ echo.
 echo    [OK] Build successful
 echo.
 
-echo [3/4] Deploying to test server (10.80.68.10) ...
+echo [3/5] Verifying JAR integrity (IDEA stub class check) ...
+echo.
+
+"%PYTHON%" "%PROJECT_DIR%\scripts\verify_jar_integrity.py"
+
+if %errorlevel% neq 0 (
+    echo.
+    echo [X] JAR check failed! Deployment aborted.
+    echo.
+    pause
+    exit /b %errorlevel%
+)
+
+echo.
+echo    [OK] JAR verified
+echo.
+
+echo [4/5] Deploying to test server (10.80.68.10) ...
 echo.
 
 "%PYTHON%" "%PROJECT_DIR%\deploy.py" test
@@ -94,6 +111,6 @@ if %errorlevel% neq 0 (
 )
 
 echo.
-echo [4/4] All done! branch=%CUR_BRANCH% commit=%CUR_COMMIT%
+echo [5/5] All done! branch=%CUR_BRANCH% commit=%CUR_COMMIT%
 echo.
 pause

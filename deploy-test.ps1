@@ -25,7 +25,7 @@ Write-Host "  Target: TEST (10.80.68.10) @ test 分支" -ForegroundColor Green
 Write-Host "============================================" -ForegroundColor Cyan
 Write-Host ""
 
-# ========== [1/4] Git 分支校验与拉取 ==========
+# ========== [1/5] Git 分支校验与拉取 ==========
 . "$PSScriptRoot\deploy-git.ps1"
 
 $git = Invoke-DeployGitStage -ProjectDir $ProjectDir -Branch $DeployBranch `
@@ -38,8 +38,8 @@ if ($null -eq $git) {
     exit 1
 }
 
-# ========== [2/4] Maven 打包 ==========
-Write-Host "[2/4] Maven packaging (mvn clean package -DskipTests) ..." -ForegroundColor Yellow
+# ========== [2/5] Maven 打包 ==========
+Write-Host "[2/5] Maven packaging (mvn clean package -DskipTests) ..." -ForegroundColor Yellow
 Write-Host ""
 
 Set-Location $ProjectDir
@@ -58,8 +58,26 @@ Write-Host ""
 Write-Host "    [OK] Build successful" -ForegroundColor Green
 Write-Host ""
 
-# ========== [3/4] 部署到测试服务器 ==========
-Write-Host "[3/4] Deploying to test server ($TargetHost) ..." -ForegroundColor Yellow
+# ========== [3/5] JAR 完整性校验（拦截 IDEA 编译失败产生的 stub class） ==========
+Write-Host "[3/5] Verifying JAR integrity (IDEA stub class check) ..." -ForegroundColor Yellow
+Write-Host ""
+
+& $Python "$ProjectDir\scripts\verify_jar_integrity.py"
+
+if ($LASTEXITCODE -ne 0) {
+    Write-Host ""
+    Write-Host "[X] JAR 校验未通过，已中止部署（未上传服务器）。" -ForegroundColor Red
+    Write-Host ""
+    Read-Host "Press Enter to exit"
+    exit 1
+}
+
+Write-Host ""
+Write-Host "    [OK] JAR 校验通过" -ForegroundColor Green
+Write-Host ""
+
+# ========== [4/5] 部署到测试服务器 ==========
+Write-Host "[4/5] Deploying to test server ($TargetHost) ..." -ForegroundColor Yellow
 Write-Host ""
 
 & $Python "$ProjectDir\deploy.py" test
@@ -72,11 +90,11 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-# ========== [4/4] 完成 ==========
+# ========== [5/5] 完成 ==========
 Write-DeployHistory -ProjectDir $ProjectDir -EnvName "测试环境" -TargetHost $TargetHost -Info $git
 
 Write-Host ""
-Write-Host "[4/4] All done!" -ForegroundColor Green
+Write-Host "[5/5] All done!" -ForegroundColor Green
 Write-Host "  Branch : $($git.Branch) @ $($git.Commit)" -ForegroundColor Green
 Write-Host "  Address: http://$TargetHost:8081" -ForegroundColor Green
 Write-Host ""
