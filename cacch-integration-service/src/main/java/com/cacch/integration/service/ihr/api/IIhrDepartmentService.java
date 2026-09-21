@@ -30,4 +30,16 @@ public interface IIhrDepartmentService {
      * @return 启用状态的部门 DO 列表，不会返回 null
      */
     List<IhrDepartmentDO> listEnabled();
+
+    /**
+     * 按 ihr_dept_id 批量查询部门快照
+     *
+     * <p>用于 Moka 人员同步时，将 persondetail.departmentId 批量映射为
+     * ihr_department.department_code。传入空列表时直接返回空列表，
+     * 不会查询 DB。</p>
+     *
+     * @param ihrDeptIds iHR 部门 ID 列表（persondetail.departmentId）；null 或空时返回空列表
+     * @return 匹配的部门 DO 列表，不会返回 null
+     */
+    List<IhrDepartmentDO> listByIhrDeptIds(List<String> ihrDeptIds);
 }

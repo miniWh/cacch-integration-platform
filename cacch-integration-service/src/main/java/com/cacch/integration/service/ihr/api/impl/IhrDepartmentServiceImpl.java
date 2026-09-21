@@ -15,6 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Collections;
 import java.util.List;
 
+import org.springframework.util.CollectionUtils;
+
 /**
  * IHR 部门快照 Service 实现
  *
@@ -74,6 +76,22 @@ public class IhrDepartmentServiceImpl implements IIhrDepartmentService {
             return Collections.emptyList();
         }
         log.info("【{}】listEnabled 命中, count={}", BIZ, list.size());
+        return list;
+    }
+
+    @Override
+    public List<IhrDepartmentDO> listByIhrDeptIds(List<String> ihrDeptIds) {
+        if (CollectionUtils.isEmpty(ihrDeptIds)) {
+            log.info("【{}】listByIhrDeptIds 跳过, ihrDeptIds 为空", BIZ);
+            return Collections.emptyList();
+        }
+        List<IhrDepartmentDO> list = mapper.selectList(new LambdaQueryWrapper<IhrDepartmentDO>()
+                .in(IhrDepartmentDO::getIhrDeptId, ihrDeptIds));
+        if (list == null || list.isEmpty()) {
+            log.info("【{}】listByIhrDeptIds 返回空, 传入 ihrDeptIds={}", BIZ, ihrDeptIds.size());
+            return Collections.emptyList();
+        }
+        log.info("【{}】listByIhrDeptIds 命中, 传入={}, 返回={}", BIZ, ihrDeptIds.size(), list.size());
         return list;
     }
 }

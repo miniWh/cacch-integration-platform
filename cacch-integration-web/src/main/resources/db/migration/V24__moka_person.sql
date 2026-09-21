@@ -5,7 +5,7 @@
 --             persondetail.departmentId = ihr_dept_id，
 --             取 department_code 作为 Moka API 入参）
 --   同步目标：Moka 开放平台 POST /api-platform/v1/users/syncInfo
---   roleId：  阶段一固定 DEFAULT 40（管理员）；
+--   roleId：  阶段一固定 DEFAULT 223379（Moka 默认角色 ID）；
 --             阶段二拉取角色后按 jobTitle 匹配 t_integration_moka_role
 -- =============================================
 
@@ -20,8 +20,8 @@ CREATE TABLE IF NOT EXISTS t_integration_moka_person (
     company_email         VARCHAR(200),             -- 工作邮箱（Moka API email，允许为空）
     contact_phone         VARCHAR(32),              -- 工作电话（Moka API phone）
     -- ========== Moka 推送参数（接口 1 落库时直接写好，接口 2 原样推给 Moka） ==========
-    role_id               INTEGER      NOT NULL DEFAULT 40, -- Moka 自定义角色 ID（Moka API roleId）。
-                                                           -- 阶段一固定值 40（管理员）；
+    role_id               INTEGER      NOT NULL DEFAULT 223379, -- Moka 自定义角色 ID（Moka API roleId）。
+                                                           -- 阶段一固定值 223379（Moka 默认角色）；
                                                            -- 阶段二从 t_integration_moka_role 按 jobTitle 匹配后更新
     department_code       VARCHAR(64),              -- 部门编号（接口 1 通过 persondetail.departmentId
                                                     -- 关联 t_integration_ihr_department.ihr_dept_id 得到）
@@ -54,7 +54,7 @@ COMMENT ON COLUMN t_integration_moka_person.user_name          IS '姓名（Moka
 COMMENT ON COLUMN t_integration_moka_person.nickname           IS '昵称/花名（Moka API nickname，暂与 user_name 同值）';
 COMMENT ON COLUMN t_integration_moka_person.company_email      IS '工作邮箱（Moka API email，允许为空）';
 COMMENT ON COLUMN t_integration_moka_person.contact_phone      IS '工作电话（Moka API phone）';
-COMMENT ON COLUMN t_integration_moka_person.role_id            IS 'Moka 自定义角色 ID（Moka API roleId）。阶段一默认固定值 40（管理员）；阶段二按 jobTitle 匹配 t_integration_moka_role 后更新';
+COMMENT ON COLUMN t_integration_moka_person.role_id            IS 'Moka 自定义角色 ID（Moka API roleId）。阶段一默认固定值 223379；阶段二按 jobTitle 匹配 t_integration_moka_role 后更新';
 COMMENT ON COLUMN t_integration_moka_person.department_code   IS '部门编号（接口 1 关联 t_integration_ihr_department.ihr_dept_id 得到 department_code）';
 COMMENT ON COLUMN t_integration_moka_person.superior_email     IS '直属领导邮箱（从 persondetail.superiorsInfo 提取，映射 Moka API superiorEmail）';
 COMMENT ON COLUMN t_integration_moka_person.employee_status    IS '员工状态（iHR 原始值）';
