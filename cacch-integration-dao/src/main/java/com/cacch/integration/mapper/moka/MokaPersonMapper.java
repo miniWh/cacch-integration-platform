@@ -24,11 +24,12 @@ public interface MokaPersonMapper extends BaseMapper<MokaPersonDO> {
      *
      * <p>以 {@code user_id} 为冲突检测键，已存在时覆盖业务字段
      * （employee_no / user_name / nickname / company_email / contact_phone /
-     * role_id / department_code / superior_email / employee_status / deactivated）。
+     * role_id / department_code / employee_status / deactivated）。
      * 主键 {@code id} 在 DO UPDATE 时不覆盖，保持幂等。</p>
      *
-     * <p>未传入的列（locale / timezone / moka_sync_status / is_deleted 等）
-     * 在 INSERT 时由 DDL DEFAULT 填充，DO UPDATE 时保持原值不动。</p>
+     * <p>未传入的列（locale / timezone / moka_sync_status / superior_email 等）
+     * 在 INSERT 时由 DDL DEFAULT 填充，DO UPDATE 时保持原值不动。
+     * superior_email 当前版本不写入（Moka API updateSuperiorEmail=false）。</p>
      *
      * @param id             内部主键（雪花预生成）
      * @param userId         iHR 员工 ID（业务主键，UNIQUE）
@@ -38,18 +39,17 @@ public interface MokaPersonMapper extends BaseMapper<MokaPersonDO> {
      * @param companyEmail   工作邮箱
      * @param contactPhone   工作电话
      * @param roleId         Moka 角色 ID（阶段一默认 223379）
-     * @param departmentCode 部门编号（从 ihr_department 关联得到）
-     * @param superiorEmail  直属领导邮箱
+     * @param departmentCode 部门编号（从 organizationsdepartment 关联得到）
      * @param employeeStatus 员工状态
      * @param deactivated    是否禁用（0/1）
      * @return 受影响行数
      */
     @Update("INSERT INTO t_integration_moka_person " +
             "(id, user_id, employee_no, user_name, nickname, company_email, contact_phone, " +
-            "role_id, department_code, superior_email, employee_status, deactivated) " +
+            "role_id, department_code, employee_status, deactivated) " +
             "VALUES " +
             "(#{id}, #{userId}, #{employeeNo}, #{userName}, #{nickname}, #{companyEmail}, #{contactPhone}, " +
-            "#{roleId}, #{departmentCode}, #{superiorEmail}, #{employeeStatus}, #{deactivated}) " +
+            "#{roleId}, #{departmentCode}, #{employeeStatus}, #{deactivated}) " +
             "ON CONFLICT (user_id) DO UPDATE SET " +
             "employee_no = EXCLUDED.employee_no, " +
             "user_name = EXCLUDED.user_name, " +
@@ -58,7 +58,6 @@ public interface MokaPersonMapper extends BaseMapper<MokaPersonDO> {
             "contact_phone = EXCLUDED.contact_phone, " +
             "role_id = EXCLUDED.role_id, " +
             "department_code = EXCLUDED.department_code, " +
-            "superior_email = EXCLUDED.superior_email, " +
             "employee_status = EXCLUDED.employee_status, " +
             "deactivated = EXCLUDED.deactivated")
     int upsert(@Param("id") Long id,
@@ -70,7 +69,6 @@ public interface MokaPersonMapper extends BaseMapper<MokaPersonDO> {
                @Param("contactPhone") String contactPhone,
                @Param("roleId") Integer roleId,
                @Param("departmentCode") String departmentCode,
-               @Param("superiorEmail") String superiorEmail,
                @Param("employeeStatus") String employeeStatus,
                @Param("deactivated") Integer deactivated);
 }

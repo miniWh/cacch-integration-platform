@@ -2,6 +2,7 @@ package com.cacch.integration.service.moka.api.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
+import com.cacch.integration.common.constant.moka.MokaConstants;
 import com.cacch.integration.entity.moka.MokaPersonDO;
 import com.cacch.integration.mapper.moka.MokaPersonMapper;
 import com.cacch.integration.service.moka.api.IMokaPersonService;
@@ -35,11 +36,6 @@ public class MokaPersonServiceImpl implements IMokaPersonService {
 
     private static final String BIZ = "MokaPerson";
 
-    /**
-     * Moka 默认角色 ID —— 阶段一所有新同步人员固定使用此值
-     */
-    private static final int DEFAULT_ROLE_ID = 223379;
-
     private final MokaPersonMapper personMapper;
 
     @Override
@@ -61,11 +57,11 @@ public class MokaPersonServiceImpl implements IMokaPersonService {
         // 预生成雪花主键 —— 手写 @Update SQL 不触发 ASSIGN_ID
         long id = person.getId() != null ? person.getId() : IdWorker.getId();
         // roleId 兜底：未显式赋值时使用 Moka 默认角色
-        Integer roleId = person.getRoleId() != null ? person.getRoleId() : DEFAULT_ROLE_ID;
+        Integer roleId = person.getRoleId() != null ? person.getRoleId() : MokaConstants.DEFAULT_ROLE_ID;
         int rows = personMapper.upsert(id, person.getUserId(), person.getEmployeeNo(),
                 person.getUserName(), person.getNickname(), person.getCompanyEmail(),
                 person.getContactPhone(), roleId, person.getDepartmentCode(),
-                person.getSuperiorEmail(), person.getEmployeeStatus(),
+                person.getEmployeeStatus(),
                 person.getDeactivated() != null ? person.getDeactivated() : 0);
         if (rows == 0) {
             log.warn("【{}】upsert 影响 0 行, userId={}", BIZ, person.getUserId());
@@ -87,11 +83,11 @@ public class MokaPersonServiceImpl implements IMokaPersonService {
                 // 预生成雪花主键 —— 手写 @Update SQL 不触发 ASSIGN_ID
                 long id = person.getId() != null ? person.getId() : IdWorker.getId();
                 // roleId 兜底：未显式赋值时使用 Moka 默认角色
-                Integer roleId = person.getRoleId() != null ? person.getRoleId() : DEFAULT_ROLE_ID;
+                Integer roleId = person.getRoleId() != null ? person.getRoleId() : MokaConstants.DEFAULT_ROLE_ID;
                 personMapper.upsert(id, person.getUserId(), person.getEmployeeNo(),
                         person.getUserName(), person.getNickname(), person.getCompanyEmail(),
                         person.getContactPhone(), roleId, person.getDepartmentCode(),
-                        person.getSuperiorEmail(), person.getEmployeeStatus(),
+                        person.getEmployeeStatus(),
                         person.getDeactivated() != null ? person.getDeactivated() : 0);
                 success++;
             } catch (Exception e) {

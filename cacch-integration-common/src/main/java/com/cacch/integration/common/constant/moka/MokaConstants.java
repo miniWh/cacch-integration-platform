@@ -36,10 +36,59 @@ public final class MokaConstants {
      * 获取全量自定义角色接口路径 —— 相对 {@code MokaProperties#getBaseUrl()} 拼接
      *
      * <p>GET 请求，对接 Moka 开放平台角色查询接口
-     * （{@linkplain <a href="https://www.mokahr.com/docs/api/?shell#-75">API 文档 #-75</a>}）。</p>
-     *
-     * <p><strong>开发前注意</strong>：文档为 JS 渲染无法直接抓取完整路径，
-     * 此常量按 Moka API 风格推断，实际调用前需用 Swagger 或 curl 确认完整 URL。</p>
+     * （{@linkplain <a href="https://www.mokahr.com/docs/api/?shell#-75">API 文档 #-75</a>}）。
+     * 固定传 query 参数 {@code type=all} 拉取全部角色（含内建 + 自定义）。</p>
      */
     public static final String ROLE_LIST_PATH = "/api-platform/v1/users/roles";
+
+    /**
+     * Moka 用户信息同步接口路径 —— 相对 {@code MokaProperties#getBaseUrl()} 拼接
+     *
+     * <p>POST 请求，对接 Moka 开放平台用户同步接口
+     * （{@linkplain <a href="https://www.mokahr.com/docs/api/#-72">API 文档 #-72</a>}）。</p>
+     */
+    public static final String USER_SYNC_INFO_PATH = "/api-platform/v1/users/syncInfo";
+
+    // ========== Moka 用户同步 API 固定参数 ==========
+
+    /**
+     * uniqueType — Moka 用户唯一标识类型，固定传 "phone"（以手机号为唯一键）
+     */
+    public static final String USER_UNIQUE_TYPE = "phone";
+
+    /**
+     * autoActivated — 是否自动激活，固定传 0（不自动激活）
+     */
+    public static final int USER_AUTO_ACTIVATED = 0;
+
+    /**
+     * updateDepartment — 是否更新部门，固定传 false（部门不同步）
+     */
+    public static final boolean USER_UPDATE_DEPARTMENT = false;
+
+    /**
+     * updateSuperiorEmail — 是否更新直属领导邮箱，固定传 false（上级不同步）
+     */
+    public static final boolean USER_UPDATE_SUPERIOR_EMAIL = false;
+
+    /**
+     * thirdPartyId — 第三方 ID，固定传空串（SSO 未启用）
+     */
+    public static final String USER_THIRD_PARTY_ID = "";
+
+    /**
+     * locale — Moka 用户语言，固定传 "zh-CN"
+     */
+    public static final String USER_LOCALE = "zh-CN";
+
+    /**
+     * timezone — Moka 用户时区，固定传 "Asia/Shanghai"
+     */
+    public static final String USER_TIMEZONE = "Asia/Shanghai";
+
+    /**
+     * Moka 默认角色 ID —— 阶段一所有新同步人员固定使用此值，
+     * 阶段二角色拉取后按 jobTitle 匹配 t_integration_moka_role 更新
+     */
+    public static final int DEFAULT_ROLE_ID = 223379;
 }

@@ -76,13 +76,17 @@ public class MokaPersonDO {
     private Integer roleId;
 
     /**
-     * 部门编号（关联 ihr_department.ihrDeptId 得到 departmentCode）
+     * 部门编号（关联 organizationsdepartment.departmentcode 得到）
      */
     private String departmentCode;
 
     /**
-     * 直属领导邮箱（从 persondetail.superiorsInfo 提取，映射 Moka API superiorEmail）
+     * 直属领导邮箱 — 当前版本未使用
+     *
+     * <p>Moka API 参数 {@code updateSuperiorEmail=false}，
+     * 接口 1 不同步此字段；保留列定义便于后续需求扩展。</p>
      */
+    @TableField(exist = false)
     private String superiorEmail;
 
     /**
