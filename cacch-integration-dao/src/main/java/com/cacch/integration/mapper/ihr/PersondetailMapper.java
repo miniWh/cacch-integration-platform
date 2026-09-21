@@ -35,20 +35,22 @@ public interface PersondetailMapper {
     /**
      * 查询 persondetail 表全量员工记录
      *
-     * <p>列名已联调确认为 camelCase，id 列用别名 AS userId 匹配 Java DO。
-     * 注意：SQL 中 {@code id} 列映射为 Java 的 {@code userId}（业务主键）。</p>
+     * <p>列名已联调确认为 camelCase，但 PostgreSQL 默认将未加引号的标识符存为小写，
+     * 因此所有含大写字母的列名（staffNo / staffName / nickName / workEmail /
+     * mobileNo / departmentId / staffStatus）必须用双引号包裹才能正确引用。
+     * 列别名 AS 后的 Java 驼峰名由 MyBatis 自动映射。</p>
      *
      * @return persondetail 全量记录；无数据时返回空列表（非 null）
      */
     @Select("SELECT " +
             "id AS userId, " +
-            "staffNo AS employeeNo, " +
-            "staffName AS userName, " +
-            "nickName AS nickname, " +
-            "workEmail AS companyEmail, " +
-            "mobileNo AS contactPhone, " +
-            "departmentId, " +
-            "staffStatus AS employeeStatus " +
+            "\"staffNo\" AS employeeNo, " +
+            "\"staffName\" AS userName, " +
+            "\"nickName\" AS nickname, " +
+            "\"workEmail\" AS companyEmail, " +
+            "\"mobileNo\" AS contactPhone, " +
+            "\"departmentId\", " +
+            "\"staffStatus\" AS employeeStatus " +
             "FROM persondetail")
     List<PersondetailDO> selectAll();
 }
