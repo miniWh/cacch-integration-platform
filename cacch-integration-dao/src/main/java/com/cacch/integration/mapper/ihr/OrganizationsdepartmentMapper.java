@@ -14,11 +14,10 @@ import java.util.List;
  * 本 Mapper <em>不继承 BaseMapper</em>，所有查询使用 {@code @Select}
  * 手写原生 SQL，避免 MyBatis-Plus 自动注入条件。</p>
  *
- * <p>联调假设（若有差异直接改 SQL 列别名即可）：
+ * <p>联调确认的列名：
  * <ul>
- *     <li>关联列：{@code departmentId}（与 persondetail.departmentId 对应）</li>
- *     <li>目标列：{@code departmentcode}（用户给定，联调若为 departmentCode
- *     则改 {@code departmentCode AS departmentcode}）</li>
+ *     <li>关联列：{@code id}（全小写，PG 原样存储，与 persondetail."departmentId" 对应）</li>
+ *     <li>目标列：{@code departmentcode}（全小写，PG 原样存储）</li>
  * </ul>
  * </p>
  *
@@ -28,30 +27,30 @@ import java.util.List;
 public interface OrganizationsdepartmentMapper {
 
     /**
-     * 按 departmentId 批量查询部门 code
+     * 按部门 id 批量查询 departmentcode
      *
-     * <p>用于 Moka 人员同步时将 persondetail.departmentId 批量映射为
-     * departmentcode。SQL 使用 {@code IN} 批量查询，避免 N+1。</p>
+     * <p>用于 Moka 人员同步时将 persondetail."departmentId"（camelCase）
+     * 批量映射为 organizationsdepartment.id（全小写）→ departmentcode。
+     * SQL 使用 {@code IN} 批量查询，避免 N+1。</p>
      *
-     * <p>注意：
+     * <p>列引用规则：
      * <ul>
-     *   <li>PostgreSQL 默认将未加引号的标识符存为小写，
-     *   含大写字母的列名必须用双引号包裹：{@code "departmentId"}</li>
-     *   <li>MyBatis 开启 {@code map-underscore-to-camel-case}，
-     *   AS 别名必须用 snake_case（{@code department_id}），
-     *   自动转驼峰 {@code departmentId} 匹配 DO 字段</li>
-     *   <li>{@code departmentcode} 全小写无下划线，不用别名也能直接匹配</li>
+     *   <li>外部表列名 {@code id} / {@code departmentcode} 均为全小写，
+     *   PG 默认存为小写，不用双引号</li>
+     *   <li>AS 别名用 snake_case（{@code department_id}），
+     *   配合 MyBatis {@code map-underscore-to-camel-case=true}
+     *   自动转驼峰匹配 DO 字段 {@code departmentId}</li>
      * </ul>
      * </p>
      *
-     * @param departmentIds 部门 ID 列表
+     * @param departmentIds 部门 ID 列表（来自 persondetail.departmentId）
      * @return 匹配的部门 DO 列表；无数据时返回空列表（非 null）
      */
     @Select("<script>" +
-            "SELECT \"departmentId\" AS department_id, departmentcode FROM organizationsdepartment " +
-            "WHERE \"departmentId\" IN " +
-            "<foreach collection='departmentIds' item='id' open='(' separator=',' close=')'>" +
-            "#{id}" +
+            "SELECT id AS department_id, departmentcode FROM organizationsdepartment " +
+            "WHERE id IN " +
+            "<foreach collection='departmentIds' item='deptId' open='(' separator=',' close=')'>" +
+            "#{deptId}" +
             "</foreach>" +
             "</script>")
     List<OrganizationsdepartmentDO> selectByDepartmentIds(List<String> departmentIds);
