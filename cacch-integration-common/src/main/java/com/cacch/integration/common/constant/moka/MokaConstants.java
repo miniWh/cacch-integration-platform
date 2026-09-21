@@ -31,4 +31,15 @@ public final class MokaConstants {
      * （格式 yyyy-MM-dd HH:mm:ss）做增量查询，为空时返回全量。</p>
      */
     public static final String DEPT_LIST_PATH = "/api-platform/v1/departments";
+
+    /**
+     * 获取全量自定义角色接口路径 —— 相对 {@code MokaProperties#getBaseUrl()} 拼接
+     *
+     * <p>GET 请求，对接 Moka 开放平台角色查询接口
+     * （{@linkplain <a href="https://www.mokahr.com/docs/api/?shell#-75">API 文档 #-75</a>}）。</p>
+     *
+     * <p><strong>开发前注意</strong>：文档为 JS 渲染无法直接抓取完整路径，
+     * 此常量按 Moka API 风格推断，实际调用前需用 Swagger 或 curl 确认完整 URL。</p>
+     */
+    public static final String ROLE_LIST_PATH = "/api-platform/v1/users/roles";
 }
