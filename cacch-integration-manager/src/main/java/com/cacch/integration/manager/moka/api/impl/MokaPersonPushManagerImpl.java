@@ -61,7 +61,8 @@ public class MokaPersonPushManagerImpl implements IMokaPersonPushManager {
     private static final int BATCH_SIZE = 100;
 
     /**
-     * 推送范围：仅 PENDING + SYNC_FAILED，避免重复推送已 SYNCED 记录
+     * 推送范围：PENDING + SYNC_FAILED，避免重复推送已 SYNCED 记录；
+     * 叠加 deactivated=0（在职）+ is_deleted=0（@TableLogic 自动过滤）
      */
     private static final List<Integer> PUSH_STATUSES = List.of(0, 2);
 

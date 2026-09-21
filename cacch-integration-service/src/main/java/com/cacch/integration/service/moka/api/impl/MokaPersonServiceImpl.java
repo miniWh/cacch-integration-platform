@@ -111,6 +111,7 @@ public class MokaPersonServiceImpl implements IMokaPersonService {
         }
         return personMapper.selectList(new LambdaQueryWrapper<MokaPersonDO>()
                 .in(MokaPersonDO::getMokaSyncStatus, syncStatuses)
+                .eq(MokaPersonDO::getDeactivated, 0)
                 .orderByAsc(MokaPersonDO::getUserId));
     }
 

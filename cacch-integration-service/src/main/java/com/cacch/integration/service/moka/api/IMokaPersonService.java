@@ -54,13 +54,19 @@ public interface IMokaPersonService {
     int batchUpsert(List<MokaPersonDO> persons);
 
     /**
-     * 按 moka_sync_status 集合查询人员 —— 接口 2 推送前过滤待同步记录
+     * 按 moka_sync_status 集合查询在职且未删除的人员 —— 接口 2 推送前过滤待同步记录
      *
-     * <p>典型调用：传入 {@code [0, 2]}（PENDING + SYNC_FAILED）做重试推送，
+     * <p>过滤条件：
+     * <ul>
+     *     <li>{@code moka_sync_status IN (...)} —— 同步状态匹配</li>
+     *     <li>{@code deactivated = 0} —— 仅在职人员（离职不同步到 Moka）</li>
+     *     <li>{@code is_deleted = 0} —— 未逻辑删除（@TableLogic 自动追加）</li>
+     * </ul>
+     * 典型调用：传入 {@code [0, 2]}（PENDING + SYNC_FAILED）做重试推送，
      * 不传 {@code 1}（SYNCED）避免重复推送已成功记录。</p>
      *
      * @param syncStatuses 同步状态集合；null 或空时返回空列表
-     * @return 匹配的人员列表（按 user_id 升序）；无数据时返回空列表
+     * @return 匹配的在职未删除人员列表（按 user_id 升序）；无数据时返回空列表
      */
     List<MokaPersonDO> listBySyncStatusIn(List<Integer> syncStatuses);
 

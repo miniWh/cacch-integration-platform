@@ -25,12 +25,15 @@ public interface IMokaPersonPushManager {
      *
      * <p>执行流程：
      * <ol>
-     *     <li>查询 {@code moka_sync_status IN (0, 2)} 的待推送记录（PENDING + SYNC_FAILED）</li>
+     *     <li>查询 {@code moka_sync_status IN (0, 2)} AND {@code deactivated = 0} AND {@code is_deleted = 0} 的待推送记录</li>
      *     <li>按每批 ≤ 100 条切分</li>
      *     <li>每批字段映射 → {@code MokaUserSyncRequest} → 调用 Moka syncInfo API</li>
      *     <li>Moka API 整批成功 → 回写 sync_status=1（SYNCED）；整批失败 → 回写 sync_status=2（SYNC_FAILED）</li>
      *     <li>累计 syncedCount / syncFailedCount / dbUpdateFailedCount 等指标</li>
      * </ol>
+     *
+     * <p>过滤规则：仅推送 {@code deactivated=0}（在职）且 {@code is_deleted=0}（未逻辑删除）的记录；
+     * 离职人员（deactivated=1）不推送到 Moka，由接口 1 同步时已标记 deactivated=1 即可。</p>
      *
      * <p>幂等性：Moka syncInfo API 以手机号为唯一键做 upsert，
      * 同一批次可重复推送；DB 状态字段 lastSyncTime / lastSyncResult 每次覆盖。</p>
