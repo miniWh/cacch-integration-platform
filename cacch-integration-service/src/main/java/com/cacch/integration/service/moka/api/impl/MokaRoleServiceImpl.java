@@ -1,6 +1,7 @@
 package com.cacch.integration.service.moka.api.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.cacch.integration.entity.moka.MokaRoleDO;
 import com.cacch.integration.mapper.moka.MokaRoleMapper;
 import com.cacch.integration.service.moka.api.IMokaRoleService;
@@ -18,6 +19,10 @@ import java.util.List;
  *
  * <p>以 role_id 为业务主键，upsert 走 PostgreSQL
  * {@code INSERT ... ON CONFLICT (role_id) DO UPDATE} 原子语义。</p>
+ *
+ * <p>主键生成策略：手写 {@code @Update} upsert 不会触发 MyBatis-Plus
+ * 的 {@code ASSIGN_ID}，因此在 Service 层调用 {@link IdWorker#getId()}
+ * 预生成雪花 id，ON CONFLICT DO UPDATE 不覆盖 id，保证幂等。</p>
  *
  * <p>事务策略：所有 DB 写操作显式声明
  * {@code @Transactional(rollbackFor=Exception.class, propagation=REQUIRED, ...)}，
@@ -57,7 +62,9 @@ public class MokaRoleServiceImpl implements IMokaRoleService {
     @Override
     @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED, readOnly = false, timeout = 10)
     public MokaRoleDO upsert(MokaRoleDO role) {
-        int rows = roleMapper.upsert(role.getRoleId(), role.getRoleName(), role.getRole(), role.getDescription());
+        // 预生成雪花主键 —— 手写 @Update SQL 不触发 ASSIGN_ID
+        long id = role.getId() != null ? role.getId() : IdWorker.getId();
+        int rows = roleMapper.upsert(id, role.getRoleId(), role.getRoleName(), role.getRole(), role.getDescription());
         if (rows == 0) {
             log.warn("【{}】upsert 影响 0 行, roleId={}", BIZ, role.getRoleId());
         }
@@ -75,7 +82,9 @@ public class MokaRoleServiceImpl implements IMokaRoleService {
         int failed = 0;
         for (MokaRoleDO role : roles) {
             try {
-                roleMapper.upsert(role.getRoleId(), role.getRoleName(), role.getRole(), role.getDescription());
+                // 预生成雪花主键 —— 手写 @Update SQL 不触发 ASSIGN_ID
+                long id = role.getId() != null ? role.getId() : IdWorker.getId();
+                roleMapper.upsert(id, role.getRoleId(), role.getRoleName(), role.getRole(), role.getDescription());
                 success++;
             } catch (Exception e) {
                 failed++;
