@@ -45,9 +45,10 @@ public final class MokaConstants {
      * Moka 用户信息同步接口路径 —— 相对 {@code MokaProperties#getBaseUrl()} 拼接
      *
      * <p>POST 请求，对接 Moka 开放平台用户同步接口
-     * （{@linkplain <a href="https://www.mokahr.com/docs/api/#-72">API 文档 #-72</a>}）。</p>
+     * （{@linkplain <a href="https://www.mokahr.com/docs/api/#-72">API 文档 #-72</a>}）。
+     * 使用 v2 版本，v1 对参数校验过于严格会错误返回 code=600025（缺少必填参数）。</p>
      */
-    public static final String USER_SYNC_INFO_PATH = "/api-platform/v1/users/syncInfo";
+    public static final String USER_SYNC_INFO_PATH = "/api-platform/v2/users/syncInfo";
 
     // ========== Moka 用户同步 API 固定参数 ==========
 

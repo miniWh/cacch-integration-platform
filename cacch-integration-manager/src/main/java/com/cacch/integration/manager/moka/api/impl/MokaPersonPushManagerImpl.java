@@ -186,13 +186,13 @@ public class MokaPersonPushManagerImpl implements IMokaPersonPushManager {
             info.setEmail(p.getCompanyEmail());
             info.setNumber(p.getEmployeeNo());
             info.setRoleId(p.getRoleId() != null ? p.getRoleId() : MokaConstants.DEFAULT_ROLE_ID);
-            // departmentCode Moka API 要求数组形式
+            // departmentCode Moka API 要求数组形式；无部门时传 null（被 @JsonInclude 排除）
             String deptCode = p.getDepartmentCode();
             if (StringUtils.hasText(deptCode)) {
                 info.setDepartmentCode(new String[]{deptCode});
-            } else {
-                info.setDepartmentCode(new String[0]);
             }
+            // 无 departmentCode 时 info.departmentCode 保持 null，
+            // 由 @JsonInclude(NON_NULL) 自动排除，避免 Moka 收到空数组
             info.setDeactivated(p.getDeactivated() != null ? p.getDeactivated() : 0);
             info.setUniqueType(MokaConstants.USER_UNIQUE_TYPE);
             info.setAutoActivated(MokaConstants.USER_AUTO_ACTIVATED);

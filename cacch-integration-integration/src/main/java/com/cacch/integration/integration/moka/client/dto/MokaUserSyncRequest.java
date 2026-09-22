@@ -1,6 +1,7 @@
 package com.cacch.integration.integration.moka.client.dto;
 
 import com.cacch.integration.common.constant.moka.MokaConstants;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Data;
 
 import java.util.List;
@@ -8,7 +9,7 @@ import java.util.List;
 /**
  * Moka 用户信息同步接口 —— syncInfo 请求体 DTO
  *
- * <p>对接 Moka 开放平台 {@code POST /api-platform/v1/users/syncInfo}
+ * <p>对接 Moka 开放平台 {@code POST /api-platform/v2/users/syncInfo}
  * （{@linkplain <a href="https://www.mokahr.com/docs/api/#-72">API 文档 #-72</a>}）。
  * 以 {@code uniqueType="phone"} 指定的手机号作为用户唯一性匹配键，
  * Moka 侧存在则更新、不存在则创建。</p>
@@ -45,6 +46,7 @@ import java.util.List;
  * @author hongfu_zhou@cacch.com
  */
 @Data
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class MokaUserSyncRequest {
 
     /**
@@ -73,6 +75,7 @@ public class MokaUserSyncRequest {
      * @author hongfu_zhou@cacch.com
      */
     @Data
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public static class MokaUserInfo {
 
         /**
