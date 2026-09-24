@@ -106,7 +106,7 @@ public interface PersondetailMapper {
             "       s.last_update AS staff_last_update " +
             "FROM persondetail p " +
             "INNER JOIN dept_tree t ON p.\"departmentId\"::VARCHAR = t.ihr_dept_id " +
-            "LEFT JOIN ihr_staff_update_sync_record s ON s.\"staffId\"::VARCHAR = p.\"id\"::VARCHAR " +
+            "LEFT JOIN ihr_staff_update_sync_record s ON s.\"staff_id\"::VARCHAR = p.\"id\"::VARCHAR " +
             "WHERE p.\"staffStatus\" = 'IN_SERVICE' " +
             "<if test='lastUpdateDate != null'> " +
             "  AND s.last_update &gt;= #{lastUpdateDate} " +
