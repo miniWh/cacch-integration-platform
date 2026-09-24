@@ -2,9 +2,12 @@ package com.cacch.integration.mapper.ihr;
 
 import com.cacch.integration.entity.ihr.PersondetailDO;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 /**
  * iHR persondetail 外部表 Mapper
@@ -56,4 +59,61 @@ public interface PersondetailMapper {
             "\"staffStatus\" AS employee_status " +
             "FROM persondetail")
     List<PersondetailDO> selectAll();
+
+    /**
+     * 按 IHR 部门树递归查询在职员工（含 {@code ihr_staff_update_sync_record.last_update} 可选过滤）
+     *
+     * <p>SQL 执行流程：
+     * <ol>
+     *     <li>递归 CTE {@code dept_tree}：从 {@code ihr_dept_id} 锚点向下递归，
+     *     收集所有子部门（{@code parent_id = 父.ihr_dept_id}），仅含 ENABLE 状态</li>
+     *     <li>主查询：{@code persondetail} JOIN {@code dept_tree}（{@code p."departmentId"::varchar = t.ihr_dept_id}），
+     *     只取在职员工（{@code staffStatus = 'IN_SERVICE'}）</li>
+     *     <li>LEFT JOIN {@code ihr_staff_update_sync_record}（{@code staffId} 关联 {@code p.id}）
+     *     附加 {@code last_update} 字段</li>
+     *     <li>动态过滤：{@code lastUpdateDate} 非空时追加 {@code s.last_update >= #{lastUpdateDate}} 条件</li>
+     * </ol>
+     *
+     * <p>返回 {@code List<Map<String, Object>>}：每个 Map 包含 persondetail 表所有字段（原列名 camelCase 保留）
+     * + 部门字段（{@code department_name} / {@code department_code}）+ {@code staff_last_update}。
+     * 使用 Map 承载避免 persondetail 表字段加减影响 Java 侧 VO 定义。</p>
+     *
+     * <p><strong>类型转换说明</strong>：
+     * {@code persondetail."departmentId"} 为 bigint，{@code t_integration_ihr_department.ihr_dept_id} 为 varchar，
+     * PG 严格类型校验需显式 {@code ::VARCHAR} 转换。</p>
+     *
+     * @param ihrDeptId      IHR 部门 ID（{@code t_integration_ihr_department.ihr_dept_id}），不可为空
+     * @param lastUpdateDate 最后更新日期下界（可选，格式 yyyy-MM-dd）；为 null 时返回全部
+     * @return 员工记录列表（每条为 Map，含 persondetail 所有字段 + 部门信息 + last_update）；无数据时返回空列表
+     */
+    @Select("<script>" +
+            "WITH RECURSIVE dept_tree AS ( " +
+            "  SELECT ihr_dept_id, name, department_code " +
+            "  FROM t_integration_ihr_department " +
+            "  WHERE ihr_dept_id = #{ihrDeptId} " +
+            "    AND is_deleted = 0 " +
+            "    AND department_status = 'ENABLE' " +
+            "  UNION ALL " +
+            "  SELECT d.ihr_dept_id, d.name, d.department_code " +
+            "  FROM t_integration_ihr_department d " +
+            "  INNER JOIN dept_tree t ON d.parent_id = t.ihr_dept_id " +
+            "  WHERE d.is_deleted = 0 " +
+            "    AND d.department_status = 'ENABLE' " +
+            ") " +
+            "SELECT p.*, " +
+            "       t.name AS department_name, " +
+            "       t.department_code AS department_code, " +
+            "       s.last_update AS staff_last_update " +
+            "FROM persondetail p " +
+            "INNER JOIN dept_tree t ON p.\"departmentId\"::VARCHAR = t.ihr_dept_id " +
+            "LEFT JOIN ihr_staff_update_sync_record s ON s.\"staffId\"::VARCHAR = p.\"id\"::VARCHAR " +
+            "WHERE p.\"staffStatus\" = 'IN_SERVICE' " +
+            "<if test='lastUpdateDate != null'> " +
+            "  AND s.last_update &gt;= #{lastUpdateDate} " +
+            "</if> " +
+            "ORDER BY t.ihr_dept_id, p.\"staffNo\"" +
+            "</script>")
+    List<Map<String, Object>> selectByDeptTree(@Param("ihrDeptId") String ihrDeptId,
+                                               @Param("lastUpdateDate") LocalDate lastUpdateDate);
 }
+
