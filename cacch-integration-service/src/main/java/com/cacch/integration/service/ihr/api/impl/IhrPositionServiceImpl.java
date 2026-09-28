@@ -104,4 +104,19 @@ public class IhrPositionServiceImpl implements IIhrPositionService {
         }
         return upserted;
     }
+
+    @Override
+    public List<IhrPositionDO> listByDeptTree(String deptId) {
+        if (deptId == null || deptId.isBlank()) {
+            log.info("【{}】listByDeptTree 跳过, deptId 为空", BIZ);
+            return Collections.emptyList();
+        }
+        List<IhrPositionDO> list = mapper.listByDeptTree(deptId);
+        if (list == null || list.isEmpty()) {
+            log.info("【{}】listByDeptTree 返回空, deptId={}", BIZ, deptId);
+            return Collections.emptyList();
+        }
+        log.info("【{}】listByDeptTree 命中, deptId={}, count={}", BIZ, deptId, list.size());
+        return list;
+    }
 }

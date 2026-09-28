@@ -4,7 +4,10 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.cacch.integration.entity.ihr.IhrPositionDO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
+
+import java.util.List;
 
 /**
  * IHR 职位快照 Mapper
@@ -68,4 +71,28 @@ public interface IhrPositionMapper extends BaseMapper<IhrPositionDO> {
             "is_deleted = 0"
     )
     int upsert(@Param("d") IhrPositionDO d, @Param("syncBatch") String syncBatch);
+
+    /**
+     * 递归查询指定部门及其所有子孙部门下的职位（仅未逻辑删除）
+     *
+     * <p>使用 PostgreSQL WITH RECURSIVE CTE：
+     * 锚点为 {@code t_integration_ihr_department} 中 {@code ihr_dept_id = #{deptId}} 的部门，
+     * 递归时子部门的 {@code parent_id} 关联父部门的 {@code ihr_dept_id}，
+     * 最后将部门树与职位表按 {@code department_id} 关联，返回所有匹配职位。</p>
+     *
+     * @param deptId 起始部门的 iHR 原始 ID（VARCHAR，对应 ihr_dept_id）
+     * @return 职位 DO 列表，按 position_name 升序排序
+     */
+    @Select("WITH RECURSIVE dept_tree AS (" +
+            "  SELECT d.ihr_dept_id FROM t_integration_ihr_department d " +
+            "  WHERE d.ihr_dept_id = #{deptId} AND d.is_deleted = 0 " +
+            "  UNION ALL " +
+            "  SELECT c.ihr_dept_id FROM t_integration_ihr_department c " +
+            "  INNER JOIN dept_tree t ON c.parent_id = t.ihr_dept_id " +
+            "  WHERE c.is_deleted = 0" +
+            ") SELECT p.* FROM t_integration_ihr_position p " +
+            "WHERE p.is_deleted = 0 " +
+            "  AND p.department_id IN (SELECT ihr_dept_id FROM dept_tree) " +
+            "ORDER BY p.position_name ASC")
+    List<IhrPositionDO> listByDeptTree(@Param("deptId") String deptId);
 }

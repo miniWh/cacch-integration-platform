@@ -30,4 +30,17 @@ public interface IIhrPositionService {
      * @return upsert 总条数
      */
     int batchUpsert(List<IhrPositionDO> positionList, String syncBatch);
+
+    /**
+     * 递归查询指定部门及其所有子孙部门下的职位快照
+     *
+     * <p>内部使用 PostgreSQL WITH RECURSIVE CTE：
+     * 以 {@code t_integration_ihr_department} 表构建部门子树，
+     * 再关联 {@code t_integration_ihr_position} 表返回匹配职位。
+     * 仅返回未逻辑删除的职位，按 position_name 升序排序。</p>
+     *
+     * @param deptId 起始部门的 iHR 原始 ID（VARCHAR，对应 ihr_dept_id）
+     * @return 职位 DO 列表，无数据时返回空列表（非 null）
+     */
+    List<IhrPositionDO> listByDeptTree(String deptId);
 }
