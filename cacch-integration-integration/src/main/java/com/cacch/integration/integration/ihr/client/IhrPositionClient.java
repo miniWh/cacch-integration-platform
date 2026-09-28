@@ -22,10 +22,6 @@ import java.util.Collections;
 /**
  * IHR 职位 HTTP 客户端 — 「获取公司职位清单」
  *
- * <p>接口：GET /openapi/thirdparty/api/v1/org/{orgId}/positions
- * 与 {@link IhrOrgClient}（部门清单 v3）并列，同样使用 Bearer token + RestTemplate。
- * 成功判定：{@code code == 200}（部门接口为 {@code code == 0}）。</p>
- *
  * @author hongfu_zhou@cacch.com
  */
 @Slf4j
@@ -43,11 +39,10 @@ public class IhrPositionClient {
      * 拉取全量职位清单（iHR 无分页，一次返回全部）
      *
      * @param accessToken IHR access_token（不可为空）
-     * @return 职位列表响应；业务 code != 200 或 HTTP 非 2xx 抛 RestClientException
+     * @return 职位列表响应；业务 code != 0 或 HTTP 非 2xx 抛 RestClientException
      */
     public IhrPositionListResponse listAll(String accessToken) {
-        String url = ihrProperties.getBaseUrl()
-                + IhrConstants.POSITION_LIST_PATH_TEMPLATE.replace("{orgId}", IhrConstants.ORG_ID);
+        String url = ihrProperties.getBaseUrl() + IhrConstants.ORG_POSITION_LIST_PATH;
         URI uri;
         try {
             uri = new URI(url);

@@ -36,6 +36,9 @@ public class IhrPositionSyncManagerImpl implements IIhrPositionSyncManager {
      */
     private static final int BATCH_SIZE = 100;
 
+    private static final com.fasterxml.jackson.databind.ObjectMapper MAPPER =
+            new com.fasterxml.jackson.databind.ObjectMapper();
+
     private final IIhrPositionService ihrPositionService;
 
     @Override
@@ -94,39 +97,55 @@ public class IhrPositionSyncManagerImpl implements IIhrPositionSyncManager {
     /**
      * IhrPosition（IHR DTO） → IhrPositionDO（本地快照表）字段映射
      *
-     * <p>关键转换：
+     * <p>2026-09-28 在线文档确认的关键转换：
      * <ul>
-     *     <li>{@code id}（Long）→ {@code uuid}（String 业务主键）</li>
-     *     <li>{@code companyId / departmentId / parentId}（Long）→ 对应 DO 字段（String）</li>
-     *     <li>日期字段（affectiveDate 等）保持原始 String，不做类型转换</li>
+     *     <li>{@code id} 本身就是 String UUID — 直接赋值 DO.uuid</li>
+     *     <li>{@code companyId / parentId} 都是 String UUID — 直接赋值</li>
+     *     <li>{@code positionState} 为 String（ENABLE / DISABLE）— 直接赋值</li>
+     *     <li>{@code departmentId}（Long）→ DO.departmentId（String）</li>
+     *     <li>{@code positionScope}（List<Integer>）→ JSON 字符串存入 DO.positionScope（对应 PG JSONB）</li>
      * </ul>
      */
     private IhrPositionDO mapToDO(IhrPosition src) {
         IhrPositionDO DO = new IhrPositionDO();
-        DO.setUuid(src.getId() != null ? String.valueOf(src.getId()) : null);
-        DO.setCompanyId(src.getCompanyId() != null ? String.valueOf(src.getCompanyId()) : null);
+        DO.setUuid(src.getId());                           // String UUID 直接赋值
+        DO.setCompanyId(src.getCompanyId());               // String UUID 直接赋值
         DO.setPositionName(src.getPositionName());
         DO.setAbbreviation(src.getAbbreviation());
         DO.setPositionCode(src.getPositionCode());
-        DO.setApplyRange(src.getApplyRange());
+        DO.setAppliedRange(src.getAppliedRange());
         DO.setCapacity(src.getCapacity());
-        DO.setAffectiveDate(src.getAffectiveDate());
-        DO.setExpiryDate(src.getExpiryDate());
-        DO.setPositionScope(src.getPositionScope());
+        DO.setEffectiveDate(src.getEffectiveDate());
         DO.setDescription(src.getDescription());
         DO.setDepartmentId(src.getDepartmentId() != null ? String.valueOf(src.getDepartmentId()) : null);
         DO.setDepartmentName(src.getDepartmentName());
-        DO.setJobFunction(src.getJobFunction());
-        DO.setJobSubFunction(src.getJobSubFunction());
-        DO.setPositionGraded(src.getPositionGraded());
+        DO.setJobTitleId(src.getJobTitleId());
+        DO.setJobTitleName(src.getJobTitleName());
+        DO.setPositionGradeId(src.getPositionGradeId());
         DO.setPositionGradeName(src.getPositionGradeName());
-        DO.setQualification(src.getQualification());
-        DO.setParentId(src.getParentId() != null ? String.valueOf(src.getParentId()) : null);
+        DO.setQualifications(src.getQualifications());
+        DO.setParentId(src.getParentId());                 // String UUID 直接赋值
         DO.setIsPositionGroup(src.getIsPositionGroup());
-        DO.setPositionState(src.getPositionState());
+        DO.setPositionState(src.getPositionState());       // ENABLE/DISABLE String 直接赋值
         DO.setPositionStateString(src.getPositionStateString());
-        DO.setUpdateDate(src.getUpdateDate());
-        DO.setCreateDate(src.getCreateDate());
+        DO.setUpdatedDate(src.getUpdatedDate());
+        DO.setCreatedDate(src.getCreatedDate());
+        DO.setPositionScope(toJson(src.getPositionScope()));
         return DO;
+    }
+
+    /**
+     * List<Integer> → JSON 字符串（PG JSONB 列）；null / 空列表返回 null
+     */
+    private String toJson(Object obj) {
+        if (obj == null) {
+            return null;
+        }
+        try {
+            return MAPPER.writeValueAsString(obj);
+        } catch (Exception e) {
+            log.info("【{}】positionScope JSON 序列化终止, reason={}", BIZ, e.getMessage());
+            return null;
+        }
     }
 }

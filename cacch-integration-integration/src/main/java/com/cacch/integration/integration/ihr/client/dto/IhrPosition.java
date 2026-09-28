@@ -1,13 +1,11 @@
 package com.cacch.integration.integration.ihr.client.dto;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
+
+import java.util.List;
 
 /**
  * IHR 获取公司职位清单 — 职位项响应 DTO
- *
- * <p>字段映射严格对齐 iHR 接口文档：GET /api/v1/org/{orgId}/positions
- * 注意：文档中职位接口成功 {@code code=200}（部门清单 v3 为 {@code code=0}）。</p>
  *
  * @author hongfu_zhou@cacch.com
  */
@@ -15,122 +13,117 @@ import lombok.Data;
 public class IhrPosition {
 
     /**
-     * 职位ID（iHR 业务主键，UNIQUE；文档声明 Long）
+     * 职位ID（String UUID，iHR 业务主键）
      */
-    private Long id;
+    private String id;
 
     /**
-     * 公司ID
+     * 公司ID（String UUID）
      */
-    private Long companyId;
+    private String companyId;
 
     /**
-     * 职位名称（最大长度128）
+     * 职位名称（最大长度100）
      */
     private String positionName;
 
     /**
-     * 简称
+     * 简称（最大长度100）
      */
     private String abbreviation;
 
     /**
-     * 职位编码
+     * 职位编号（最大长度50）
      */
     private String positionCode;
 
     /**
-     * 适用范围（如 CURRENT_DEPARTMENT）
+     * 应用范围：CURRENT_DEPARTMENT / CURRENT_DEPARTMENT_AND_CHILDREN / ALL_DEPARTMENT
      */
-    private String applyRange;
+    private String appliedRange;
 
     /**
-     * 编制人数
+     * 当前编制人数
      */
     private Integer capacity;
 
     /**
-     * 生效日期（iHR 返回 String，格式 YYYY-MM-DD）
+     * 生效日期（iHR 返回 String）
      */
-    private String affectiveDate;
+    private String effectiveDate;
 
     /**
-     * 失效日期（iHR 返回 String，格式 YYYY-MM-DD）
-     */
-    private String expiryDate;
-
-    /**
-     * 职位范围
-     */
-    private String positionScope;
-
-    /**
-     * 职位描述
-     */
-    private String description;
-
-    /**
-     * 部门ID
+     * 所属部门id（Long）
      */
     private Long departmentId;
 
     /**
-     * 部门名称
+     * 职位描述（最大长度255）
+     */
+    private String description;
+
+    /**
+     * 所属部门名称（最大长度128）
      */
     private String departmentName;
 
     /**
-     * 职能
+     * 对应职务id（String UUID）
      */
-    private String jobFunction;
+    private String jobTitleId;
 
     /**
-     * 子职能
+     * 对应职务名称
      */
-    private String jobSubFunction;
+    private String jobTitleName;
 
     /**
-     * 是否已定级
+     * 对应职级id（String UUID）
      */
-    private Boolean positionGraded;
+    private String positionGradeId;
 
     /**
-     * 职级名称
+     * 对应职级名称
      */
     private String positionGradeName;
 
     /**
      * 任职资格
      */
-    private String qualification;
+    private String qualifications;
 
     /**
-     * 上级职位ID（null 表示无上级）
+     * 父级编号（String UUID，null 表示无上级）
      */
-    private Long parentId;
+    private String parentId;
 
     /**
-     * 是否职位组
+     * 是否为职位组
      */
     private Boolean isPositionGroup;
 
     /**
-     * 职位状态：0-停用 1-启用
+     * 职位状态：ENABLE / DISABLE
      */
-    private Integer positionState;
+    private String positionState;
 
     /**
-     * 职位状态描述（如 "启用" / "停用"）
+     * 职位状态描述
      */
     private String positionStateString;
 
     /**
-     * iHR 更新时间（格式 YYYY-MM-DD HH:MM:SS）
+     * 更新时间（原始 String，格式 YYYY-MM-DD HH:MM:SS）
      */
-    private String updateDate;
+    private String updatedDate;
 
     /**
-     * iHR 创建时间（格式 YYYY-MM-DD HH:MM:SS）
+     * 创建时间（原始 String，格式 YYYY-MM-DD HH:MM:SS）
      */
-    private String createDate;
+    private String createdDate;
+
+    /**
+     * 应用范围部门id列表（positionScope 是部门 ID 数组；存 List，写入 DB 时序列化为 JSONB）
+     */
+    private List<Integer> positionScope;
 }

@@ -8,20 +8,12 @@ import java.util.List;
 /**
  * IHR 获取公司职位清单 — 响应体包装
  *
- * <p>接口文档响应结构：
- * <pre>
- * {
- *   "code": 200,
- *   "message": "success",
- *   "errorResult": false,
- *   "data": {
- *     "resultArray": [ { ...IhrPosition... } ]
- *   }
- * }
- * </pre>
- *
- * <p>注意：与部门清单 v3 不同，本接口无分页，结果直接返回在 {@code data.resultArray} 中。
- * 成功判定：{@code code == 200}（部门接口为 {@code code == 0}）。</p>
+ * <p>注意：
+ * <ul>
+ *     <li>成功判定：{@code code == 0}（与部门清单 v3 一致）</li>
+ *     <li>{@code data} 直接是 JSONArray，不是嵌套对象（不同于部门清单 v3 的 data.content 结构）</li>
+ *     <li>无分页，一次返回全部职位</li>
+ * </ul>
  *
  * @author hongfu_zhou@cacch.com
  */
@@ -29,7 +21,7 @@ import java.util.List;
 public class IhrPositionListResponse {
 
     /**
-     * 业务状态码：200 表示成功，其它表示失败
+     * 业务状态码：0 表示成功，其它表示失败
      */
     private int code;
 
@@ -45,33 +37,14 @@ public class IhrPositionListResponse {
     private Boolean errorResult;
 
     /**
-     * 响应数据对象（含 resultArray）
+     * 职位列表（直接是 JSONArray，非分页包装）
      */
-    private PositionData data;
+    private List<IhrPosition> data;
 
     /**
-     * 是否成功响应（code == 200）
+     * 是否成功响应
      */
     public boolean isSuccess() {
-        return code == 200;
-    }
-
-    /**
-     * 职位列表（平铺便捷方法，取自 {@code data.resultArray}）
-     */
-    public List<IhrPosition> getData() {
-        return data == null ? null : data.getResultArray();
-    }
-
-    /**
-     * 响应 data 节点结构
-     */
-    @Data
-    public static class PositionData {
-
-        /**
-         * 职位记录数组
-         */
-        private List<IhrPosition> resultArray;
+        return code == 0;
     }
 }

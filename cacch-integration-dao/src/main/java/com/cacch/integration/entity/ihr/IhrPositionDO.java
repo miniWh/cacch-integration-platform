@@ -13,8 +13,6 @@ import java.time.LocalDateTime;
 /**
  * IHR 开放平台职位快照 DO —— 映射 PG 表 {@code t_integration_ihr_position}
  *
- * <p>主键为雪花 BIGINT（ASSIGN_ID），{@code uuid} 为 iHR 业务主键（UNIQUE 约束）。</p>
- *
  * @author hongfu_zhou@cacch.com
  */
 @Data
@@ -30,109 +28,99 @@ public class IhrPositionDO {
     // ========== iHR 业务字段 ==========
 
     /**
-     * iHR 职位ID（业务主键，UNIQUE；文档声明 Long，存 String 兼容）
+     * 职位ID（String UUID，iHR 侧业务主键，UNIQUE）
      */
     private String uuid;
 
     /**
-     * 公司ID（文档声明 Long，存 VARCHAR 兼容）
+     * 公司ID（String UUID）
      */
     private String companyId;
 
     /**
-     * 职位名称
+     * 职位名称（最大长度100）
      */
     private String positionName;
 
     /**
-     * 简称
+     * 简称（最大长度100）
      */
     private String abbreviation;
 
     /**
-     * 职位编码
+     * 职位编号（最大长度50）
      */
     private String positionCode;
 
     /**
-     * 适用范围（如 CURRENT_DEPARTMENT）
+     * 应用范围：CURRENT_DEPARTMENT / CURRENT_DEPARTMENT_AND_CHILDREN / ALL_DEPARTMENT
      */
-    private String applyRange;
+    private String appliedRange;
 
     /**
-     * 编制人数
+     * 当前编制人数
      */
     private Integer capacity;
 
     /**
      * 生效日期（iHR 返回 String，格式 YYYY-MM-DD）
      */
-    private String affectiveDate;
+    private String effectiveDate;
 
     /**
-     * 失效日期（iHR 返回 String，格式 YYYY-MM-DD）
-     */
-    private String expiryDate;
-
-    /**
-     * 职位范围
-     */
-    private String positionScope;
-
-    /**
-     * 职位描述
+     * 职位描述（最大长度255）
      */
     private String description;
 
     /**
-     * 部门ID（文档声明 Long，存 VARCHAR 兼容）
+     * 所属部门id（Long 存 VARCHAR 兼容）
      */
     private String departmentId;
 
     /**
-     * 部门名称
+     * 所属部门名称（最大长度128）
      */
     private String departmentName;
 
     /**
-     * 职能
+     * 对应职务id（String UUID）
      */
-    private String jobFunction;
+    private String jobTitleId;
 
     /**
-     * 子职能
+     * 对应职务名称
      */
-    private String jobSubFunction;
+    private String jobTitleName;
 
     /**
-     * 是否已定级
+     * 对应职级id（String UUID）
      */
-    private Boolean positionGraded;
+    private String positionGradeId;
 
     /**
-     * 职级名称
+     * 对应职级名称
      */
     private String positionGradeName;
 
     /**
      * 任职资格
      */
-    private String qualification;
+    private String qualifications;
 
     /**
-     * 上级职位ID（文档声明 Long，存 VARCHAR 兼容；null 表示无上级）
+     * 父级编号（String UUID；null 表示无上级）
      */
     private String parentId;
 
     /**
-     * 是否职位组
+     * 是否为职位组
      */
     private Boolean isPositionGroup;
 
     /**
-     * 职位状态：0-停用 1-启用
+     * 职位状态：ENABLE / DISABLE
      */
-    private Integer positionState;
+    private String positionState;
 
     /**
      * 职位状态描述
@@ -142,14 +130,17 @@ public class IhrPositionDO {
     /**
      * iHR 更新时间（原始 String，格式 YYYY-MM-DD HH:MM:SS）
      */
-    private String updateDate;
+    private String updatedDate;
 
     /**
      * iHR 创建时间（原始 String，格式 YYYY-MM-DD HH:MM:SS）
      */
-    private String createDate;
+    private String createdDate;
 
-    // ========== 审计/辅助字段 ==========
+    /**
+     * 应用范围部门id列表（JSON 字符串，对应 PG JSONB 列；iHR 返回 List<Integer>）
+     */
+    private String positionScope;
 
     /**
      * 同步批次号（便于追溯每次同步写入的记录）
