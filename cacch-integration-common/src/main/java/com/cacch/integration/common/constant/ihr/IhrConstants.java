@@ -41,6 +41,26 @@ public final class IhrConstants {
             "/openapi/thirdparty/api/org/v1/organizations/search";
 
     /**
+     * 获取公司职位清单（相对 {@code IhrProperties#getBaseUrl()} 拼接，需与 {@link #ORG_ID} 运行时组合）
+     *
+     * <p>接口文档：GET /api/v1/org/{orgId}/positions
+     * 注意：{@code {orgId}} 由 {@link #ORG_ID} 常量替换，不可硬编码到路径中。</p>
+     */
+    public static final String POSITION_LIST_PATH_TEMPLATE = "/openapi/thirdparty/api/v1/org/{orgId}/positions";
+
+    /**
+     * iHR 开放平台公司 orgId —— 「获取公司职位清单」接口路径参数
+     *
+     * <p>⚠️ 占位常量，首次对接需替换为实际公司 ID。可通过以下方式确认：
+     * <ul>
+     *     <li>调用 iHR「获取公司列表」接口查询本账号所属公司 ID</li>
+     *     <li>或查看已对接的 Moka/iHR 人员数据中的 companyId 字段</li>
+     * </ul>
+     * 当前设为 "1"（iHR 演示环境常见默认值），生产环境必须替换。</p>
+     */
+    public static final String ORG_ID = "1";
+
+    /**
      * access_token 有效期（秒）—— IHR 官方文档约定 2 小时
      */
     public static final long ACCESS_TOKEN_TTL_SECONDS = 7200L;
