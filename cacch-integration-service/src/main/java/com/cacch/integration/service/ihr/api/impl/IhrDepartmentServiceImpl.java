@@ -94,4 +94,19 @@ public class IhrDepartmentServiceImpl implements IIhrDepartmentService {
         log.info("【{}】listByIhrDeptIds 命中, 传入={}, 返回={}", BIZ, ihrDeptIds.size(), list.size());
         return list;
     }
+
+    @Override
+    public List<IhrDepartmentDO> listRecursiveByParentId(String parentId) {
+        if (parentId == null || parentId.isBlank()) {
+            log.info("【{}】listRecursiveByParentId 跳过, parentId 为空", BIZ);
+            return Collections.emptyList();
+        }
+        List<IhrDepartmentDO> list = mapper.listRecursiveByParentId(parentId);
+        if (list == null || list.isEmpty()) {
+            log.info("【{}】listRecursiveByParentId 返回空, parentId={}", BIZ, parentId);
+            return Collections.emptyList();
+        }
+        log.info("【{}】listRecursiveByParentId 命中, parentId={}, count={}", BIZ, parentId, list.size());
+        return list;
+    }
 }

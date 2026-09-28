@@ -32,6 +32,19 @@ public interface IIhrDepartmentService {
     List<IhrDepartmentDO> listEnabled();
 
     /**
+     * 递归查询指定 parent_id 下的所有子孙部门（仅 ENABLE 状态、未逻辑删除）
+     *
+     * <p>内部使用 PostgreSQL WITH RECURSIVE CTE 递归遍历部门树。
+     * 锚点条件为 {@code parent_id = 指定值}，递归时子记录的 parent_id
+     * 关联父记录的 ihr_dept_id（iHR 原始部门 ID）。结果按 sequence 升序、
+     * id 升序稳定排序，无数据时返回空列表。</p>
+     *
+     * @param parentId 父部门的 iHR 原始 ID（对应表字段 parent_id），如 {@code "396"}
+     * @return 子孙部门 DO 列表，不会返回 null
+     */
+    List<IhrDepartmentDO> listRecursiveByParentId(String parentId);
+
+    /**
      * 按 ihr_dept_id 批量查询部门快照
      *
      * <p>用于 Moka 人员同步时，将 persondetail.departmentId 批量映射为

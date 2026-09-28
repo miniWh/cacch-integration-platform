@@ -4,7 +4,10 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.cacch.integration.entity.ihr.IhrDepartmentDO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
+
+import java.util.List;
 
 /**
  * IHR 部门快照 Mapper
@@ -67,4 +70,25 @@ public interface IhrDepartmentMapper extends BaseMapper<IhrDepartmentDO> {
             "is_deleted = 0"
     )
     int upsert(@Param("d") IhrDepartmentDO d, @Param("syncBatch") String syncBatch);
+
+    /**
+     * 递归查询指定 parent_id 下的所有子孙部门（含 ENABLE 状态、未逻辑删除）
+     *
+     * <p>锚点：直接子部门 WHERE parent_id = #{parentId}；
+     * 递归：子记录的 parent_id 关联父记录的 ihr_dept_id（iHR 原始部门 ID）。
+     * 仅返回 {@code department_status = 'ENABLE'} 且 {@code is_deleted = 0} 的记录，
+     * 按 sequence 升序、id 升序稳定排序。</p>
+     *
+     * @param parentId 父部门的 iHR 原始 ID（对应表字段 parent_id，VARCHAR）
+     * @return 子孙部门列表，无数据时返回空列表
+     */
+    @Select("WITH RECURSIVE subtree AS (" +
+            "  SELECT * FROM t_integration_ihr_department " +
+            "  WHERE parent_id = #{parentId} AND is_deleted = 0 AND department_status = 'ENABLE' " +
+            "  UNION ALL " +
+            "  SELECT d.* FROM t_integration_ihr_department d " +
+            "  INNER JOIN subtree s ON d.parent_id = s.ihr_dept_id " +
+            "  WHERE d.is_deleted = 0 AND d.department_status = 'ENABLE'" +
+            ") SELECT * FROM subtree ORDER BY sequence ASC, id ASC")
+    List<IhrDepartmentDO> listRecursiveByParentId(@Param("parentId") String parentId);
 }

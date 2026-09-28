@@ -3,6 +3,7 @@ package com.cacch.integration.convert.ihr;
 import com.cacch.integration.dto.ihr.request.SearchDepartmentRequest;
 import com.cacch.integration.dto.ihr.vo.DepartmentPageVO;
 import com.cacch.integration.dto.ihr.vo.DepartmentVO;
+import com.cacch.integration.entity.ihr.IhrDepartmentDO;
 import com.cacch.integration.integration.ihr.client.dto.IhrDepartment;
 import com.cacch.integration.integration.ihr.client.dto.IhrOrgSearchRequest;
 import com.cacch.integration.integration.ihr.client.dto.IhrOrgSearchResponse;
@@ -87,5 +88,33 @@ public interface IhrOrgConverter {
         pageVO.setTotalPages(response.getTotalPages());
         pageVO.setEnd(Boolean.TRUE.equals(response.getEnd()));
         return pageVO;
+    }
+
+    /**
+     * IHR 部门快照 DO → web DepartmentVO
+     *
+     * <p>字段映射差异：DO.storeNumber → VO.shortNumber；
+     * DO.id(Long 雪花主键) 不映射到 VO.id（VO.id 复用 uuid/ihr_dept_id 语义）；
+     * DO.createdDate(LocalDateTime) 与 VO.createDate(Long 毫秒) 类型不匹配，暂忽略。</p>
+     *
+     * @param source 部门快照 DO
+     * @return 部门视图对象；source 为 null 时返回 null
+     */
+    @Mapping(target = "id", source = "ihrDeptId")
+    @Mapping(source = "storeNumber", target = "shortNumber")
+    @Mapping(target = "createDate", ignore = true)
+    DepartmentVO toVOFromDO(IhrDepartmentDO source);
+
+    /**
+     * IHR 部门快照 DO 列表 → web DepartmentVO 列表
+     *
+     * @param source 部门快照 DO 列表
+     * @return VO 列表，null/空 入参返回空列表
+     */
+    default List<DepartmentVO> toVOListFromDO(List<IhrDepartmentDO> source) {
+        if (source == null || source.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return source.stream().map(this::toVOFromDO).toList();
     }
 }
