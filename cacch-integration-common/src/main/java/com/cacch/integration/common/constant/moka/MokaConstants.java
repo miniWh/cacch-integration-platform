@@ -92,4 +92,13 @@ public final class MokaConstants {
      * 阶段二角色拉取后按 jobTitle 匹配 t_integration_moka_role 更新
      */
     public static final int DEFAULT_ROLE_ID = 223379;
+
+    /**
+     * 根据条件查询申请信息（分页）接口路径 —— 相对 {@code MokaProperties#getBaseUrl()} 拼接
+     *
+     * <p>POST 请求，对接 Moka ATS 申请分页查询接口
+     * （{@linkplain <a href="https://www.mokahr.com/docs/api/#-168">API 文档</a>}）。
+     * 返回成功码为 200（注意：与部门接口的 code=0 不同）。</p>
+     */
+    public static final String APPLICATION_LIST_PATH = "/api-platform/v3/applications/list_by_condition";
 }
