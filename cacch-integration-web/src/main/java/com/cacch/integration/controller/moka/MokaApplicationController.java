@@ -3,11 +3,11 @@ package com.cacch.integration.controller.moka;
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.Result;
 import com.cacch.integration.common.result.ResultCode;
-import com.cacch.integration.convert.moka.MokaOrgConverter;
+import com.cacch.integration.convert.moka.MokaApplicationConverter;
 import com.cacch.integration.dto.moka.request.MokaApplicationResignRequest;
 import com.cacch.integration.dto.moka.vo.MokaApplicationResignResultVO;
 import com.cacch.integration.integration.moka.client.dto.MokaApplicationResignResponse;
-import com.cacch.integration.service.moka.api.IMokaOrgService;
+import com.cacch.integration.service.moka.api.IMokaApplicationService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Moka 申请管理 REST 接口（测试用）
+ * Moka 入离职 REST 接口（统一入口）
  *
  * <p>当前暴露接口：
  * <ul>
@@ -42,8 +42,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class MokaApplicationController {
 
-    private final IMokaOrgService mokaOrgService;
-    private final MokaOrgConverter mokaOrgConverter;
+    private final IMokaApplicationService mokaApplicationService;
+    private final MokaApplicationConverter mokaApplicationConverter;
 
     /**
      * 标记候选人已离职 —— 透传 Moka API {@code PUT /api-platform/v1/applications/{applicationId}/resign}
@@ -78,7 +78,8 @@ public class MokaApplicationController {
         }
 
         MokaApplicationResignResponse response =
-                mokaOrgService.resignApplication(applicationId, mokaOrgConverter.toUpstreamResignRequest(request));
-        return Result.success(mokaOrgConverter.toResignResultVO(response));
+                mokaApplicationService.resignApplication(applicationId,
+                        mokaApplicationConverter.toUpstreamResignRequest(request));
+        return Result.success(mokaApplicationConverter.toResignResultVO(response));
     }
 }
