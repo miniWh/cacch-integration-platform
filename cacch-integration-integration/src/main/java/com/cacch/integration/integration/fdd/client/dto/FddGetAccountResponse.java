@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
@@ -13,25 +14,21 @@ import java.util.List;
 /**
  * 法大大查询用户详情响应
  *
- * <p>私有化部署实际返回 {@code data} 为数组；取首条有效用户。</p>
+ * <p>私有化部署实际返回 {@code data} 为数组；取首条有效用户。
+ * 通用字段（code / message / timestamp）继承自 {@link FddBaseResponse}。</p>
  *
  * @author hongfu_zhou@cacch.com
  */
 @Data
+@EqualsAndHashCode(callSuper = true)
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class FddGetAccountResponse {
-
-    private Integer code;
-
-    private String message;
+public class FddGetAccountResponse extends FddBaseResponse {
 
     /**
      * 用户列表（接口文档写 object，实际多为 array；兼容 object）
      */
     @JsonDeserialize(using = FddObjectOrArrayDeserializer.class)
     private List<FddAccountData> data;
-
-    private Long timestamp;
 
     /**
      * 取首条用户数据
@@ -51,8 +48,9 @@ public class FddGetAccountResponse {
      * @return true 表示查到用户
      */
     public boolean hasAccount() {
-        if (code == null
-                || (code != FddConstants.SUCCESS_CODE && code != FddConstants.TOKEN_SUCCESS_CODE)) {
+        Integer c = getCode();
+        if (c == null
+                || (c != FddConstants.SUCCESS_CODE && c != FddConstants.TOKEN_SUCCESS_CODE)) {
             return false;
         }
         FddAccountData account = firstAccount();

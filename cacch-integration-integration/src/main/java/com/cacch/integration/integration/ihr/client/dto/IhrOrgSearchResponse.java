@@ -1,7 +1,7 @@
 package com.cacch.integration.integration.ihr.client.dto;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 import java.util.List;
 
@@ -23,42 +23,21 @@ import java.util.List;
  * }
  * </pre>
  *
- * <p>注意：{@code data} 是分页对象而非裸数组，部门记录位于 {@code data.content}；
+ * <p>通用字段（code / message / errorResult / isSuccess）继承自 {@link IhrBaseResponse}。
+ * 注意：{@code data} 是分页对象而非裸数组，部门记录位于 {@code data.content}；
  * 本类通过顶层便捷方法（{@link #getData()}、{@link #getTotalElements()}、{@link #getEnd()}）
  * 将分页属性平铺暴露，调用方无需感知嵌套结构。</p>
  *
  * @author hongfu_zhou@cacch.com
  */
 @Data
-public class IhrOrgSearchResponse {
-
-    /**
-     * 业务状态码：0 表示成功，其它表示失败
-     */
-    private int code;
-
-    /**
-     * 状态描述
-     */
-    private String message;
-
-    /**
-     * 是否有错误明细（实测字段名为 errorResult，非 errorResultList）
-     */
-    @JsonProperty("errorResult")
-    private Boolean errorResult;
+@EqualsAndHashCode(callSuper = true)
+public class IhrOrgSearchResponse extends IhrBaseResponse {
 
     /**
      * 分页数据对象（含部门列表 content 与分页元信息）
      */
     private PageData data;
-
-    /**
-     * 是否成功响应
-     */
-    public boolean isSuccess() {
-        return code == 0;
-    }
 
     /**
      * 部门列表（平铺便捷方法，取自 {@code data.content}）

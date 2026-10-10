@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
@@ -13,25 +14,21 @@ import java.util.List;
 /**
  * 法大大查询企业详情响应
  *
- * <p>兼容 {@code data} 为对象或数组：统一按列表解析，取首条。</p>
+ * <p>兼容 {@code data} 为对象或数组：统一按列表解析，取首条。
+ * 通用字段（code / message / timestamp）继承自 {@link FddBaseResponse}。</p>
  *
  * @author hongfu_zhou@cacch.com
  */
 @Data
+@EqualsAndHashCode(callSuper = true)
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class FddGetCompanyResponse {
-
-    private Integer code;
-
-    private String message;
+public class FddGetCompanyResponse extends FddBaseResponse {
 
     /**
      * 企业列表（兼容 object / array）
      */
     @JsonDeserialize(using = FddObjectOrArrayDeserializer.class)
     private List<FddCompanyData> data;
-
-    private Long timestamp;
 
     /**
      * 取首条企业数据
@@ -51,8 +48,9 @@ public class FddGetCompanyResponse {
      * @return true 表示有企业数据
      */
     public boolean hasCompany() {
-        if (code == null
-                || (code != FddConstants.SUCCESS_CODE && code != FddConstants.TOKEN_SUCCESS_CODE)) {
+        Integer c = getCode();
+        if (c == null
+                || (c != FddConstants.SUCCESS_CODE && c != FddConstants.TOKEN_SUCCESS_CODE)) {
             return false;
         }
         FddCompanyData company = firstCompany();

@@ -1,43 +1,21 @@
 package com.cacch.integration.integration.moka.client.dto;
 
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 import java.util.List;
 
 /**
  * Moka ATS —— 根据条件查询申请信息（分页）响应
  *
- * <p>外层响应：{ code, msg, data }。
- * 注意成功码为 **200**（与部门接口的 code=0 不同）。</p>
+ * <p>外层响应为 Moka 通用结构 { code, msg, data }，通用字段继承自 {@link MokaBaseResponse}。
+ * 注意本接口成功码为 **200**（与部门接口的 code=0 不同），基类 isSuccess 已兼容两种口径。</p>
  *
  * @author hongfu_zhou@cacch.com
  */
 @Data
-public class MokaApplicationListResponse {
-
-    /**
-     * 返回码：200 成功，其他错误
-     */
-    private Integer code;
-
-    /**
-     * 成功返回 "success"，失败返回对应错误信息
-     */
-    private String msg;
-
-    /**
-     * 数据对象
-     */
-    private ApplicationListData data;
-
-    /**
-     * 判断请求是否成功（code=200）
-     *
-     * @return code == 200
-     */
-    public boolean isSuccess() {
-        return code != null && code == 200;
-    }
+@EqualsAndHashCode(callSuper = true)
+public class MokaApplicationListResponse extends MokaBaseResponse<MokaApplicationListResponse.ApplicationListData> {
 
     /**
      * data 嵌套对象

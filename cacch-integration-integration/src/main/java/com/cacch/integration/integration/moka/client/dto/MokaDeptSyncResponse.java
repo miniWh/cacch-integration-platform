@@ -2,6 +2,7 @@ package com.cacch.integration.integration.moka.client.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 /**
  * Moka 组织架构全量同步 —— 响应体
@@ -16,54 +17,34 @@ import lombok.Data;
  *   }
  * }
  * </pre>
+ * 通用字段（code / msg / isSuccess）继承自 {@link MokaBaseResponse}；
  * 成功判定同时兼容文档示例的 {@code code=0} 与返回字段表的 {@code code=200} 两种口径。</p>
  *
  * @author hongfu_zhou@cacch.com
  */
 @Data
-public class MokaDeptSyncResponse {
-
-    /**
-     * 业务状态码：0 或 200 表示成功，其他表示失败
-     */
-    private int code;
-
-    /**
-     * 状态描述，成功时通常为 "success"，失败时为错误原因
-     */
-    private String msg;
-
-    /**
-     * 业务数据 —— 嵌套 result 对象
-     */
-    private SyncResultData data;
-
-    /**
-     * 是否成功响应
-     */
-    public boolean isSuccess() {
-        return code == 0 || code == 200;
-    }
+@EqualsAndHashCode(callSuper = true)
+public class MokaDeptSyncResponse extends MokaBaseResponse<MokaDeptSyncResponse.SyncResultData> {
 
     /**
      * 新增部门数量（data.result.new）；data 为 null 时返回 null
      */
     public Integer getNewCount() {
-        return data == null || data.getResult() == null ? null : data.getResult().getNewCount();
+        return getData() == null || getData().getResult() == null ? null : getData().getResult().getNewCount();
     }
 
     /**
      * 更新部门数量（data.result.update）；data 为 null 时返回 null
      */
     public Integer getUpdateCount() {
-        return data == null || data.getResult() == null ? null : data.getResult().getUpdate();
+        return getData() == null || getData().getResult() == null ? null : getData().getResult().getUpdate();
     }
 
     /**
      * 标记删除部门数量（data.result.delete）；data 为 null 时返回 null
      */
     public Integer getDeleteCount() {
-        return data == null || data.getResult() == null ? null : data.getResult().getDelete();
+        return getData() == null || getData().getResult() == null ? null : getData().getResult().getDelete();
     }
 
     /**

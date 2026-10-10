@@ -1,7 +1,9 @@
 package com.cacch.integration.integration.wecom.client.dto;
 
+import com.cacch.integration.integration.wecom.client.dto.smartsheet.WeComBaseResponse;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 /**
  * 企业微信 /gettoken API 返回 DTO
@@ -16,22 +18,13 @@ import lombok.Data;
  * }
  * </pre>
  *
+ * <p>通用字段（errCode / errMsg / isSuccess）继承自 {@link WeComBaseResponse}。</p>
+ *
  * @author hongfu_zhou@cacch.com
  */
 @Data
-public class WeComTokenResponse {
-
-    /**
-     * 错误码，0 表示成功
-     */
-    @JsonProperty("errcode")
-    private int errCode;
-
-    /**
-     * 错误信息
-     */
-    @JsonProperty("errmsg")
-    private String errMsg;
+@EqualsAndHashCode(callSuper = true)
+public class WeComTokenResponse extends WeComBaseResponse {
 
     /**
      * access_token 值
@@ -44,11 +37,4 @@ public class WeComTokenResponse {
      */
     @JsonProperty("expires_in")
     private int expiresIn;
-
-    /**
-     * 是否为成功响应
-     */
-    public boolean isSuccess() {
-        return errCode == 0;
-    }
 }
