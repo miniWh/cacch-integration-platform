@@ -168,9 +168,9 @@ public class MokaApplicationListResponse extends MokaBaseResponse<MokaApplicatio
         private Long archivedAt;
 
         /**
-         * 最后激活时间（时间戳毫秒）
+         * 最后激活时间（时间戳毫秒；13 位毫秒值超出 int 范围，须用 Long）
          */
-        private Integer activatedAt;
+        private Long activatedAt;
 
         /**
          * 是否在黑名单人才库
@@ -226,9 +226,9 @@ public class MokaApplicationListResponse extends MokaBaseResponse<MokaApplicatio
          */
         private String lastSchool;
         /**
-         * 毕业时间（年份）
+         * 毕业时间（Moka 实测返回 13 位毫秒时间戳，超出 int 范围，须用 Long）
          */
-        private Integer graduateDate;
+        private Long graduateDate;
         /**
          * 学历/学位：1=其他，2=初中及以下，3=高中，4=中专，5=大专，6=本科，7=硕士，8=MBA，9=博士
          */
