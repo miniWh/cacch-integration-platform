@@ -117,4 +117,15 @@ public final class MokaConstants {
      * 标记候选人已离职接口路径中的申请 id 占位符
      */
     public static final String APPLICATION_ID_PLACEHOLDER = "{applicationId}";
+
+    /**
+     * 职位查询接口路径 —— 相对 {@code MokaProperties#getBaseUrl()} 拼接
+     *
+     * <p>POST 请求，对接 Moka ATS 职位查询接口
+     * （{@linkplain <a href="https://www.mokahr.com/docs/api/">API 文档 — 职位查询</a>}）。
+     * 必填参数 {@code hireMode}（social=社招 / campus=校招），其余条件可选；
+     * {@code limit} / {@code offset} 文档声明为 string 类型，按原样传递；
+     * 出参成功判定沿用 {@code MokaBaseResponse} 兼容口径（code=0 或 200）。</p>
+     */
+    public static final String JOB_LIST_PATH = "/api-platform/v1/jobs/getJobs";
 }
