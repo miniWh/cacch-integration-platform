@@ -3,12 +3,16 @@ package com.cacch.integration.controller.moka;
 import com.cacch.integration.common.result.Result;
 import com.cacch.integration.dto.moka.vo.MokaPersonPushResultVO;
 import com.cacch.integration.dto.moka.vo.MokaPersonSyncResultVO;
+import com.cacch.integration.integration.moka.client.dto.MokaApplicationListRequest;
+import com.cacch.integration.integration.moka.client.dto.MokaApplicationListResponse;
 import com.cacch.integration.manager.moka.api.IMokaPersonPushManager;
 import com.cacch.integration.manager.moka.api.IMokaPersonSyncManager;
+import com.cacch.integration.service.moka.api.IMokaOrgService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -34,6 +38,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class MokaPersonController {
 
+    private final IMokaOrgService mokaOrgService;
     private final IMokaPersonSyncManager mokaPersonSyncManager;
     private final IMokaPersonPushManager mokaPersonPushManager;
 
@@ -90,5 +95,31 @@ public class MokaPersonController {
                 result.totalRead(), result.batchCount(), result.mokaApiSuccess(),
                 result.syncedCount(), result.syncFailedCount(), result.dbUpdateFailedCount());
         return Result.success(MokaPersonPushResultVO.from(result));
+    }
+
+    /**
+     * 根据条件查询申请信息（分页）—— 透传 Moka API
+     * {@code POST /api-platform/v3/applications/list_by_condition}
+     *
+     * <p>支持按申请 id、候选人 id、职位 id、流程、阶段、招聘模式、归档状态、时间范围等条件查询。
+     * 分页通过 {@code limit}（默认 20，最大 20）和 {@code next}（游标）实现。</p>
+     *
+     * <p>请求体所有字段均可选，传空对象 {@code {}} 表示无条件返回全部。</p>
+     *
+     * @param request 查询条件；所有字段均可选，null 时自动兜底空对象
+     * @return 申请分页响应（直接透传 Moka 返回结构，含 code=200 成功码）
+     */
+    @PostMapping("/applications/list")
+    public Result<MokaApplicationListResponse> listApplications(
+            @RequestBody(required = false) MokaApplicationListRequest request) {
+        log.info("【MokaApplicationList】开始查询申请信息, jobId={}, hireMode={}",
+                request == null ? null : request.getJobId(),
+                request == null ? null : request.getHireMode());
+        MokaApplicationListResponse response = mokaOrgService.listApplications(request);
+        int listSize = response.getData() == null || response.getData().getApplicationList() == null
+                ? 0 : response.getData().getApplicationList().size();
+        log.info("【MokaApplicationList】查询完成, listSize={}, hasNext={}",
+                listSize, response.getData() != null && response.getData().getNext() != null);
+        return Result.success(response);
     }
 }

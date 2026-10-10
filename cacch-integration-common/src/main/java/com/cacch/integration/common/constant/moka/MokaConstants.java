@@ -101,4 +101,20 @@ public final class MokaConstants {
      * 返回成功码为 200（注意：与部门接口的 code=0 不同）。</p>
      */
     public static final String APPLICATION_LIST_PATH = "/api-platform/v3/applications/list_by_condition";
+
+    /**
+     * 标记候选人已离职接口路径模板 —— 相对 {@code MokaProperties#getBaseUrl()} 拼接
+     *
+     * <p>PUT 请求，对接 Moka ATS 申请归档接口
+     * （{@linkplain <a href="https://www.mokahr.com/docs/api/">API 文档 — 标记候选人已离职</a>}）。
+     * 路径中的 {@code {applicationId}} 占位符由 Client 运行时替换为实际申请 id；
+     * 响应成功判定使用 {@code code} 字段（{@code success} 字段已被 Moka 官方废弃，
+     * 严禁用于业务逻辑判断）。</p>
+     */
+    public static final String APPLICATION_RESIGN_PATH = "/api-platform/v1/applications/{applicationId}/resign";
+
+    /**
+     * 标记候选人已离职接口路径中的申请 id 占位符
+     */
+    public static final String APPLICATION_ID_PLACEHOLDER = "{applicationId}";
 }
