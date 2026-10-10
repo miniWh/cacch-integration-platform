@@ -155,6 +155,13 @@ fdd:
   internal-companies:
     - 南通泰禾化工股份有限公司
     - 上海泰禾国际贸易有限公司
+    - 广东浩德作物科技有限公司
+    - 济南浩泰农资有限公司
+    - 江苏新河农用化工有限公司
+    - 江西天宇化工有限公司
+    - 江西仰立新材料有限公司
+    - 上海泰禾化工有限公司
+    - 上海晓明检测技术服务有限公司
 
 # ---------- 腾讯会议 REST API（智能纪要） ----------
 # secret-id / secret-key 分别经 TENCENT_MEETING_SECRET_ID / TENCENT_MEETING_SECRET_KEY 注入
