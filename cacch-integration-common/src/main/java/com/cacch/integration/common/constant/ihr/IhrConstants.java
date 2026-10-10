@@ -51,9 +51,13 @@ public final class IhrConstants {
             "/openapi/thirdparty/api/org/v1/organizations/positions";
 
     /**
-     * access_token 有效期（秒）—— IHR 官方文档约定 2 小时
+     * 新增待入职-简略（相对 {@code IhrProperties#getBaseUrl()} 拼接）
+     *
+     * <p>接口文档：POST /openapi/thirdparty/api/staff/v1/entryForms/create
+     * 用于快速将信息较少的员工添加到 iHR 待入职列表。</p>
      */
-    public static final long ACCESS_TOKEN_TTL_SECONDS = 7200L;
+    public static final String STAFF_ENTRY_FORM_CREATE_PATH =
+            "/openapi/thirdparty/api/staff/v1/entryForms/create";
 
     /**
      * access_token Redis 缓存 TTL（秒）—— 比 IHR 返回的有效期短 5 分钟，提前刷新避免临界过期
@@ -61,59 +65,9 @@ public final class IhrConstants {
     public static final long ACCESS_TOKEN_CACHE_TTL_SECONDS = 6900L;
 
     /**
-     * refresh_token 有效期（秒）—— IHR 官方文档约定 24 小时
-     */
-    public static final long REFRESH_TOKEN_TTL_SECONDS = 86400L;
-
-    /**
      * refresh_token Redis 缓存 TTL（秒）—— 比 IHR 返回的有效期短 5 分钟
      */
     public static final long REFRESH_TOKEN_CACHE_TTL_SECONDS = 86100L;
-
-    /**
-     * searchType 取值 — 精确匹配
-     */
-    public static final String SEARCH_TYPE_EQUAL = "EQUAL";
-
-    /**
-     * searchType 取值 — 模糊匹配（LIKE）
-     */
-    public static final String SEARCH_TYPE_LIKE = "LIKE";
-
-    /**
-     * searchType 取值 — 模糊匹配（中文文档用「模糊」描述）
-     */
-    public static final String SEARCH_TYPE_FUZZY = "FUZZY";
-
-    /**
-     * searchType 取值 — IN 集合匹配
-     */
-    public static final String SEARCH_TYPE_IN = "IN";
-
-    /**
-     * searchKey 取值 — 部门 ID
-     */
-    public static final String SEARCH_KEY_DEPARTMENT_ID = "departmentId";
-
-    /**
-     * searchKey 取值 — 部门名称
-     */
-    public static final String SEARCH_KEY_DEPARTMENT_NAME = "departmentName";
-
-    /**
-     * searchKey 取值 — 部门编码
-     */
-    public static final String SEARCH_KEY_DEPARTMENT_CODE = "departmentCode";
-
-    /**
-     * searchKey 取值 — 上级部门 ID
-     */
-    public static final String SEARCH_KEY_PARENT_DEPARTMENT_ID = "parentDepartmentId";
-
-    /**
-     * 响应 code 成功值
-     */
-    public static final int RESPONSE_CODE_SUCCESS = 0;
 
     /**
      * 动态生成 IHR access_token 缓存 Key

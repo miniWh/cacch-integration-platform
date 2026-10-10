@@ -1,42 +1,30 @@
 package com.cacch.integration.integration.ihr.client.dto;
 
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 /**
  * IHR 新增待入职-简略 — 响应体包装
+ *
+ * <p>通用字段（code / message / errorResult / isSuccess）继承自 {@link IhrBaseResponse}。
+ * 业务特有字段：{@code data}（Boolean 添加结果）、{@code entryId}（待入职 id）。</p>
  *
  * <p>接口文档响应结构：
  * <pre>
  * {
  *   "data": true,                  // Boolean：添加结果，成功为 true
- *   "code": 0,                     // int：0 成功
- *   "message": "SUCCESS",          // String
- *   "errorResult": false,          // Boolean
+ *   "code": 0,                     // int：0 成功（继承自 IhrBaseResponse）
+ *   "message": "SUCCESS",          // String（继承自 IhrBaseResponse）
+ *   "errorResult": false,          // Boolean（继承自 IhrBaseResponse）
  *   "entryId": "a6fa604a-..."      // String：待入职 id
  * }
  * </pre>
  *
- * <p>成功判定：{@code code == 0}（与部门清单 v3、职位清单一致）。</p>
- *
  * @author hongfu_zhou@cacch.com
  */
 @Data
-public class IhrStaffEntryFormCreateResponse {
-
-    /**
-     * 业务状态码：0 表示成功，其它表示失败
-     */
-    private int code;
-
-    /**
-     * 状态描述（成功时为 "SUCCESS"）
-     */
-    private String message;
-
-    /**
-     * 是否有错误明细
-     */
-    private Boolean errorResult;
+@EqualsAndHashCode(callSuper = true)
+public class IhrStaffEntryFormCreateResponse extends IhrBaseResponse {
 
     /**
      * 添加结果：true 成功 / false 失败
@@ -47,11 +35,4 @@ public class IhrStaffEntryFormCreateResponse {
      * 待入职 id（String UUID，成功时返回）
      */
     private String entryId;
-
-    /**
-     * 是否成功响应（code == 0）
-     */
-    public boolean isSuccess() {
-        return code == 0;
-    }
 }
