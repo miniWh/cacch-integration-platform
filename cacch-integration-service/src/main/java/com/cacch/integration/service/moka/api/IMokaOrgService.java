@@ -1,7 +1,5 @@
 package com.cacch.integration.service.moka.api;
 
-import com.cacch.integration.integration.moka.client.dto.MokaApplicationListRequest;
-import com.cacch.integration.integration.moka.client.dto.MokaApplicationListResponse;
 import com.cacch.integration.integration.moka.client.dto.MokaDeptListResponse;
 import com.cacch.integration.integration.moka.client.dto.MokaDeptSyncRequest;
 import com.cacch.integration.integration.moka.client.dto.MokaDeptSyncResponse;
@@ -38,17 +36,4 @@ public interface IMokaOrgService {
      *                                                             HTTP 调用失败或 Moka 返回业务失败时抛出
      */
     MokaDeptListResponse getDepartments(String updateTimeStart);
-
-    /**
-     * 根据条件查询申请信息（分页）—— 调用 Moka {@code POST /api-platform/v3/applications/list_by_condition}
-     *
-     * <p>支持按申请 id、候选人 id、职位 id、流程、阶段、招聘模式、归档状态、时间范围等条件查询。
-     * 分页通过 {@code limit}（默认 20，最大 20）和 {@code next}（游标）实现。</p>
-     *
-     * @param request 查询条件（所有字段均可选，空对象表示返回全部）
-     * @return 申请分页响应（含 applicationList + next 分页游标）
-     * @throws com.cacch.integration.common.exception.BizException Moka API Key 未配置、
-     *                                                             HTTP 调用失败或 Moka 返回业务失败时抛出
-     */
-    MokaApplicationListResponse listApplications(MokaApplicationListRequest request);
 }
