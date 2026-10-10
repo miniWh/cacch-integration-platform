@@ -1,5 +1,6 @@
 package com.cacch.integration.integration.moka.client.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
@@ -20,9 +21,13 @@ import java.util.List;
  *     <li>{@code resignJobType} 传入职类完全相同时 Moka 系统会自动合并</li>
  * </ul></p>
  *
+ * <p>序列化配置 {@code NON_NULL}：null 字段不输出到 JSON，
+ * 避免将空值传给 Moka API 导致意外行为（如将可选字段显式传 null）。</p>
+ *
  * @author hongfu_zhou@cacch.com
  */
 @Data
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class MokaApplicationResignRequest {
 
     /**

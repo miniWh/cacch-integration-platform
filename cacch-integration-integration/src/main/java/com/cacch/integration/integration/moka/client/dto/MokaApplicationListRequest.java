@@ -1,5 +1,6 @@
 package com.cacch.integration.integration.moka.client.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Data;
 
 import java.util.List;
@@ -11,9 +12,13 @@ import java.util.List;
  * 所有字段均为可选；不传时返回全部申请。
  * 时间戳字段单位为**毫秒**（与 Moka API 一致），最大时间窗口 3 个月。</p>
  *
+ * <p>序列化配置 {@code NON_NULL}：null 字段不输出到 JSON，
+ * 避免将空值传给 Moka API 导致意外的过滤效果。</p>
+ *
  * @author hongfu_zhou@cacch.com
  */
 @Data
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class MokaApplicationListRequest {
 
     /**
