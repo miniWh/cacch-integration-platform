@@ -1,16 +1,19 @@
 package com.cacch.integration.integration.wecom.client;
 
 import com.cacch.integration.common.constant.wecom.WeComConstants;
+import com.cacch.integration.integration.support.RestTemplateHttpClient;
 import com.cacch.integration.integration.support.ThirdPartyHttpLogSupport;
 import com.cacch.integration.integration.wecom.client.dto.WeComTokenResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClientException;
-import org.springframework.web.client.RestTemplate;
 
 /**
  * 企业微信 access_token HTTP 客户端
+ *
+ * <p>HTTP 通用调用统一由 {@link RestTemplateHttpClient} 承担；
+ * 企微鉴权特殊：access_token 直接内嵌在 URL query 参数中，无需 Header。</p>
  *
  * @author hongfu_zhou@cacch.com
  */
@@ -22,7 +25,7 @@ public class WeComTokenClient {
     private static final String BIZ = "WeComToken";
     private static final String ACTION = "获取 access_token";
 
-    private final RestTemplate restTemplate;
+    private final RestTemplateHttpClient httpClient;
 
     /**
      * 调用企微 /gettoken 接口获取 access_token
@@ -38,24 +41,14 @@ public class WeComTokenClient {
                 ThirdPartyHttpLogSupport.queryParams("corpid", corpid, "corpsecret", "****"));
 
         try {
-            WeComTokenResponse response = restTemplate.getForObject(url, WeComTokenResponse.class);
-            ThirdPartyHttpLogSupport.logResponse(BIZ, ACTION, response);
-
-            if (response == null) {
-                log.info("【WeComToken】获取 token 终止, corpid={}, reason=接口返回null", maskString(corpid, 6));
-                log.error("【WeComToken】接口返回 null");
-                throw new RestClientException("企业微信 /gettoken 返回 null");
-            }
+            WeComTokenResponse response = httpClient.doGet(url, null, BIZ, ACTION, WeComTokenResponse.class);
 
             if (response.isSuccess()) {
                 log.info("【WeComToken】access_token 获取成功, expires_in={}s", response.getExpiresIn());
             } else {
                 log.info("【WeComToken】获取 token 终止, corpid={}, errcode={}, reason={}",
                         maskString(corpid, 6), response.getErrCode(), response.getErrMsg());
-                log.error("【WeComToken】企微返回错误, errcode={}, errmsg={}",
-                        response.getErrCode(), response.getErrMsg());
             }
-
             return response;
 
         } catch (RestClientException e) {
@@ -66,9 +59,6 @@ public class WeComTokenClient {
         }
     }
 
-    /**
-     * 敏感信息脱敏：保留前 n 位，其余用 * 代替
-     */
     private String maskString(String value, int keepLength) {
         if (value == null || value.length() <= keepLength) {
             return "****";
