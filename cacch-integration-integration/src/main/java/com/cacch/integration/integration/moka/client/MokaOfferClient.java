@@ -6,17 +6,11 @@ import com.cacch.integration.integration.moka.client.dto.MokaOfferExtendInfoRequ
 import com.cacch.integration.integration.moka.client.dto.MokaOfferExtendInfoResponse;
 import com.cacch.integration.integration.moka.client.dto.MokaOfferExtendInfoResponse.OfferExtendInfo;
 import com.cacch.integration.integration.support.RestTemplateHttpClient;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestClientException;
-import org.springframework.web.client.RestTemplate;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -47,8 +41,6 @@ public class MokaOfferClient {
 
     private final RestTemplateHttpClient httpClient;
     private final MokaProperties mokaProperties;
-    private final RestTemplate restTemplate;
-    private final ObjectMapper objectMapper;
 
     /**
      * 获取 offer 扩展信息 —— 透传 Moka {@code POST /api-platform/v3/getOfferExtendInfos}
@@ -125,9 +117,6 @@ public class MokaOfferClient {
                     HttpMethod.POST, url, request, headers,
                     BIZ, ACTION_GET_OFFER_EXTEND, MokaOfferExtendInfoResponse.class);
 
-            // —— [DEBUG] 临时 raw 调用，打印 Moka 原始响应中 checkInDate 的真实值 ——
-            debugRawCheckInDate(url, headers, request, batch);
-
             if (!response.isSuccess()) {
                 log.info("【{}】{}终止, code={}, msg={}, batchStart={}",
                         BIZ, ACTION_GET_OFFER_EXTEND, response.getCode(), response.getMsg(), i);
@@ -149,54 +138,5 @@ public class MokaOfferClient {
         log.info("【{}】{}完成, 请求数={}, 成功匹配={}",
                 BIZ, ACTION_GET_OFFER_EXTEND, applicationIds.size(), result.size());
         return result;
-    }
-
-    /**
-     * [DEBUG] 临时方法 —— 用 RestTemplate 发一次 raw 请求，直接拿 Moka 原始响应字符串，
-     * 提取每个 data 元素的 checkInDate / content / contactEmail 字段的真实值，
-     * 与反序列化后 DTO 中的 null 对比，定位是 Moka 没返回还是 DTO 映射丢了。
-     *
-     * <p>失败时只打 WARN，不影响主流程。确认问题根因后删除本方法与调用点。</p>
-     */
-    private void debugRawCheckInDate(String url, HttpHeaders headers,
-                                     MokaOfferExtendInfoRequest request, List<Long> batchIds) {
-        try {
-            ResponseEntity<String> rawResp = restTemplate.exchange(
-                    url, HttpMethod.POST, new HttpEntity<>(request, headers), String.class);
-            String rawBody = rawResp.getBody();
-            if (rawBody == null) {
-                log.warn("【{}】[DEBUG] raw 响应体为空, batchIds={}", BIZ, batchIds);
-                return;
-            }
-
-            // 从原始 JSON 里搜索 checkInDate / content / contactEmail
-            JsonNode root = objectMapper.readTree(rawBody);
-            JsonNode dataNode = root.path("data");
-            if (!dataNode.isArray()) {
-                log.warn("【{}】[DEBUG] raw data 不是数组, 原始前500字符: {}", BIZ,
-                        rawBody.length() > 500 ? rawBody.substring(0, 500) : rawBody);
-                return;
-            }
-
-            for (JsonNode item : dataNode) {
-                Long appId = item.path("applicationId").asLong(0L);
-                // 直接从原始 JSON 取字段值（即使反序列化丢了这里也能看到）
-                JsonNode checkInDate = item.path("checkInDate");
-                JsonNode content = item.path("content");
-                JsonNode contactEmail = item.path("contactEmail");
-                JsonNode contactName = item.path("contactName");
-
-                log.warn("【{}】[DEBUG] raw 字段值, applicationId={}, checkInDate(raw)={}, content长度={}, contactEmail(raw)={}, contactName(raw)={}",
-                        BIZ, appId,
-                        checkInDate.isMissingNode() ? "[MISSING]" : checkInDate.asText("[null]"),
-                        content.isTextual() ? content.asText().length() : 0,
-                        contactEmail.isMissingNode() ? "[MISSING]" : contactEmail.asText("[null]"),
-                        contactName.isMissingNode() ? "[MISSING]" : contactName.asText("[null]"));
-            }
-        } catch (RestClientException e) {
-            log.warn("【{}】[DEBUG] raw HTTP 调用失败, reason={}", BIZ, e.getMessage());
-        } catch (Exception e) {
-            log.warn("【{}】[DEBUG] raw 响应解析失败, reason={}", BIZ, e.getMessage());
-        }
     }
 }
