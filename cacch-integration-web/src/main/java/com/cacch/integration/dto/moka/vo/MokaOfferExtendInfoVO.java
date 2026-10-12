@@ -1,6 +1,7 @@
 package com.cacch.integration.dto.moka.vo;
 
 import com.cacch.integration.integration.moka.client.dto.MokaOfferAttachment;
+import com.cacch.integration.integration.moka.client.dto.MokaOfferAttachmentDetail;
 import com.cacch.integration.integration.moka.client.dto.MokaOfferCustomField;
 import com.cacch.integration.integration.moka.client.dto.MokaOfferHistory;
 import lombok.Data;
@@ -82,6 +83,9 @@ public class MokaOfferExtendInfoVO {
 
         /**
          * 入职日期
+         *
+         * <p><strong>注意</strong>：Moka 实际返回的入职日期不在此字段（始终为 null），
+         * 而是在 {@link #offerAttachmentList} 的首个元素 {@code checkInDate} 中。</p>
          */
         private String checkInDate;
 
@@ -219,6 +223,14 @@ public class MokaOfferExtendInfoVO {
          * 审批人附件列表
          */
         private List<MokaOfferAttachment> approverAttachmentList;
+
+        /**
+         * offer 附件列表（Moka 实际返回的 offer 附件，含入职日期等关键字段）
+         *
+         * <p><strong>重要</strong>：入职日期实际位于本列表首个元素 {@code checkInDate}，
+         * 而非顶层 checkInDate 字段。由 raw 日志确认。</p>
+         */
+        private List<MokaOfferAttachmentDetail> offerAttachmentList;
 
         /**
          * 创建时间（时间戳毫秒）

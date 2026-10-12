@@ -80,6 +80,11 @@ public class MokaOfferExtendInfoResponse
 
         /**
          * 入职日期（字符串格式）
+         *
+         * <p><strong>注意</strong>：Moka 实际返回的入职日期不在此字段（始终为 null），
+         * 而是在 {@link #offerAttachmentList} 的首个元素 {@code checkInDate} 中。
+         * 本字段保留仅为兼容文档声明，实际取值请用
+         * {@code offerAttachmentList[0].checkInDate}。</p>
          */
         private String checkInDate;
 
@@ -217,6 +222,14 @@ public class MokaOfferExtendInfoResponse
          * 审批人附件列表
          */
         private List<MokaOfferAttachment> approverAttachmentList;
+
+        /**
+         * offer 附件列表（Moka 实际返回的 offer 附件，含入职日期等关键字段）
+         *
+         * <p><strong>重要</strong>：{@link #checkInDate} 实际位于本列表首个元素中，
+         * 而非 OfferExtendInfo 顶层。此字段由 raw 日志确认，Moka 文档未明确声明。</p>
+         */
+        private List<MokaOfferAttachmentDetail> offerAttachmentList;
 
         /**
          * 创建时间（时间戳毫秒）
