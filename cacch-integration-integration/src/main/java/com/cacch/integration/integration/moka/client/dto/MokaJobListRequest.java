@@ -21,7 +21,7 @@ import java.util.List;
 public class MokaJobListRequest {
 
     /**
-     * 招聘模式（必填）：social=社招，campus=校招
+     * 招聘模式（必填）：1=社招(social)，2=校招(campus)
      */
     private String hireMode;
 

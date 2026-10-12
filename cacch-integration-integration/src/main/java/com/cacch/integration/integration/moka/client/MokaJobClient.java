@@ -77,8 +77,8 @@ public class MokaJobClient {
      * 按 jobId 批量查职位并提取部门编码
      *
      * <p>Step 1b 补全：输入 application 去重后的 jobId 列表，
-     * 返回 Map<jobId, departmentCode>。请求体 hireMode 固定传 "social"，
-     * 查不到的 jobId 在结果中缺失（Service 层据此跳过）。</p>
+     * 返回 Map<jobId, departmentCode>。因 Moka 职位查询接口 hireMode 为必填，
+     * 社招传 "1"、校招传 "2"，分别查询后合并结果。</p>
      *
      * @param jobIds 待查询的 jobId 列表（去重后）
      * @return jobId → 部门编码 的映射；查不到的 jobId 不出现在 map 中
@@ -94,37 +94,60 @@ public class MokaJobClient {
         }
 
         Map<String, String> result = new java.util.HashMap<>();
+
+        // Moka hireMode：1=社招(social)，2=校招(campus)，分别查询后合并
+        for (String hireMode : new String[]{"1", "2"}) {
+            fetchJobsByHireMode(hireMode, jobIds, result);
+        }
+
+        log.info("【{}】{}完成, 请求jobId数={}, 成功匹配={}",
+                BIZ, ACTION_GET_DEPT_BY_JOB_IDS, jobIds.size(), result.size());
+        return result;
+    }
+
+    /**
+     * 按指定 hireMode 翻页查询职位，匹配到目标 jobId 时提取部门编码
+     */
+    private void fetchJobsByHireMode(String hireMode, List<String> targetJobIds, Map<String, String> result) {
         int limit = 50;
         String offset = "0";
         int totalProcessed = 0;
 
         while (true) {
             MokaJobListRequest request = new MokaJobListRequest();
-            request.setHireMode("social");
+            request.setHireMode(hireMode);
             request.setLimit(String.valueOf(limit));
             request.setOffset(offset);
 
             String url = mokaProperties.getBaseUrl() + MokaConstants.JOB_LIST_PATH;
             HttpHeaders headers = MokaAuthSupport.buildBasicAuthHeaders(mokaProperties, true);
 
-            MokaJobListResponse response = httpClient.doPostOrPut(
-                    HttpMethod.POST, url, request, headers,
-                    BIZ, ACTION_GET_DEPT_BY_JOB_IDS, MokaJobListResponse.class);
+            MokaJobListResponse response;
+            try {
+                response = httpClient.doPostOrPut(
+                        HttpMethod.POST, url, request, headers,
+                        BIZ, ACTION_GET_DEPT_BY_JOB_IDS, MokaJobListResponse.class);
+            } catch (Exception e) {
+                log.info("【{}】{}[hireMode={}]HTTP异常终止, reason={}",
+                        BIZ, ACTION_GET_DEPT_BY_JOB_IDS, hireMode, e.getMessage());
+                break;
+            }
 
             if (!response.isSuccess()) {
-                log.info("【{}】{}终止, code={}, msg={}",
-                        BIZ, ACTION_GET_DEPT_BY_JOB_IDS, response.getCode(), response.getMsg());
+                log.info("【{}】{}[hireMode={}]终止, code={}, msg={}",
+                        BIZ, ACTION_GET_DEPT_BY_JOB_IDS, hireMode, response.getCode(), response.getMsg());
                 break;
             }
 
             if (response.getData() == null || response.getData().getJobs() == null) {
-                log.info("【{}】{}成功但返回空数据, 已处理={}", BIZ, ACTION_GET_DEPT_BY_JOB_IDS, totalProcessed);
+                log.info("【{}】{}[hireMode={}]成功但返回空数据, 已处理={}",
+                        BIZ, ACTION_GET_DEPT_BY_JOB_IDS, hireMode, totalProcessed);
                 break;
             }
 
             List<MokaJobItem> jobs = response.getData().getJobs();
             for (MokaJobItem job : jobs) {
-                if (jobIds.contains(job.getId())
+                if (targetJobIds.contains(job.getId())
                         && job.getDepartment() != null
                         && job.getDepartment().getCode() != null) {
                     result.put(job.getId(), job.getDepartment().getCode());
@@ -132,10 +155,8 @@ public class MokaJobClient {
             }
 
             totalProcessed += jobs.size();
-            log.info("【{}】{}本页={}, 累计={}, 已匹配jobId数={}",
-                    BIZ, ACTION_GET_DEPT_BY_JOB_IDS, jobs.size(), totalProcessed, result.size());
 
-            // 翻页：已处理数 >= total 或本页不足 limit 时结束
+            // 翻页终止条件：本页不足 limit 或已处理数 >= total
             Integer total = response.getData().getTotal();
             if (jobs.size() < limit || (total != null && totalProcessed >= total)) {
                 break;
@@ -143,8 +164,7 @@ public class MokaJobClient {
             offset = String.valueOf(totalProcessed);
         }
 
-        log.info("【{}】{}完成, 请求jobId数={}, 成功匹配={}",
-                BIZ, ACTION_GET_DEPT_BY_JOB_IDS, jobIds.size(), result.size());
-        return result;
+        log.info("【{}】{}[hireMode={}]完成, 已处理职位数={}, 本hireMode匹配={}",
+                BIZ, ACTION_GET_DEPT_BY_JOB_IDS, hireMode, totalProcessed, result.size());
     }
 }
