@@ -242,7 +242,7 @@ public class MokaJobVO {
         /**
          * 部门编码
          */
-        private Integer code;
+        private String code;
 
         /**
          * 部门名称
