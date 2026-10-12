@@ -84,9 +84,11 @@ ihr:
 
 # ---------- Moka 开放平台 ----------
 # api-key 必须由环境变量 MOKA_API_KEY 注入（缺失即启动失败）；严禁记入日志
+# org-id 为 Moka 租户 ID（offer 扩展信息等接口必填），固定值 "cac"
 moka:
   base-url: ${MOKA_BASE_URL:https://api.mokahr.com}
   api-key: ${MOKA_API_KEY}
+  org-id: ${MOKA_ORG_ID:cac}
 
 # ---------- 勤策 CRM OpenAPI ----------
 # app-key 必须由环境变量 CRM_APP_KEY 注入（缺失即启动失败）
