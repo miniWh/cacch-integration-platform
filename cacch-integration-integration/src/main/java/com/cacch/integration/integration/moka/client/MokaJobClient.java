@@ -74,16 +74,16 @@ public class MokaJobClient {
     }
 
     /**
-     * 按 jobId 批量查职位并提取部门编码
+     * 按 jobId + hireMode 批量查职位并提取部门编码
      *
-     * <p>Step 1b 补全：输入 application 去重后的 jobId 列表，
-     * 返回 Map<jobId, departmentCode>。因 Moka 职位查询接口 hireMode 为必填，
-     * 社招传 "1"、校招传 "2"，分别查询后合并结果。</p>
+     * <p>Step 1b 补全：由调用方根据候选人 hireMode（1→social, 2→campus）
+     * 分组后传入对应的 hireMode 值，返回 Map<jobId, departmentCode>。</p>
      *
-     * @param jobIds 待查询的 jobId 列表（去重后）
+     * @param jobIds   待查询的 jobId 列表（去重后）
+     * @param hireMode 招聘模式：social=社招，campus=校招
      * @return jobId → 部门编码 的映射；查不到的 jobId 不出现在 map 中
      */
-    public Map<String, String> getDepartmentCodeByJobIds(List<String> jobIds) {
+    public Map<String, String> getDepartmentCodeByJobIds(List<String> jobIds, String hireMode) {
         if (jobIds == null || jobIds.isEmpty()) {
             log.info("【{}】{}终止, reason=jobIds 为空", BIZ, ACTION_GET_DEPT_BY_JOB_IDS);
             return Collections.emptyMap();
@@ -94,14 +94,10 @@ public class MokaJobClient {
         }
 
         Map<String, String> result = new java.util.HashMap<>();
+        fetchJobsByHireMode(hireMode, jobIds, result);
 
-        // Moka hireMode：1=社招(social)，2=校招(campus)，分别查询后合并
-        for (String hireMode : new String[]{"1", "2"}) {
-            fetchJobsByHireMode(hireMode, jobIds, result);
-        }
-
-        log.info("【{}】{}完成, 请求jobId数={}, 成功匹配={}",
-                BIZ, ACTION_GET_DEPT_BY_JOB_IDS, jobIds.size(), result.size());
+        log.info("【{}】{}完成, hireMode={}, 请求jobId数={}, 成功匹配={}",
+                BIZ, ACTION_GET_DEPT_BY_JOB_IDS, hireMode, jobIds.size(), result.size());
         return result;
     }
 

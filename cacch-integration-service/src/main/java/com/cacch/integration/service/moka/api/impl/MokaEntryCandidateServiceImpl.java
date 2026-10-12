@@ -217,21 +217,29 @@ public class MokaEntryCandidateServiceImpl implements IMokaEntryCandidateService
     public int enrichDepartmentCode(List<MokaEntryApplicationDO> applications) {
         log.info("【{}】Step1b 开始, applications.size={}", BIZ, applications.size());
 
-        // 收集去重的 jobId（排除 null）
-        Set<String> uniqueJobIds = applications.stream()
-                .map(MokaEntryApplicationDO::getMokaJobId)
-                .filter(j -> j != null && !j.isEmpty())
-                .collect(Collectors.toCollection(HashSet::new));
+        // 按候选人 hireMode 分组 jobId（1→social, 2→campus）
+        Map<String, Set<String>> hireModeJobIds = new java.util.HashMap<>();
+        for (MokaEntryApplicationDO app : applications) {
+            if (app.getMokaJobId() == null || app.getMokaJobId().isEmpty()) {
+                continue;
+            }
+            String hireMode = app.getHireMode() != null && app.getHireMode() == 2 ? "campus" : "social";
+            hireModeJobIds.computeIfAbsent(hireMode, k -> new HashSet<>()).add(app.getMokaJobId());
+        }
 
-        if (uniqueJobIds.isEmpty()) {
+        if (hireModeJobIds.isEmpty()) {
             log.info("【{}】Step1b 跳过, reason=无有效jobId", BIZ);
             return 0;
         }
 
-        // 批量查职位 → Map<jobId, departmentCode>
-        Map<String, String> jobDeptMap;
+        // 按 hireMode 分组查职位，合并结果
+        Map<String, String> jobDeptMap = new java.util.HashMap<>();
         try {
-            jobDeptMap = mokaJobClient.getDepartmentCodeByJobIds(new ArrayList<>(uniqueJobIds));
+            for (Map.Entry<String, Set<String>> entry : hireModeJobIds.entrySet()) {
+                Map<String, String> partial = mokaJobClient.getDepartmentCodeByJobIds(
+                        new ArrayList<>(entry.getValue()), entry.getKey());
+                jobDeptMap.putAll(partial);
+            }
         } catch (Exception e) {
             log.info("【{}】Step1b 终止, reason={}", BIZ, e.getMessage());
             return 0;
