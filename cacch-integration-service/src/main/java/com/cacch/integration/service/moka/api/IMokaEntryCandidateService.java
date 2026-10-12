@@ -18,7 +18,7 @@ public interface IMokaEntryCandidateService {
     /**
      * Step 1a：分页拉取 Moka 待入职候选人并幂等入库
      *
-     * <p>固定参数：pipelineIds=[163155,163156]、stageIds=[8]、不传 archived。
+     * <p>固定参数：pipelineIds=[163155,163156]、stageIds=[226137]、不传 archived。
      * 每次 limit=20，循环 {@code data.next} 翻页直到无更多数据。
      * 4 表 upsert：主表 + candidate_base + graduate_school + citizen + 状态表。
      * 补全字段（moka_department_code / check_in_date / offer_department_code）

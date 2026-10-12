@@ -157,7 +157,7 @@ public final class MokaConstants {
     /**
      * 社招 / 校招待入职阶段 ID
      */
-    public static final int STAGE_ID_ENTRY = 8;
+    public static final int STAGE_ID_ENTRY = 226137;
 
     /**
      * 批次号前缀 —— 格式 MOKA_ENTRY_yyyyMMddHHmmss

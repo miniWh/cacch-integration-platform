@@ -62,7 +62,7 @@
 │       ├─ 【1a 快照入库】                                                  │
 │       │   MokaCandidatesService.listEntryCandidates()                     │
 │       │     └─ MokaCandidatesClient.listApplications()                    │
-│       │        （固定 pipelineIds=[163155,163156], stageIds=[8]）          │
+│       │        （固定 pipelineIds=[163155,163156], stageIds=[226137]）          │
 │       │   → 幂等 upsert 主表 + 3 子表 + 状态表（department_code=null,      │
 │       │     check_in_date=null）                                          │
 │       │                                                                   │

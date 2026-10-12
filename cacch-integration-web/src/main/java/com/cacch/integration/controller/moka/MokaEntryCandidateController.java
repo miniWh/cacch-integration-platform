@@ -25,7 +25,7 @@ public class MokaEntryCandidateController {
     private final IMokaEntryCandidateSyncManager syncManager;
 
     /**
-     * Moka 待入职候选人 → 本地快照
+     * Moka 待入职候选人--Moka&PG
      */
     @PostMapping("/sync")
     public Result<MokaEntrySyncResult> sync() {
@@ -35,7 +35,7 @@ public class MokaEntryCandidateController {
     }
 
     /**
-     * 本地快照 → iHR 待入职
+     * Moka 待入职候选人--PG&iHR
      */
     @PostMapping("/push-ihr")
     public Result<String> pushToIhr() {
