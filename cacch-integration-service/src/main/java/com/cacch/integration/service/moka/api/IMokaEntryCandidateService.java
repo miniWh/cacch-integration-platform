@@ -1,0 +1,55 @@
+package com.cacch.integration.service.moka.api;
+
+import com.cacch.integration.entity.moka.MokaEntryApplicationDO;
+
+import java.util.List;
+
+/**
+ * Moka 待入职候选人服务接口
+ *
+ * <p>职责：Step 1a 分页拉取 + 4 表幂等 upsert；
+ * Step 1b 职位详情补全 departmentCode；
+ * Step 1c Offer 扩展补全 checkInDate + offerDepartmentCode。</p>
+ *
+ * @author hongfu_zhou@cacch.com
+ */
+public interface IMokaEntryCandidateService {
+
+    /**
+     * Step 1a：分页拉取 Moka 待入职候选人并幂等入库
+     *
+     * <p>固定参数：pipelineIds=[163155,163156]、stageIds=[8]、不传 archived。
+     * 每次 limit=20，循环 {@code data.next} 翻页直到无更多数据。
+     * 4 表 upsert：主表 + candidate_base + graduate_school + citizen + 状态表。
+     * 补全字段（moka_department_code / check_in_date / offer_department_code）
+     * 初始为 null，后续 Step 1b/1c 回写。</p>
+     *
+     * @param batch 同步批次号（格式 MOKA_ENTRY_yyyyMMddHHmmss）
+     * @return 本批次写入的主表列表（供后续 Step 1b/1c 使用）
+     */
+    List<MokaEntryApplicationDO> syncAndUpsert(String batch);
+
+    /**
+     * Step 1b：按 jobId 去重查询职位详情，回写部门编码到主表
+     *
+     * <p>从主表中收集去重的 moka_job_id 列表，调用 MokaJobClient 批量查职位，
+     * 取 department.code，回写到 moka_department_code 列。
+     * jobId 为 null 或职位不存在的记录 department_code 保持 null。</p>
+     *
+     * @param applications 主表列表（包含 moka_job_id）
+     * @return 成功回写的记录数
+     */
+    int enrichDepartmentCode(List<MokaEntryApplicationDO> applications);
+
+    /**
+     * Step 1c：按 applicationId 批量查 Offer 扩展信息，回写入职日期与 Offer 部门
+     *
+     * <p>从主表收集所有 application_id，调用 MokaOfferClient 批量查 offer 扩展，
+     * 取 checkInDate / departmentCode / departmentName / approvalStatus，
+     * 回写到主表对应列。Offer 不存在时保持 null。</p>
+     *
+     * @param applications 主表列表（包含 application_id）
+     * @return 成功回写的记录数
+     */
+    int enrichOfferFields(List<MokaEntryApplicationDO> applications);
+}

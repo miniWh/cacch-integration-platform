@@ -4,24 +4,33 @@ import com.cacch.integration.common.config.moka.MokaProperties;
 import com.cacch.integration.common.constant.moka.MokaConstants;
 import com.cacch.integration.integration.moka.client.dto.MokaOfferExtendInfoRequest;
 import com.cacch.integration.integration.moka.client.dto.MokaOfferExtendInfoResponse;
+import com.cacch.integration.integration.moka.client.dto.MokaOfferExtendInfoResponse.OfferExtendInfo;
 import com.cacch.integration.integration.support.RestTemplateHttpClient;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestTemplate;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
- * Moka offer 扩展信息 HTTP 客户端
+ * Moka ATS —— 获取 offer 扩展信息 V3 HTTP 客户端
  *
- * <p>HTTP 通用调用统一由 {@link RestTemplateHttpClient} 承担，本类仅保留 URL 拼接、
- * Basic Auth 构造、方法级前置校验、成功 INFO。</p>
+ * <p>调用 POST {@code /api-platform/v3/getOfferExtendInfos}。
+ * 提供批量查询方法：按 applicationIds 批量请求，返回 Map<applicationId, OfferExtendInfo>。</p>
  *
  * @author hongfu_zhou@cacch.com
  */
@@ -31,58 +40,83 @@ import java.util.Collections;
 public class MokaOfferClient {
 
     private static final String BIZ = MokaConstants.LOG_BIZ;
-    private static final String ACTION_GET_OFFER_EXTEND_INFO = "获取offer扩展信息";
+    private static final String ACTION_GET_OFFER_EXTEND = "获取offer扩展信息";
+
+    /**
+     * 单批次最大请求 applicationIds 数量（Moka 接口限制 100）
+     */
+    private static final int BATCH_SIZE = 100;
 
     private final RestTemplateHttpClient httpClient;
     private final MokaProperties mokaProperties;
+    private final RestTemplate restTemplate;
+    private final ObjectMapper objectMapper;
 
     /**
-     * 获取 offer 扩展信息
+     * 按 applicationIds 批量查询 offer 扩展信息
      *
-     * <p>对接 Moka API {@code POST /api-platform/v3/getOfferExtendInfos}，
-     * 按申请 ID 列表查询 offer 薪资、入职日期、状态、自定义字段、附件、发送历史等。</p>
+     * <p>Step 1c 补全：输入主表所有 applicationId，
+     * 返回 Map<applicationId, OfferExtendInfo>，从中提取
+     * checkInDate / offerDepartmentCode / offerDepartmentName / approvalStatus。</p>
      *
-     * @param request 请求体（orgId + applicationIds + offerAttachment），
-     *                orgId 由 Service 层从配置注入，不可为空
-     * @return Moka offer 扩展信息响应（含 code/msg/successField/data）
-     * @throws RestClientException API Key 未配置、请求体为空、URL 非法、HTTP 调用失败
-     *                             或响应体为空时抛出
+     * @param applicationIds 申请 ID 列表
+     * @return applicationId → OfferExtendInfo 映射；查不到的不出现在 map
      */
-    public MokaOfferExtendInfoResponse getOfferExtendInfo(MokaOfferExtendInfoRequest request) {
+    public Map<Long, OfferExtendInfo> getOfferExtendInfos(List<Long> applicationIds) {
+        if (applicationIds == null || applicationIds.isEmpty()) {
+            log.info("【{}】{}终止, reason=applicationIds 为空", BIZ, ACTION_GET_OFFER_EXTEND);
+            return Collections.emptyMap();
+        }
         if (!mokaProperties.isApiKeyConfigured()) {
-            log.info("【{}】{}终止, reason=Moka API Key 未配置", BIZ, ACTION_GET_OFFER_EXTEND_INFO);
-            throw new RestClientException("Moka API Key 未配置");
-        }
-        if (request == null) {
-            log.info("【{}】{}终止, reason=请求体为空", BIZ, ACTION_GET_OFFER_EXTEND_INFO);
-            throw new RestClientException("Moka 获取 offer 扩展信息请求体为空");
+            log.info("【{}】{}终止, reason=Moka API Key 未配置", BIZ, ACTION_GET_OFFER_EXTEND);
+            throw new IllegalStateException("Moka API Key 未配置");
         }
 
-        String url = mokaProperties.getBaseUrl() + MokaConstants.OFFER_EXTEND_INFO_PATH;
-        HttpHeaders headers = buildBasicAuthHeaders(true);
+        Map<Long, OfferExtendInfo> result = new HashMap<>();
+        String orgId = mokaProperties.getOrgId();
 
-        MokaOfferExtendInfoResponse body = httpClient.doPostOrPut(
-                HttpMethod.POST, url, request, headers, BIZ,
-                ACTION_GET_OFFER_EXTEND_INFO, MokaOfferExtendInfoResponse.class);
+        // 分批查询（每批最多 100 条）
+        for (int i = 0; i < applicationIds.size(); i += BATCH_SIZE) {
+            int end = Math.min(i + BATCH_SIZE, applicationIds.size());
+            List<Long> batch = applicationIds.subList(i, end);
 
-        if (body.isSuccess()) {
-            int dataSize = body.getData() != null ? body.getData().size() : 0;
-            log.info("【{}】{}成功, applicationIds={}, 返回记录数={}",
-                    BIZ, ACTION_GET_OFFER_EXTEND_INFO,
-                    request.getApplicationIds(), dataSize);
-        } else {
-            log.info("【{}】{}终止, code={}, msg={}",
-                    BIZ, ACTION_GET_OFFER_EXTEND_INFO, body.getCode(), body.getMsg());
+            MokaOfferExtendInfoRequest request = new MokaOfferExtendInfoRequest();
+            request.setOrgId(orgId);
+            request.setApplicationIds(batch);
+
+            String url = mokaProperties.getBaseUrl() + MokaConstants.OFFER_EXTEND_INFO_PATH;
+            HttpHeaders headers = buildBasicAuthHeaders(true);
+
+            MokaOfferExtendInfoResponse response = httpClient.doPostOrPut(
+                    HttpMethod.POST, url, request, headers,
+                    BIZ, ACTION_GET_OFFER_EXTEND, MokaOfferExtendInfoResponse.class);
+
+            // —— [DEBUG] 临时 raw 调用，打印 Moka 原始响应中 checkInDate 的真实值 ——
+            debugRawCheckInDate(url, headers, request, batch);
+
+            if (!response.isSuccess()) {
+                log.info("【{}】{}终止, code={}, msg={}, batchStart={}",
+                        BIZ, ACTION_GET_OFFER_EXTEND, response.getCode(), response.getMsg(), i);
+                continue;
+            }
+
+            if (response.getData() != null) {
+                for (OfferExtendInfo info : response.getData()) {
+                    if (info.getApplicationId() != null) {
+                        result.put(info.getApplicationId(), info);
+                    }
+                }
+            }
+
+            log.info("【{}】{}本批完成, batchSize={}, 已匹配={}",
+                    BIZ, ACTION_GET_OFFER_EXTEND, batch.size(), result.size());
         }
-        return body;
+
+        log.info("【{}】{}完成, 请求数={}, 成功匹配={}",
+                BIZ, ACTION_GET_OFFER_EXTEND, applicationIds.size(), result.size());
+        return result;
     }
 
-    /**
-     * 构造 Basic Auth 鉴权头（API Key 作为 username，password 为空）
-     *
-     * @param includeContentType 是否包含 Content-Type: application/json
-     * @return 构造完成的 HttpHeaders
-     */
     private HttpHeaders buildBasicAuthHeaders(boolean includeContentType) {
         String basicAuth = "Basic " + Base64.getEncoder()
                 .encodeToString((mokaProperties.getApiKey() + ":").getBytes(StandardCharsets.UTF_8));
@@ -93,5 +127,54 @@ public class MokaOfferClient {
         headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
         headers.set(HttpHeaders.AUTHORIZATION, basicAuth);
         return headers;
+    }
+
+    /**
+     * [DEBUG] 临时方法 —— 用 RestTemplate 发一次 raw 请求，直接拿 Moka 原始响应字符串，
+     * 提取每个 data 元素的 checkInDate / content / contactEmail 字段的真实值，
+     * 与反序列化后 DTO 中的 null 对比，定位是 Moka 没返回还是 DTO 映射丢了。
+     *
+     * <p>失败时只打 WARN，不影响主流程。确认问题根因后删除本方法与调用点。</p>
+     */
+    private void debugRawCheckInDate(String url, HttpHeaders headers,
+                                     MokaOfferExtendInfoRequest request, List<Long> batchIds) {
+        try {
+            ResponseEntity<String> rawResp = restTemplate.exchange(
+                    url, HttpMethod.POST, new HttpEntity<>(request, headers), String.class);
+            String rawBody = rawResp.getBody();
+            if (rawBody == null) {
+                log.warn("【{}】[DEBUG] raw 响应体为空, batchIds={}", BIZ, batchIds);
+                return;
+            }
+
+            // 从原始 JSON 里搜索 checkInDate / content / contactEmail
+            JsonNode root = objectMapper.readTree(rawBody);
+            JsonNode dataNode = root.path("data");
+            if (!dataNode.isArray()) {
+                log.warn("【{}】[DEBUG] raw data 不是数组, 原始前500字符: {}", BIZ,
+                        rawBody.length() > 500 ? rawBody.substring(0, 500) : rawBody);
+                return;
+            }
+
+            for (JsonNode item : dataNode) {
+                Long appId = item.path("applicationId").asLong(0L);
+                // 直接从原始 JSON 取字段值（即使反序列化丢了这里也能看到）
+                JsonNode checkInDate = item.path("checkInDate");
+                JsonNode content = item.path("content");
+                JsonNode contactEmail = item.path("contactEmail");
+                JsonNode contactName = item.path("contactName");
+
+                log.warn("【{}】[DEBUG] raw 字段值, applicationId={}, checkInDate(raw)={}, content长度={}, contactEmail(raw)={}, contactName(raw)={}",
+                        BIZ, appId,
+                        checkInDate.isMissingNode() ? "[MISSING]" : checkInDate.asText("[null]"),
+                        content.isTextual() ? content.asText().length() : 0,
+                        contactEmail.isMissingNode() ? "[MISSING]" : contactEmail.asText("[null]"),
+                        contactName.isMissingNode() ? "[MISSING]" : contactName.asText("[null]"));
+            }
+        } catch (RestClientException e) {
+            log.warn("【{}】[DEBUG] raw HTTP 调用失败, reason={}", BIZ, e.getMessage());
+        } catch (Exception e) {
+            log.warn("【{}】[DEBUG] raw 响应解析失败, reason={}", BIZ, e.getMessage());
+        }
     }
 }

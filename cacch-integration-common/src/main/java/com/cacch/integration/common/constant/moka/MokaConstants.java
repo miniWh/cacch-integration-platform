@@ -141,4 +141,31 @@ public final class MokaConstants {
      * 成功判定沿用 {@code MokaBaseResponse} 兼容口径（code=0 或 200）。</p>
      */
     public static final String OFFER_EXTEND_INFO_PATH = "/api-platform/v3/getOfferExtendInfos";
+
+    // ========== Moka 待入职同步固定参数 ==========
+
+    /**
+     * 待入职流程 ID 1 —— 固定用于查询待入职阶段申请
+     */
+    public static final int PIPELINE_ID_ENTRY_1 = 163155;
+
+    /**
+     * 待入职流程 ID 2 —— 固定用于查询待入职阶段申请
+     */
+    public static final int PIPELINE_ID_ENTRY_2 = 163156;
+
+    /**
+     * 待入职阶段 ID —— 固定用于查询待入职阶段申请
+     */
+    public static final int STAGE_ID_ENTRY = 8;
+
+    /**
+     * Offer 扩展接口 stage 参数 —— 待入职阶段
+     */
+    public static final String STAGE_PENDING_CHECKIN = "pending_checkin";
+
+    /**
+     * 批次号前缀 —— 格式 MOKA_ENTRY_yyyyMMddHHmmss
+     */
+    public static final String ENTRY_SYNC_BATCH_PREFIX = "MOKA_ENTRY_";
 }
