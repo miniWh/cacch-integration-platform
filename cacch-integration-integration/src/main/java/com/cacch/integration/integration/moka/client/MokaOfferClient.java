@@ -37,7 +37,8 @@ import java.util.Map;
 public class MokaOfferClient {
 
     private static final String BIZ = MokaConstants.LOG_BIZ;
-    private static final String ACTION_GET_OFFER_EXTEND = "获取offer扩展信息";
+    private static final String ACTION_GET_OFFER_EXTEND_INFO = "获取offer扩展信息(通用透传)";
+    private static final String ACTION_GET_OFFER_EXTEND = "获取offer扩展信息(Step 1c专用翻页)";
 
     /**
      * 单批次最大请求 applicationIds 数量（Moka 接口限制 100）
@@ -48,6 +49,42 @@ public class MokaOfferClient {
     private final MokaProperties mokaProperties;
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
+
+    /**
+     * 获取 offer 扩展信息 —— 透传 Moka {@code POST /api-platform/v3/getOfferExtendInfos}
+     *
+     * <p>通用透传接口：调用方自行组装 MokaOfferExtendInfoRequest（orgId / applicationIds / offerAttachment），
+     * 本方法仅负责单次 HTTP 执行与鉴权头构造，不做翻页、不做 Map 转换。</p>
+     *
+     * <p>与 Step 1c 专用的 {@link #getOfferExtendInfos(List)} 区别：
+     * 后者内部自组装 request、按 BATCH_SIZE 翻页、返回 Map<applicationId, OfferExtendInfo>，用于批量补全；
+     * 本方法直接透传请求体，适合 Service 层按需查询。</p>
+     *
+     * @param request Moka offer 扩展信息请求体，需含 orgId 与 applicationIds
+     * @return Moka 原始响应体，调用方通过 response.isSuccess() 判定成功
+     * @throws IllegalStateException Moka API Key 未配置时抛出
+     */
+    public MokaOfferExtendInfoResponse getOfferExtendInfo(MokaOfferExtendInfoRequest request) {
+        if (!mokaProperties.isApiKeyConfigured()) {
+            log.info("【{}】{}终止, reason=Moka API Key 未配置", BIZ, ACTION_GET_OFFER_EXTEND_INFO);
+            throw new IllegalStateException("Moka API Key 未配置");
+        }
+
+        String url = mokaProperties.getBaseUrl() + MokaConstants.OFFER_EXTEND_INFO_PATH;
+        HttpHeaders headers = MokaAuthSupport.buildBasicAuthHeaders(mokaProperties, true);
+
+        MokaOfferExtendInfoResponse body = httpClient.doPostOrPut(
+                HttpMethod.POST, url, request, headers,
+                BIZ, ACTION_GET_OFFER_EXTEND_INFO, MokaOfferExtendInfoResponse.class);
+
+        if (body.isSuccess()) {
+            int dataSize = body.getData() == null ? 0 : body.getData().size();
+            log.info("【{}】{}成功, dataSize={}", BIZ, ACTION_GET_OFFER_EXTEND_INFO, dataSize);
+        } else {
+            log.info("【{}】{}终止, code={}, msg={}", BIZ, ACTION_GET_OFFER_EXTEND_INFO, body.getCode(), body.getMsg());
+        }
+        return body;
+    }
 
     /**
      * 按 applicationIds 批量查询 offer 扩展信息
