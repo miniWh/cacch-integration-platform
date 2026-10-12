@@ -80,11 +80,6 @@ public class MokaEntryApplicationDO {
      */
     private String mokaJobTitle;
 
-    /**
-     * Moka 职位原始部门名（list_by_condition 返回）
-     */
-    private String mokaJobDepartment;
-
     // ========== Pipeline ==========
 
     /**
@@ -154,6 +149,11 @@ public class MokaEntryApplicationDO {
     private String offerStatus;
 
     // ========== ArchiveReasons（待入职通常为 null） ==========
+
+    /**
+     * 申请是否归档：0=未归档 1=已归档（list_by_condition 顶层 archived 字段）
+     */
+    private Integer archived;
 
     private Integer archiveReasonId;
     private Integer archiveReasonType;

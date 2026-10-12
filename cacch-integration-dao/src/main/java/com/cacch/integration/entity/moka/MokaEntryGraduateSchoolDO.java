@@ -50,6 +50,11 @@ public class MokaEntryGraduateSchoolDO {
      */
     private Integer academicDegree;
 
+    /**
+     * 学校所在城市 ID（Moka graduateSchool.schoolCityId）
+     */
+    private Integer schoolCityId;
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
 

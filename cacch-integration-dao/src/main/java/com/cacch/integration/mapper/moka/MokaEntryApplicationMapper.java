@@ -28,14 +28,14 @@ public interface MokaEntryApplicationMapper extends BaseMapper<MokaEntryApplicat
      */
     @Update("INSERT INTO t_integration_moka_entry_application " +
             "(id, application_id, candidate_id, hire_mode, applied_at, moved_at, moka_created_at, moka_updated_at, " +
-            "moka_job_id, moka_job_title, moka_job_department, moka_pipeline_id, moka_pipeline_name, " +
+            "moka_job_id, moka_job_title, moka_pipeline_id, moka_pipeline_name, " +
             "moka_stage_id, moka_stage_name, moka_stage_type, moka_owner_id, moka_owner_name, " +
-            "archive_reason_id, archive_reason_type, archive_reason_name, archived_at, sync_batch) " +
+            "archived, archive_reason_id, archive_reason_type, archive_reason_name, archived_at, sync_batch) " +
             "VALUES " +
             "(#{id}, #{applicationId}, #{candidateId}, #{hireMode}, #{appliedAt}, #{movedAt}, #{mokaCreatedAt}, #{mokaUpdatedAt}, " +
-            "#{mokaJobId}, #{mokaJobTitle}, #{mokaJobDepartment}, #{mokaPipelineId}, #{mokaPipelineName}, " +
+            "#{mokaJobId}, #{mokaJobTitle}, #{mokaPipelineId}, #{mokaPipelineName}, " +
             "#{mokaStageId}, #{mokaStageName}, #{mokaStageType}, #{mokaOwnerId}, #{mokaOwnerName}, " +
-            "#{archiveReasonId}, #{archiveReasonType}, #{archiveReasonName}, #{archivedAt}, #{syncBatch}) " +
+            "#{archived}, #{archiveReasonId}, #{archiveReasonType}, #{archiveReasonName}, #{archivedAt}, #{syncBatch}) " +
             "ON CONFLICT (application_id) DO UPDATE SET " +
             "candidate_id = EXCLUDED.candidate_id, " +
             "hire_mode = EXCLUDED.hire_mode, " +
@@ -45,7 +45,6 @@ public interface MokaEntryApplicationMapper extends BaseMapper<MokaEntryApplicat
             "moka_updated_at = EXCLUDED.moka_updated_at, " +
             "moka_job_id = EXCLUDED.moka_job_id, " +
             "moka_job_title = EXCLUDED.moka_job_title, " +
-            "moka_job_department = EXCLUDED.moka_job_department, " +
             "moka_pipeline_id = EXCLUDED.moka_pipeline_id, " +
             "moka_pipeline_name = EXCLUDED.moka_pipeline_name, " +
             "moka_stage_id = EXCLUDED.moka_stage_id, " +
@@ -53,6 +52,7 @@ public interface MokaEntryApplicationMapper extends BaseMapper<MokaEntryApplicat
             "moka_stage_type = EXCLUDED.moka_stage_type, " +
             "moka_owner_id = EXCLUDED.moka_owner_id, " +
             "moka_owner_name = EXCLUDED.moka_owner_name, " +
+            "archived = EXCLUDED.archived, " +
             "archive_reason_id = EXCLUDED.archive_reason_id, " +
             "archive_reason_type = EXCLUDED.archive_reason_type, " +
             "archive_reason_name = EXCLUDED.archive_reason_name, " +
@@ -69,7 +69,6 @@ public interface MokaEntryApplicationMapper extends BaseMapper<MokaEntryApplicat
                @Param("mokaUpdatedAt") LocalDateTime mokaUpdatedAt,
                @Param("mokaJobId") String mokaJobId,
                @Param("mokaJobTitle") String mokaJobTitle,
-               @Param("mokaJobDepartment") String mokaJobDepartment,
                @Param("mokaPipelineId") Integer mokaPipelineId,
                @Param("mokaPipelineName") String mokaPipelineName,
                @Param("mokaStageId") Integer mokaStageId,
@@ -77,6 +76,7 @@ public interface MokaEntryApplicationMapper extends BaseMapper<MokaEntryApplicat
                @Param("mokaStageType") Integer mokaStageType,
                @Param("mokaOwnerId") Integer mokaOwnerId,
                @Param("mokaOwnerName") String mokaOwnerName,
+               @Param("archived") Integer archived,
                @Param("archiveReasonId") Integer archiveReasonId,
                @Param("archiveReasonType") Integer archiveReasonType,
                @Param("archiveReasonName") String archiveReasonName,

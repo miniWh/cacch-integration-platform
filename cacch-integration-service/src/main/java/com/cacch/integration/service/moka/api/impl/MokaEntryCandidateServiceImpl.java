@@ -145,7 +145,6 @@ public class MokaEntryCandidateServiceImpl implements IMokaEntryCandidateService
                 toLocalDateTime(item.getUpdatedAt()),
                 item.getJob() != null ? item.getJob().getJobId() : null,
                 item.getJob() != null ? item.getJob().getJobTitle() : null,
-                item.getJob() != null ? item.getJob().getDepartment() : null,
                 item.getPipeline() != null ? item.getPipeline().getPipelineId() : null,
                 item.getPipeline() != null ? item.getPipeline().getName() : null,
                 item.getStage() != null ? item.getStage().getStageId() : null,
@@ -153,6 +152,7 @@ public class MokaEntryCandidateServiceImpl implements IMokaEntryCandidateService
                 item.getStage() != null ? item.getStage().getStageType() : null,
                 item.getOwnerInfo() != null ? item.getOwnerInfo().getOwnerId() : null,
                 item.getOwnerInfo() != null ? item.getOwnerInfo().getOwnerName() : null,
+                item.getArchived() != null ? (item.getArchived() ? 1 : 0) : null,
                 item.getArchiveReasons() != null ? item.getArchiveReasons().getId() : null,
                 item.getArchiveReasons() != null ? item.getArchiveReasons().getType() : null,
                 item.getArchiveReasons() != null ? item.getArchiveReasons().getName() : null,
@@ -183,7 +183,8 @@ public class MokaEntryCandidateServiceImpl implements IMokaEntryCandidateService
             graduateSchoolMapper.upsert(
                     gsPid, appId,
                     gs.getLastSpeciality(), gs.getLastSchool(),
-                    gs.getGraduateDate(), gs.getAcademicDegree()
+                    gs.getGraduateDate(), gs.getAcademicDegree(),
+                    gs.getSchoolCityId()
             );
         }
 

@@ -17,18 +17,20 @@ import org.apache.ibatis.annotations.Update;
 public interface MokaEntryGraduateSchoolMapper extends BaseMapper<MokaEntryGraduateSchoolDO> {
 
     @Update("INSERT INTO t_integration_moka_entry_graduate_school " +
-            "(id, application_id, last_speciality, last_school, graduate_date, academic_degree) " +
-            "VALUES (#{id}, #{applicationId}, #{lastSpeciality}, #{lastSchool}, #{graduateDate}, #{academicDegree}) " +
+            "(id, application_id, last_speciality, last_school, graduate_date, academic_degree, school_city_id) " +
+            "VALUES (#{id}, #{applicationId}, #{lastSpeciality}, #{lastSchool}, #{graduateDate}, #{academicDegree}, #{schoolCityId}) " +
             "ON CONFLICT (application_id) DO UPDATE SET " +
             "last_speciality = EXCLUDED.last_speciality, " +
             "last_school = EXCLUDED.last_school, " +
             "graduate_date = EXCLUDED.graduate_date, " +
             "academic_degree = EXCLUDED.academic_degree, " +
+            "school_city_id = EXCLUDED.school_city_id, " +
             "updated_at = NOW()")
     int upsert(@Param("id") Long id,
                @Param("applicationId") Integer applicationId,
                @Param("lastSpeciality") String lastSpeciality,
                @Param("lastSchool") String lastSchool,
                @Param("graduateDate") Long graduateDate,
-               @Param("academicDegree") Integer academicDegree);
+               @Param("academicDegree") Integer academicDegree,
+               @Param("schoolCityId") Integer schoolCityId);
 }

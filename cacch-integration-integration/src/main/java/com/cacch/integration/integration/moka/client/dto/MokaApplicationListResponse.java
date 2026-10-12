@@ -233,6 +233,10 @@ public class MokaApplicationListResponse extends MokaBaseResponse<MokaApplicatio
          * 学历/学位：1=其他，2=初中及以下，3=高中，4=中专，5=大专，6=本科，7=硕士，8=MBA，9=博士
          */
         private Integer academicDegree;
+        /**
+         * 学校所在城市 ID
+         */
+        private Integer schoolCityId;
     }
 
     /**
@@ -271,10 +275,6 @@ public class MokaApplicationListResponse extends MokaBaseResponse<MokaApplicatio
          * 职位名称
          */
         private String jobTitle;
-        /**
-         * 职位所属部门名称（list_by_condition 返回的原始部门名）
-         */
-        private String department;
     }
 
     /**
