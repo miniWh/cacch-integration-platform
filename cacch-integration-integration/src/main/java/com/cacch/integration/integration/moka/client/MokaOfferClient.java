@@ -13,14 +13,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -85,7 +82,7 @@ public class MokaOfferClient {
             request.setApplicationIds(batch);
 
             String url = mokaProperties.getBaseUrl() + MokaConstants.OFFER_EXTEND_INFO_PATH;
-            HttpHeaders headers = buildBasicAuthHeaders(true);
+            HttpHeaders headers = MokaAuthSupport.buildBasicAuthHeaders(mokaProperties, true);
 
             MokaOfferExtendInfoResponse response = httpClient.doPostOrPut(
                     HttpMethod.POST, url, request, headers,
@@ -115,18 +112,6 @@ public class MokaOfferClient {
         log.info("【{}】{}完成, 请求数={}, 成功匹配={}",
                 BIZ, ACTION_GET_OFFER_EXTEND, applicationIds.size(), result.size());
         return result;
-    }
-
-    private HttpHeaders buildBasicAuthHeaders(boolean includeContentType) {
-        String basicAuth = "Basic " + Base64.getEncoder()
-                .encodeToString((mokaProperties.getApiKey() + ":").getBytes(StandardCharsets.UTF_8));
-        HttpHeaders headers = new HttpHeaders();
-        if (includeContentType) {
-            headers.setContentType(MediaType.APPLICATION_JSON);
-        }
-        headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
-        headers.set(HttpHeaders.AUTHORIZATION, basicAuth);
-        return headers;
     }
 
     /**

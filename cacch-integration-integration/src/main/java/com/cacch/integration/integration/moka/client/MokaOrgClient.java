@@ -10,14 +10,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClientException;
-
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
-import java.util.Collections;
 
 /**
  * Moka 组织架构 HTTP 客户端
@@ -66,7 +61,7 @@ public class MokaOrgClient {
         String url = mokaProperties.getBaseUrl() + MokaConstants.DEPT_FULL_SYNC_PATH;
         log.info("【{}】开始{}, deptCount={}", BIZ, ACTION_FULL_SYNC, request.getDepartments().size());
 
-        HttpHeaders headers = buildBasicAuthHeaders(true);
+        HttpHeaders headers = MokaAuthSupport.buildBasicAuthHeaders(mokaProperties, true);
         MokaDeptSyncResponse body = httpClient.doPostOrPut(
                 HttpMethod.PUT, url, request, headers, BIZ, ACTION_FULL_SYNC, MokaDeptSyncResponse.class);
 
@@ -98,7 +93,7 @@ public class MokaOrgClient {
             url += "?updateTimeStart=" + updateTimeStart;
         }
 
-        HttpHeaders headers = buildBasicAuthHeaders(false);
+        HttpHeaders headers = MokaAuthSupport.buildBasicAuthHeaders(mokaProperties, false);
         MokaDeptListResponse body = httpClient.doGet(url, headers, BIZ, ACTION_GET_DEPTS, MokaDeptListResponse.class);
 
         if (body.isSuccess()) {
@@ -109,23 +104,5 @@ public class MokaOrgClient {
                     BIZ, ACTION_GET_DEPTS, body.getCode(), body.getMsg());
         }
         return body;
-    }
-
-    /**
-     * 构造 Moka Basic Auth Headers
-     *
-     * @param includeContentType true → 加 Content-Type: application/json（POST/PUT）；false → 不加（GET）
-     */
-    private HttpHeaders buildBasicAuthHeaders(boolean includeContentType) {
-        String basicAuth = "Basic " + Base64.getEncoder()
-                .encodeToString((mokaProperties.getApiKey() + ":").getBytes(StandardCharsets.UTF_8));
-
-        HttpHeaders headers = new HttpHeaders();
-        if (includeContentType) {
-            headers.setContentType(MediaType.APPLICATION_JSON);
-        }
-        headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
-        headers.set(HttpHeaders.AUTHORIZATION, basicAuth);
-        return headers;
     }
 }

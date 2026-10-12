@@ -26,7 +26,9 @@ public class MokaEntryCandidateBaseDO {
     @TableId(type = IdType.ASSIGN_ID)
     private Long id;
 
-    /** 关联主表 application_id（1:1） */
+    /**
+     * 关联主表 application_id（1:1）
+     */
     private Integer applicationId;
 
     // ========== CandidateBaseInfo ==========
@@ -44,7 +46,9 @@ public class MokaEntryCandidateBaseDO {
 
     // ========== ContactInfo（1:1 合入） ==========
 
-    /** 手机号（敏感，日志脱敏） */
+    /**
+     * 手机号（敏感，日志脱敏）
+     */
     private String mokaContactPhone;
     private String mokaContactEmail;
     private String mokaCountryCallingCode;

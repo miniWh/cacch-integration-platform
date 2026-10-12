@@ -28,5 +28,6 @@ public interface IMokaEntryCandidateSyncManager {
             int step1aTotal,
             int step1bDepartmentCodeUpdated,
             int step1cOfferFieldsUpdated
-    ) {}
+    ) {
+    }
 }

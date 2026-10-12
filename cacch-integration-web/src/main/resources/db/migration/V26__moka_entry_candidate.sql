@@ -130,7 +130,7 @@ CREATE TABLE IF NOT EXISTS t_integration_moka_entry_graduate_school (
     application_id              INTEGER      NOT NULL,
     last_speciality             VARCHAR(128),
     last_school                 VARCHAR(128),
-    graduate_date               INTEGER,
+    graduate_date               BIGINT,
     academic_degree             INTEGER,
     created_at                  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at                  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,

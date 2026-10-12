@@ -25,19 +25,29 @@ public class MokaEntryCitizenDO {
     @TableId(type = IdType.ASSIGN_ID)
     private Long id;
 
-    /** 关联主表 application_id（1:1） */
+    /**
+     * 关联主表 application_id（1:1）
+     */
     private Integer applicationId;
 
-    /** 证件号码（敏感，日志脱敏） */
+    /**
+     * 证件号码（敏感，日志脱敏）
+     */
     private String citizenId;
 
-    /** 证件类型：1=身份证 2=香港身份证 3=澳门身份证 4=台湾身份证 5=护照 6=其他证件 */
+    /**
+     * 证件类型：1=身份证 2=香港身份证 3=澳门身份证 4=台湾身份证 5=护照 6=其他证件
+     */
     private Integer certificateType;
 
-    /** 签发机关 */
+    /**
+     * 签发机关
+     */
     private String idCardSignOrganization;
 
-    /** 证件有效期（原始 JSON 数组存 VARCHAR） */
+    /**
+     * 证件有效期（原始 JSON 数组存 VARCHAR）
+     */
     private String idCardValidity;
 
     @TableField(fill = FieldFill.INSERT)

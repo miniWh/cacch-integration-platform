@@ -25,19 +25,29 @@ public class MokaEntryGraduateSchoolDO {
     @TableId(type = IdType.ASSIGN_ID)
     private Long id;
 
-    /** 关联主表 application_id（1:1） */
+    /**
+     * 关联主表 application_id（1:1）
+     */
     private Integer applicationId;
 
-    /** 毕业专业 */
+    /**
+     * 毕业专业
+     */
     private String lastSpeciality;
 
-    /** 毕业学校 */
+    /**
+     * 毕业学校
+     */
     private String lastSchool;
 
-    /** 毕业时间（年份 Integer） */
-    private Integer graduateDate;
+    /**
+     * 毕业时间（毫秒时间戳，Moka 返回 13 位 Long）
+     */
+    private Long graduateDate;
 
-    /** 学历/学位：1=其他 2=初中及以下 3=高中 4=中专 5=大专 6=本科 7=硕士 8=MBA 9=博士 */
+    /**
+     * 学历/学位：1=其他 2=初中及以下 3=高中 4=中专 5=大专 6=本科 7=硕士 8=MBA 9=博士
+     */
     private Integer academicDegree;
 
     @TableField(fill = FieldFill.INSERT)

@@ -6,8 +6,6 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Update;
 
-import java.time.LocalDateTime;
-
 /**
  * Moka 待入职 —— iHR 同步状态 Mapper
  *
@@ -32,26 +30,4 @@ public interface MokaEntrySyncMapper extends BaseMapper<MokaEntrySyncDO> {
     int upsert(@Param("id") Long id,
                @Param("applicationId") Integer applicationId,
                @Param("ihrSyncStatus") String ihrSyncStatus);
-
-    /**
-     * 按 application_id 更新同步状态 + 结果
-     *
-     * @param applicationId Moka 申请 ID
-     * @param status 同步状态
-     * @param entryId iHR 返回的 entryId（成功时回填，允许 null）
-     * @param message 同步结果/失败原因
-     * @param syncTime 最近一次同步时间
-     */
-    @Update("UPDATE t_integration_moka_entry_sync " +
-            "SET ihr_sync_status = #{status}, " +
-            "    ihr_entry_id = #{entryId}, " +
-            "    ihr_sync_message = #{message}, " +
-            "    ihr_sync_time = #{syncTime}, " +
-            "    updated_at = NOW() " +
-            "WHERE application_id = #{applicationId} AND is_deleted = 0")
-    int updateStatus(@Param("applicationId") Integer applicationId,
-                     @Param("status") String status,
-                     @Param("entryId") String entryId,
-                     @Param("message") String message,
-                     @Param("syncTime") LocalDateTime syncTime);
 }

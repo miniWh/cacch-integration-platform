@@ -145,24 +145,19 @@ public final class MokaConstants {
     // ========== Moka 待入职同步固定参数 ==========
 
     /**
-     * 待入职流程 ID 1 —— 固定用于查询待入职阶段申请
+     * 社招流程 ID
      */
     public static final int PIPELINE_ID_ENTRY_1 = 163155;
 
     /**
-     * 待入职流程 ID 2 —— 固定用于查询待入职阶段申请
+     * 校招流程 ID
      */
     public static final int PIPELINE_ID_ENTRY_2 = 163156;
 
     /**
-     * 待入职阶段 ID —— 固定用于查询待入职阶段申请
+     * 社招 / 校招待入职阶段 ID
      */
     public static final int STAGE_ID_ENTRY = 8;
-
-    /**
-     * Offer 扩展接口 stage 参数 —— 待入职阶段
-     */
-    public static final String STAGE_PENDING_CHECKIN = "pending_checkin";
 
     /**
      * 批次号前缀 —— 格式 MOKA_ENTRY_yyyyMMddHHmmss

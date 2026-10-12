@@ -2,16 +2,7 @@ package com.cacch.integration.service.moka.api.impl;
 
 import com.cacch.integration.common.constant.moka.MokaConstants;
 import com.cacch.integration.common.enums.moka.MokaEntrySyncStatusEnum;
-import com.cacch.integration.dao.mapper.moka.MokaEntryApplicationMapper;
-import com.cacch.integration.dao.mapper.moka.MokaEntryCandidateBaseMapper;
-import com.cacch.integration.dao.mapper.moka.MokaEntryCitizenMapper;
-import com.cacch.integration.dao.mapper.moka.MokaEntryGraduateSchoolMapper;
-import com.cacch.integration.dao.mapper.moka.MokaEntrySyncMapper;
 import com.cacch.integration.entity.moka.MokaEntryApplicationDO;
-import com.cacch.integration.entity.moka.MokaEntryCandidateBaseDO;
-import com.cacch.integration.entity.moka.MokaEntryCitizenDO;
-import com.cacch.integration.entity.moka.MokaEntryGraduateSchoolDO;
-import com.cacch.integration.entity.moka.MokaEntrySyncDO;
 import com.cacch.integration.integration.moka.client.MokaCandidatesClient;
 import com.cacch.integration.integration.moka.client.MokaJobClient;
 import com.cacch.integration.integration.moka.client.MokaOfferClient;
@@ -19,6 +10,7 @@ import com.cacch.integration.integration.moka.client.dto.MokaApplicationListRequ
 import com.cacch.integration.integration.moka.client.dto.MokaApplicationListResponse;
 import com.cacch.integration.integration.moka.client.dto.MokaApplicationListResponse.ApplicationItem;
 import com.cacch.integration.integration.moka.client.dto.MokaOfferExtendInfoResponse.OfferExtendInfo;
+import com.cacch.integration.mapper.moka.*;
 import com.cacch.integration.service.moka.api.IMokaEntryCandidateService;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import lombok.RequiredArgsConstructor;
@@ -31,7 +23,6 @@ import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -119,9 +110,9 @@ public class MokaEntryCandidateServiceImpl implements IMokaEntryCandidateService
      */
     private MokaApplicationListRequest buildEntryListRequest(String next) {
         MokaApplicationListRequest request = new MokaApplicationListRequest();
-        // 固定待入职流程 + 阶段
-        request.setPipelineIds(List.of(MokaConstants.PIPELINE_ID_ENTRY_1, MokaConstants.PIPELINE_ID_ENTRY_2));
-        request.setStageIds(List.of(MokaConstants.STAGE_ID_ENTRY));
+        // 固定待入职流程 + 阶段（DTO 字段为 List<Long>，常量为 int，需显式转 Long）
+        request.setPipelineIds(List.of((long) MokaConstants.PIPELINE_ID_ENTRY_1, (long) MokaConstants.PIPELINE_ID_ENTRY_2));
+        request.setStageIds(List.of((long) MokaConstants.STAGE_ID_ENTRY));
         // 不传 archived，Moka 默认返回未归档
         request.setLimit(20);
         if (next != null && !next.isEmpty()) {
@@ -146,7 +137,7 @@ public class MokaEntryCandidateServiceImpl implements IMokaEntryCandidateService
         applicationMapper.upsert(
                 appPid,
                 appId,
-                item.getCandidateId(),
+                item.getCandidateBaseInfo() != null ? item.getCandidateBaseInfo().getCandidateId() : null,
                 item.getHireMode(),
                 toLocalDateTime(item.getAppliedAt()),
                 toLocalDateTime(item.getMovedAt()),

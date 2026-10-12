@@ -271,6 +271,10 @@ public class MokaApplicationListResponse extends MokaBaseResponse<MokaApplicatio
          * 职位名称
          */
         private String jobTitle;
+        /**
+         * 职位所属部门名称（list_by_condition 返回的原始部门名）
+         */
+        private String department;
     }
 
     /**

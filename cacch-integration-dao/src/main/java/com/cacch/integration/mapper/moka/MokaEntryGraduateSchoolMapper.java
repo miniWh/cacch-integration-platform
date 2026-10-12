@@ -29,6 +29,6 @@ public interface MokaEntryGraduateSchoolMapper extends BaseMapper<MokaEntryGradu
                @Param("applicationId") Integer applicationId,
                @Param("lastSpeciality") String lastSpeciality,
                @Param("lastSchool") String lastSchool,
-               @Param("graduateDate") Integer graduateDate,
+               @Param("graduateDate") Long graduateDate,
                @Param("academicDegree") Integer academicDegree);
 }

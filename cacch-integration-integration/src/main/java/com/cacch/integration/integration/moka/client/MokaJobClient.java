@@ -10,26 +10,17 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 /**
  * Moka ATS —— 职位查询 HTTP 客户端
  *
  * <p>调用 POST {@code /api-platform/v1/jobs/getJobs}。
  * 本 Client 提供两个便捷方法：
- * <ul>
- *     <li>{@link #listAllJobs(String)} —— 按 hireMode 拉取全部职位（分页遍历）</li>
- *     <li>{@link #getDepartmentCodeByJobIds(List, String)} —— 按 jobId 批量查职位并取部门编码</li>
- * </ul>
- * HTTP 通用调用统一由 {@link RestTemplateHttpClient} 承担。</p>
  *
  * @author hongfu_zhou@cacch.com
  */
@@ -39,7 +30,6 @@ import java.util.stream.Collectors;
 public class MokaJobClient {
 
     private static final String BIZ = MokaConstants.LOG_BIZ;
-    private static final String ACTION_LIST_JOBS = "查询职位列表";
     private static final String ACTION_GET_DEPT_BY_JOB_IDS = "按jobId批量查职位部门编码";
 
     private final RestTemplateHttpClient httpClient;
@@ -77,7 +67,7 @@ public class MokaJobClient {
             request.setOffset(offset);
 
             String url = mokaProperties.getBaseUrl() + MokaConstants.JOB_LIST_PATH;
-            HttpHeaders headers = buildBasicAuthHeaders(true);
+            HttpHeaders headers = MokaAuthSupport.buildBasicAuthHeaders(mokaProperties, true);
 
             MokaJobListResponse response = httpClient.doPostOrPut(
                     HttpMethod.POST, url, request, headers,
@@ -118,71 +108,5 @@ public class MokaJobClient {
         log.info("【{}】{}完成, 请求jobId数={}, 成功匹配={}",
                 BIZ, ACTION_GET_DEPT_BY_JOB_IDS, jobIds.size(), result.size());
         return result;
-    }
-
-    /**
-     * 按 hireMode 拉取全部职位（分页遍历）
-     *
-     * @param hireMode social=社招 / campus=校招
-     * @return 全量职位列表
-     */
-    public List<MokaJobItem> listAllJobs(String hireMode) {
-        if (!mokaProperties.isApiKeyConfigured()) {
-            log.info("【{}】{}终止, reason=Moka API Key 未配置", BIZ, ACTION_LIST_JOBS);
-            throw new IllegalStateException("Moka API Key 未配置");
-        }
-
-        java.util.List<MokaJobItem> allJobs = new java.util.ArrayList<>();
-        int limit = 30;
-        String offset = "0";
-
-        while (true) {
-            MokaJobListRequest request = new MokaJobListRequest();
-            request.setHireMode(hireMode);
-            request.setLimit(String.valueOf(limit));
-            request.setOffset(offset);
-
-            String url = mokaProperties.getBaseUrl() + MokaConstants.JOB_LIST_PATH;
-            HttpHeaders headers = buildBasicAuthHeaders(true);
-
-            MokaJobListResponse response = httpClient.doPostOrPut(
-                    HttpMethod.POST, url, request, headers,
-                    BIZ, ACTION_LIST_JOBS, MokaJobListResponse.class);
-
-            if (!response.isSuccess()) {
-                log.info("【{}】{}终止, code={}, msg={}",
-                        BIZ, ACTION_LIST_JOBS, response.getCode(), response.getMsg());
-                break;
-            }
-
-            if (response.getData() == null || response.getData().getJobs() == null) {
-                break;
-            }
-
-            List<MokaJobItem> jobs = response.getData().getJobs();
-            allJobs.addAll(jobs);
-
-            Integer total = response.getData().getTotal();
-            int totalProcessed = allJobs.size();
-            if (jobs.size() < limit || (total != null && totalProcessed >= total)) {
-                break;
-            }
-            offset = String.valueOf(totalProcessed);
-        }
-
-        log.info("【{}】{}完成, hireMode={}, total={}", BIZ, ACTION_LIST_JOBS, hireMode, allJobs.size());
-        return allJobs;
-    }
-
-    private HttpHeaders buildBasicAuthHeaders(boolean includeContentType) {
-        String basicAuth = "Basic " + Base64.getEncoder()
-                .encodeToString((mokaProperties.getApiKey() + ":").getBytes(StandardCharsets.UTF_8));
-        HttpHeaders headers = new HttpHeaders();
-        if (includeContentType) {
-            headers.setContentType(MediaType.APPLICATION_JSON);
-        }
-        headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
-        headers.set(HttpHeaders.AUTHORIZATION, basicAuth);
-        return headers;
     }
 }

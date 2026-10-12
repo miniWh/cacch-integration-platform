@@ -24,7 +24,6 @@ public interface MokaEntryApplicationMapper extends BaseMapper<MokaEntryApplicat
      * UPSERT：按 application_id 幂等写入主表
      *
      * @param id 内部主键（雪花预生成）
-     * @param batch 同步批次号
      * @return 受影响行数
      */
     @Update("INSERT INTO t_integration_moka_entry_application " +
@@ -87,7 +86,7 @@ public interface MokaEntryApplicationMapper extends BaseMapper<MokaEntryApplicat
     /**
      * Step 1b 回写：按 id 更新职位所属部门编码
      *
-     * @param id 主表主键
+     * @param id             主表主键
      * @param departmentCode 部门编码（来自职位详情接口）
      * @return 受影响行数
      */
@@ -101,11 +100,11 @@ public interface MokaEntryApplicationMapper extends BaseMapper<MokaEntryApplicat
     /**
      * Step 1c 回写：按 id 更新 Offer 扩展字段（入职日期 + Offer 部门）
      *
-     * @param id 主表主键
-     * @param checkInDate 入职日期（ISO8601 或 yyyy-MM-dd）
+     * @param id                  主表主键
+     * @param checkInDate         入职日期（ISO8601 或 yyyy-MM-dd）
      * @param offerDepartmentCode Offer 入职部门编码（来自 HCM）
      * @param offerDepartmentName Offer 入职部门名称（来自 HCM）
-     * @param offerStatus Offer 当前状态：pending/accepted/rejected/invalid/expired
+     * @param offerStatus         Offer 当前状态：pending/accepted/rejected/invalid/expired
      * @return 受影响行数
      */
     @Update("UPDATE t_integration_moka_entry_application " +

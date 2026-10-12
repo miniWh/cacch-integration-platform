@@ -27,84 +27,130 @@ import java.time.LocalDateTime;
 @TableName("t_integration_moka_entry_application")
 public class MokaEntryApplicationDO {
 
-    /** 内部主键（雪花生成） */
+    /**
+     * 内部主键（雪花生成）
+     */
     @TableId(type = IdType.ASSIGN_ID)
     private Long id;
 
-    /** Moka 申请 ID（业务唯一键，UNIQUE） */
+    /**
+     * Moka 申请 ID（业务唯一键，UNIQUE）
+     */
     private Integer applicationId;
 
-    /** Moka 候选人 ID */
+    /**
+     * Moka 候选人 ID
+     */
     private Integer candidateId;
 
-    /** 招聘模式：1=社招 2=校招 */
+    /**
+     * 招聘模式：1=社招 2=校招
+     */
     private Integer hireMode;
 
-    /** 申请时间 */
+    /**
+     * 申请时间
+     */
     private LocalDateTime appliedAt;
 
-    /** 移动阶段时间 */
+    /**
+     * 移动阶段时间
+     */
     private LocalDateTime movedAt;
 
-    /** Moka 侧创建时间 */
+    /**
+     * Moka 侧创建时间
+     */
     private LocalDateTime mokaCreatedAt;
 
-    /** Moka 侧更新时间 */
+    /**
+     * Moka 侧更新时间
+     */
     private LocalDateTime mokaUpdatedAt;
 
     // ========== Job ==========
 
-    /** Moka 职位 ID（Step 1b 补全部门编码的查询键） */
+    /**
+     * Moka 职位 ID（Step 1b 补全部门编码的查询键）
+     */
     private String mokaJobId;
 
-    /** Moka 职位名称 */
+    /**
+     * Moka 职位名称
+     */
     private String mokaJobTitle;
 
-    /** Moka 职位原始部门名（list_by_condition 返回） */
+    /**
+     * Moka 职位原始部门名（list_by_condition 返回）
+     */
     private String mokaJobDepartment;
 
     // ========== Pipeline ==========
 
-    /** Moka 流程 ID */
+    /**
+     * Moka 流程 ID
+     */
     private Integer mokaPipelineId;
 
-    /** Moka 流程名称 */
+    /**
+     * Moka 流程名称
+     */
     private String mokaPipelineName;
 
     // ========== Stage ==========
 
-    /** Moka 阶段 ID */
+    /**
+     * Moka 阶段 ID
+     */
     private Integer mokaStageId;
 
-    /** Moka 阶段名称 */
+    /**
+     * Moka 阶段名称
+     */
     private String mokaStageName;
 
-    /** Moka 阶段类型：102=待入职 */
+    /**
+     * Moka 阶段类型：102=待入职
+     */
     private Integer mokaStageType;
 
     // ========== OwnerInfo ==========
 
-    /** 申请所有者 ID */
+    /**
+     * 申请所有者 ID
+     */
     private Integer mokaOwnerId;
 
-    /** 申请所有者姓名 */
+    /**
+     * 申请所有者姓名
+     */
     private String mokaOwnerName;
 
     // ========== 补全字段（Step 1b/1c 回写） ==========
 
-    /** 【Step 1b 补全】职位所属部门编码（code），第二步匹配 iHR 部门的关键字段 */
+    /**
+     * 【Step 1b 补全】职位所属部门编码（code），第二步匹配 iHR 部门的关键字段
+     */
     private String mokaDepartmentCode;
 
-    /** 【Step 1c 补全】入职日期（checkinDate），iHR expectEntryDate 来源 */
+    /**
+     * 【Step 1c 补全】入职日期（checkinDate），iHR expectEntryDate 来源
+     */
     private LocalDateTime checkInDate;
 
-    /** 【Step 1c 补全】Offer 入职部门编码（备选，通常比职位部门更准确） */
+    /**
+     * 【Step 1c 补全】Offer 入职部门编码（备选，通常比职位部门更准确）
+     */
     private String offerDepartmentCode;
 
-    /** 【Step 1c 补全】Offer 入职部门名称 */
+    /**
+     * 【Step 1c 补全】Offer 入职部门名称
+     */
     private String offerDepartmentName;
 
-    /** 【Step 1c 补全】Offer 当前状态：pending/accepted/rejected/invalid/expired */
+    /**
+     * 【Step 1c 补全】Offer 当前状态：pending/accepted/rejected/invalid/expired
+     */
     private String offerStatus;
 
     // ========== ArchiveReasons（待入职通常为 null） ==========
@@ -116,7 +162,9 @@ public class MokaEntryApplicationDO {
 
     // ========== 审计/辅助 ==========
 
-    /** 同步批次号（便于追溯） */
+    /**
+     * 同步批次号（便于追溯）
+     */
     private String syncBatch;
 
     @TableField(fill = FieldFill.INSERT)

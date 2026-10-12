@@ -29,19 +29,29 @@ public class MokaEntrySyncDO {
     @TableId(type = IdType.ASSIGN_ID)
     private Long id;
 
-    /** Moka 申请 ID（UNIQUE，关联主表） */
+    /**
+     * Moka 申请 ID（UNIQUE，关联主表）
+     */
     private Integer applicationId;
 
-    /** iHR 同步状态：PENDING / SUCCESS / FAILED / SKIPPED */
+    /**
+     * iHR 同步状态：PENDING / SUCCESS / FAILED / SKIPPED
+     */
     private String ihrSyncStatus;
 
-    /** iHR 返回的 entryId（同步成功时回填） */
+    /**
+     * iHR 返回的 entryId（同步成功时回填）
+     */
     private String ihrEntryId;
 
-    /** 最近一次同步结果/失败原因 */
+    /**
+     * 最近一次同步结果/失败原因
+     */
     private String ihrSyncMessage;
 
-    /** 最近一次 iHR 同步时间 */
+    /**
+     * 最近一次 iHR 同步时间
+     */
     private LocalDateTime ihrSyncTime;
 
     @TableField(fill = FieldFill.INSERT)

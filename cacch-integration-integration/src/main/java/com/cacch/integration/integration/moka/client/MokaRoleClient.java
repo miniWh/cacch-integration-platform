@@ -7,12 +7,7 @@ import com.cacch.integration.integration.support.RestTemplateHttpClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
-
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
-import java.util.Collections;
 
 /**
  * Moka 自定义角色 HTTP 客户端
@@ -42,7 +37,7 @@ public class MokaRoleClient {
         }
 
         String url = mokaProperties.getBaseUrl() + MokaConstants.ROLE_LIST_PATH + "?type=all";
-        HttpHeaders headers = buildBasicAuthHeaders(false);
+        HttpHeaders headers = MokaAuthSupport.buildBasicAuthHeaders(mokaProperties, false);
 
         MokaRoleListResponse body = httpClient.doGet(url, headers, BIZ, ACTION_LIST, MokaRoleListResponse.class);
 
@@ -54,17 +49,5 @@ public class MokaRoleClient {
                     BIZ, ACTION_LIST, body.getCode(), body.getMsg());
         }
         return body;
-    }
-
-    private HttpHeaders buildBasicAuthHeaders(boolean includeContentType) {
-        String basicAuth = "Basic " + Base64.getEncoder()
-                .encodeToString((mokaProperties.getApiKey() + ":").getBytes(StandardCharsets.UTF_8));
-        HttpHeaders headers = new HttpHeaders();
-        if (includeContentType) {
-            headers.setContentType(MediaType.APPLICATION_JSON);
-        }
-        headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
-        headers.set(HttpHeaders.AUTHORIZATION, basicAuth);
-        return headers;
     }
 }
