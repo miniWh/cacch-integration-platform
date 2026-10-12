@@ -128,4 +128,17 @@ public final class MokaConstants {
      * 出参成功判定沿用 {@code MokaBaseResponse} 兼容口径（code=0 或 200）。</p>
      */
     public static final String JOB_LIST_PATH = "/api-platform/v1/jobs/getJobs";
+
+    /**
+     * 获取 offer 扩展信息 V3 接口路径 —— 相对 {@code MokaProperties#getBaseUrl()} 拼接
+     *
+     * <p>POST 请求，对接 Moka ATS offer 扩展信息查询接口
+     * （{@linkplain <a href="https://www.mokahr.com/docs/api/">API 文档 — 获取offer扩展信息V3接口</a>}）。
+     * 请求体 {@code orgId}（租户ID，必填）+ {@code applicationIds}（申请ID列表，必填）
+     * + {@code offerAttachment}（是否返回offer附件，可选）；
+     * 出参为 { code, msg, success, data } 结构，data 为 offer 扩展信息数组，
+     * 含薪资、入职日期、状态、自定义字段、附件、发送历史等。
+     * 成功判定沿用 {@code MokaBaseResponse} 兼容口径（code=0 或 200）。</p>
+     */
+    public static final String OFFER_EXTEND_INFO_PATH = "/api-platform/v3/getOfferExtendInfos";
 }

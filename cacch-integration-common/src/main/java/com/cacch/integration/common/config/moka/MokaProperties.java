@@ -45,6 +45,13 @@ public class MokaProperties {
     private static final String DEFAULT_BASE_URL = "https://api.mokahr.com";
 
     /**
+     * Moka 租户 ID（orgId）兜底值 —— yml 未配置且环境变量也未配置时使用
+     *
+     * <p>用于 offer 扩展信息 V3 接口等需 orgId 的场景，本项目租户固定为 "cac"。</p>
+     */
+    private static final String DEFAULT_ORG_ID = "cac";
+
+    /**
      * 环境变量名 —— Moka 机构私密 API Key
      */
     public static final String ENV_MOKA_API_KEY = "MOKA_API_KEY";
@@ -53,6 +60,11 @@ public class MokaProperties {
      * 环境变量名 —— Moka 开放平台网关根地址（可选）
      */
     public static final String ENV_MOKA_BASE_URL = "MOKA_BASE_URL";
+
+    /**
+     * 环境变量名 —— Moka 租户 ID（orgId，offer 扩展信息等接口必填）
+     */
+    public static final String ENV_MOKA_ORG_ID = "MOKA_ORG_ID";
 
     /**
      * Moka 开放平台网关根地址（自动去除结尾斜杠）
@@ -71,11 +83,21 @@ public class MokaProperties {
      */
     private final String apiKey;
 
-    public MokaProperties(String baseUrl, String apiKey) {
+    /**
+     * Moka 租户 ID（orgId）—— 部分接口（如 offer 扩展信息 V3）必填参数
+     *
+     * <p>取值优先级：yml {@code moka.org-id} → 环境变量 {@code MOKA_ORG_ID} → 兜底值 {@code "cac"}。
+     * 本项目租户固定为 "cac"，如未来对接多租户可改为严格不兜底。</p>
+     */
+    private final String orgId;
+
+    public MokaProperties(String baseUrl, String apiKey, String orgId) {
         // baseUrl：yml → 环境变量 → 兜底
         this.baseUrl = resolveBaseUrl(baseUrl);
         // apiKey：yml → 环境变量（yml 为 null/空串时主动读 System.getenv）
         this.apiKey = resolveApiKey(apiKey);
+        // orgId：yml → 环境变量 → 兜底 "cac"
+        this.orgId = resolveOrgId(orgId);
     }
 
     /**
@@ -83,6 +105,18 @@ public class MokaProperties {
      */
     public boolean isApiKeyConfigured() {
         return apiKey != null && !apiKey.isBlank();
+    }
+
+    /**
+     * orgId 是否已配置（非空且非空白）
+     *
+     * <p>本项目 {@code orgId} 兜底值为 "cac"，正常情况下始终返回 true；
+     * 仅当 yml 显式配置空串且环境变量也未配置时返回 false（极端情况）。</p>
+     *
+     * @return orgId 非空且非空白时返回 true
+     */
+    public boolean isOrgIdConfigured() {
+        return orgId != null && !orgId.isBlank();
     }
 
     /**
@@ -118,5 +152,24 @@ public class MokaProperties {
      */
     private static String trimTrailingSlash(String url) {
         return url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
+    }
+
+    /**
+     * 解析 orgId：yml 值优先，null/空白时回退环境变量，再兜底 "cac"
+     *
+     * <p>与 baseUrl 类似的兜底策略，保证 offer 扩展信息等接口的 orgId 始终有值。</p>
+     *
+     * @param ymlValue yml 中 {@code moka.org-id} 绑定的值（可为 null/空白）
+     * @return 解析后的 orgId，永不返回 null
+     */
+    private static String resolveOrgId(String ymlValue) {
+        String candidate = ymlValue;
+        if (candidate == null || candidate.isBlank()) {
+            candidate = System.getenv(ENV_MOKA_ORG_ID);
+        }
+        if (candidate == null || candidate.isBlank()) {
+            candidate = DEFAULT_ORG_ID;
+        }
+        return candidate.trim();
     }
 }
