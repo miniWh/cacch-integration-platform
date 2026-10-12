@@ -30,10 +30,48 @@ import java.util.Map;
 public class MokaJobClient {
 
     private static final String BIZ = MokaConstants.LOG_BIZ;
+    private static final String ACTION_GET_JOBS = "查询职位信息";
     private static final String ACTION_GET_DEPT_BY_JOB_IDS = "按jobId批量查职位部门编码";
 
     private final RestTemplateHttpClient httpClient;
     private final MokaProperties mokaProperties;
+
+    /**
+     * 查询职位信息 —— 透传 Moka {@code POST /api-platform/v1/jobs/getJobs}
+     *
+     * <p>通用透传接口：调用方自行组装 MokaJobListRequest（hireMode / status / limit / offset 等），
+     * 本方法仅负责 HTTP 执行与鉴权头构造。</p>
+     *
+     * <p>与 Step 1b 专用的 {@link #getDepartmentCodeByJobIds(List)} 区别：
+     * 后者内部固定 hireMode="social" 并翻页过滤 jobId→部门编码，用于批量补全；
+     * 本方法直接透传请求参数，适合 Service 层按需查询。</p>
+     *
+     * @param request Moka 职位查询请求体，可为 null（内部会校验 API Key 配置）
+     * @return Moka 原始响应体，调用方通过 response.isSuccess() 判定成功
+     * @throws IllegalStateException Moka API Key 未配置时抛出
+     */
+    public MokaJobListResponse getJobs(MokaJobListRequest request) {
+        if (!mokaProperties.isApiKeyConfigured()) {
+            log.info("【{}】{}终止, reason=Moka API Key 未配置", BIZ, ACTION_GET_JOBS);
+            throw new IllegalStateException("Moka API Key 未配置");
+        }
+
+        String url = mokaProperties.getBaseUrl() + MokaConstants.JOB_LIST_PATH;
+        HttpHeaders headers = MokaAuthSupport.buildBasicAuthHeaders(mokaProperties, true);
+
+        MokaJobListResponse body = httpClient.doPostOrPut(
+                HttpMethod.POST, url, request, headers, BIZ, ACTION_GET_JOBS, MokaJobListResponse.class);
+
+        if (body.isSuccess()) {
+            int jobSize = body.getData() == null || body.getData().getJobs() == null
+                    ? 0 : body.getData().getJobs().size();
+            Integer total = body.getData() == null ? null : body.getData().getTotal();
+            log.info("【{}】{}成功, total={}, jobSize={}", BIZ, ACTION_GET_JOBS, total, jobSize);
+        } else {
+            log.info("【{}】{}终止, code={}, msg={}", BIZ, ACTION_GET_JOBS, body.getCode(), body.getMsg());
+        }
+        return body;
+    }
 
     /**
      * 按 jobId 批量查职位并提取部门编码
