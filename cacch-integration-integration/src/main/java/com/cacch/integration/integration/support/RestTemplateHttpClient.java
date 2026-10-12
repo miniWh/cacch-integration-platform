@@ -10,6 +10,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -51,6 +53,15 @@ import java.util.Objects;
 @Component
 @RequiredArgsConstructor
 public class RestTemplateHttpClient {
+
+    /**
+     * 静态 ObjectMapper —— 用于将原始响应报文反序列化为目标类型
+     *
+     * <p>与 {@link ThirdPartyHttpLogSupport} 使用相同模式（静态 JsonMapper），
+     * 不依赖 Spring Bean 注入，避免 Bean 缺失导致启动失败。
+     * Jackson 3.x 默认注册 JavaTimeModule，可处理 LocalDateTime 等类型。</p>
+     */
+    private static final ObjectMapper MAPPER = JsonMapper.builder().build();
 
     private final RestTemplate restTemplate;
 
@@ -106,15 +117,34 @@ public class RestTemplateHttpClient {
 
         try {
             HttpEntity<Object> entity = new HttpEntity<>(requestBody, effectiveHeaders);
-            ResponseEntity<T> response = rt.exchange(uri, method, entity, responseType);
-            T body = response.getBody();
-            ThirdPartyHttpLogSupport.logResponse(biz, action, body);
 
-            if (body == null) {
+            // 先以 String.class 交换，获取原始响应报文（确保日志包含 DTO 未映射的字段）
+            ResponseEntity<String> rawResponse = rt.exchange(uri, method, entity, String.class);
+            String rawBody = rawResponse.getBody();
+
+            // 打印原始响应（脱敏由 ThirdPartyHttpLogSupport 处理）
+            ThirdPartyHttpLogSupport.logResponse(biz, action, rawBody);
+
+            // null body 检查（语义不变）
+            if (rawBody == null) {
                 log.info("【{}】{}终止, reason=响应体为空", biz, action);
                 throw new RestClientException(biz + " " + action + " 响应为空");
             }
-            return body;
+
+            // responseType 为 String.class 时直接返回原始报文
+            if (responseType == String.class) {
+                return (T) rawBody;
+            }
+
+            // 反序列化为目标类型
+            try {
+                return MAPPER.readValue(rawBody, responseType);
+            } catch (Exception e) {
+                log.info("【{}】{}终止, reason=响应体反序列化失败, responseType={}", biz, action, responseType.getSimpleName());
+                log.error("【{}】{} 响应体反序列化失败, responseType={}", biz, action, responseType.getSimpleName(), e);
+                throw new RestClientException(
+                        biz + " " + action + " 响应体反序列化失败: " + e.getMessage(), e);
+            }
 
         } catch (RestClientException e) {
             log.info("【{}】{}终止, reason={}", biz, action, e.getMessage());
