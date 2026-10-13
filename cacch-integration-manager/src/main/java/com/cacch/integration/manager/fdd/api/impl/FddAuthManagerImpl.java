@@ -76,7 +76,7 @@ public class FddAuthManagerImpl implements IFddAuthManager {
                     false, false, null, FddAuthTypeEnum.ENTERPRISE.getCode(),
                     internalCompanyName, null, command.enterpriseName(), uscc,
                     personName, null, mobile, null, null, null, true,
-                    "联系人未完成个人实名认证，无法进行企业认证");
+                    "联系人未完成个人实名认证，无法进行企业认证", null, null);
         }
 
         FddEnterpriseAuthDO success = fddEnterpriseAuthService.findSuccess(internalCompanyName, uscc);
@@ -115,7 +115,7 @@ public class FddAuthManagerImpl implements IFddAuthManager {
             return new FddAuthQueryResult(
                     false, false, null, FddAuthTypeEnum.ENTERPRISE.getCode(),
                     internalCompanyName, null, command.enterpriseName(), uscc,
-                    personName, contact.getIdNumber(), mobile, null, null, null, true, "需要发起实名认证");
+                    personName, contact.getIdNumber(), mobile, null, null, null, true, "需要发起实名认证", null, null);
         }
 
         return initiateEnterpriseAuth(command, internalCompanyName, uscc, contact, failed != null
@@ -169,7 +169,7 @@ public class FddAuthManagerImpl implements IFddAuthManager {
                     false, false, null, FddAuthTypeEnum.PERSON.getCode(),
                     internalCompanyName, null, null, null,
                     command.personName(), idNumber, mobile,
-                    null, null, null, true, "需要发起实名认证");
+                    null, null, null, true, "需要发起实名认证", null, null);
         }
 
         return initiatePersonAuth(command, internalCompanyName, idNumber, mobile, failed != null
@@ -726,7 +726,9 @@ public class FddAuthManagerImpl implements IFddAuthManager {
                 record.getFailReason(),
                 record.getCertifiedAt(),
                 canRetry,
-                message
+                message,
+                record.getFddCompanyId(),
+                null
         );
     }
 
@@ -751,7 +753,9 @@ public class FddAuthManagerImpl implements IFddAuthManager {
                 record.getFailReason(),
                 record.getCertifiedAt(),
                 canRetry,
-                message
+                message,
+                null,
+                record.getFddAccountId()
         );
     }
 

@@ -21,6 +21,8 @@ import java.time.LocalDateTime;
  * @param certifiedAt         认证通过时间
  * @param canRetry            是否可重试（FAILED 时为 true）
  * @param message             提示信息
+ * @param fddCompanyId        法大大企业唯一标识（仅 ENTERPRISE 类型有值）
+ * @param fddAccountId        法大大用户唯一标识（仅 PERSON 类型有值）
  * @author hongfu_zhou@cacch.com
  */
 public record FddAuthQueryResult(
@@ -39,6 +41,8 @@ public record FddAuthQueryResult(
         String failReason,
         LocalDateTime certifiedAt,
         Boolean canRetry,
-        String message
+        String message,
+        String fddCompanyId,
+        String fddAccountId
 ) {
 }

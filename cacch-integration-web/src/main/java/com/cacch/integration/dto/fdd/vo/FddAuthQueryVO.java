@@ -1,5 +1,6 @@
 package com.cacch.integration.dto.fdd.vo;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -10,6 +11,7 @@ import java.time.LocalDateTime;
  * @author hongfu_zhou@cacch.com
  */
 @Data
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class FddAuthQueryVO {
 
     /**
@@ -91,4 +93,14 @@ public class FddAuthQueryVO {
      * 提示信息
      */
     private String message;
+
+    /**
+     * 法大大企业唯一标识 companyId（仅 ENTERPRISE 类型返回）
+     */
+    private String fddCompanyId;
+
+    /**
+     * 法大大用户唯一标识 accountId（仅 PERSON 类型返回）
+     */
+    private String fddAccountId;
 }
