@@ -114,6 +114,51 @@ public final class OaConstants {
     public static final String CTP_ATTACHMENT_TABLE = "ctp_attachment";
 
     /**
+     * 法大大公司主表
+     */
+    public static final String FDD_COMPANY_FORM_MAIN = "formmain_5474";
+
+    /**
+     * 法大大印章子表
+     */
+    public static final String FDD_SEAL_FORM_SON = "formson_5475";
+
+    /**
+     * 法大大公司ID字段（formmain_5474.FIELD0002）
+     */
+    public static final String FDD_FIELD_COMPANY_ID = "FIELD0002";
+
+    /**
+     * 公司组织单元ID字段（formmain_5474.FIELD0003，关联 ORG_UNIT.ID）
+     */
+    public static final String FDD_FIELD_ORG_UNIT_ID = "FIELD0003";
+
+    /**
+     * 法大大印章ID字段（formson_5475.FIELD0009）
+     */
+    public static final String FDD_FIELD_SEAL_ID = "FIELD0009";
+
+    /**
+     * 印章类型枚举ID字段（formson_5475.FIELD0010，关联 CTP_ENUM_ITEM.ID）
+     */
+    public static final String FDD_FIELD_SEAL_TYPE = "FIELD0010";
+
+    /**
+     * 印章管理员关联字段（formson_5475.FIELD0012，关联 ORG_MEMBER.ID）
+     */
+    public static final String FDD_FIELD_ADMIN_MEMBER_ID = "FIELD0012";
+
+    /**
+     * 法大大印章管理员ID字段（formson_5475.FIELD0011）
+     */
+    public static final String FDD_FIELD_ADMIN_ID = "FIELD0011";
+
+    /**
+     * 印章管理员手机号字段（formson_5475.FIELD0015）
+     */
+    public static final String FDD_FIELD_ADMIN_PHONE = "FIELD0015";
+
+    /**
      * 按编码取人员默认页号
      */
     public static final int DEFAULT_PAGE_NO = 0;
