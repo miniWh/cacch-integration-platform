@@ -109,7 +109,6 @@ public class MokaJobClient {
                 MokaJobListRequest request = new MokaJobListRequest();
                 request.setHireMode(hireMode);
                 request.setJobId(jobId);
-                request.setLimit("1");
 
                 String url = mokaProperties.getBaseUrl() + MokaConstants.JOB_LIST_PATH;
                 HttpHeaders headers = MokaAuthSupport.buildBasicAuthHeaders(mokaProperties, true);
