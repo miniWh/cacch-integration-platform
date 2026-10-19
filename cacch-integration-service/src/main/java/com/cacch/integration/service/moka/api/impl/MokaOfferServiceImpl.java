@@ -83,8 +83,7 @@ public class MokaOfferServiceImpl implements IMokaOfferService {
             }
             log.info("【{}】获取offer扩展信息成功, size={}",
                     BIZ,
-                    (response.getData() != null && response.getData().getData() != null)
-                            ? response.getData().getData().size() : 0);
+                    response.getData() != null ? response.getData().size() : 0);
             return response;
 
         } catch (BizException e) {

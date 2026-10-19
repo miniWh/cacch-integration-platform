@@ -70,8 +70,7 @@ public class MokaOfferClient {
                 BIZ, ACTION_GET_OFFER_EXTEND_INFO, MokaOfferExtendInfoResponse.class);
 
         if (body.isSuccess()) {
-            int dataSize = (body.getData() == null || body.getData().getData() == null)
-                    ? 0 : body.getData().getData().size();
+            int dataSize = body.getData() == null ? 0 : body.getData().size();
             log.info("【{}】{}成功, dataSize={}", BIZ, ACTION_GET_OFFER_EXTEND_INFO, dataSize);
         } else {
             log.info("【{}】{}终止, code={}, msg={}", BIZ, ACTION_GET_OFFER_EXTEND_INFO, body.getCode(), body.getMsg());
@@ -124,8 +123,8 @@ public class MokaOfferClient {
                 continue;
             }
 
-            if (response.getData() != null && response.getData().getData() != null) {
-                for (OfferExtendInfo info : response.getData().getData()) {
+            if (response.getData() != null) {
+                for (OfferExtendInfo info : response.getData()) {
                     if (info.getApplicationId() != null) {
                         result.put(info.getApplicationId(), info);
                     }

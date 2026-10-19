@@ -3,7 +3,6 @@ package com.cacch.integration.convert.moka;
 import com.cacch.integration.dto.moka.vo.MokaOfferExtendInfoVO;
 import com.cacch.integration.integration.moka.client.dto.MokaOfferExtendInfoResponse;
 import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
 
 import java.util.List;
 
@@ -14,15 +13,10 @@ import java.util.List;
  * {@link MokaOfferExtendInfoResponse} → {@link MokaOfferExtendInfoVO}。
  * 请求体由 Service 层组装（orgId 由配置注入），无需 MapStruct 转换。</p>
  *
- * <p>嵌套类型（{@code OfferExtendInfo} / {@code MokaOfferCustomField} /
- * {@code MokaOfferAttachment} / {@code MokaOfferHistory}）字段同名同义，
- * MapStruct 自动映射；{@code offerDetermins} 字段名按 Moka 原样保留。</p>
- *
- * <p><strong>结构差异说明</strong>：Moka V3 Offer 扩展信息接口返回双层嵌套结构
- * （外层 {@code data} 为 {@link MokaOfferExtendInfoResponse.InnerData} 对象，
- * 真实业务列表在内层 {@code data.data}），而 VO 采用单层扁平结构
- * （{@code data} 直接为列表）。通过 {@code @Mapping(source="data.data", target="data")}
- * 让 MapStruct 从内层取出业务列表映射到 VO 顶层 data 字段。</p>
+ * <p>响应为 Moka 通用单层结构（{@code data} 直接为 offer 扩展信息列表），
+ * 与 VO 结构一致，MapStruct 自动映射。嵌套类型（{@code OfferExtendInfo} /
+ * {@code MokaOfferCustomField} / {@code MokaOfferAttachment} / {@code MokaOfferHistory}）
+ * 字段同名同义，MapStruct 自动映射；{@code offerDetermins} 字段名按 Moka 原样保留。</p>
  *
  * @author hongfu_zhou@cacch.com
  */
@@ -33,13 +27,11 @@ public interface MokaOfferConverter {
      * integration 层响应 → web 层结果 VO
      *
      * <p>success 字段由本服务根据 code 计算（Moka 原始 success 字段已废弃）；
-     * code / msg 原样透传便于调用方排查；data 列表从内层 {@code data.data}
-     * 取出后逐元素映射。</p>
+     * code / msg 原样透传便于调用方排查；data 列表逐元素映射。</p>
      *
      * @param response integration 层 offer 扩展信息响应
      * @return web 层结果 VO；response 为 null 时返回 null
      */
-    @Mapping(source = "data.data", target = "data")
     MokaOfferExtendInfoVO toVO(MokaOfferExtendInfoResponse response);
 
     /**

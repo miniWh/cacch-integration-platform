@@ -2,6 +2,7 @@ package com.cacch.integration.integration.moka.client.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 import java.util.List;
 
@@ -9,99 +10,22 @@ import java.util.List;
  * Moka ATS —— 获取 offer 扩展信息 V3 响应
  *
  * <p>对接 Moka API {@code POST /api-platform/v3/getOfferExtendInfos}。
- * 与 Moka 通用响应结构（单层 { code, msg, data }）不同，本接口返回双层嵌套：</p>
+ * 响应结构为 Moka 通用单层结构 { code, msg, data }，业务数据 {@code data}
+ * 为 offer 扩展信息列表，元素结构见 {@link OfferExtendInfo}。</p>
  *
- * <pre>
- * {
- *   "code": 0,                          // 外层状态码（0=成功）
- *   "message": "操作成功",                // 外层描述（注意：JSON key 为 message）
- *   "data": {                            // 外层 data 为嵌套对象，非数组
- *     "code": 200,                       // 内层状态码（200=成功）
- *     "data": [ ...OfferExtendInfo... ], // 内层 data 为 offer 扩展信息数组
- *     "msg": "success",                  // 内层描述
- *     "success": true                    // 内层 success 字段
- *   },
- *   "success": true                      // 外层 success 字段
- * }
- * </pre>
+ * <p><strong>注意</strong>：Moka 实际返回字段名 {@code checkinDate}（全小写 n），
+ * 不符合 Java 驼峰命名规范（应为 {@code checkInDate}）。为保留 Java 命名规范，
+ * 通过 {@code @JsonProperty("checkinDate")} 注解映射 JSON 字段名到 Java 字段名。</p>
  *
- * <p>由于响应结构与 {@link MokaBaseResponse} 不一致（data 为嵌套对象而非泛型业务数据），
- * 本类不再继承基类，独立定义全部字段；保留 {@link #isSuccess()}、{@link #getCode()}、
- * {@link #getMsg()} 便捷方法以最小化调用方改动。</p>
- *
- * <p>{@code OfferExtendInfo} 字段覆盖 Moka 文档所列全部字段（薪资、入职日期、状态、
- * 自定义字段、附件、发送历史、HCM 职位/部门、主管、审批人等）。</p>
+ * <p>字段覆盖 Moka 文档所列全部字段（薪资、入职日期、状态、自定义字段、
+ * 附件、发送历史、HCM 职位/部门、主管、审批人等）。</p>
  *
  * @author hongfu_zhou@cacch.com
  */
 @Data
-public class MokaOfferExtendInfoResponse {
-
-    /**
-     * 外层业务状态码：0 表示成功
-     */
-    private Integer code;
-
-    /**
-     * 外层状态描述（成功时通常为 "操作成功"）
-     *
-     * <p>JSON 实际字段名为 {@code message}，通过 {@code @JsonProperty} 映射到 {@code msg}，
-     * 保持与 {@link MokaBaseResponse#getMsg()} 一致的调用语义。</p>
-     */
-    @JsonProperty("message")
-    private String msg;
-
-    /**
-     * 外层业务数据 —— 嵌套对象（非数组），含内层状态码、真实 offer 扩展信息列表等
-     */
-    private InnerData data;
-
-    /**
-     * 外层 success 字段（Boolean）—— 仅接收不参与判定
-     *
-     * <p>成功判定仍以 {@code code} 为准，沿用既有 Moka 对接约定。</p>
-     */
-    private Boolean success;
-
-    /**
-     * 是否成功响应（兼容外层 code=0 / code=200 两种口径）
-     *
-     * @return code 命中任一成功码时返回 true；code 为 null 时返回 false
-     */
-    public boolean isSuccess() {
-        return code != null && (code == 0 || code == 200);
-    }
-
-    /**
-     * 外层 data 嵌套对象 —— Moka V3 Offer 扩展信息接口特有结构
-     *
-     * <p>含内层状态码、真实 offer 扩展信息列表、内层描述与 success 字段。</p>
-     *
-     * @author hongfu_zhou@cacch.com
-     */
-    @Data
-    public static class InnerData {
-
-        /**
-         * 内层业务状态码：200 表示成功
-         */
-        private Integer code;
-
-        /**
-         * 内层业务数据 —— offer 扩展信息列表（真正的业务数据所在）
-         */
-        private List<OfferExtendInfo> data;
-
-        /**
-         * 内层状态描述（成功时通常为 "success"）
-         */
-        private String msg;
-
-        /**
-         * 内层 success 字段（Boolean）
-         */
-        private Boolean success;
-    }
+@EqualsAndHashCode(callSuper = true)
+public class MokaOfferExtendInfoResponse
+        extends MokaBaseResponse<List<MokaOfferExtendInfoResponse.OfferExtendInfo>> {
 
     /**
      * offer 扩展信息 —— 列表元素
@@ -150,11 +74,13 @@ public class MokaOfferExtendInfoResponse {
         /**
          * 入职日期（字符串格式）
          *
-         * <p><strong>注意</strong>：Moka 实际返回的入职日期不在此字段（始终为 null），
-         * 而是在 {@link #offerAttachmentList} 的首个元素 {@code checkInDate} 中。
-         * 本字段保留仅为兼容文档声明，实际取值请用
-         * {@code offerAttachmentList[0].checkInDate}。</p>
+         * <p><strong>重要</strong>：Moka 实际返回的 JSON 字段名为 {@code checkinDate}
+         * （全小写 n，不符合驼峰规范），通过 {@code @JsonProperty("checkinDate")}
+         * 映射到 Java 字段 {@code checkInDate}，保留 Java 命名规范。</p>
+         *
+         * <p>实际取值示例：{@code "2026-11-01"}（yyyy-MM-dd 格式字符串）。</p>
          */
+        @JsonProperty("checkinDate")
         private String checkInDate;
 
         /**
@@ -294,9 +220,6 @@ public class MokaOfferExtendInfoResponse {
 
         /**
          * offer 附件列表（Moka 实际返回的 offer 附件，含入职日期等关键字段）
-         *
-         * <p><strong>重要</strong>：{@link #checkInDate} 实际位于本列表首个元素中，
-         * 而非 OfferExtendInfo 顶层。此字段由 raw 日志确认，Moka 文档未明确声明。</p>
          */
         private List<MokaOfferAttachmentDetail> offerAttachmentList;
 
