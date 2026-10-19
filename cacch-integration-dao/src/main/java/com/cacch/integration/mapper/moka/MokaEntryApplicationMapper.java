@@ -84,23 +84,30 @@ public interface MokaEntryApplicationMapper extends BaseMapper<MokaEntryApplicat
                @Param("syncBatch") String syncBatch);
 
     /**
-     * Step 1b 回写：按 id 更新职位所属部门编码
+     * Step 1b 回写：按 application_id 更新职位所属部门编码
      *
-     * @param id             主表主键
+     * <p>使用业务键 {@code application_id}（upsert 冲突键，已有唯一约束）作为定位条件，
+     * 避免依赖主键 {@code id} —— 后者在 ON CONFLICT DO UPDATE 分支不会刷新，
+     * 导致按 id 更新时命中 0 行。</p>
+     *
+     * @param applicationId  Moka 申请 ID（业务唯一键，对应 t_integration_moka_entry_application.application_id）
      * @param departmentCode 部门编码（来自职位详情接口）
      * @return 受影响行数
      */
     @Update("UPDATE t_integration_moka_entry_application " +
             "SET moka_department_code = #{departmentCode}, " +
             "    updated_at = NOW() " +
-            "WHERE id = #{id} AND is_deleted = 0")
-    int updateDepartmentCodeById(@Param("id") Long id,
-                                 @Param("departmentCode") String departmentCode);
+            "WHERE application_id = #{applicationId} AND is_deleted = 0")
+    int updateDepartmentCodeByApplicationId(@Param("applicationId") Integer applicationId,
+                                            @Param("departmentCode") String departmentCode);
 
     /**
-     * Step 1c 回写：按 id 更新 Offer 扩展字段（入职日期 + Offer 部门）
+     * Step 1c 回写：按 application_id 更新 Offer 扩展字段（入职日期 + Offer 部门）
      *
-     * @param id                  主表主键
+     * <p>同 {@link #updateDepartmentCodeByApplicationId}，以业务键 {@code application_id}
+     * 作为定位条件，避免主键 id 漂移导致 0 行更新。</p>
+     *
+     * @param applicationId       Moka 申请 ID（业务唯一键）
      * @param checkInDate         入职日期（ISO8601 或 yyyy-MM-dd）
      * @param offerDepartmentCode Offer 入职部门编码（来自 HCM）
      * @param offerDepartmentName Offer 入职部门名称（来自 HCM）
@@ -113,10 +120,10 @@ public interface MokaEntryApplicationMapper extends BaseMapper<MokaEntryApplicat
             "    offer_department_name = #{offerDepartmentName}, " +
             "    offer_status = #{offerStatus}, " +
             "    updated_at = NOW() " +
-            "WHERE id = #{id} AND is_deleted = 0")
-    int updateOfferFieldsById(@Param("id") Long id,
-                              @Param("checkInDate") LocalDateTime checkInDate,
-                              @Param("offerDepartmentCode") String offerDepartmentCode,
-                              @Param("offerDepartmentName") String offerDepartmentName,
-                              @Param("offerStatus") String offerStatus);
+            "WHERE application_id = #{applicationId} AND is_deleted = 0")
+    int updateOfferFieldsByApplicationId(@Param("applicationId") Integer applicationId,
+                                         @Param("checkInDate") LocalDateTime checkInDate,
+                                         @Param("offerDepartmentCode") String offerDepartmentCode,
+                                         @Param("offerDepartmentName") String offerDepartmentName,
+                                         @Param("offerStatus") String offerStatus);
 }

@@ -253,7 +253,7 @@ public class MokaEntryCandidateServiceImpl implements IMokaEntryCandidateService
             }
             String deptCode = jobDeptMap.get(app.getMokaJobId());
             if (deptCode != null) {
-                int rows = applicationMapper.updateDepartmentCodeById(app.getId(), deptCode);
+                int rows = applicationMapper.updateDepartmentCodeByApplicationId(app.getApplicationId(), deptCode);
                 if (rows > 0) {
                     updated++;
                 }
@@ -303,8 +303,8 @@ public class MokaEntryCandidateServiceImpl implements IMokaEntryCandidateService
 
             LocalDateTime checkInDate = parseCheckInDate(info.getCheckInDate());
             String deptCode = info.getHcmDepartmentId() != null ? String.valueOf(info.getHcmDepartmentId()) : null;
-            int rows = applicationMapper.updateOfferFieldsById(
-                    app.getId(),
+            int rows = applicationMapper.updateOfferFieldsByApplicationId(
+                    app.getApplicationId(),
                     checkInDate,
                     deptCode,
                     info.getHcmDepartmentName(),
