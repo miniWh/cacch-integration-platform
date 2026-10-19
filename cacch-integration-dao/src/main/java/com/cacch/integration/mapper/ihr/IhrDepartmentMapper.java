@@ -91,4 +91,18 @@ public interface IhrDepartmentMapper extends BaseMapper<IhrDepartmentDO> {
             "  WHERE d.is_deleted = 0 AND d.department_status = 'ENABLE'" +
             ") SELECT * FROM subtree ORDER BY sequence ASC, id ASC")
     List<IhrDepartmentDO> listRecursiveByParentId(@Param("parentId") String parentId);
+
+    /**
+     * 按部门编码查询 iHR 部门的数字 ID
+     *
+     * <p>用于 Moka 待入职推送 iHR：Moka 侧部门编码（如 "CAC02"）→ iHR 部门数字 ID。
+     * 仅返回 ENABLE 状态、未逻辑删除的记录。</p>
+     *
+     * @param departmentCode Moka 侧部门编码
+     * @return iHR 数字部门 ID；无匹配时返回 null
+     */
+    @Select("SELECT CAST(ihr_dept_id AS BIGINT) FROM t_integration_ihr_department " +
+            "WHERE department_code = #{departmentCode} AND is_deleted = 0 AND department_status = 'ENABLE' " +
+            "LIMIT 1")
+    Long findIdByCode(@Param("departmentCode") String departmentCode);
 }

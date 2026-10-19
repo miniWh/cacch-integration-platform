@@ -2,11 +2,14 @@ package com.cacch.integration.mapper.moka;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.cacch.integration.entity.moka.MokaEntryApplicationDO;
+import com.cacch.integration.entity.moka.MokaEntryPushItemVO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * Moka 待入职候选人 —— 申请主表 Mapper
@@ -126,4 +129,68 @@ public interface MokaEntryApplicationMapper extends BaseMapper<MokaEntryApplicat
                                          @Param("offerDepartmentCode") String offerDepartmentCode,
                                          @Param("offerDepartmentName") String offerDepartmentName,
                                          @Param("offerStatus") String offerStatus);
+
+    /**
+     * 推送 iHR 前的联合查询：读取 4 表 + ihr_department JOIN 结果
+     *
+     * <p>一次查询拿全推送所需全部字段（候选人 + 职位/Offer + 学历 + 证件 + iHR 部门 ID），
+     * 避免 N+1 查询。WHERE 条件包含同步状态筛选（默认 PENDING + FAILED）。</p>
+     *
+     * <p>iHR 部门 ID 通过
+     * {@code ihr_department.department_code = moka_department_code} JOIN 获取，
+     * CAST 为 BIGINT 以匹配 iHR {@code departmentId} 字段类型。</p>
+     *
+     * @param statusList 需要推送的同步状态列表（PENDING / FAILED / SKIPPED 等）
+     * @param limit      单次查询上限
+     * @return 推送项列表，按入职日期倒序
+     */
+    @Select("<script>" +
+            "SELECT " +
+            "  mea.application_id AS applicationId, " +
+            "  mecb.moka_name AS name, " +
+            "  mecb.moka_gender AS gender, " +
+            "  mecb.moka_contact_phone AS phone, " +
+            "  mecb.moka_contact_email AS email, " +
+            "  mecb.moka_nationality AS nationality, " +
+            "  mec.citizen_id AS citizenId, " +
+            "  mec.certificate_type AS certificateType, " +
+            "  mea.moka_department_code AS mokaDepartmentCode, " +
+            "  mea.offer_department_name AS offerDepartmentName, " +
+            "  mea.offer_department_code AS offerDepartmentCode, " +
+            "  mea.check_in_date AS checkInDate, " +
+            "  mea.offer_status AS offerStatus, " +
+            "  mea.hire_mode AS hireMode, " +
+            "  mea.moka_job_title AS mokaJobTitle, " +
+            "  mea.moka_stage_name AS mokaStageName, " +
+            "  mea.moka_owner_name AS mokaOwnerName, " +
+            "  megs.last_school AS lastSchool, " +
+            "  megs.last_speciality AS lastSpeciality, " +
+            "  megs.academic_degree AS academicDegree, " +
+            "  megs.graduate_date AS graduateDate, " +
+            "  CAST(id.ihr_dept_id AS BIGINT) AS ihrDeptId, " +
+            "  id.parent_id AS ihrParentId, " +
+            "  mes.ihr_sync_status AS ihrSyncStatus, " +
+            "  mes.ihr_entry_id AS ihrEntryId " +
+            "FROM t_integration_moka_entry_application mea " +
+            "LEFT JOIN t_integration_moka_entry_candidate_base mecb " +
+            "  ON mea.application_id = mecb.application_id AND mecb.is_deleted = 0 " +
+            "LEFT JOIN t_integration_moka_entry_graduate_school megs " +
+            "  ON mea.application_id = megs.application_id AND megs.is_deleted = 0 " +
+            "LEFT JOIN t_integration_moka_entry_citizen mec " +
+            "  ON mea.application_id = mec.application_id AND mec.is_deleted = 0 " +
+            "LEFT JOIN t_integration_moka_entry_sync mes " +
+            "  ON mea.application_id = mes.application_id AND mes.is_deleted = 0 " +
+            "LEFT JOIN t_integration_ihr_department id " +
+            "  ON id.department_code = mea.moka_department_code " +
+            "  AND id.is_deleted = 0 AND id.department_status = 'ENABLE' " +
+            "WHERE mea.is_deleted = 0 " +
+            "AND mes.ihr_sync_status IN " +
+            "<foreach collection='statusList' item='s' open='(' separator=',' close=')'>" +
+            "#{s}" +
+            "</foreach> " +
+            "ORDER BY mea.check_in_date DESC NULLS LAST " +
+            "LIMIT #{limit}" +
+            "</script>")
+    List<MokaEntryPushItemVO> listForPush(@Param("statusList") List<String> statusList,
+                                          @Param("limit") int limit);
 }
