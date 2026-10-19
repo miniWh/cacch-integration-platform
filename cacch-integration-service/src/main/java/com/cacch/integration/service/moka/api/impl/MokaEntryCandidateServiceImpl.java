@@ -207,6 +207,7 @@ public class MokaEntryCandidateServiceImpl implements IMokaEntryCandidateService
         MokaEntryApplicationDO result = new MokaEntryApplicationDO();
         result.setId(appPid);
         result.setApplicationId(appId);
+        result.setHireMode(item.getHireMode());
         result.setMokaJobId(item.getJob() != null ? item.getJob().getJobId() : null);
         return result;
     }
