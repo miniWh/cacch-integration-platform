@@ -8,6 +8,9 @@
 --             处理时 application_id 为空则跳过该记录且不写状态行，
 --             机制确定后无需重置历史数据
 --   状态口径：hired_sync_status / resign_sync_status 均为 0-PENDING 1-SYNCED 2-SYNC_FAILED
+--   关联查询：业务快照字段（user_id / user_name / contact_phone / employee_status）
+--             由待处理集合查询 LEFT JOIN t_integration_moka_person 实时获取，
+--             状态表仅保留状态同步核心字段，避免冗余
 -- =============================================
 
 CREATE TABLE IF NOT EXISTS t_integration_moka_person_status (
@@ -15,11 +18,7 @@ CREATE TABLE IF NOT EXISTS t_integration_moka_person_status (
     id                    BIGINT       NOT NULL,
     -- ========== 业务关联字段 ==========
     employee_no           VARCHAR(64)  NOT NULL,  -- 工号（t_integration_moka_person.employee_no = persondetail.staffNo，业务唯一键，UNIQUE）
-    user_id               VARCHAR(64),            -- iHR 员工ID（冗余自 t_integration_moka_person.user_id，便于追溯）
-    user_name             VARCHAR(128),           -- 姓名（冗余快照，便于排查）
-    contact_phone         VARCHAR(32),            -- 手机号（冗余快照，便于排查）
     application_id        INTEGER,                -- Moka 申请 id（获取机制待定，当前为空；为空时跳过同步）
-    employee_status       VARCHAR(32),            -- 员工状态快照（IN_SERVICE/QUIT，写入时刷新）
     -- ========== 入职同步状态（hired 接口回写） ==========
     hired_sync_status     SMALLINT     NOT NULL DEFAULT 0,  -- 0-PENDING 1-SYNCED 2-SYNC_FAILED
     hired_error           VARCHAR(500),           -- 最近一次入职同步失败原因摘要
@@ -41,11 +40,7 @@ COMMENT ON TABLE  t_integration_moka_person_status IS 'Moka人员入离职状态
 
 COMMENT ON COLUMN t_integration_moka_person_status.id                 IS '内部主键（雪花生成）';
 COMMENT ON COLUMN t_integration_moka_person_status.employee_no       IS '工号（t_integration_moka_person.employee_no = persondetail.staffNo，业务唯一键，UNIQUE）';
-COMMENT ON COLUMN t_integration_moka_person_status.user_id           IS 'iHR 员工ID（冗余自 t_integration_moka_person.user_id，便于追溯）';
-COMMENT ON COLUMN t_integration_moka_person_status.user_name         IS '姓名（冗余快照，便于排查）';
-COMMENT ON COLUMN t_integration_moka_person_status.contact_phone     IS '手机号（冗余快照，便于排查）';
 COMMENT ON COLUMN t_integration_moka_person_status.application_id    IS 'Moka 申请 id（获取机制待定，当前为空；为空时跳过同步且不写状态行）';
-COMMENT ON COLUMN t_integration_moka_person_status.employee_status   IS '员工状态快照（iHR 原始值 IN_SERVICE/QUIT，写入时刷新）';
 COMMENT ON COLUMN t_integration_moka_person_status.hired_sync_status IS '入职同步状态：0-PENDING 1-SYNCED 2-SYNC_FAILED';
 COMMENT ON COLUMN t_integration_moka_person_status.hired_error       IS '最近一次入职同步失败原因摘要';
 COMMENT ON COLUMN t_integration_moka_person_status.hired_sync_time   IS '最近一次入职同步时间';

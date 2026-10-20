@@ -47,14 +47,13 @@ public class MokaPersonStatusServiceImpl implements IMokaPersonStatusService {
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED, readOnly = false, timeout = 30)
+    @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED, timeout = 30)
     public int upsertHiredResult(MokaPersonStatusDO item, Integer syncStatus,
                                  String error, LocalDateTime syncTime, Integer applicationId) {
         // 预生成雪花主键 —— 手写 @Update SQL 不触发 ASSIGN_ID
         long id = item.getId() != null ? item.getId() : IdWorker.getId();
-        int rows = mokaPersonStatusMapper.upsertHiredResult(id, item.getEmployeeNo(), item.getUserId(),
-                item.getUserName(), item.getContactPhone(), applicationId, item.getEmployeeStatus(),
-                syncStatus, error, syncTime);
+        int rows = mokaPersonStatusMapper.upsertHiredResult(id, item.getEmployeeNo(),
+                applicationId, syncStatus, error, syncTime);
         if (rows == 0) {
             log.warn("【{}】入职同步结果回写影响 0 行, employeeNo={}", BIZ, item.getEmployeeNo());
         }
@@ -62,14 +61,13 @@ public class MokaPersonStatusServiceImpl implements IMokaPersonStatusService {
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED, readOnly = false, timeout = 30)
+    @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED, timeout = 30)
     public int upsertResignResult(MokaPersonStatusDO item, Integer syncStatus,
                                   String error, LocalDateTime syncTime, Integer applicationId) {
         // 预生成雪花主键 —— 手写 @Update SQL 不触发 ASSIGN_ID
         long id = item.getId() != null ? item.getId() : IdWorker.getId();
-        int rows = mokaPersonStatusMapper.upsertResignResult(id, item.getEmployeeNo(), item.getUserId(),
-                item.getUserName(), item.getContactPhone(), applicationId, item.getEmployeeStatus(),
-                syncStatus, error, syncTime);
+        int rows = mokaPersonStatusMapper.upsertResignResult(id, item.getEmployeeNo(),
+                applicationId, syncStatus, error, syncTime);
         if (rows == 0) {
             log.warn("【{}】离职同步结果回写影响 0 行, employeeNo={}", BIZ, item.getEmployeeNo());
         }

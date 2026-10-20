@@ -41,29 +41,9 @@ public class MokaPersonStatusDO {
     private String employeeNo;
 
     /**
-     * iHR 员工 ID（冗余自 t_integration_moka_person.user_id，便于追溯）
-     */
-    private String userId;
-
-    /**
-     * 姓名（冗余快照，便于排查）
-     */
-    private String userName;
-
-    /**
-     * 手机号（冗余快照，便于排查）
-     */
-    private String contactPhone;
-
-    /**
      * Moka 申请 id（获取机制待定，当前为空；为空时跳过同步且不写状态行）
      */
     private Integer applicationId;
-
-    /**
-     * 员工状态快照（iHR 原始值：IN_SERVICE/QUIT，写入时刷新）
-     */
-    private String employeeStatus;
 
     /**
      * 入职同步状态：0-PENDING 1-SYNCED 2-SYNC_FAILED
@@ -112,4 +92,28 @@ public class MokaPersonStatusDO {
      */
     @TableLogic
     private Integer isDeleted;
+
+    /**
+     * iHR 员工 ID（关联查询从 t_integration_moka_person.user_id 获取）
+     */
+    @TableField(exist = false)
+    private String userId;
+
+    /**
+     * 姓名（关联查询从 t_integration_moka_person.user_name 获取）
+     */
+    @TableField(exist = false)
+    private String userName;
+
+    /**
+     * 手机号（关联查询从 t_integration_moka_person.contact_phone 获取）
+     */
+    @TableField(exist = false)
+    private String contactPhone;
+
+    /**
+     * 员工状态（关联查询从 t_integration_moka_person.employee_status 获取）
+     */
+    @TableField(exist = false)
+    private String employeeStatus;
 }
