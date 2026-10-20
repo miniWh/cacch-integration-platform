@@ -2,9 +2,6 @@ package com.cacch.integration.entity.ihr;
 
 import lombok.Data;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-
 /**
  * iHR persondetail 表轻量 DO — Moka 人员同步所需字段
  *
@@ -22,6 +19,9 @@ import java.time.LocalDateTime;
  *   mobileNo     contactPhone    手机号
  *   departmentId departmentId    部门 ID（关联 organizationsdepartment.departmentcode）
  *   staffStatus  employeeStatus  在职状态：IN_SERVICE=在职 / QUIT=离职
+ *   contractBeginDate contractBeginDate 实际入职时间（text，yyyy-MM-dd）
+ *   probationEndDate  probationEndDate  试用期结束日期（text，yyyy-MM-dd）
+ *   leaveDate         leaveDate         离职日期（text，yyyy-MM-dd；在职时为 NULL）
  * </pre>
  *
  * <p>本类不使用 MyBatis-Plus 注解（@TableName / @TableId 等），
@@ -77,21 +77,23 @@ public class PersondetailDO {
     /**
      * 合同开始日期（persondetail."contractBeginDate"，实际入职时间）
      *
-     * <p>Moka hired 接口 hiredAt 数据来源；列类型按日期联调核实</p>
+     * <p>Moka hired 接口 hiredAt 数据来源。该列在 PostgreSQL 中为 text 类型
+     * （取值形如 {@code 2026-10-20}），JDBC 无法直接映射为 java.time 类型，
+     * 故以 String 承接，由 Manager 层显式解析为 LocalDate。</p>
      */
-    private LocalDate contractBeginDate;
+    private String contractBeginDate;
 
     /**
-     * 试用期结束日期（persondetail."probationEndDate"）
+     * 试用期结束日期（persondetail."probationEndDate"，text 类型，形如 {@code 2026-12-31}）
      *
      * <p>与 contractBeginDate 的整月差值即 Moka hired 接口 probation 数据来源</p>
      */
-    private LocalDate probationEndDate;
+    private String probationEndDate;
 
     /**
-     * 离职日期时间（persondetail."leaveDate"）
+     * 离职日期（persondetail."leaveDate"，text 类型，形如 {@code 2026-12-31}；在职时为 NULL）
      *
-     * <p>Moka resign 接口 time 数据来源；列类型按日期时间联调核实</p>
+     * <p>Moka resign 接口 time 数据来源</p>
      */
-    private LocalDateTime leaveDate;
+    private String leaveDate;
 }

@@ -205,6 +205,9 @@ public final class MokaConstants {
 
     /**
      * resign 接口 time（离职时间）时间格式
+     *
+     * <p>iHR persondetail."leaveDate" 为 text 类型且只到日粒度（形如 {@code 2026-12-31}），
+     * 故按日期格式传递。</p>
      */
-    public static final String RESIGN_TIME_PATTERN = "yyyy-MM-dd HH:mm:ss";
+    public static final String RESIGN_TIME_PATTERN = "yyyy-MM-dd";
 }

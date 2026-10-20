@@ -19,6 +19,7 @@ import org.springframework.util.StringUtils;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -95,6 +96,15 @@ public class MokaPersonStatusSyncManagerImpl implements IMokaPersonStatusSyncMan
      */
     private static final DateTimeFormatter RESIGN_TIME_FORMATTER =
             DateTimeFormatter.ofPattern(MokaConstants.RESIGN_TIME_PATTERN);
+
+    /**
+     * persondetail 日期 text 列的解析候选格式，按顺序尝试
+     */
+    private static final List<DateTimeFormatter> DATE_PARSE_FORMATTERS = List.of(
+            DateTimeFormatter.ofPattern("yyyy-MM-dd"),
+            DateTimeFormatter.ofPattern("yyyy/MM/dd"),
+            DateTimeFormatter.ofPattern("yyyy.MM.dd"),
+            DateTimeFormatter.ofPattern("yyyyMMdd"));
 
     private final IMokaPersonStatusService mokaPersonStatusService;
     private final IMokaApplicationService mokaApplicationService;
@@ -228,9 +238,9 @@ public class MokaPersonStatusSyncManagerImpl implements IMokaPersonStatusSyncMan
     /**
      * 处理单条入职同步
      *
-     * <p>流程：取 JOIN candidate_base 带回的 applicationId → 取 contractBeginDate
-     * 构造 hiredAt（缺失标记 SYNC_FAILED）→ 计算 probation（整月差值 0-6）→
-     * 调 Moka hired 接口 → 回写状态行。</p>
+     * <p>流程：取 JOIN candidate_base 带回的 applicationId → 将 text 类型的
+     * contractBeginDate 解析为 LocalDate 构造 hiredAt（缺失或无法解析则标记 SYNC_FAILED）→
+     * 计算 probation（整月差值 0-6）→ 调 Moka hired 接口 → 回写状态行。</p>
      *
      * @param item      入职待处理记录（含 applicationId，由 candidate_base JOIN 直接取）
      * @param personMap 工号 → persondetail 记录 Map
@@ -240,18 +250,25 @@ public class MokaPersonStatusSyncManagerImpl implements IMokaPersonStatusSyncMan
         Integer applicationId = item.getApplicationId();
 
         PersondetailDO detail = personMap.get(item.getEmployeeNo());
-        if (detail == null || detail.getContractBeginDate() == null) {
-            String reason = detail == null ? "persondetail 无匹配记录" : "contractBeginDate 为空";
-            log.info("【{}】实际入职时间缺失, 标记 SYNC_FAILED, employeeNo={}, applicationId={}, reason={}",
-                    BIZ, item.getEmployeeNo(), applicationId, reason);
+        String rawContractBeginDate = detail == null ? null : detail.getContractBeginDate();
+        LocalDate contractBeginDate = parseDate(rawContractBeginDate, item.getEmployeeNo(), "contractBeginDate");
+        if (contractBeginDate == null) {
+            String reason = detail == null ? "persondetail 无匹配记录"
+                    : "contractBeginDate 为空或格式无法解析";
+            log.info("【{}】实际入职时间缺失, 标记 SYNC_FAILED, employeeNo={}, applicationId={}, reason={}, contractBeginDate={}",
+                    BIZ, item.getEmployeeNo(), applicationId, reason, rawContractBeginDate);
             return writeHiredStatus(item, false, STATUS_SYNC_FAILED, reason,
                     LocalDateTime.now(), applicationId);
         }
 
-        Integer probation = computeProbation(detail.getContractBeginDate(),
-                detail.getProbationEndDate(), item.getEmployeeNo());
+        LocalDate probationEndDate = null;
+        if (detail != null) {
+            probationEndDate = parseDate(detail.getProbationEndDate(),
+                    item.getEmployeeNo(), "probationEndDate");
+        }
+        Integer probation = computeProbation(contractBeginDate, probationEndDate, item.getEmployeeNo());
         MokaApplicationHiredRequest request = new MokaApplicationHiredRequest();
-        request.setHiredAt(detail.getContractBeginDate().format(HIRED_AT_FORMATTER));
+        request.setHiredAt(contractBeginDate.format(HIRED_AT_FORMATTER));
         request.setProbation(probation);
 
         try {
@@ -287,11 +304,13 @@ public class MokaPersonStatusSyncManagerImpl implements IMokaPersonStatusSyncMan
         MokaApplicationResignRequest request = new MokaApplicationResignRequest();
         request.setDetail(MokaConstants.RESIGN_DEFAULT_DETAIL);
         PersondetailDO detail = personMap.get(item.getEmployeeNo());
-        if (detail != null && detail.getLeaveDate() != null) {
-            request.setTime(detail.getLeaveDate().format(RESIGN_TIME_FORMATTER));
+        String rawLeaveDate = detail == null ? null : detail.getLeaveDate();
+        LocalDate leaveDate = parseDate(rawLeaveDate, item.getEmployeeNo(), "leaveDate");
+        if (leaveDate != null) {
+            request.setTime(leaveDate.format(RESIGN_TIME_FORMATTER));
         } else {
-            log.info("【{}】离职时间为空, resign.time 不传由 Moka 默认取请求时间, employeeNo={}, applicationId={}",
-                    BIZ, item.getEmployeeNo(), applicationId);
+            log.info("【{}】离职时间为空或格式无法解析, resign.time 不传由 Moka 默认取请求时间, employeeNo={}, applicationId={}, leaveDate={}",
+                    BIZ, item.getEmployeeNo(), applicationId, rawLeaveDate);
         }
 
         try {
@@ -340,6 +359,49 @@ public class MokaPersonStatusSyncManagerImpl implements IMokaPersonStatusSyncMan
             return MokaConstants.PROBATION_MAX_MONTHS;
         }
         return (int) months;
+    }
+
+    /**
+     * 解析 persondetail 日期文本为 LocalDate
+     *
+     * <p>persondetail 的 {@code contractBeginDate} / {@code probationEndDate} /
+     * {@code leaveDate} 三列在 PostgreSQL 中均为 text 类型，直接映射为 java.time
+     * 类型会触发「Cannot convert the column of type TEXT」，故统一以 String 承接
+     * 后在此显式解析。兼容 {@code yyyy-MM-dd} / {@code yyyy/MM/dd} /
+     * {@code yyyy.MM.dd} / {@code yyyyMMdd}，原始文本带时分秒或 ISO {@code T}
+     * 分隔时仅取日期部分。</p>
+     *
+     * <p>解析失败不抛异常，返回 null 交由调用方降级（probation 按 0、
+     * {@code resign.time} 不传），仅打 INFO 日志说明并保留原始值便于排查。</p>
+     *
+     * @param raw        原始日期文本（允许为 null 或空串）
+     * @param employeeNo 工号（仅用于日志）
+     * @param columnName 列名（仅用于日志）
+     * @return 解析结果；入参为空或全部候选格式均无法解析时返回 null
+     */
+    private LocalDate parseDate(String raw, String employeeNo, String columnName) {
+        if (!StringUtils.hasText(raw)) {
+            return null;
+        }
+        String text = raw.trim();
+        int cut = text.indexOf(' ');
+        if (cut < 0) {
+            cut = text.indexOf('T');
+        }
+        if (cut > 0) {
+            text = text.substring(0, cut);
+        }
+
+        for (DateTimeFormatter formatter : DATE_PARSE_FORMATTERS) {
+            try {
+                return LocalDate.parse(text, formatter);
+            } catch (DateTimeParseException ex) {
+                // 当前格式不匹配，继续尝试下一种；全部失败后在循环外统一记录
+            }
+        }
+        log.info("【{}】日期文本无法解析, 按空值降级, employeeNo={}, column={}, value={}",
+                BIZ, employeeNo, columnName, raw);
+        return null;
     }
 
     /**
