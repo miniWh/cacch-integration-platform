@@ -37,7 +37,7 @@ public class MokaEntryCandidateController {
     private final IMokaEntryPushManager pushManager;
 
     /**
-     * Moka 待入职候选人 -- Step 1: Moka &rarr; PG 快照
+     * Moka 待入职候选人 -- Step 1: Moka & PG 快照
      *
      * <p>分页拉取 Moka list_by_condition，4 表幂等 upsert，
      * 补全职位部门编码（Step 1b）和 Offer 入职日期（Step 1c）。</p>
@@ -52,7 +52,7 @@ public class MokaEntryCandidateController {
     }
 
     /**
-     * Moka 待入职候选人 -- Step 2: PG &rarr; iHR 待入职
+     * Moka 待入职候选人 -- Step 2: PG & iHR 待入职
      *
      * <p>读取同步状态为 PENDING/FAILED/SKIPPED 的候选人，
      * 逐条校验（部门/手机号/入职日期）→ 字段映射 → 调 iHR 新增待入职接口 → 更新同步状态。</p>
