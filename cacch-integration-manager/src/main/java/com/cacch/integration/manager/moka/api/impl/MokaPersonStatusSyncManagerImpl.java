@@ -28,12 +28,12 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Moka 人员入离职状态同步编排实现
+ * Moka 候选人入离职状态同步编排实现
  *
  * <p>调用链：Controller → pushStatusToMoka() →
- * IMokaPersonStatusService.listHiredPending()/listResignPending()（查待处理）→
+ * IMokaPersonStatusService.listHiredPending()/listResignPending()
+ * （INNER JOIN candidate_base 天然过滤无候选人的员工，JOIN 同时取 application_id）→
  * PersondetailMapper.selectByStaffNos()（按工号关联外部表补日期）→
- * resolveApplicationId()（扩展点，当前恒跳过）→
  * IMokaApplicationService.hireApplication()/resignApplication()（HTTP）→
  * IMokaPersonStatusService.upsertHiredResult()/upsertResignResult()（DB 回写）。</p>
  *
@@ -46,9 +46,14 @@ import java.util.Set;
  * </ul>
  * </p>
  *
- * <p>关联机制：{@code t_integration_moka_person.employee_no = persondetail.staffNo}
- * 一一对应且唯一，禁止按手机号匹配。applicationId 获取机制待定，为空时跳过该记录
- * 且不写状态行，机制确定后无需重置历史数据。</p>
+ * <p>关联机制：
+ * <ul>
+ *     <li>待处理集合 INNER JOIN t_integration_moka_entry_candidate_base
+ *     ON p.contact_phone = c.moka_contact_phone（Moka 域内部关联），
+ *     天然排除无候选人记录的员工</li>
+ *     <li>application_id 由 candidate_base JOIN 直接取，无需额外解析</li>
+ *     <li>iHR/persondetail 关联：employee_no = staffNo（一一对应且唯一）</li>
+ * </ul></p>
  *
  * @author hongfu_zhou@cacch.com
  */
@@ -57,7 +62,7 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class MokaPersonStatusSyncManagerImpl implements IMokaPersonStatusSyncManager {
 
-    private static final String BIZ = "Moka 人员状态同步";
+    private static final String BIZ = "Moka 候选人状态同步";
 
     /**
      * 同步状态常量：1=SYNCED
@@ -97,20 +102,20 @@ public class MokaPersonStatusSyncManagerImpl implements IMokaPersonStatusSyncMan
 
     @Override
     public MokaPersonStatusSyncResult pushStatusToMoka() {
-        log.info("【{}】开始执行人员入离职状态 → Moka 申请状态同步", BIZ);
+        log.info("【{}】开始执行候选人入离职状态 → Moka 申请状态同步", BIZ);
 
-        // —— 1. 查询待处理集合 ——
+        // —— 1. 查询待处理集合（INNER JOIN candidate_base 已天然过滤无候选人）——
         List<MokaPersonStatusDO> hiredPending = mokaPersonStatusService.listHiredPending();
         List<MokaPersonStatusDO> resignPending = mokaPersonStatusService.listResignPending();
         int hiredTotal = CollectionUtils.isEmpty(hiredPending) ? 0 : hiredPending.size();
         int resignTotal = CollectionUtils.isEmpty(resignPending) ? 0 : resignPending.size();
         int totalRead = hiredTotal + resignTotal;
-        log.info("【{}】待处理集合读取完成, hiredPending={}, resignPending={}, totalRead={}",
+        log.info("【{}】待处理集合读取完成（已 INNER JOIN candidate_base 过滤）, hiredPending={}, resignPending={}, totalRead={}",
                 BIZ, hiredTotal, resignTotal, totalRead);
 
         if (totalRead == 0) {
             log.info("【{}】无待处理记录, 同步结束", BIZ);
-            return new MokaPersonStatusSyncResult(0, 0, 0, 0, 0, 0, 0);
+            return new MokaPersonStatusSyncResult(0, 0, 0, 0, 0, 0);
         }
 
         // —— 2. 按工号批量关联 persondetail，取入职 / 离职日期 ——
@@ -121,7 +126,6 @@ public class MokaPersonStatusSyncManagerImpl implements IMokaPersonStatusSyncMan
         int hiredFailed = 0;
         int resignSuccess = 0;
         int resignFailed = 0;
-        int skippedNoApplication = 0;
         int dbUpdateFailed = 0;
 
         for (MokaPersonStatusDO item : hiredPending) {
@@ -130,18 +134,14 @@ public class MokaPersonStatusSyncManagerImpl implements IMokaPersonStatusSyncMan
                 continue;
             }
             ItemOutcome outcome = processHired(item, personMap);
-            if (outcome.skippedNoApplication()) {
-                skippedNoApplication++;
-            } else {
-                if (outcome.apiSuccess() && outcome.dbWriteOk()) {
-                    hiredSuccess++;
-                }
-                if (!outcome.apiSuccess()) {
-                    hiredFailed++;
-                }
-                if (!outcome.dbWriteOk()) {
-                    dbUpdateFailed++;
-                }
+            if (outcome.apiSuccess() && outcome.dbWriteOk()) {
+                hiredSuccess++;
+            }
+            if (!outcome.apiSuccess()) {
+                hiredFailed++;
+            }
+            if (!outcome.dbWriteOk()) {
+                dbUpdateFailed++;
             }
         }
 
@@ -151,27 +151,22 @@ public class MokaPersonStatusSyncManagerImpl implements IMokaPersonStatusSyncMan
                 continue;
             }
             ItemOutcome outcome = processResign(item, personMap);
-            if (outcome.skippedNoApplication()) {
-                skippedNoApplication++;
-            } else {
-                if (outcome.apiSuccess() && outcome.dbWriteOk()) {
-                    resignSuccess++;
-                }
-                if (!outcome.apiSuccess()) {
-                    resignFailed++;
-                }
-                if (!outcome.dbWriteOk()) {
-                    dbUpdateFailed++;
-                }
+            if (outcome.apiSuccess() && outcome.dbWriteOk()) {
+                resignSuccess++;
+            }
+            if (!outcome.apiSuccess()) {
+                resignFailed++;
+            }
+            if (!outcome.dbWriteOk()) {
+                dbUpdateFailed++;
             }
         }
 
-        log.info("【{}】同步完成, totalRead={}, hiredSuccess={}, hiredFailed={}, resignSuccess={}, resignFailed={}, skippedNoApplication={}, dbUpdateFailed={}",
-                BIZ, totalRead, hiredSuccess, hiredFailed, resignSuccess, resignFailed,
-                skippedNoApplication, dbUpdateFailed);
+        log.info("【{}】同步完成, totalRead={}, hiredSuccess={}, hiredFailed={}, resignSuccess={}, resignFailed={}, dbUpdateFailed={}",
+                BIZ, totalRead, hiredSuccess, hiredFailed, resignSuccess, resignFailed, dbUpdateFailed);
 
         return new MokaPersonStatusSyncResult(totalRead, hiredSuccess, hiredFailed,
-                resignSuccess, resignFailed, skippedNoApplication, dbUpdateFailed);
+                resignSuccess, resignFailed, dbUpdateFailed);
     }
 
     /**
@@ -233,21 +228,16 @@ public class MokaPersonStatusSyncManagerImpl implements IMokaPersonStatusSyncMan
     /**
      * 处理单条入职同步
      *
-     * <p>流程：解析 applicationId（为空跳过且不写状态行）→ 取 contractBeginDate
+     * <p>流程：取 JOIN candidate_base 带回的 applicationId → 取 contractBeginDate
      * 构造 hiredAt（缺失标记 SYNC_FAILED）→ 计算 probation（整月差值 0-6）→
      * 调 Moka hired 接口 → 回写状态行。</p>
      *
-     * @param item      入职待处理记录
+     * @param item      入职待处理记录（含 applicationId，由 candidate_base JOIN 直接取）
      * @param personMap 工号 → persondetail 记录 Map
      * @return 单条处理结果
      */
     private ItemOutcome processHired(MokaPersonStatusDO item, Map<String, PersondetailDO> personMap) {
-        Integer applicationId = resolveApplicationId(item);
-        if (applicationId == null) {
-            log.info("【{}】applicationId 为空, 跳过入职同步且不写状态行, employeeNo={}, userName={}",
-                    BIZ, item.getEmployeeNo(), item.getUserName());
-            return new ItemOutcome(true, false, false);
-        }
+        Integer applicationId = item.getApplicationId();
 
         PersondetailDO detail = personMap.get(item.getEmployeeNo());
         if (detail == null || detail.getContractBeginDate() == null) {
@@ -283,21 +273,16 @@ public class MokaPersonStatusSyncManagerImpl implements IMokaPersonStatusSyncMan
     /**
      * 处理单条离职同步
      *
-     * <p>流程：解析 applicationId（为空跳过且不写状态行）→ 构造 resign 请求
+     * <p>流程：取 JOIN candidate_base 带回的 applicationId → 构造 resign 请求
      * （detail=固定文案，time=leaveDate，缺失时不传由 Moka 默认取请求时间）→
      * 调 Moka resign 接口 → 回写状态行。</p>
      *
-     * @param item      离职待处理记录
+     * @param item      离职待处理记录（含 applicationId，由 candidate_base JOIN 直接取）
      * @param personMap 工号 → persondetail 记录 Map
      * @return 单条处理结果
      */
     private ItemOutcome processResign(MokaPersonStatusDO item, Map<String, PersondetailDO> personMap) {
-        Integer applicationId = resolveApplicationId(item);
-        if (applicationId == null) {
-            log.info("【{}】applicationId 为空, 跳过离职同步且不写状态行, employeeNo={}, userName={}",
-                    BIZ, item.getEmployeeNo(), item.getUserName());
-            return new ItemOutcome(true, false, false);
-        }
+        Integer applicationId = item.getApplicationId();
 
         MokaApplicationResignRequest request = new MokaApplicationResignRequest();
         request.setDetail(MokaConstants.RESIGN_DEFAULT_DETAIL);
@@ -323,26 +308,6 @@ public class MokaPersonStatusSyncManagerImpl implements IMokaPersonStatusSyncMan
             return writeResignStatus(item, false, STATUS_SYNC_FAILED, truncate(e.getMessage()),
                     LocalDateTime.now(), applicationId);
         }
-    }
-
-    /**
-     * 解析 Moka 申请 id —— 唯一扩展点
-     *
-     * <p>状态行已带回 {@code application_id} 时直接使用（机制确定后回填历史数据即可生效）；
-     * 否则依赖申请 id 获取机制（待定），当前恒返回 null，所有记录将被跳过且不写状态行。</p>
-     *
-     * <p>TODO：applicationId 获取机制确定后在此实现（候选方案：通过 Moka 申请查询接口
-     * 按手机号 / 工号反查待入职申请），实现后无需重置状态表数据。</p>
-     *
-     * @param item 待处理记录（含状态行带回的 application_id，可能为空）
-     * @return Moka 申请 id；无法确定时返回 null
-     */
-    private Integer resolveApplicationId(MokaPersonStatusDO item) {
-        if (item.getApplicationId() != null) {
-            return item.getApplicationId();
-        }
-        // TODO: applicationId 获取机制待定（用户确认后补充），当前返回 null 跳过同步
-        return null;
     }
 
     /**
@@ -385,7 +350,7 @@ public class MokaPersonStatusSyncManagerImpl implements IMokaPersonStatusSyncMan
      * @param syncStatus    入职同步状态：1=SYNCED, 2=SYNC_FAILED
      * @param error         结果摘要（允许为空）
      * @param syncTime      同步时间
-     * @param applicationId Moka 申请 id
+     * @param applicationId Moka 申请 id（来自 candidate_base JOIN）
      * @return 单条处理结果（dbWriteOk 反映回写是否成功）
      */
     private ItemOutcome writeHiredStatus(MokaPersonStatusDO item, boolean apiSuccess, int syncStatus,
@@ -395,13 +360,13 @@ public class MokaPersonStatusSyncManagerImpl implements IMokaPersonStatusSyncMan
             if (rows == 0) {
                 log.info("【{}】入职状态行回写影响 0 行, employeeNo={}, syncStatus={}",
                         BIZ, item.getEmployeeNo(), syncStatus);
-                return new ItemOutcome(false, apiSuccess, false);
+                return new ItemOutcome(false, false);
             }
-            return new ItemOutcome(false, apiSuccess, true);
+            return new ItemOutcome(apiSuccess, true);
         } catch (Exception e) {
             log.error("【{}】入职状态行回写异常, employeeNo={}, syncStatus={}",
                     BIZ, item.getEmployeeNo(), syncStatus, e);
-            return new ItemOutcome(false, apiSuccess, false);
+            return new ItemOutcome(apiSuccess, false);
         }
     }
 
@@ -413,7 +378,7 @@ public class MokaPersonStatusSyncManagerImpl implements IMokaPersonStatusSyncMan
      * @param syncStatus    离职同步状态：1=SYNCED, 2=SYNC_FAILED
      * @param error         结果摘要（允许为空）
      * @param syncTime      同步时间
-     * @param applicationId Moka 申请 id
+     * @param applicationId Moka 申请 id（来自 candidate_base JOIN）
      * @return 单条处理结果（dbWriteOk 反映回写是否成功）
      */
     private ItemOutcome writeResignStatus(MokaPersonStatusDO item, boolean apiSuccess, int syncStatus,
@@ -423,13 +388,13 @@ public class MokaPersonStatusSyncManagerImpl implements IMokaPersonStatusSyncMan
             if (rows == 0) {
                 log.info("【{}】离职状态行回写影响 0 行, employeeNo={}, syncStatus={}",
                         BIZ, item.getEmployeeNo(), syncStatus);
-                return new ItemOutcome(false, apiSuccess, false);
+                return new ItemOutcome(false, false);
             }
-            return new ItemOutcome(false, apiSuccess, true);
+            return new ItemOutcome(apiSuccess, true);
         } catch (Exception e) {
             log.error("【{}】离职状态行回写异常, employeeNo={}, syncStatus={}",
                     BIZ, item.getEmployeeNo(), syncStatus, e);
-            return new ItemOutcome(false, apiSuccess, false);
+            return new ItemOutcome(apiSuccess, false);
         }
     }
 
@@ -447,12 +412,11 @@ public class MokaPersonStatusSyncManagerImpl implements IMokaPersonStatusSyncMan
     }
 
     /**
-     * 单条处理结果 —— 内部传递跳过标记、Moka 调用结果、DB 回写结果
+     * 单条处理结果 —— 内部传递 Moka 调用结果、DB 回写结果
      *
-     * @param skippedNoApplication applicationId 为空跳过（不写状态行）
-     * @param apiSuccess           Moka hired / resign 调用是否成功
-     * @param dbWriteOk            状态行回写是否成功
+     * @param apiSuccess Moka hired / resign 调用是否成功
+     * @param dbWriteOk  状态行回写是否成功
      */
-    private record ItemOutcome(boolean skippedNoApplication, boolean apiSuccess, boolean dbWriteOk) {
+    private record ItemOutcome(boolean apiSuccess, boolean dbWriteOk) {
     }
 }
