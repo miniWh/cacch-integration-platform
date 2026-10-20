@@ -1,5 +1,7 @@
 package com.cacch.integration.service.moka.api;
 
+import com.cacch.integration.integration.moka.client.dto.MokaApplicationHiredRequest;
+import com.cacch.integration.integration.moka.client.dto.MokaApplicationHiredResponse;
 import com.cacch.integration.integration.moka.client.dto.MokaApplicationResignRequest;
 import com.cacch.integration.integration.moka.client.dto.MokaApplicationResignResponse;
 
@@ -11,6 +13,7 @@ import com.cacch.integration.integration.moka.client.dto.MokaApplicationResignRe
  * <p>当前暴露能力：
  * <ul>
  *     <li>{@link #resignApplication(Integer, MokaApplicationResignRequest)} — 标记候选人已离职</li>
+ *     <li>{@link #hireApplication(Integer, MokaApplicationHiredRequest)} — 标记候选人已入职</li>
  * </ul></p>
  *
  * @author hongfu_zhou@cacch.com
@@ -35,4 +38,23 @@ public interface IMokaApplicationService {
      *                                                             或 Moka 返回业务失败时抛出
      */
     MokaApplicationResignResponse resignApplication(Integer applicationId, MokaApplicationResignRequest request);
+
+    /**
+     * 标记候选人已入职 —— 调用 Moka {@code PUT /api-platform/v1/applications/{applicationId}/hired}
+     *
+     * <p>根据候选人申请 id 及对应招聘需求 id 标记已入职。请求体中 {@code hiredAt}（实际入职时间）与
+     * {@code probation}（试用期，0-6）必填；{@code hcId} 为 null 时不会传给 Moka，
+     * 符合 Moka「不允许传 hcId="" 或 null」的约束。</p>
+     *
+     * <p>注意：本方法为写操作，调用成功后 Moka 侧申请将标记为已入职，不可自动回滚，
+     * 测试环境请使用测试申请 id 验证。</p>
+     *
+     * @param applicationId 候选人申请 id（必填，大于 0），来自 Moka 申请查询接口
+     * @param request       入职请求体（必填，hiredAt/probation 必填）
+     * @return Moka 入职操作响应（success + errorMessage）
+     * @throws com.cacch.integration.common.exception.BizException 参数非法、
+     *                                                             Moka API Key 未配置、HTTP 调用失败
+     *                                                             或 Moka 返回业务失败时抛出
+     */
+    MokaApplicationHiredResponse hireApplication(Integer applicationId, MokaApplicationHiredRequest request);
 }

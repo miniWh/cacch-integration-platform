@@ -3,6 +3,8 @@ package com.cacch.integration.service.moka.api.impl;
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.ResultCode;
 import com.cacch.integration.integration.moka.client.MokaApplicationClient;
+import com.cacch.integration.integration.moka.client.dto.MokaApplicationHiredRequest;
+import com.cacch.integration.integration.moka.client.dto.MokaApplicationHiredResponse;
 import com.cacch.integration.integration.moka.client.dto.MokaApplicationResignRequest;
 import com.cacch.integration.integration.moka.client.dto.MokaApplicationResignResponse;
 import com.cacch.integration.service.moka.api.IMokaApplicationService;
@@ -68,6 +70,46 @@ public class MokaApplicationServiceImpl implements IMokaApplicationService {
             log.error("【{}】未知异常, applicationId={}", BIZ, applicationId, e);
             throw new BizException(ResultCode.SYSTEM_ERROR,
                     "Moka 标记候选人已离职系统异常", e);
+        }
+    }
+
+    @Override
+    public MokaApplicationHiredResponse hireApplication(Integer applicationId, MokaApplicationHiredRequest request) {
+        if (applicationId == null || applicationId <= 0) {
+            log.info("【{}】标记候选人已入职终止, reason=applicationId 非法, applicationId={}", BIZ, applicationId);
+            throw new BizException(ResultCode.PARAM_INVALID, "applicationId 非法: " + applicationId);
+        }
+        if (request == null || !StringUtils.hasText(request.getHiredAt()) || request.getProbation() == null) {
+            log.info("【{}】标记候选人已入职终止, reason=请求体、hiredAt 或 probation 为空, applicationId={}", BIZ, applicationId);
+            throw new BizException(ResultCode.PARAM_MISSING, "实际入职时间 hiredAt 与试用期 probation 必填");
+        }
+
+        log.info("【{}】开始标记候选人已入职, applicationId={}, hcId={}, probation={}, isUseOfferHcId={}",
+                BIZ, applicationId, request.getHcId(), request.getProbation(), request.getIsUseOfferHcId());
+
+        try {
+            MokaApplicationHiredResponse response = mokaApplicationClient.hireApplication(applicationId, request);
+            if (!response.isSuccess()) {
+                log.info("【{}】标记候选人已入职终止, applicationId={}, errorMessage={}",
+                        BIZ, applicationId, response.getErrorMessage());
+                throw new BizException(ResultCode.INTEGRATION_ERROR,
+                        String.format("Moka 标记候选人已入职业务失败: errorMessage=%s", response.getErrorMessage()));
+            }
+            log.info("【{}】标记候选人已入职成功, applicationId={}", BIZ, applicationId);
+            return response;
+
+        } catch (BizException e) {
+            throw e;
+        } catch (RestClientException e) {
+            log.info("【{}】标记候选人已入职终止, reason={}, applicationId={}", BIZ, e.getMessage(), applicationId);
+            log.error("【{}】Moka HTTP 调用失败, applicationId={}", BIZ, applicationId, e);
+            throw new BizException(ResultCode.INTEGRATION_ERROR,
+                    "Moka 标记候选人已入职失败: " + e.getMessage(), e);
+        } catch (Exception e) {
+            log.info("【{}】标记候选人已入职终止, reason={}, applicationId={}", BIZ, e.getMessage(), applicationId);
+            log.error("【{}】未知异常, applicationId={}", BIZ, applicationId, e);
+            throw new BizException(ResultCode.SYSTEM_ERROR,
+                    "Moka 标记候选人已入职系统异常", e);
         }
     }
 }

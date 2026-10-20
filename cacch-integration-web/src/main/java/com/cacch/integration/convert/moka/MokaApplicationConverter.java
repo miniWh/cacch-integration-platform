@@ -1,6 +1,8 @@
 package com.cacch.integration.convert.moka;
 
+import com.cacch.integration.dto.moka.vo.MokaApplicationHiredResultVO;
 import com.cacch.integration.dto.moka.vo.MokaApplicationResignResultVO;
+import com.cacch.integration.integration.moka.client.dto.MokaApplicationHiredResponse;
 import com.cacch.integration.integration.moka.client.dto.MokaApplicationResignResponse;
 import org.mapstruct.Mapper;
 
@@ -64,6 +66,49 @@ public interface MokaApplicationConverter {
         MokaApplicationResignResultVO vo = new MokaApplicationResignResultVO();
         vo.setSuccess(response.isSuccess());
         vo.setCode(response.getCode());
+        vo.setErrorMessage(response.getErrorMessage());
+        return vo;
+    }
+
+    /**
+     * web 层标记入职请求 → integration 层上游请求体
+     *
+     * <p>两层 DTO 字段同名同义，逐字段复制；{@code talentPoolIds} 列表引用直接透传
+     * （请求体每次独立反序列化，无共享可变状态风险）。{@code hcId} 为 null 时，
+     * 上游 integration DTO 的 {@code NON_NULL} 序列化配置会将其从 JSON 中省略，不传给 Moka。</p>
+     *
+     * @param source web 层标记入职请求（已通过 @Valid 校验）
+     * @return integration 层入职请求体；source 为 null 时返回 null
+     */
+    default com.cacch.integration.integration.moka.client.dto.MokaApplicationHiredRequest toUpstreamHiredRequest(
+            com.cacch.integration.dto.moka.request.MokaApplicationHiredRequest source) {
+        if (source == null) {
+            return null;
+        }
+        com.cacch.integration.integration.moka.client.dto.MokaApplicationHiredRequest target =
+                new com.cacch.integration.integration.moka.client.dto.MokaApplicationHiredRequest();
+        target.setHcId(source.getHcId());
+        target.setHiredAt(source.getHiredAt());
+        target.setProbation(source.getProbation());
+        target.setIsUseOfferHcId(source.getIsUseOfferHcId());
+        target.setTalentPoolIds(source.getTalentPoolIds());
+        return target;
+    }
+
+    /**
+     * integration 层入职响应 → web 层结果 VO
+     *
+     * <p>success / errorMessage 原样透传。</p>
+     *
+     * @param response integration 层入职操作响应
+     * @return 入职结果 VO；response 为 null 时返回 null
+     */
+    default MokaApplicationHiredResultVO toHiredResultVO(MokaApplicationHiredResponse response) {
+        if (response == null) {
+            return null;
+        }
+        MokaApplicationHiredResultVO vo = new MokaApplicationHiredResultVO();
+        vo.setSuccess(response.getSuccess());
         vo.setErrorMessage(response.getErrorMessage());
         return vo;
     }

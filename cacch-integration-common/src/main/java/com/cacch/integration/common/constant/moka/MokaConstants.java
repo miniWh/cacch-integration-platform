@@ -125,7 +125,18 @@ public final class MokaConstants {
     public static final String APPLICATION_REJECTED_PATH = "/api-platform/v1/applications/{applicationId}/rejected";
 
     /**
-     * 标记候选人已离职 / 未入职接口路径中的申请 id 占位符
+     * 标记候选人已入职接口路径模板 —— 相对 {@code MokaProperties#getBaseUrl()} 拼接
+     *
+     * <p>PUT 请求，对接 Moka ATS 申请入职接口
+     * （{@linkplain <a href="https://www.mokahr.com/docs/api/">API 文档 — 标记候选人已入职</a>}）。
+     * 根据候选人申请 id 及对应招聘需求 id 标记已入职；
+     * 路径中的 {@code {applicationId}} 占位符由 Client 运行时替换为实际申请 id；
+     * 响应结构为 {@code {success, errorMessage}}，成功判定以 {@code success} 布尔值为准。</p>
+     */
+    public static final String APPLICATION_HIRED_PATH = "/api-platform/v1/applications/{applicationId}/hired";
+
+    /**
+     * 标记候选人已离职 / 未入职 / 已入职接口路径中的申请 id 占位符
      */
     public static final String APPLICATION_ID_PLACEHOLDER = "{applicationId}";
 
