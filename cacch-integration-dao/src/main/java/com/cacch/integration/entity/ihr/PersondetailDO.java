@@ -2,6 +2,9 @@ package com.cacch.integration.entity.ihr;
 
 import lombok.Data;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+
 /**
  * iHR persondetail 表轻量 DO — Moka 人员同步所需字段
  *
@@ -70,4 +73,25 @@ public class PersondetailDO {
      * <p>取值：IN_SERVICE=在职，QUIT=离职</p>
      */
     private String employeeStatus;
+
+    /**
+     * 合同开始日期（persondetail."contractBeginDate"，实际入职时间）
+     *
+     * <p>Moka hired 接口 hiredAt 数据来源；列类型按日期联调核实</p>
+     */
+    private LocalDate contractBeginDate;
+
+    /**
+     * 试用期结束日期（persondetail."probationEndDate"）
+     *
+     * <p>与 contractBeginDate 的整月差值即 Moka hired 接口 probation 数据来源</p>
+     */
+    private LocalDate probationEndDate;
+
+    /**
+     * 离职日期时间（persondetail."leaveDate"）
+     *
+     * <p>Moka resign 接口 time 数据来源；列类型按日期时间联调核实</p>
+     */
+    private LocalDateTime leaveDate;
 }

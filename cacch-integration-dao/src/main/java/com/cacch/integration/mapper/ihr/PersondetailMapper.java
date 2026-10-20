@@ -56,9 +56,36 @@ public interface PersondetailMapper {
             "\"workEmail\" AS company_email, " +
             "\"mobileNo\" AS contact_phone, " +
             "\"departmentId\" AS department_id, " +
-            "\"staffStatus\" AS employee_status " +
+            "\"staffStatus\" AS employee_status, " +
+            "\"contractBeginDate\" AS contract_begin_date, " +
+            "\"probationEndDate\" AS probation_end_date, " +
+            "\"leaveDate\" AS leave_date " +
             "FROM persondetail")
     List<PersondetailDO> selectAll();
+
+    /**
+     * 按工号集合查询 persondetail 记录（入离职状态同步用，取日期字段）
+     *
+     * <p>返回列仅含状态同步所需字段：user_id / employee_no / employee_status /
+     * contract_begin_date / probation_end_date / leave_date。
+     * 调用方须保证 {@code staffNos} 非空，避免生成非法的 {@code IN ()}。</p>
+     *
+     * @param staffNos 工号集合（persondetail."staffNo"，非空且非空串）
+     * @return 匹配记录列表；无数据时返回空列表（非 null）
+     */
+    @Select("<script>" +
+            "SELECT " +
+            "id AS user_id, " +
+            "\"staffNo\" AS employee_no, " +
+            "\"staffStatus\" AS employee_status, " +
+            "\"contractBeginDate\" AS contract_begin_date, " +
+            "\"probationEndDate\" AS probation_end_date, " +
+            "\"leaveDate\" AS leave_date " +
+            "FROM persondetail " +
+            "WHERE \"staffNo\" IN " +
+            "<foreach collection='staffNos' item='item' open='(' separator=',' close=')'>#{item}</foreach>" +
+            "</script>")
+    List<PersondetailDO> selectByStaffNos(@Param("staffNos") List<String> staffNos);
 
     /**
      * 按 IHR 部门树递归查询在职员工（含 {@code ihr_staff_update_sync_record.last_update} 可选过滤）

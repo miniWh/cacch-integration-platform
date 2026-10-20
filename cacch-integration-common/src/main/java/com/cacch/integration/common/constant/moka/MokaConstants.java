@@ -185,4 +185,26 @@ public final class MokaConstants {
      * 批次号前缀 —— 格式 MOKA_ENTRY_yyyyMMddHHmmss
      */
     public static final String ENTRY_SYNC_BATCH_PREFIX = "MOKA_ENTRY_";
+
+    // ========== Moka 人员入离职状态同步固定参数 ==========
+
+    /**
+     * 离职原因固定文案 —— resign 接口 detail 必填，iHR 链路统一使用此值
+     */
+    public static final String RESIGN_DEFAULT_DETAIL = "iHR 同步-员工已离职";
+
+    /**
+     * 试用期月数上限 —— hired 接口 probation 取值范围 0-6，超出截断
+     */
+    public static final int PROBATION_MAX_MONTHS = 6;
+
+    /**
+     * hired 接口 hiredAt（实际入职时间）时间格式
+     */
+    public static final String HIRED_AT_PATTERN = "yyyy-MM-dd";
+
+    /**
+     * resign 接口 time（离职时间）时间格式
+     */
+    public static final String RESIGN_TIME_PATTERN = "yyyy-MM-dd HH:mm:ss";
 }
