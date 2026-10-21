@@ -170,6 +170,18 @@ fdd:
     - 上海泰禾化工有限公司
     - 上海晓明检测技术服务有限公司
 
+# ---------- 客如云开放平台 ----------
+# app-key / shop-identy / app-secret 必须由环境变量注入（缺失时客如云接口调用返回 400xx 参数错误）
+# shop-identy 对应客如云参数 shopIdenty（门店授权维度；品牌授权场景需改用 brandId）
+# 门店 token 当前固定不变，Redis 缓存默认 24 小时
+keruyun:
+  base-url: ${KERUYUN_BASE_URL:https://openapi.keruyun.com}
+  app-key: ${KERUYUN_APP_KEY:}
+  shop-identy: ${KERUYUN_SHOP_IDENTIFY:}
+  app-secret: ${KERUYUN_APP_SECRET:}
+  version: "2.0"
+  token-cache-seconds: 86400
+
 # ---------- 腾讯会议 REST API（智能纪要） ----------
 # 未配置时会继承 application.yml 的 enabled=false，导致正式环境跳过纪要拉取。
 # secret-id / secret-key 必须分别由 TENCENT_MEETING_SECRET_ID / TENCENT_MEETING_SECRET_KEY 注入（缺失即启动失败）

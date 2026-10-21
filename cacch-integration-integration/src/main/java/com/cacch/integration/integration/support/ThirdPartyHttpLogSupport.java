@@ -28,7 +28,7 @@ public final class ThirdPartyHttpLogSupport {
     private static final Pattern CORPSECRET_IN_URL = Pattern.compile(
             "(?i)([?&]corpsecret=)[^&]*");
     private static final Pattern SECRET_IN_URL = Pattern.compile(
-            "(?i)([?&](?:secret|secret_key|secretid|secret_id|key)=)[^&]*");
+            "(?i)([?&](?:token|secret|secret_key|secretid|secret_id|key)=)[^&]*");
     private static final Pattern SENSITIVE_JSON_FIELD = Pattern.compile(
             "(?i)(\"(?:access_token|token|corpsecret|secret|secret_id|secret_key|app_key|appKey|password|passwd|authorization)\"\\s*:\\s*\")([^\"]*)(\")");
 
@@ -63,21 +63,25 @@ public final class ThirdPartyHttpLogSupport {
      * 将对象序列化为 JSON 字符串，并对敏感字段脱敏。
      */
     public static String toJson(Object value) {
-        if (value == null) {
-            return "null";
-        }
-        if (value instanceof CharSequence text) {
-            return maskSensitiveJson(text.toString());
-        }
-        if (value instanceof byte[] bytes) {
-            if (bytes.length == 0) {
-                return "[]";
+        switch (value) {
+            case null -> {
+                return "null";
             }
-            String asText = new String(bytes, StandardCharsets.UTF_8);
-            if (looksLikeText(asText)) {
-                return maskSensitiveJson(asText);
+            case CharSequence text -> {
+                return maskSensitiveJson(text.toString());
             }
-            return "{\"byteLength\":" + bytes.length + "}";
+            case byte[] bytes -> {
+                if (bytes.length == 0) {
+                    return "[]";
+                }
+                String asText = new String(bytes, StandardCharsets.UTF_8);
+                if (looksLikeText(asText)) {
+                    return maskSensitiveJson(asText);
+                }
+                return "{\"byteLength\":" + bytes.length + "}";
+            }
+            default -> {
+            }
         }
         try {
             return maskSensitiveJson(MAPPER.writeValueAsString(value));
