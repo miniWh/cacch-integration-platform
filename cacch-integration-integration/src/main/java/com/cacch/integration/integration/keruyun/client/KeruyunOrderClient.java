@@ -38,6 +38,10 @@ public class KeruyunOrderClient {
      * @throws BizException 响应成功码非 0 时抛出
      */
     public KeruyunOrderQueryResponse queryOrderList(KeruyunOrderQueryRequest request, String token) {
+        log.debug("【客如云签名】订单查询请求, dateType={}, startDate={}, endDate={}, "
+                        + "orderTypeList={}, orderStatusList={}, pageBean={}",
+                request.getDateType(), request.getStartDate(), request.getEndDate(),
+                request.getOrderTypeList(), request.getOrderStatusList(), request.getPageBean());
         KeruyunOrderQueryResponse response = keruyunClient.post(
                 KeruyunPathConstants.PATH_QUERY_ORDER_LIST, request, token, KeruyunOrderQueryResponse.class);
         if (response == null || !response.isSuccess()) {

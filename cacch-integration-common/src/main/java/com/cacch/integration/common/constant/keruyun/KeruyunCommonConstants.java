@@ -59,7 +59,11 @@ public final class KeruyunCommonConstants {
     public static final String PARAM_SIGN = "sign";
 
     /**
-     * 公共参数名：门店 token（业务请求通过 URL 参数传递）
+     * 门店 token：<strong>仅参与签名计算，严禁作为 URL 参数传递</strong>
+     *
+     * <p>客如云服务端复算签名时会把 URL 上收到的全部 query 参数纳入签名原文。实测（2026-10-22）
+     * 在 URL 上多传 {@code token=xxx}（或任意未参与签名计算的参数）都会导致服务端复算的 sign
+     * 与本地不一致，返回 {@code code=1001 签名错误}；去掉该参数后 {@code code=0} 正常返回。</p>
      */
     public static final String PARAM_TOKEN = "token";
 

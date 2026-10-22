@@ -24,7 +24,7 @@ public class KeruyunOrderController {
     private final IKeruyunOrderManager keruyunOrderManager;
 
     /**
-     * 按时间窗手动触发客如云订单同步落库
+     * 订单列表--Keruyun&PG
      *
      * <p>客如云文档明确禁止轮询，本接口仅供一次性按区间拉取；单条落库失败不影响整批。</p>
      *

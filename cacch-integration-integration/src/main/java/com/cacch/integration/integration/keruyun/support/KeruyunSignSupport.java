@@ -3,6 +3,7 @@ package com.cacch.integration.integration.keruyun.support;
 import com.cacch.integration.common.config.keruyun.KeruyunProperties;
 import com.cacch.integration.common.constant.keruyun.KeruyunCommonConstants;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -28,6 +29,7 @@ import java.util.TreeMap;
  *
  * @author hongfu_zhou@cacch.com
  */
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class KeruyunSignSupport {
@@ -69,7 +71,10 @@ public class KeruyunSignSupport {
         if (!StringUtils.hasText(keruyunProperties.getAppSecret())) {
             throw new IllegalStateException("客如云 appSecret 未配置，无法计算 token 签名");
         }
-        return sha256(concatParams(publicParams) + keruyunProperties.getAppSecret());
+        String source = concatParams(publicParams) + keruyunProperties.getAppSecret();
+        String sign = sha256(source);
+        log.debug("【客如云签名】Token签名, 公共参数串={}, sign={}", concatParams(publicParams), sign);
+        return sign;
     }
 
     /**
@@ -88,7 +93,21 @@ public class KeruyunSignSupport {
         if (token != null) {
             source.append(token);
         }
-        return sha256(source.toString());
+        String sign = sha256(source.toString());
+        log.debug("【客如云签名】业务签名, 签名原文长度={}, body长度={}, token前8后4={}, sign={}",
+                source.length(), compactBody == null ? 0 : compactBody.length(), token, sign);
+        log.debug("【客如云签名】签名原文={}", source);
+        return sign;
+    }
+
+    /**
+     * 脱敏 token：保留前 8 位与后 4 位，中间用 *** 代替；空值返回 "null"
+     */
+    private static String maskToken(String token) {
+        if (token == null || token.length() <= 12) {
+            return "***";
+        }
+        return token.substring(0, 8) + "***" + token.substring(token.length() - 4);
     }
 
     /**
@@ -132,7 +151,9 @@ public class KeruyunSignSupport {
                 sb.append(key).append(value);
             }
         });
-        return sb.toString();
+        String result = sb.toString();
+        log.debug("【客如云签名】concatParams结果={}", result);
+        return result;
     }
 
     /**

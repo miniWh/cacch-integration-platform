@@ -85,7 +85,10 @@ public class KeruyunClient {
         String timestamp = keruyunSignSupport.currentTimestampSeconds();
         Map<String, String> publicParams = keruyunSignSupport.buildPublicParams(timestamp);
         String sign = keruyunSignSupport.signForRequest(compactBody, publicParams, token);
-        String url = buildUrl(path, query, publicParams, sign, token);
+        String url = buildUrl(path, query, publicParams, sign);
+
+        log.debug("【客如云签名】最终请求, method={}, path={}, timestamp={}, 公共参数={}, sign={}, url={}",
+                method, path, timestamp, publicParams, sign, url);
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -136,10 +139,21 @@ public class KeruyunClient {
     }
 
     /**
-     * 拼接完整 URL：业务查询参数 + 公共参数 + sign + token
+     * 拼接完整 URL：业务查询参数 + 公共参数 + sign
+     *
+     * <p><strong>严禁将 token 作为 URL 参数传递</strong>：客如云服务端复算签名时会把 URL 上
+     * 收到的全部 query 参数一并纳入签名原文，多传 token（或任何未参与签名计算的参数）都会导致
+     * 服务端算出的 sign 与本地不一致，返回 {@code code=1001 签名错误}。token 只参与签名计算，
+     * 不出现在请求中（服务端按 appKey + shopIdenty 自行关联 token）。</p>
+     *
+     * @param path         接口路径
+     * @param query        业务查询参数，可为 null
+     * @param publicParams 公共参数（appKey / shopIdenty / timestamp / version）
+     * @param sign         签名
+     * @return 完整请求 URL
      */
     private String buildUrl(String path, Map<String, String> query, Map<String, String> publicParams,
-                            String sign, String token) {
+                            String sign) {
         UriComponentsBuilder builder = UriComponentsBuilder
                 .fromUriString(keruyunProperties.getBaseUrl() + path);
         if (query != null && !query.isEmpty()) {
@@ -147,7 +161,6 @@ public class KeruyunClient {
         }
         publicParams.forEach(builder::queryParam);
         builder.queryParam(KeruyunCommonConstants.PARAM_SIGN, sign);
-        builder.queryParam(KeruyunCommonConstants.PARAM_TOKEN, token);
         return builder.build().encode().toUriString();
     }
 }

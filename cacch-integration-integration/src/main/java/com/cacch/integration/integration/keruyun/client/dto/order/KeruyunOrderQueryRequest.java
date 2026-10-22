@@ -1,5 +1,6 @@
 package com.cacch.integration.integration.keruyun.client.dto.order;
 
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import lombok.Data;
 
 import java.util.List;
@@ -10,9 +11,13 @@ import java.util.List;
  * <p>对应接口 {@code POST /open/standard/order/queryList} 的业务参数。
  * 字段名与客如云文档保持一致，避免依赖 Jackson 注解映射。</p>
  *
+ * <p>字段顺序通过 {@link JsonPropertyOrder} 固定，与 ESB 侧报文顺序保持一致，
+ * 确保客如云服务端按字符串原样计算签名时结果一致。</p>
+ *
  * @author hongfu_zhou@cacch.com
  */
 @Data
+@JsonPropertyOrder({"dateType", "startDate", "endDate", "orderTypeList", "orderStatusList", "pageBean"})
 public class KeruyunOrderQueryRequest {
 
     /**
