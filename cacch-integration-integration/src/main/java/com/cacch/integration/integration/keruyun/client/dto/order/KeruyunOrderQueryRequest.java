@@ -1,5 +1,6 @@
 package com.cacch.integration.integration.keruyun.client.dto.order;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import lombok.Data;
 
@@ -14,9 +15,13 @@ import java.util.List;
  * <p>字段顺序通过 {@link JsonPropertyOrder} 固定，与 ESB 侧报文顺序保持一致，
  * 确保客如云服务端按字符串原样计算签名时结果一致。</p>
  *
+ * <p>可选参数为 null 时通过 {@link JsonInclude} 自动省略，
+ * 不进入签名原文，避免客如云签名校验失败。</p>
+ *
  * @author hongfu_zhou@cacch.com
  */
 @Data
+@JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonPropertyOrder({"dateType", "startDate", "endDate", "orderTypeList", "orderStatusList", "pageBean"})
 public class KeruyunOrderQueryRequest {
 
