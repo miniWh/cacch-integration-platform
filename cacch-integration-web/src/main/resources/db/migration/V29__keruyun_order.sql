@@ -33,11 +33,11 @@ CREATE TABLE IF NOT EXISTS stg_keruyun_order (
     CONSTRAINT uk_stg_keruyun_order_order_id UNIQUE (order_id)
 );
 
-COMMENT ON TABLE  stg_keruyun_order IS '客如云订单落库表（订单列表查询接口 result.data.list）';
-COMMENT ON COLUMN stg_keruyun_order.id                 IS '内部主键（雪花生成）';
+COMMENT ON TABLE  stg_keruyun_order IS '客如云订单表';
+COMMENT ON COLUMN stg_keruyun_order.id                 IS '内部主键';
 COMMENT ON COLUMN stg_keruyun_order.brand_id           IS '品牌 ID';
 COMMENT ON COLUMN stg_keruyun_order.shop_id            IS '门店 ID';
-COMMENT ON COLUMN stg_keruyun_order.order_id           IS '客如云订单 ID（业务唯一键）';
+COMMENT ON COLUMN stg_keruyun_order.order_id           IS '客如云订单 ID';
 COMMENT ON COLUMN stg_keruyun_order.busi_order_no      IS '业务订单号';
 COMMENT ON COLUMN stg_keruyun_order.order_status       IS '订单状态：WAIT_PROCESSED/ORDER_RECEIVED/SUCCESS/WAIT_SETTLED/SETTLED/REFUND/CLOSED/INVALID/CANCELLED/REJECTED/ANTI_SETTLED';
 COMMENT ON COLUMN stg_keruyun_order.order_type         IS '订单类型：FOR_HERE/PLATFORM_TAKE_OUT/SELF_TAKE_OUT/SELF_TAKE/NO_ORDER_CASHIER/MEMBER_STORE/MEMBER_MANUAL_STORE/REPAYMENT_ORDER';
@@ -51,7 +51,7 @@ COMMENT ON COLUMN stg_keruyun_order.serial_no          IS '订单流水号';
 COMMENT ON COLUMN stg_keruyun_order.third_serial_no    IS '第三方流水号';
 COMMENT ON COLUMN stg_keruyun_order.order_mode_tag     IS '订单模式标签：REV_POSITIVE_ORDER/REV_REVERSE_ORDER/REV_RESULT_ORDER/ORG_RESULT_ORDER';
 COMMENT ON COLUMN stg_keruyun_order.order_mode         IS '订单模式：ORIGINAL_ORDER/REVERSE_ORDER/HISTORY';
-COMMENT ON COLUMN stg_keruyun_order.sync_batch         IS '同步批次号（便于追溯）';
+COMMENT ON COLUMN stg_keruyun_order.sync_batch         IS '同步批次号';
 COMMENT ON COLUMN stg_keruyun_order.synced_at          IS '最近一次从客如云同步成功的时间';
 COMMENT ON COLUMN stg_keruyun_order.created_at         IS '记录创建时间';
 COMMENT ON COLUMN stg_keruyun_order.updated_at         IS '记录更新时间';

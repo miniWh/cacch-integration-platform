@@ -32,9 +32,9 @@ CREATE TABLE IF NOT EXISTS stg_keruyun_order_sync_task (
     CONSTRAINT uk_stg_keruyun_order_sync_task_date_type UNIQUE (sync_date, date_type)
 );
 
-COMMENT ON TABLE  stg_keruyun_order_sync_task IS '客如云订单同步任务控制表（按天粒度）';
-COMMENT ON COLUMN stg_keruyun_order_sync_task.id                  IS '内部主键（雪花生成）';
-COMMENT ON COLUMN stg_keruyun_order_sync_task.sync_date           IS '同步日期，与 date_type 组成唯一键防止重复创建';
+COMMENT ON TABLE  stg_keruyun_order_sync_task IS '客如云订单同步任务控制表';
+COMMENT ON COLUMN stg_keruyun_order_sync_task.id                  IS '内部主键';
+COMMENT ON COLUMN stg_keruyun_order_sync_task.sync_date           IS '同步日期';
 COMMENT ON COLUMN stg_keruyun_order_sync_task.date_type           IS '查询时间类型：FINISH_BUSI_DATE / OPEN_TIME / FINISH_TIME / SETTLE_TIME';
 COMMENT ON COLUMN stg_keruyun_order_sync_task.sync_window_start   IS '实际查询窗口起始（sync_date 00:00:00）';
 COMMENT ON COLUMN stg_keruyun_order_sync_task.sync_window_end     IS '实际查询窗口结束（sync_date 23:59:59）';
@@ -45,8 +45,8 @@ COMMENT ON COLUMN stg_keruyun_order_sync_task.total_page          IS '总页数�
 COMMENT ON COLUMN stg_keruyun_order_sync_task.total_count         IS '总订单数（首次执行后回填）';
 COMMENT ON COLUMN stg_keruyun_order_sync_task.success_count       IS '落库成功数';
 COMMENT ON COLUMN stg_keruyun_order_sync_task.failure_count       IS '落库失败数';
-COMMENT ON COLUMN stg_keruyun_order_sync_task.error_message       IS '失败原因（截断至 500 字符）';
-COMMENT ON COLUMN stg_keruyun_order_sync_task.version             IS '乐观锁版本号，状态流转时 CAS 更新';
+COMMENT ON COLUMN stg_keruyun_order_sync_task.error_message       IS '失败原因';
+COMMENT ON COLUMN stg_keruyun_order_sync_task.version             IS '乐观锁版本号';
 COMMENT ON COLUMN stg_keruyun_order_sync_task.created_at         IS '任务创建时间';
 COMMENT ON COLUMN stg_keruyun_order_sync_task.updated_at         IS '任务最近状态/进度更新时间';
 COMMENT ON COLUMN stg_keruyun_order_sync_task.synced_at           IS '任务执行完成时间';

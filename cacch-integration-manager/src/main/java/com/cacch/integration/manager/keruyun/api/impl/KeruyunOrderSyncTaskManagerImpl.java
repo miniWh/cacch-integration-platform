@@ -49,12 +49,11 @@ public class KeruyunOrderSyncTaskManagerImpl implements IKeruyunOrderSyncTaskMan
         // 3. 第二步：取所有 PENDING 任务（按日期升序）
         List<KeruyunOrderSyncTaskDO> pending = taskService.findAllPending();
 
-        // 4. 按 dateType 过滤（指定了 dateType 时）
-        if (StringUtils.hasText(dateType)) {
-            pending = pending.stream()
-                    .filter(t -> dateType.equals(t.getDateType()))
-                    .toList();
-        }
+        // 4. 按 dateType 过滤（不传时默认 OPEN_TIME，避免跑全部 4 种）
+        String effectiveDateType = StringUtils.hasText(dateType) ? dateType : "OPEN_TIME";
+        pending = pending.stream()
+                .filter(t -> effectiveDateType.equals(t.getDateType()))
+                .toList();
 
         // 5. 逐条异步触发（单天失败不阻断后续天）
         List<Long> taskIds = new ArrayList<>();
@@ -70,8 +69,8 @@ public class KeruyunOrderSyncTaskManagerImpl implements IKeruyunOrderSyncTaskMan
             }
         }
 
-        String message = String.format("基准日期=%s, 本次新建任务=%d, 待执行任务=%d",
-                targetDate, created, pending.size());
+        String message = String.format("基准日期=%s, dateType=%s, 本次新建任务=%d, 待执行任务=%d",
+                targetDate, effectiveDateType, created, pending.size());
         log.info("【{}】批次触发完成, {}", BIZ, message);
         return new KeruyunOrderSyncBatchResult(created, pending.size(), taskIds, message);
     }

@@ -1,7 +1,6 @@
 package com.cacch.integration.service.keruyun.api.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.cacch.integration.common.constant.keruyun.KeruyunOrderConstants;
 import com.cacch.integration.common.constant.keruyun.KeruyunOrderSyncStatus;
 import com.cacch.integration.entity.keruyun.KeruyunOrderSyncTaskDO;
 import com.cacch.integration.mapper.keruyun.KeruyunOrderSyncTaskMapper;
@@ -43,10 +42,12 @@ public class KeruyunOrderSyncTaskServiceImpl implements IKeruyunOrderSyncTaskSer
     private static final String BIZ = "客如云订单同步任务";
 
     /**
-     * 全部可用的 dateType 集合，批量创建任务时遍历使用
+     * 当前需要同步的 dateType 集合
+     *
+     * <p>后续要扩展其他类型（FINISH_BUSI_DATE / FINISH_TIME / SETTLE_TIME）时，
+     * 只需在此 Set 中追加即可，无需改动其他代码。</p>
      */
-    private static final Set<String> ALL_DATE_TYPES = Set.of(
-            KeruyunOrderConstants.DATE_TYPE_FINISH_BUSI_DATE, "OPEN_TIME", "FINISH_TIME", "SETTLE_TIME");
+    private static final Set<String> SYNC_DATE_TYPES = Set.of("OPEN_TIME");
 
     private final KeruyunOrderSyncTaskMapper taskMapper;
     private final TransactionTemplate transactionTemplate;
@@ -116,7 +117,7 @@ public class KeruyunOrderSyncTaskServiceImpl implements IKeruyunOrderSyncTaskSer
         }
 
         for (LocalDate date : dates) {
-            for (String dateType : ALL_DATE_TYPES) {
+            for (String dateType : SYNC_DATE_TYPES) {
                 KeruyunOrderSyncTaskDO t = createTask(date, dateType);
                 if (t != null) {
                     created++;
