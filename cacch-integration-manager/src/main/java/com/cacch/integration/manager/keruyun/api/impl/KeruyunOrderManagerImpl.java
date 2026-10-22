@@ -1,6 +1,7 @@
 package com.cacch.integration.manager.keruyun.api.impl;
 
 import com.cacch.integration.common.constant.keruyun.KeruyunOrderConstants;
+import com.cacch.integration.common.dto.keruyun.KeruyunOrderSyncItem;
 import com.cacch.integration.common.dto.keruyun.KeruyunOrderSyncResult;
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.ResultCode;
@@ -75,13 +76,9 @@ public class KeruyunOrderManagerImpl implements IKeruyunOrderManager {
         request.setOrderTypeList(orderTypeList);
         request.setOrderStatusList(orderStatusList);
 
+        KeruyunOrderSyncResult result = new KeruyunOrderSyncResult(dateType, startDate, endDate);
         int pageNum = 1;
         int pageCount = 0;
-        int scanned = 0;
-        int inserted = 0;
-        int updated = 0;
-        int skipped = 0;
-        int failed = 0;
 
         while (pageNum <= KeruyunOrderConstants.ORDER_MAX_PAGE_GUARD) {
             request.setPageBean(new KeruyunPageBean(String.valueOf(pageNum), String.valueOf(size)));
@@ -96,28 +93,33 @@ public class KeruyunOrderManagerImpl implements IKeruyunOrderManager {
 
             pageCount++;
             for (KeruyunOrderItem item : data.getList()) {
-                scanned++;
+                KeruyunOrderSyncItem syncItem = new KeruyunOrderSyncItem();
+                syncItem.setOrderId(item.getOrderId());
+                syncItem.setBusiOrderNo(item.getBusiOrderNo());
+                syncItem.setShopId(item.getShopId());
+                syncItem.setPageNum(pageNum);
+
                 if (!StringUtils.hasText(item.getOrderId())) {
-                    skipped++;
                     log.info("【{}】跳过订单, reason=orderId为空, pageNum={}, busiOrderNo={}",
                             BIZ, pageNum, item.getBusiOrderNo());
+                    result.recordSkip(syncItem, "orderId为空");
                     continue;
                 }
                 try {
                     KeruyunOrderDO orderDO = keruyunOrderConverter.toDO(item);
                     orderDO.setSyncBatch(syncBatch);
                     orderDO.setSyncedAt(LocalDateTime.now());
-                    if (keruyunOrderService.saveOrUpdate(orderDO)) {
-                        inserted++;
-                    } else {
-                        updated++;
-                    }
+                    boolean inserted = keruyunOrderService.saveOrUpdate(orderDO);
+                    syncItem.setOperation(inserted
+                            ? KeruyunOrderSyncItem.Operation.INSERTED
+                            : KeruyunOrderSyncItem.Operation.UPDATED);
+                    result.recordSuccess(syncItem);
                 } catch (Exception e) {
-                    failed++;
                     log.info("【{}】单条落库终止, orderId={}, pageNum={}, reason={}",
                             BIZ, item.getOrderId(), pageNum, e.getMessage());
                     log.error("【{}】单条落库失败, orderId={}, pageNum={}",
                             BIZ, item.getOrderId(), pageNum, e);
+                    result.recordFailure(syncItem, e.getMessage());
                 }
             }
 
@@ -133,20 +135,12 @@ public class KeruyunOrderManagerImpl implements IKeruyunOrderManager {
                     BIZ, dateType, KeruyunOrderConstants.ORDER_MAX_PAGE_GUARD);
         }
 
-        KeruyunOrderSyncResult result = KeruyunOrderSyncResult.builder()
-                .dateType(dateType)
-                .startDate(startDate)
-                .endDate(endDate)
-                .pageCount(pageCount)
-                .scanned(scanned)
-                .inserted(inserted)
-                .updated(updated)
-                .skipped(skipped)
-                .failed(failed)
-                .build();
-        log.info("【{}】同步完成, dateType={}, startDate={}, endDate={}, pageCount={}, scanned={}, "
-                        + "inserted={}, updated={}, skipped={}, failed={}",
-                BIZ, dateType, startDate, endDate, pageCount, scanned, inserted, updated, skipped, failed);
+        result.setPageCount(pageCount);
+        log.info("【{}】同步完成, dateType={}, startDate={}, endDate={}, pageCount={}, totalCount={}, "
+                        + "insertedCount={}, updatedCount={}, skipCount={}, failureCount={}, detailsTruncated={}",
+                BIZ, dateType, startDate, endDate, pageCount, result.getTotalCount(),
+                result.getInsertedCount(), result.getUpdatedCount(), result.getSkipCount(),
+                result.getFailureCount(), result.isDetailsTruncated());
         return result;
     }
 

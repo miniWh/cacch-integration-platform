@@ -1,52 +1,30 @@
 package com.cacch.integration.integration.keruyun.client.dto.order;
 
+import com.cacch.integration.integration.keruyun.client.dto.KeruyunBaseResponse;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 import java.util.List;
 
 /**
  * 客如云订单列表查询响应
  *
- * <p>成功码 {@code code=0}；字段名与客如云文档 JSON 字段逐字一致。</p>
+ * <p>成功码 {@code code=0}；字段名与客如云文档 JSON 字段逐字一致。
+ * 通用字段与成功判定继承 {@link KeruyunBaseResponse}。</p>
  *
  * @author hongfu_zhou@cacch.com
  */
+@EqualsAndHashCode(callSuper = true)
 @Data
-public class KeruyunOrderQueryResponse {
-
-    /**
-     * 返回编码，0 表示成功
-     */
-    private Integer code;
-
-    /**
-     * 返回信息
-     */
-    private String message;
-
-    /**
-     * 消息 UUID，便于与客如云排查问题
-     */
-    private String messageUuid;
-
-    /**
-     * 响应数据，code != 0 时不返回业务参数
-     */
-    private Result result;
-
-    /**
-     * 是否成功（code == 0）
-     *
-     * @return true 表示成功
-     */
-    public boolean isSuccess() {
-        return code != null && code == 0;
-    }
+@JsonIgnoreProperties(ignoreUnknown = true)
+public class KeruyunOrderQueryResponse extends KeruyunBaseResponse<KeruyunOrderQueryResponse.Result> {
 
     /**
      * 响应数据主体
      */
     @Data
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class Result {
 
         /**
@@ -79,6 +57,7 @@ public class KeruyunOrderQueryResponse {
      * 订单分页数据
      */
     @Data
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class DataInfo {
 
         /**
