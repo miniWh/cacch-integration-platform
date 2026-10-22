@@ -1,6 +1,6 @@
 package com.cacch.integration.manager.keruyun.api.impl;
 
-import com.cacch.integration.common.constant.keruyun.KeruyunConstants;
+import com.cacch.integration.common.constant.keruyun.KeruyunOrderConstants;
 import com.cacch.integration.common.dto.keruyun.KeruyunOrderSyncResult;
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.ResultCode;
@@ -45,13 +45,13 @@ public class KeruyunOrderManagerImpl implements IKeruyunOrderManager {
      * 允许的查询时间类型
      */
     private static final Set<String> ALLOWED_DATE_TYPES = Set.of(
-            KeruyunConstants.DATE_TYPE_FINISH_BUSI_DATE, "OPEN_TIME", "FINISH_TIME", "SETTLE_TIME");
+            KeruyunOrderConstants.DATE_TYPE_FINISH_BUSI_DATE, "OPEN_TIME", "FINISH_TIME", "SETTLE_TIME");
 
     private static final DateTimeFormatter SECOND_FORMATTER =
-            DateTimeFormatter.ofPattern(KeruyunConstants.DATE_PATTERN_SECOND);
+            DateTimeFormatter.ofPattern(KeruyunOrderConstants.DATE_PATTERN_SECOND);
 
     private static final DateTimeFormatter DAY_FORMATTER =
-            DateTimeFormatter.ofPattern(KeruyunConstants.DATE_PATTERN_DAY);
+            DateTimeFormatter.ofPattern(KeruyunOrderConstants.DATE_PATTERN_DAY);
 
     private final IKeruyunManager keruyunManager;
     private final KeruyunOrderClient keruyunOrderClient;
@@ -83,7 +83,7 @@ public class KeruyunOrderManagerImpl implements IKeruyunOrderManager {
         int skipped = 0;
         int failed = 0;
 
-        while (pageNum <= KeruyunConstants.ORDER_MAX_PAGE_GUARD) {
+        while (pageNum <= KeruyunOrderConstants.ORDER_MAX_PAGE_GUARD) {
             request.setPageBean(new KeruyunPageBean(String.valueOf(pageNum), String.valueOf(size)));
             KeruyunOrderQueryResponse response = keruyunOrderClient.queryOrderList(request, token);
             KeruyunOrderQueryResponse.DataInfo data =
@@ -128,9 +128,9 @@ public class KeruyunOrderManagerImpl implements IKeruyunOrderManager {
             pageNum++;
         }
 
-        if (pageNum > KeruyunConstants.ORDER_MAX_PAGE_GUARD) {
+        if (pageNum > KeruyunOrderConstants.ORDER_MAX_PAGE_GUARD) {
             log.warn("【{}】翻页达到保护上限提前终止, dateType={}, maxPage={}",
-                    BIZ, dateType, KeruyunConstants.ORDER_MAX_PAGE_GUARD);
+                    BIZ, dateType, KeruyunOrderConstants.ORDER_MAX_PAGE_GUARD);
         }
 
         KeruyunOrderSyncResult result = KeruyunOrderSyncResult.builder()
@@ -168,7 +168,7 @@ public class KeruyunOrderManagerImpl implements IKeruyunOrderManager {
             throw new BizException(ResultCode.PARAM_MISSING, "startDate / endDate 不能为空");
         }
 
-        if (KeruyunConstants.DATE_TYPE_FINISH_BUSI_DATE.equals(dateType)) {
+        if (KeruyunOrderConstants.DATE_TYPE_FINISH_BUSI_DATE.equals(dateType)) {
             LocalDate start = parseDay(startDate);
             LocalDate end = parseDay(endDate);
             if (start.isAfter(end)) {
@@ -177,11 +177,11 @@ public class KeruyunOrderManagerImpl implements IKeruyunOrderManager {
                 throw new BizException(ResultCode.PARAM_INVALID, "startDate 不能晚于 endDate");
             }
             long days = java.time.temporal.ChronoUnit.DAYS.between(start, end);
-            if (days > KeruyunConstants.QUERY_MAX_DAYS) {
+            if (days > KeruyunOrderConstants.QUERY_MAX_DAYS) {
                 log.info("【{}】同步终止, reason=查询跨度超限, days={}, maxDays={}",
-                        BIZ, days, KeruyunConstants.QUERY_MAX_DAYS);
+                        BIZ, days, KeruyunOrderConstants.QUERY_MAX_DAYS);
                 throw new BizException(ResultCode.PARAM_INVALID,
-                        "查询时间范围不能超过 " + KeruyunConstants.QUERY_MAX_DAYS + " 天");
+                        "查询时间范围不能超过 " + KeruyunOrderConstants.QUERY_MAX_DAYS + " 天");
             }
             return;
         }
@@ -193,11 +193,11 @@ public class KeruyunOrderManagerImpl implements IKeruyunOrderManager {
                     BIZ, startDate, endDate);
             throw new BizException(ResultCode.PARAM_INVALID, "startDate 不能晚于 endDate");
         }
-        if (Duration.between(start, end).compareTo(Duration.ofDays(KeruyunConstants.QUERY_MAX_DAYS)) > 0) {
+        if (Duration.between(start, end).compareTo(Duration.ofDays(KeruyunOrderConstants.QUERY_MAX_DAYS)) > 0) {
             log.info("【{}】同步终止, reason=查询跨度超限, startDate={}, endDate={}, maxDays={}",
-                    BIZ, startDate, endDate, KeruyunConstants.QUERY_MAX_DAYS);
+                    BIZ, startDate, endDate, KeruyunOrderConstants.QUERY_MAX_DAYS);
             throw new BizException(ResultCode.PARAM_INVALID,
-                    "查询时间范围不能超过 " + KeruyunConstants.QUERY_MAX_DAYS + " 天");
+                    "查询时间范围不能超过 " + KeruyunOrderConstants.QUERY_MAX_DAYS + " 天");
         }
     }
 
@@ -209,9 +209,9 @@ public class KeruyunOrderManagerImpl implements IKeruyunOrderManager {
             return LocalDate.parse(value.trim(), DAY_FORMATTER);
         } catch (DateTimeParseException e) {
             log.info("【{}】同步终止, reason=日期格式错误, value={}, pattern={}",
-                    BIZ, value, KeruyunConstants.DATE_PATTERN_DAY);
+                    BIZ, value, KeruyunOrderConstants.DATE_PATTERN_DAY);
             throw new BizException(ResultCode.PARAM_INVALID,
-                    "dateType=FINISH_BUSI_DATE 时时间格式须为 " + KeruyunConstants.DATE_PATTERN_DAY);
+                    "dateType=FINISH_BUSI_DATE 时时间格式须为 " + KeruyunOrderConstants.DATE_PATTERN_DAY);
         }
     }
 
@@ -223,9 +223,9 @@ public class KeruyunOrderManagerImpl implements IKeruyunOrderManager {
             return LocalDateTime.parse(value.trim(), SECOND_FORMATTER);
         } catch (DateTimeParseException e) {
             log.info("【{}】同步终止, reason=时间格式错误, value={}, pattern={}",
-                    BIZ, value, KeruyunConstants.DATE_PATTERN_SECOND);
+                    BIZ, value, KeruyunOrderConstants.DATE_PATTERN_SECOND);
             throw new BizException(ResultCode.PARAM_INVALID,
-                    "非营业日期查询时时间格式须为 " + KeruyunConstants.DATE_PATTERN_SECOND);
+                    "非营业日期查询时时间格式须为 " + KeruyunOrderConstants.DATE_PATTERN_SECOND);
         }
     }
 
@@ -234,9 +234,9 @@ public class KeruyunOrderManagerImpl implements IKeruyunOrderManager {
      */
     private int resolvePageSize(Integer pageSize) {
         if (pageSize == null || pageSize <= 0) {
-            return KeruyunConstants.ORDER_PAGE_SIZE_DEFAULT;
+            return KeruyunOrderConstants.ORDER_PAGE_SIZE_DEFAULT;
         }
-        return Math.min(pageSize, KeruyunConstants.ORDER_PAGE_SIZE_MAX);
+        return Math.min(pageSize, KeruyunOrderConstants.ORDER_PAGE_SIZE_MAX);
     }
 
     /**

@@ -1,6 +1,6 @@
 package com.cacch.integration.manager.keruyun.convert;
 
-import com.cacch.integration.common.constant.keruyun.KeruyunConstants;
+import com.cacch.integration.common.constant.keruyun.KeruyunOrderConstants;
 import com.cacch.integration.entity.keruyun.KeruyunOrderDO;
 import com.cacch.integration.integration.keruyun.client.dto.order.KeruyunOrderItem;
 import org.mapstruct.Mapper;
@@ -32,12 +32,12 @@ public interface KeruyunOrderConverter {
     /**
      * 秒级时间格式
      */
-    DateTimeFormatter SECOND_FORMATTER = DateTimeFormatter.ofPattern(KeruyunConstants.DATE_PATTERN_SECOND);
+    DateTimeFormatter SECOND_FORMATTER = DateTimeFormatter.ofPattern(KeruyunOrderConstants.DATE_PATTERN_SECOND);
 
     /**
      * 日期格式
      */
-    DateTimeFormatter DAY_FORMATTER = DateTimeFormatter.ofPattern(KeruyunConstants.DATE_PATTERN_DAY);
+    DateTimeFormatter DAY_FORMATTER = DateTimeFormatter.ofPattern(KeruyunOrderConstants.DATE_PATTERN_DAY);
 
     /**
      * 客如云订单元素 → 落库实体（主键、同步批次、审计字段由调用方填充）

@@ -88,7 +88,7 @@ async → manager / service → … → common
 
 | 模块 | 包路径模式 | 企微示例 |
 |------|-----------|---------|
-| **common** | `common.constant.{biz}` | `common.constant.wecom.WeComConstants` |
+| **common** | `common.constant.{biz}` | `common.constant.keruyun.KeruyunCommonConstants` / `KeruyunPathConstants` / `KeruyunOrderConstants` |
 | **common** | `common.constant.redis`（基础设施） | `common.constant.redis.RedisConstants` |
 | **common** | `common.config.{biz}` | `common.config.wecom.WeComProperties` |
 | **common** | `common.{exception\|result\|utils}`（跨域通用） | `common.exception.BizException` |
@@ -329,23 +329,39 @@ is_deleted  SMALLINT NOT NULL DEFAULT 0  -- 逻辑删除标记（0正常 1删除
 - 分页查询：`GET /api/v1/api-keys?page=1&size=20`
 
 ### 常量类命名
-- **按业务域拆分**，每个业务域独立一个常量类，放在 `common.constant.{biz}` 包下（基础设施类如 Redis 放 `common.constant.redis`）。
-- **命名规则**：`{业务域}Constants`，例如 `constant.wecom.WeComConstants`、`constant.redis.RedisConstants`。
-- **禁止**将所有常量堆叠在 `IntegrationConstants` 等单一「大杂烩」类中。
+
+- **业务域内按维度拆分**，放在 `common.constant.{biz}` 包下（基础设施类如 Redis 放 `common.constant.redis`），每个业务域按以下三个维度各建一个常量类：
+  - `{业务域}CommonConstants`：公共请求参数、签名规则、响应码、日志标识、Token 缓存 Key 等**跨接口共享**的常量
+  - `{业务域}PathConstants`：该业务域下所有接口 PATH
+  - `{业务域}{模块/接口}Constants`：单一接口或模块的**专有参数**，如 `KeruyunOrderConstants`
+- **命名规则**：例如 `constant.keruyun.KeruyunCommonConstants`、`KeruyunPathConstants`、`KeruyunOrderConstants`；不属于任何业务域的通用常量保留 `{域}Constants`（如 `constant.redis.RedisConstants`）。
+- **禁止**将所有常量堆叠在 `IntegrationConstants` 等单一「大杂烩」类中；也禁止在 `CommonConstants` 中混入单一接口专有参数。
+- **适用范围**：新增业务域一律按上述三维度拆分；**已存在的历史业务域常量类不做强制迁移**（如 `WeComConstants` 维持现状），待其发生功能性改动时再按新规拆分。
 - 每个常量类声明为 `final`，提供私有构造器，禁止实例化。
-- 跨域常量可引用其他 Constants 类（如 `WeComConstants.tokenRedisKey()` 引用 `RedisConstants.KEY_PREFIX`），但不得引入业务逻辑。
+- 跨常量类可互相引用（如 `{业务域}CommonConstants.tokenRedisKey()` 引用 `RedisConstants.KEY_PREFIX`），但不得引入业务逻辑。
 - 常量命名：全大写下划线（`TOKEN_URL`），工具方法使用 camelCase（`tokenRedisKey()`）。
 
 ```java
-// 正确 —— 按业务域拆分
-package com.cacch.integration.common.constant.wecom;
+// 正确 —— 业务域内按三维度拆分（以 keruyun 为例）
+package com.cacch.integration.common.constant.keruyun;
 
-public final class WeComConstants {
-    private WeComConstants() {}
-    public static final String TOKEN_URL = "...";
-    public static String tokenRedisKey(String corpid, String appKey) {
-        return RedisConstants.KEY_PREFIX + "wecom:token:" + corpid + ":" + appKey;
+public final class KeruyunCommonConstants {
+    private KeruyunCommonConstants() {}
+    public static final String PARAM_SIGN = "sign";
+    public static final int SUCCESS_CODE = 0;
+    public static String tokenRedisKey(String appKey, String shopIdenty) {
+        return RedisConstants.KEY_PREFIX + "keruyun:token:" + appKey + ":" + shopIdenty;
     }
+}
+
+public final class KeruyunPathConstants {
+    private KeruyunPathConstants() {}
+    public static final String PATH_QUERY_ORDER_LIST = "/open/standard/order/queryList";
+}
+
+public final class KeruyunOrderConstants {
+    private KeruyunOrderConstants() {}
+    public static final int QUERY_MAX_DAYS = 31;
 }
 ```
 
@@ -912,7 +928,7 @@ revert: feat(wecom): 实现 Token Redis 缓存与自动刷新
 9. **接口优先**：Service 与 Manager 均先定义接口（`{biz}.api` 包），再编写实现（`{biz}.api.impl` 包）。
 10. **构造器注入**：所有 Bean 依赖必须使用构造器注入（`@RequiredArgsConstructor` + `private final`）。
 11. **配置 POJO 放 common.config.{biz}**：可被 manager/async 引用的配置类定义在对应业务域包，注册在 `web.config.{biz}`。
-12. **常量按业务拆分**：新增常量放入 `common.constant.{biz}` 对应类，禁止新建「大杂烩」常量类。
+12. **常量按业务域与维度拆分**：新增常量按 `{业务域}CommonConstants`（公共请求参数/签名/响应码等）、`{业务域}PathConstants`（接口 PATH）、`{业务域}{模块}Constants`（接口专有参数）三维度放入 `common.constant.{biz}` 对应类，禁止新建「大杂烩」常量类，禁止在 Common 类中混入单一接口专有参数；历史业务域常量类不强制迁移。
 13. **日志以 logback-spring.xml 为准**：禁止在 yml 配置 logging.level；TraceId 由 TraceIdFilter + MDC 输出。
 14. **日志前缀用中文方括号**：所有日志前缀使用 `【业务标识】`，禁止使用 `[业务标识]`。
 15. **全局异常处理**：新增 Controller 时确保异常由 `GlobalExceptionHandler` 统一处理，Controller 不 catch 业务异常。

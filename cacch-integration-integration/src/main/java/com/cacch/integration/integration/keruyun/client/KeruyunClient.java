@@ -1,7 +1,7 @@
 package com.cacch.integration.integration.keruyun.client;
 
 import com.cacch.integration.common.config.keruyun.KeruyunProperties;
-import com.cacch.integration.common.constant.keruyun.KeruyunConstants;
+import com.cacch.integration.common.constant.keruyun.KeruyunCommonConstants;
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.ResultCode;
 import com.cacch.integration.integration.keruyun.support.KeruyunSignSupport;
@@ -92,13 +92,12 @@ public class KeruyunClient {
 
         try {
             if (HttpMethod.GET.equals(method)) {
-                return httpClient.doGet(url, headers, KeruyunConstants.LOG_BIZ, action, responseType);
+                return httpClient.doGet(url, headers, KeruyunCommonConstants.LOG_BIZ, action, responseType);
             }
             return httpClient.doPostOrPut(method, url, compactBody, headers,
-                    KeruyunConstants.LOG_BIZ, action, responseType);
+                    KeruyunCommonConstants.LOG_BIZ, action, responseType);
         } catch (RestClientException e) {
-            log.info("【{}】{}终止, reason={}", KeruyunConstants.LOG_BIZ, action, e.getMessage());
-            log.error("【{}】{} HTTP 调用失败, path={}", KeruyunConstants.LOG_BIZ, action, path, e);
+            log.error("【{}】{} HTTP 调用失败, path={}", KeruyunCommonConstants.LOG_BIZ, action, path, e);
             throw new BizException(ResultCode.INTEGRATION_TIMEOUT, "客如云接口调用超时或网络异常: " + path, e);
         }
     }
@@ -108,15 +107,15 @@ public class KeruyunClient {
      */
     private void validate(String path, String token, String action) {
         if (!StringUtils.hasText(path)) {
-            log.info("【{}】{}终止, reason=接口路径为空", KeruyunConstants.LOG_BIZ, action);
+            log.info("【{}】{}终止, reason=接口路径为空", KeruyunCommonConstants.LOG_BIZ, action);
             throw new BizException(ResultCode.PARAM_MISSING, "客如云接口路径不能为空");
         }
         if (keruyunProperties.isAuthConfigured()) {
-            log.info("【{}】{}终止, reason=鉴权配置不完整", KeruyunConstants.LOG_BIZ, action);
+            log.info("【{}】{}终止, reason=鉴权配置不完整", KeruyunCommonConstants.LOG_BIZ, action);
             throw new BizException(ResultCode.PARAM_INVALID, "客如云鉴权配置不完整，无法发起业务请求");
         }
         if (!StringUtils.hasText(token)) {
-            log.info("【{}】{}终止, reason=token 为空", KeruyunConstants.LOG_BIZ, action);
+            log.info("【{}】{}终止, reason=token 为空", KeruyunCommonConstants.LOG_BIZ, action);
             throw new BizException(ResultCode.INTEGRATION_AUTH_FAILED, "客如云门店 token 为空，无法发起业务请求");
         }
     }
@@ -131,8 +130,7 @@ public class KeruyunClient {
         try {
             return KeruyunSignSupport.compactJson(OBJECT_MAPPER.writeValueAsString(body));
         } catch (Exception e) {
-            log.info("【{}】{}终止, reason=请求体序列化失败, error={}", KeruyunConstants.LOG_BIZ, action, e.getMessage());
-            log.error("【{}】{} 请求体序列化失败", KeruyunConstants.LOG_BIZ, action, e);
+            log.error("【{}】{} 请求体序列化失败", KeruyunCommonConstants.LOG_BIZ, action, e);
             throw new BizException(ResultCode.PARAM_INVALID, "客如云请求体序列化失败", e);
         }
     }
@@ -148,8 +146,8 @@ public class KeruyunClient {
             query.forEach(builder::queryParam);
         }
         publicParams.forEach(builder::queryParam);
-        builder.queryParam(KeruyunConstants.PARAM_SIGN, sign);
-        builder.queryParam(KeruyunConstants.PARAM_TOKEN, token);
+        builder.queryParam(KeruyunCommonConstants.PARAM_SIGN, sign);
+        builder.queryParam(KeruyunCommonConstants.PARAM_TOKEN, token);
         return builder.build().encode().toUriString();
     }
 }

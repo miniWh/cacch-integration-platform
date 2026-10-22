@@ -1,6 +1,7 @@
 package com.cacch.integration.integration.keruyun.client;
 
-import com.cacch.integration.common.constant.keruyun.KeruyunConstants;
+import com.cacch.integration.common.constant.keruyun.KeruyunCommonConstants;
+import com.cacch.integration.common.constant.keruyun.KeruyunPathConstants;
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.ResultCode;
 import com.cacch.integration.integration.keruyun.client.dto.order.KeruyunOrderQueryRequest;
@@ -38,21 +39,20 @@ public class KeruyunOrderClient {
      */
     public KeruyunOrderQueryResponse queryOrderList(KeruyunOrderQueryRequest request, String token) {
         KeruyunOrderQueryResponse response = keruyunClient.post(
-                KeruyunConstants.PATH_QUERY_ORDER_LIST, request, token, KeruyunOrderQueryResponse.class);
+                KeruyunPathConstants.PATH_QUERY_ORDER_LIST, request, token, KeruyunOrderQueryResponse.class);
         if (response == null || !response.isSuccess()) {
             String code = response == null ? "null" : String.valueOf(response.getCode());
             String message = response == null ? "响应为空" : response.getMessage();
             log.info("【{}】{}终止, code={}, message={}, pageNum={}, pageSize={}",
-                    KeruyunConstants.LOG_BIZ, ACTION, code, message,
+                    KeruyunCommonConstants.LOG_BIZ, ACTION, code, message,
                     request.getPageBean() == null ? null : request.getPageBean().getPageNum(),
                     request.getPageBean() == null ? null : request.getPageBean().getPageSize());
-            throw new BizException(ResultCode.INTEGRATION_ERROR,
-                    "客如云订单查询失败: code=" + code + ", message=" + message);
+            throw new BizException(ResultCode.INTEGRATION_ERROR, "客如云订单查询失败: code=" + code + ", message=" + message);
         }
         String totalCount = response.getResult() == null || response.getResult().getData() == null
                 ? null : response.getResult().getData().getTotalCount();
         log.info("【{}】{}成功, pageNum={}, pageSize={}, totalCount={}, messageUuid={}",
-                KeruyunConstants.LOG_BIZ, ACTION,
+                KeruyunCommonConstants.LOG_BIZ, ACTION,
                 request.getPageBean() == null ? null : request.getPageBean().getPageNum(),
                 request.getPageBean() == null ? null : request.getPageBean().getPageSize(),
                 totalCount, response.getMessageUuid());

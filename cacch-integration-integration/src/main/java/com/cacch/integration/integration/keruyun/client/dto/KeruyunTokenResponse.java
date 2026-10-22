@@ -1,6 +1,6 @@
 package com.cacch.integration.integration.keruyun.client.dto;
 
-import com.cacch.integration.common.constant.keruyun.KeruyunConstants;
+import com.cacch.integration.common.constant.keruyun.KeruyunCommonConstants;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Data;
 
@@ -41,7 +41,7 @@ public class KeruyunTokenResponse {
      * @return true 表示成功
      */
     public boolean isSuccess() {
-        return code != null && code == KeruyunConstants.SUCCESS_CODE
+        return code != null && code == KeruyunCommonConstants.SUCCESS_CODE
                 && result != null && result.getToken() != null && !result.getToken().isBlank();
     }
 

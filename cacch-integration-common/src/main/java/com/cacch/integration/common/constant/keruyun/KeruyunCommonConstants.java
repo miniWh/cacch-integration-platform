@@ -3,16 +3,19 @@ package com.cacch.integration.common.constant.keruyun;
 import com.cacch.integration.common.constant.redis.RedisConstants;
 
 /**
- * 客如云开放平台业务常量
+ * 客如云开放平台公共常量
+ *
+ * <p>仅承载跨接口共享的常量：公共请求参数、签名规则、响应码、日志标识与 Token 缓存。
+ * 接口路径见 {@link KeruyunPathConstants}，订单接口专有参数见 {@link KeruyunOrderConstants}。</p>
  *
  * <p>签名规则见客如云 V2 文档：公共参数（sign 除外）按参数名 ASCII 升序拼接为
  * {@code k1v1k2v2...}，再追加 body 与 token 后做 SHA-256（小写 hex）。</p>
  *
  * @author hongfu_zhou@cacch.com
  */
-public final class KeruyunConstants {
+public final class KeruyunCommonConstants {
 
-    private KeruyunConstants() {
+    private KeruyunCommonConstants() {
     }
 
     /**
@@ -66,54 +69,9 @@ public final class KeruyunConstants {
     public static final String BODY_PREFIX = "body";
 
     /**
-     * 获取门店 token 接口路径（GET）
-     */
-    public static final String PATH_GET_TOKEN = "/open/v1/token/get";
-
-    /**
-     * 订单列表查询接口路径（POST）
-     */
-    public static final String PATH_QUERY_ORDER_LIST = "/open/standard/order/queryList";
-
-    /**
      * 接口成功返回码
      */
     public static final int SUCCESS_CODE = 0;
-
-    /**
-     * 查询时间类型：营业日期（日期格式 yyyy-MM-dd）
-     */
-    public static final String DATE_TYPE_FINISH_BUSI_DATE = "FINISH_BUSI_DATE";
-
-    /**
-     * 订单查询允许的最大时间跨度（天）
-     */
-    public static final int QUERY_MAX_DAYS = 31;
-
-    /**
-     * 订单查询默认每页条数
-     */
-    public static final int ORDER_PAGE_SIZE_DEFAULT = 50;
-
-    /**
-     * 订单查询最大每页条数
-     */
-    public static final int ORDER_PAGE_SIZE_MAX = 100;
-
-    /**
-     * 订单查询最大翻页保护值，防止接口异常返回 totalPage 导致死循环
-     */
-    public static final int ORDER_MAX_PAGE_GUARD = 200;
-
-    /**
-     * 营业日期查询的时间格式
-     */
-    public static final String DATE_PATTERN_DAY = "yyyy-MM-dd";
-
-    /**
-     * 其余时间类型查询的时间格式
-     */
-    public static final String DATE_PATTERN_SECOND = "yyyy-MM-dd HH:mm:ss";
 
     /**
      * 客如云 Token Redis Key

@@ -1,7 +1,7 @@
 package com.cacch.integration.integration.keruyun.support;
 
 import com.cacch.integration.common.config.keruyun.KeruyunProperties;
-import com.cacch.integration.common.constant.keruyun.KeruyunConstants;
+import com.cacch.integration.common.constant.keruyun.KeruyunCommonConstants;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -51,10 +51,10 @@ public class KeruyunSignSupport {
      */
     public Map<String, String> buildPublicParams(String timestamp) {
         Map<String, String> params = new TreeMap<>();
-        params.put(KeruyunConstants.PARAM_APP_KEY, keruyunProperties.getAppKey());
-        params.put(KeruyunConstants.PARAM_SHOP_IDENTY, keruyunProperties.getShopIdenty());
-        params.put(KeruyunConstants.PARAM_TIMESTAMP, timestamp);
-        params.put(KeruyunConstants.PARAM_VERSION, keruyunProperties.getVersion());
+        params.put(KeruyunCommonConstants.PARAM_APP_KEY, keruyunProperties.getAppKey());
+        params.put(KeruyunCommonConstants.PARAM_SHOP_IDENTY, keruyunProperties.getShopIdenty());
+        params.put(KeruyunCommonConstants.PARAM_TIMESTAMP, timestamp);
+        params.put(KeruyunCommonConstants.PARAM_VERSION, keruyunProperties.getVersion());
         return params;
     }
 
@@ -83,7 +83,7 @@ public class KeruyunSignSupport {
     public String signForRequest(String compactBody, Map<String, String> publicParams, String token) {
         StringBuilder source = new StringBuilder(concatParams(publicParams));
         if (StringUtils.hasText(compactBody) && !"{}".equals(compactBody)) {
-            source.append(KeruyunConstants.BODY_PREFIX).append(compactBody);
+            source.append(KeruyunCommonConstants.BODY_PREFIX).append(compactBody);
         }
         if (token != null) {
             source.append(token);

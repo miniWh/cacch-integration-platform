@@ -1,7 +1,8 @@
 package com.cacch.integration.integration.keruyun.client;
 
 import com.cacch.integration.common.config.keruyun.KeruyunProperties;
-import com.cacch.integration.common.constant.keruyun.KeruyunConstants;
+import com.cacch.integration.common.constant.keruyun.KeruyunCommonConstants;
+import com.cacch.integration.common.constant.keruyun.KeruyunPathConstants;
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.ResultCode;
 import com.cacch.integration.integration.keruyun.client.dto.KeruyunTokenResponse;
@@ -44,7 +45,7 @@ public class KeruyunTokenClient {
     public KeruyunTokenResponse fetchToken() {
         if (keruyunProperties.isAuthConfigured()) {
             log.info("【{}】{}终止, reason=鉴权配置不完整, appKeyConfigured={}, shopIdentyConfigured={}, appSecretConfigured={}",
-                    KeruyunConstants.LOG_BIZ,
+                    KeruyunCommonConstants.LOG_BIZ,
                     ACTION,
                     !keruyunProperties.getAppKey().isBlank(),
                     !keruyunProperties.getShopIdenty().isBlank(),
@@ -60,23 +61,18 @@ public class KeruyunTokenClient {
 
         try {
             KeruyunTokenResponse response = httpClient.doGet(url, new HttpHeaders(),
-                    KeruyunConstants.LOG_BIZ, ACTION, KeruyunTokenResponse.class);
+                    KeruyunCommonConstants.LOG_BIZ, ACTION, KeruyunTokenResponse.class);
             if (response == null || !response.isSuccess()) {
                 String code = response == null ? "null" : String.valueOf(response.getCode());
                 String message = response == null ? "响应为空" : response.getMessage();
                 log.info("【{}】{}终止, code={}, message={}, timestamp={}",
-                        KeruyunConstants.LOG_BIZ, ACTION, code, message, timestamp);
-                throw new BizException(ResultCode.INTEGRATION_AUTH_FAILED,
-                        "客如云获取 token 失败: code=" + code + ", message=" + message);
+                        KeruyunCommonConstants.LOG_BIZ, ACTION, code, message, timestamp);
+                throw new BizException(ResultCode.INTEGRATION_AUTH_FAILED, "客如云获取 token 失败: code=" + code + ", message=" + message);
             }
-            log.info("【{}】{}成功, messageUuid={}, timestamp={}",
-                    KeruyunConstants.LOG_BIZ, ACTION, response.getMessageUuid(), timestamp);
+            log.info("【{}】{}成功, messageUuid={}, timestamp={}", KeruyunCommonConstants.LOG_BIZ, ACTION, response.getMessageUuid(), timestamp);
             return response;
-        } catch (BizException e) {
-            throw e;
         } catch (RestClientException e) {
-            log.info("【{}】{}终止, reason={}", KeruyunConstants.LOG_BIZ, ACTION, e.getMessage());
-            log.error("【{}】{} HTTP 调用失败, timestamp={}", KeruyunConstants.LOG_BIZ, ACTION, timestamp, e);
+            log.error("【{}】{} HTTP 调用失败, timestamp={}", KeruyunCommonConstants.LOG_BIZ, ACTION, timestamp, e);
             throw new BizException(ResultCode.INTEGRATION_TIMEOUT, "客如云获取 token 超时或网络异常", e);
         }
     }
@@ -86,9 +82,9 @@ public class KeruyunTokenClient {
      */
     private String buildUrl(Map<String, String> publicParams, String sign) {
         UriComponentsBuilder builder = UriComponentsBuilder
-                .fromUriString(keruyunProperties.getBaseUrl() + KeruyunConstants.PATH_GET_TOKEN);
+                .fromUriString(keruyunProperties.getBaseUrl() + KeruyunPathConstants.PATH_GET_TOKEN);
         publicParams.forEach(builder::queryParam);
-        builder.queryParam(KeruyunConstants.PARAM_SIGN, sign);
+        builder.queryParam(KeruyunCommonConstants.PARAM_SIGN, sign);
         return builder.build().encode().toUriString();
     }
 }

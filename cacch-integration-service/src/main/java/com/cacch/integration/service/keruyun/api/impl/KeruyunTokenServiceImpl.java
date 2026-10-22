@@ -1,7 +1,7 @@
 package com.cacch.integration.service.keruyun.api.impl;
 
 import com.cacch.integration.common.config.keruyun.KeruyunProperties;
-import com.cacch.integration.common.constant.keruyun.KeruyunConstants;
+import com.cacch.integration.common.constant.keruyun.KeruyunCommonConstants;
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.ResultCode;
 import com.cacch.integration.integration.keruyun.client.KeruyunTokenClient;
@@ -39,7 +39,7 @@ public class KeruyunTokenServiceImpl implements IKeruyunTokenService {
     public String getAccessToken() {
         if (keruyunProperties.isAuthConfigured()) {
             log.info("【{}Token】获取终止, reason=鉴权配置不完整, appKeyConfigured={}, shopIdentyConfigured={}, appSecretConfigured={}",
-                    KeruyunConstants.LOG_BIZ,
+                    KeruyunCommonConstants.LOG_BIZ,
                     !keruyunProperties.getAppKey().isBlank(),
                     !keruyunProperties.getShopIdenty().isBlank(),
                     !keruyunProperties.getAppSecret().isBlank());
@@ -47,23 +47,23 @@ public class KeruyunTokenServiceImpl implements IKeruyunTokenService {
                     "客如云鉴权配置不完整：请检查 keruyun.app-key / keruyun.shop-identy / keruyun.app-secret");
         }
 
-        String redisKey = KeruyunConstants.tokenRedisKey(keruyunProperties.getAppKey(), keruyunProperties.getShopIdenty());
+        String redisKey = KeruyunCommonConstants.tokenRedisKey(keruyunProperties.getAppKey(), keruyunProperties.getShopIdenty());
 
         String cachedToken = stringRedisTemplate.opsForValue().get(redisKey);
         if (StringUtils.hasText(cachedToken)) {
-            log.info("【{}Token】Redis 缓存命中, key={}", KeruyunConstants.LOG_BIZ, redisKey);
+            log.info("【{}Token】Redis 缓存命中, key={}", KeruyunCommonConstants.LOG_BIZ, redisKey);
             return cachedToken;
         }
 
         log.info("【{}Token】Redis 缓存未命中, key={}, 将请求客如云 token 接口",
-                KeruyunConstants.LOG_BIZ, redisKey);
+                KeruyunCommonConstants.LOG_BIZ, redisKey);
 
         KeruyunTokenResponse response = keruyunTokenClient.fetchToken();
         String token = response.getResult().getToken();
 
         stringRedisTemplate.opsForValue().set(redisKey, token, Duration.ofSeconds(keruyunProperties.getTokenCacheSeconds()));
         log.info("【{}Token】门店 token 已写入 Redis, key={}, ttl={}s",
-                KeruyunConstants.LOG_BIZ, redisKey, keruyunProperties.getTokenCacheSeconds());
+                KeruyunCommonConstants.LOG_BIZ, redisKey, keruyunProperties.getTokenCacheSeconds());
         return token;
     }
 }

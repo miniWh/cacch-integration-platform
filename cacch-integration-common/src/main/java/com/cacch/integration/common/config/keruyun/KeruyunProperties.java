@@ -1,6 +1,6 @@
 package com.cacch.integration.common.config.keruyun;
 
-import com.cacch.integration.common.constant.keruyun.KeruyunConstants;
+import com.cacch.integration.common.constant.keruyun.KeruyunCommonConstants;
 import lombok.Getter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.util.StringUtils;
@@ -63,14 +63,13 @@ public class KeruyunProperties {
                              String appSecret,
                              String version,
                              Long tokenCacheSeconds) {
-        this.baseUrl = trimTrailingSlash(
-                StringUtils.hasText(baseUrl) ? baseUrl.trim() : "https://openapi.keruyun.com");
+        this.baseUrl = trimTrailingSlash(baseUrl.trim());
         this.appKey = appKey != null ? appKey.trim() : "";
         this.shopIdenty = shopIdenty != null ? shopIdenty.trim() : "";
         this.appSecret = appSecret != null ? appSecret.trim() : "";
-        this.version = StringUtils.hasText(version) ? version.trim() : KeruyunConstants.DEFAULT_VERSION;
+        this.version = StringUtils.hasText(version) ? version.trim() : KeruyunCommonConstants.DEFAULT_VERSION;
         this.tokenCacheSeconds = tokenCacheSeconds != null && tokenCacheSeconds > 0
-                ? tokenCacheSeconds : KeruyunConstants.TOKEN_DEFAULT_TTL_SECONDS;
+                ? tokenCacheSeconds : KeruyunCommonConstants.TOKEN_DEFAULT_TTL_SECONDS;
     }
 
     /**
