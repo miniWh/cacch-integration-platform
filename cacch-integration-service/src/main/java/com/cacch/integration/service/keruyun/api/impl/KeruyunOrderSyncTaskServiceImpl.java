@@ -10,7 +10,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDate;
@@ -25,6 +27,11 @@ import java.util.Set;
  *
  * <p>提供任务创建、状态机 CAS 流转、断点续传进度更新与终态标记。
  * 创建与状态流转使用数据库唯一键 + 乐观锁保证并发安全。</p>
+ *
+ * <p><b>事务设计要点</b>：{@link #createTask} 使用 {@link TransactionTemplate}
+ * 以 {@link Propagation#REQUIRES_NEW} 编程式事务执行，确保每次任务创建在独立事务中，
+ * 唯一键冲突只回滚自己的小事务，不影响外层循环（见 {@link #createMissingTasks}）。
+ * 不使用 Spring 声明式事务的原因是外层循环为同类自调用，声明式 REQUIRES_NEW 不生效。</p>
  *
  * @author hongfu_zhou@cacch.com
  */
@@ -42,6 +49,7 @@ public class KeruyunOrderSyncTaskServiceImpl implements IKeruyunOrderSyncTaskSer
             KeruyunOrderConstants.DATE_TYPE_FINISH_BUSI_DATE, "OPEN_TIME", "FINISH_TIME", "SETTLE_TIME");
 
     private final KeruyunOrderSyncTaskMapper taskMapper;
+    private final TransactionTemplate transactionTemplate;
 
     @Override
     public KeruyunOrderSyncTaskDO getById(Long id) {
@@ -66,36 +74,40 @@ public class KeruyunOrderSyncTaskServiceImpl implements IKeruyunOrderSyncTaskSer
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class, propagation = org.springframework.transaction.annotation.Propagation.REQUIRED, timeout = 10)
     public KeruyunOrderSyncTaskDO createTask(LocalDate syncDate, String dateType) {
-        LocalDateTime start = syncDate.atStartOfDay();
-        LocalDateTime end = syncDate.atTime(LocalTime.MAX).withNano(0);
+        // 编程式 REQUIRES_NEW：每次创建独立事务，唯一键冲突只回滚自己的小事务
+        transactionTemplate.setPropagationBehavior(Propagation.REQUIRES_NEW.value());
+        transactionTemplate.setTimeout(10);
+        return transactionTemplate.execute(status -> {
+            LocalDateTime start = syncDate.atStartOfDay();
+            LocalDateTime end = syncDate.atTime(LocalTime.MAX).withNano(0);
 
-        KeruyunOrderSyncTaskDO task = new KeruyunOrderSyncTaskDO();
-        task.setSyncDate(syncDate);
-        task.setDateType(dateType);
-        task.setSyncWindowStart(start);
-        task.setSyncWindowEnd(end);
-        task.setStatus(KeruyunOrderSyncStatus.PENDING.name());
-        task.setRetryCount(0);
-        task.setLastPage(0);
-        task.setSuccessCount(0);
-        task.setFailureCount(0);
-        task.setVersion(0);
+            KeruyunOrderSyncTaskDO task = new KeruyunOrderSyncTaskDO();
+            task.setSyncDate(syncDate);
+            task.setDateType(dateType);
+            task.setSyncWindowStart(start);
+            task.setSyncWindowEnd(end);
+            task.setStatus(KeruyunOrderSyncStatus.PENDING.name());
+            task.setRetryCount(0);
+            task.setLastPage(0);
+            task.setSuccessCount(0);
+            task.setFailureCount(0);
+            task.setVersion(0);
 
-        try {
-            taskMapper.insert(task);
-            log.info("【{}】创建任务成功, syncDate={}, dateType={}, id={}",
-                    BIZ, syncDate, dateType, task.getId());
-            return task;
-        } catch (DuplicateKeyException e) {
-            log.info("【{}】任务已存在跳过, syncDate={}, dateType={}", BIZ, syncDate, dateType);
-            return null;
-        }
+            try {
+                taskMapper.insert(task);
+                log.info("【{}】创建任务成功, syncDate={}, dateType={}, id={}",
+                        BIZ, syncDate, dateType, task.getId());
+                return task;
+            } catch (DuplicateKeyException e) {
+                log.info("【{}】任务已存在跳过, syncDate={}, dateType={}", BIZ, syncDate, dateType);
+                status.setRollbackOnly();
+                return null;
+            }
+        });
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class, propagation = org.springframework.transaction.annotation.Propagation.REQUIRED, timeout = 30)
     public int createMissingTasks(LocalDate from, LocalDate to) {
         int created = 0;
         List<LocalDate> dates = new ArrayList<>();
@@ -116,7 +128,7 @@ public class KeruyunOrderSyncTaskServiceImpl implements IKeruyunOrderSyncTaskSer
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class, propagation = org.springframework.transaction.annotation.Propagation.REQUIRED, readOnly = false, timeout = 10)
+    @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED, readOnly = false, timeout = 10)
     public boolean transitionStatus(Long id, String expectedStatus, String newStatus) {
         KeruyunOrderSyncTaskDO db = taskMapper.selectById(id);
         if (db == null) {
@@ -139,7 +151,7 @@ public class KeruyunOrderSyncTaskServiceImpl implements IKeruyunOrderSyncTaskSer
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class, propagation = org.springframework.transaction.annotation.Propagation.REQUIRED, readOnly = false, timeout = 10)
+    @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED, readOnly = false, timeout = 10)
     public void updateProgress(Long id, int lastPage, Integer totalPage, int successCount, int failureCount) {
         KeruyunOrderSyncTaskDO db = taskMapper.selectById(id);
         if (db == null) {
@@ -157,7 +169,7 @@ public class KeruyunOrderSyncTaskServiceImpl implements IKeruyunOrderSyncTaskSer
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class, propagation = org.springframework.transaction.annotation.Propagation.REQUIRED, readOnly = false, timeout = 10)
+    @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED, readOnly = false, timeout = 10)
     public void markComplete(Long id, String finalStatus, String errorMessage) {
         KeruyunOrderSyncTaskDO db = taskMapper.selectById(id);
         if (db == null) {
@@ -176,7 +188,7 @@ public class KeruyunOrderSyncTaskServiceImpl implements IKeruyunOrderSyncTaskSer
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class, propagation = org.springframework.transaction.annotation.Propagation.REQUIRED, readOnly = false, timeout = 10)
+    @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED, readOnly = false, timeout = 10)
     public boolean retry(Long id) {
         KeruyunOrderSyncTaskDO db = taskMapper.selectById(id);
         if (db == null) {
