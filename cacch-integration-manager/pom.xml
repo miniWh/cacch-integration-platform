@@ -33,6 +33,12 @@
             <artifactId>spring-tx</artifactId>
         </dependency>
 
+        <!-- MapStruct（第三方订单响应 → 落库实体转换） -->
+        <dependency>
+            <groupId>org.mapstruct</groupId>
+            <artifactId>mapstruct</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
