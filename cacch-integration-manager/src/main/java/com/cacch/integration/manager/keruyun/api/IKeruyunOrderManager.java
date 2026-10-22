@@ -2,34 +2,36 @@ package com.cacch.integration.manager.keruyun.api;
 
 import com.cacch.integration.common.dto.keruyun.KeruyunOrderSyncResult;
 
-import java.util.List;
-
 /**
- * 客如云订单同步编排 Manager
+ * 客如云订单同步 Manager 接口
  *
- * <p>负责「时间窗校验 → 逐页调用客如云订单列表 → 单条落库」的编排，
- * HTTP 调用与数据库事务分别由 Client、Service 承担。</p>
+ * <p>同步链路：参数校验 → 取 token → 分页查询 → 逐条落库（单条失败不阻断）。
+ * 两种调用方式：手动透传查询（syncOrders）、按任务驱动（syncByTaskId）。</p>
  *
  * @author hongfu_zhou@cacch.com
  */
 public interface IKeruyunOrderManager {
 
     /**
-     * 按时间窗同步客如云订单到本地 stg_keruyun_order
+     * 手动指定时间窗口同步（调试/快速验证入口，不走控制表）
      *
-     * <p>查询跨度不得超过 31 天；单条落库失败不阻断整批，最终返回统计结果。</p>
-     *
-     * @param dateType        查询时间类型：FINISH_BUSI_DATE / OPEN_TIME / FINISH_TIME / SETTLE_TIME，不可为空
-     * @param startDate       查询开始时间，FINISH_BUSI_DATE 用 yyyy-MM-dd，其余用 yyyy-MM-dd HH:mm:ss
-     * @param endDate         查询结束时间，格式同 startDate
-     * @param orderTypeList   订单类型过滤列表，可为 null（不限制）
-     * @param orderStatusList 订单状态过滤列表，可为 null（不限制）
-     * @param pageSize        每页条数，为 null 时默认 50，超过 100 时按 100 截断
+     * @param dateType        查询时间类型
+     * @param startDate       查询开始时间
+     * @param endDate         查询结束时间
+     * @param orderTypeList   订单类型过滤（可为 null）
+     * @param orderStatusList 订单状态过滤（可为 null）
+     * @param pageSize        每页条数（null 时默认 50，超 100 截断）
      * @return 同步统计结果
-     * @throws com.cacch.integration.common.exception.BizException 时间类型非法、时间格式错误、
-     *                                                             区间超过 31 天或客如云接口调用失败时抛出
      */
     KeruyunOrderSyncResult syncOrders(String dateType, String startDate, String endDate,
-                                      List<String> orderTypeList, List<String> orderStatusList,
+                                      java.util.List<String> orderTypeList,
+                                      java.util.List<String> orderStatusList,
                                       Integer pageSize);
+
+    /**
+     * 按任务驱动同步（控制表入口，支持断点续传）
+     *
+     * @param taskId 任务主键
+     */
+    void syncByTaskId(Long taskId);
 }

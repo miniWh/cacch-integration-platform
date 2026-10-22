@@ -1,11 +1,13 @@
 package com.cacch.integration.manager.keruyun.api.impl;
 
 import com.cacch.integration.common.constant.keruyun.KeruyunOrderConstants;
+import com.cacch.integration.common.constant.keruyun.KeruyunOrderSyncStatus;
 import com.cacch.integration.common.dto.keruyun.KeruyunOrderSyncItem;
 import com.cacch.integration.common.dto.keruyun.KeruyunOrderSyncResult;
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.ResultCode;
 import com.cacch.integration.entity.keruyun.KeruyunOrderDO;
+import com.cacch.integration.entity.keruyun.KeruyunOrderSyncTaskDO;
 import com.cacch.integration.integration.keruyun.client.KeruyunOrderClient;
 import com.cacch.integration.integration.keruyun.client.dto.order.KeruyunOrderItem;
 import com.cacch.integration.integration.keruyun.client.dto.order.KeruyunOrderQueryRequest;
@@ -15,6 +17,7 @@ import com.cacch.integration.manager.keruyun.api.IKeruyunManager;
 import com.cacch.integration.manager.keruyun.api.IKeruyunOrderManager;
 import com.cacch.integration.manager.keruyun.convert.KeruyunOrderConverter;
 import com.cacch.integration.service.keruyun.api.IKeruyunOrderService;
+import com.cacch.integration.service.keruyun.api.IKeruyunOrderSyncTaskService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -58,6 +61,7 @@ public class KeruyunOrderManagerImpl implements IKeruyunOrderManager {
     private final KeruyunOrderClient keruyunOrderClient;
     private final IKeruyunOrderService keruyunOrderService;
     private final KeruyunOrderConverter keruyunOrderConverter;
+    private final IKeruyunOrderSyncTaskService taskService;
 
     @Override
     public KeruyunOrderSyncResult syncOrders(String dateType, String startDate, String endDate,
@@ -231,6 +235,153 @@ public class KeruyunOrderManagerImpl implements IKeruyunOrderManager {
             return KeruyunOrderConstants.ORDER_PAGE_SIZE_DEFAULT;
         }
         return Math.min(pageSize, KeruyunOrderConstants.ORDER_PAGE_SIZE_MAX);
+    }
+
+    @Override
+    public void syncByTaskId(Long taskId) {
+        KeruyunOrderSyncTaskDO task = taskService.getById(taskId);
+        if (task == null) {
+            log.info("【{}】任务驱动同步终止, reason=任务不存在, taskId={}", BIZ, taskId);
+            throw new BizException(ResultCode.PARAM_INVALID, "同步任务不存在: " + taskId);
+        }
+
+        // CAS 状态流转：PENDING → IN_PROGRESS；或 IN_PROGRESS 且 lastPage > 0（断点续传）
+        boolean canRun = taskService.transitionStatus(taskId,
+                KeruyunOrderSyncStatus.PENDING.name(),
+                KeruyunOrderSyncStatus.IN_PROGRESS.name());
+        if (!canRun) {
+            // 尝试断点续传（IN_PROGRESS + lastPage > 0 是允许的内部逻辑）
+            KeruyunOrderSyncTaskDO refetch = taskService.getById(taskId);
+            boolean isResumable = KeruyunOrderSyncStatus.IN_PROGRESS.name().equals(refetch.getStatus())
+                    && refetch.getLastPage() != null && refetch.getLastPage() > 0;
+            if (!isResumable) {
+                log.info("【{}】任务驱动同步终止, reason=任务正在执行或状态非法, taskId={}, status={}",
+                        BIZ, taskId, refetch.getStatus());
+                throw new BizException(ResultCode.PARAM_INVALID,
+                        "任务状态不允许执行: " + refetch.getStatus());
+            }
+        }
+
+        // 构建请求体
+        boolean isDay = KeruyunOrderConstants.DATE_TYPE_FINISH_BUSI_DATE.equals(task.getDateType());
+        String startStr = isDay
+                ? task.getSyncDate().format(DAY_FORMATTER)
+                : task.getSyncWindowStart().format(SECOND_FORMATTER);
+        String endStr = isDay
+                ? task.getSyncDate().format(DAY_FORMATTER)
+                : task.getSyncWindowEnd().format(SECOND_FORMATTER);
+
+        String token = keruyunManager.getAccessToken();
+        KeruyunOrderQueryRequest request = new KeruyunOrderQueryRequest();
+        request.setDateType(task.getDateType());
+        request.setStartDate(startStr);
+        request.setEndDate(endStr);
+
+        // 断点续传：从 last_page + 1 开始
+        int startPage = (task.getLastPage() == null || task.getLastPage() <= 0) ? 1 : task.getLastPage() + 1;
+        int pageSize = KeruyunOrderConstants.ORDER_PAGE_SIZE_DEFAULT;
+        String syncBatch = task.getDateType() + "-" + task.getSyncDate() + "-"
+                + LocalDateTime.now().format(DateTimeFormatter.ofPattern("HHmmss"));
+
+        KeruyunOrderSyncResult result = new KeruyunOrderSyncResult(task.getDateType(), startStr, endStr);
+        int pageNum = startPage;
+        int pageCount = 0;
+        int cumulativeSuccess = task.getSuccessCount() == null ? 0 : task.getSuccessCount();
+        int cumulativeFailure = task.getFailureCount() == null ? 0 : task.getFailureCount();
+
+        try {
+            while (pageNum <= KeruyunOrderConstants.ORDER_MAX_PAGE_GUARD) {
+                request.setPageBean(new KeruyunPageBean(String.valueOf(pageNum), String.valueOf(pageSize)));
+                KeruyunOrderQueryResponse response = keruyunOrderClient.queryOrderList(request, token);
+                KeruyunOrderQueryResponse.DataInfo data =
+                        response.getResult() == null ? null : response.getResult().getData();
+                if (data == null || data.getList() == null || data.getList().isEmpty()) {
+                    log.info("【{}】任务驱动查询无更多数据, taskId={}, dateType={}, pageNum={}",
+                            BIZ, taskId, task.getDateType(), pageNum);
+                    break;
+                }
+
+                pageCount++;
+                for (KeruyunOrderItem item : data.getList()) {
+                    KeruyunOrderSyncItem syncItem = new KeruyunOrderSyncItem();
+                    syncItem.setOrderId(item.getOrderId());
+                    syncItem.setBusiOrderNo(item.getBusiOrderNo());
+                    syncItem.setShopId(item.getShopId());
+                    syncItem.setPageNum(pageNum);
+
+                    if (!StringUtils.hasText(item.getOrderId())) {
+                        log.info("【{}】跳过订单, reason=orderId为空, taskId={}, pageNum={}",
+                                BIZ, taskId, pageNum);
+                        result.recordSkip(syncItem, "orderId为空");
+                        continue;
+                    }
+                    try {
+                        KeruyunOrderDO orderDO = keruyunOrderConverter.toDO(item);
+                        orderDO.setSyncBatch(syncBatch);
+                        orderDO.setSyncedAt(LocalDateTime.now());
+                        boolean inserted = keruyunOrderService.saveOrUpdate(orderDO);
+                        syncItem.setOperation(inserted
+                                ? KeruyunOrderSyncItem.Operation.INSERTED
+                                : KeruyunOrderSyncItem.Operation.UPDATED);
+                        result.recordSuccess(syncItem);
+                    } catch (Exception e) {
+                        log.info("【{}】单条落库终止, taskId={}, orderId={}, pageNum={}, reason={}",
+                                BIZ, taskId, item.getOrderId(), pageNum, e.getMessage());
+                        log.error("【{}】单条落库失败, taskId={}, orderId={}, pageNum={}",
+                                BIZ, taskId, item.getOrderId(), pageNum, e);
+                        result.recordFailure(syncItem, e.getMessage());
+                    }
+                }
+
+                // 每页更新进度（断点续传用）
+                cumulativeSuccess += result.getInsertedCount() + result.getUpdatedCount();
+                cumulativeFailure += result.getFailureCount();
+                Integer totalPage = parseIntOrDefault(data.getTotalPage(), pageNum);
+                int totalCount = 0;
+                if (StringUtils.hasText(data.getTotalCount())) {
+                    try {
+                        totalCount = Integer.parseInt(data.getTotalCount().trim());
+                    } catch (NumberFormatException ignore) {
+                    }
+                }
+                taskService.updateProgress(taskId, pageNum, totalPage,
+                        cumulativeSuccess, cumulativeFailure);
+
+                if (pageNum >= totalPage) {
+                    taskService.updateProgress(taskId, pageNum, totalPage,
+                            cumulativeSuccess, cumulativeFailure);
+                    break;
+                }
+                pageNum++;
+            }
+
+            if (pageNum > KeruyunOrderConstants.ORDER_MAX_PAGE_GUARD) {
+                log.warn("【{}】任务驱动翻页达到保护上限提前终止, taskId={}, maxPage={}",
+                        BIZ, taskId, KeruyunOrderConstants.ORDER_MAX_PAGE_GUARD);
+            }
+
+            result.setPageCount(pageCount);
+
+            // 标记终态
+            String finalStatus = result.getFailureCount() == 0
+                    ? KeruyunOrderSyncStatus.SUCCESS.name()
+                    : KeruyunOrderSyncStatus.PARTIAL.name();
+            taskService.markComplete(taskId, finalStatus,
+                    result.getFailureCount() == 0 ? null : "存在 " + result.getFailureCount() + " 条落库失败");
+
+            log.info("【{}】任务驱动同步完成, taskId={}, dateType={}, syncDate={}, pageCount={}, "
+                            + "totalCount={}, insertedCount={}, updatedCount={}, skipCount={}, failureCount={}, status={}",
+                    BIZ, taskId, task.getDateType(), task.getSyncDate(), pageCount, result.getTotalCount(),
+                    result.getInsertedCount(), result.getUpdatedCount(), result.getSkipCount(),
+                    result.getFailureCount(), finalStatus);
+
+        } catch (Exception e) {
+            log.error("【{}】任务驱动同步异常, taskId={}, dateType={}, syncDate={}",
+                    BIZ, taskId, task.getDateType(), task.getSyncDate(), e);
+            taskService.markComplete(taskId, KeruyunOrderSyncStatus.FAILED.name(), e.getMessage());
+            throw e;
+        }
+
     }
 
     /**
