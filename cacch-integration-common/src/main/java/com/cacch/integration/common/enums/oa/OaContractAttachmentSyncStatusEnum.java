@@ -36,6 +36,11 @@ public enum OaContractAttachmentSyncStatusEnum {
     RETRY("RETRY", "失败待重试"),
 
     /**
+     * 附件就绪待回传：OA 附件已获取并回填中间表，等待 CRM 合同修改调用
+     */
+    PENDING_CRM("PENDING_CRM", "附件就绪待回传"),
+
+    /**
      * 业务跳过：如 OA 附件缺失，终态
      */
     SKIPPED("SKIPPED", "已跳过");

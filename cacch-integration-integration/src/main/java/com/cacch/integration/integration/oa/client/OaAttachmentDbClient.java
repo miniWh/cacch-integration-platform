@@ -122,7 +122,7 @@ public class OaAttachmentDbClient {
     }
 
     /**
-     * 按附件引用查询第一条关联附件（REQ-OA-003 / F5）
+     * 按附件引用查询第一条关联附件
      *
      * <p>购销合同 {@code field0360} 的值即附件表 {@code ctp_attachment.sub_reference}；
      * 比较双方均转文本并 TRIM，避免隐式数值转换触发脏数据异常；命中多行时按附件 ID

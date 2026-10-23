@@ -51,4 +51,53 @@ public interface IOaContractAttachmentSyncService {
      * @return 实际回收的记录数
      */
     int reclaimTimeoutProcessing(int timeoutMinutes);
+
+    /**
+     * 乐观锁 CAS 抢占待处理记录（PENDING / RETRY → PROCESSING）
+     *
+     * @param id              中间记录主键
+     * @param expectedVersion 捞取时读到的乐观锁版本号
+     * @return true 表示抢占成功；false 表示并发冲突或状态已变化，调用方应跳过
+     */
+    boolean claimForProcess(Long id, Integer expectedVersion);
+
+    /**
+     * 附件就绪回填（PROCESSING → PENDING_CRM）
+     *
+     * @param id                 中间记录主键
+     * @param expectedVersion    抢占后的乐观锁版本号
+     * @param oaAttachmentId     OA 附件主键（ctp_attachment.ID）
+     * @param attachmentFileId   附件文件标识（ctp_attachment.file_url）
+     * @param attachmentFileName 附件文件名（ctp_attachment.filename）
+     * @param attachmentUrl      回传 CRM 的附件下载地址
+     * @return true 表示回填成功
+     */
+    boolean markAttachmentReady(Long id,
+                                Integer expectedVersion,
+                                String oaAttachmentId,
+                                String attachmentFileId,
+                                String attachmentFileName,
+                                String attachmentUrl);
+
+    /**
+     * 业务跳过回写（PROCESSING → SKIPPED）
+     *
+     * @param id              中间记录主键
+     * @param expectedVersion 抢占后的乐观锁版本号
+     * @param skipReason      业务跳过原因
+     * @return true 表示回写成功
+     */
+    boolean markSkipped(Long id, Integer expectedVersion, String skipReason);
+
+    /**
+     * 失败回写（PROCESSING → RETRY，retry_count 累加，不设上限）
+     *
+     * <p>失败原因自动截断至 {@code OaContractAttachmentConstants.MESSAGE_MAX_LENGTH}。</p>
+     *
+     * @param id              中间记录主键
+     * @param expectedVersion 抢占后的乐观锁版本号
+     * @param syncMessage     失败原因
+     * @return true 表示回写成功
+     */
+    boolean markRetry(Long id, Integer expectedVersion, String syncMessage);
 }

@@ -100,4 +100,107 @@ public interface OaContractAttachmentSyncMapper extends BaseMapper<OaContractAtt
             "AND last_sync_at IS NOT NULL " +
             "AND last_sync_at < #{threshold}")
     int reclaimTimeoutProcessing(@Param("threshold") LocalDateTime threshold);
+
+    /**
+     * 乐观锁 CAS 抢占待处理记录（PENDING / RETRY → PROCESSING）
+     *
+     * <p>以 id + version + 状态集合为条件原子更新，更新行数为 0 表示记录已被
+     * 其他执行轮次抢走或状态已变化，调用方应跳过该记录。</p>
+     *
+     * @param id              中间记录主键
+     * @param expectedVersion 捞取时读到的乐观锁版本号
+     * @return 1 表示抢占成功；0 表示抢占失败（并发冲突 / 状态已变化）
+     */
+    @Update("UPDATE t_integration_oa_contract_attachment_sync " +
+            "SET sync_status = 'PROCESSING', version = version + 1, " +
+            "last_sync_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP " +
+            "WHERE id = #{id} " +
+            "AND version = #{expectedVersion} " +
+            "AND sync_status IN ('PENDING', 'RETRY') " +
+            "AND is_deleted = 0")
+    int claimForProcess(@Param("id") Long id, @Param("expectedVersion") Integer expectedVersion);
+
+    /**
+     * 附件就绪回填（PROCESSING → PENDING_CRM）
+     *
+     * <p>回填 OA 附件信息与下载地址，状态置为待 CRM 回传；抢占失败（非 PROCESSING）
+     * 或版本不匹配时不更新。</p>
+     *
+     * @param id                 中间记录主键
+     * @param expectedVersion    抢占后的乐观锁版本号
+     * @param oaAttachmentId     OA 附件主键（ctp_attachment.ID）
+     * @param attachmentFileId   附件文件标识（ctp_attachment.file_url）
+     * @param attachmentFileName 附件文件名（ctp_attachment.filename）
+     * @param attachmentUrl      回传 CRM 的附件下载地址
+     * @return 1 表示回填成功；0 表示状态/版本不匹配未更新
+     */
+    @Update("UPDATE t_integration_oa_contract_attachment_sync " +
+            "SET oa_attachment_id = #{oaAttachmentId}, " +
+            "attachment_file_id = #{attachmentFileId}, " +
+            "attachment_file_name = #{attachmentFileName}, " +
+            "attachment_url = #{attachmentUrl}, " +
+            "sync_status = 'PENDING_CRM', " +
+            "skip_reason = NULL, " +
+            "version = version + 1, " +
+            "last_sync_at = CURRENT_TIMESTAMP, " +
+            "updated_at = CURRENT_TIMESTAMP " +
+            "WHERE id = #{id} " +
+            "AND version = #{expectedVersion} " +
+            "AND sync_status = 'PROCESSING' " +
+            "AND is_deleted = 0")
+    int markAttachmentReady(@Param("id") Long id,
+                            @Param("expectedVersion") Integer expectedVersion,
+                            @Param("oaAttachmentId") String oaAttachmentId,
+                            @Param("attachmentFileId") String attachmentFileId,
+                            @Param("attachmentFileName") String attachmentFileName,
+                            @Param("attachmentUrl") String attachmentUrl);
+
+    /**
+     * 业务跳过回写（PROCESSING → SKIPPED）
+     *
+     * <p>用于按附件引用查不到 OA 附件等业务性终止场景，仅记录原因不参与重试。</p>
+     *
+     * @param id              中间记录主键
+     * @param expectedVersion 抢占后的乐观锁版本号
+     * @param skipReason      业务跳过原因
+     * @return 1 表示回写成功；0 表示状态/版本不匹配未更新
+     */
+    @Update("UPDATE t_integration_oa_contract_attachment_sync " +
+            "SET sync_status = 'SKIPPED', " +
+            "skip_reason = #{skipReason}, " +
+            "version = version + 1, " +
+            "last_sync_at = CURRENT_TIMESTAMP, " +
+            "updated_at = CURRENT_TIMESTAMP " +
+            "WHERE id = #{id} " +
+            "AND version = #{expectedVersion} " +
+            "AND sync_status = 'PROCESSING' " +
+            "AND is_deleted = 0")
+    int markSkipped(@Param("id") Long id,
+                    @Param("expectedVersion") Integer expectedVersion,
+                    @Param("skipReason") String skipReason);
+
+    /**
+     * 失败回写（PROCESSING → RETRY，retry_count 累加，不设上限）
+     *
+     * <p>用于处理过程异常场景；记录保持 RETRY，下次执行继续捞取重试。</p>
+     *
+     * @param id              中间记录主键
+     * @param expectedVersion 抢占后的乐观锁版本号
+     * @param syncMessage     失败原因（调用方须已截断至 500 字符内）
+     * @return 1 表示回写成功；0 表示状态/版本不匹配未更新
+     */
+    @Update("UPDATE t_integration_oa_contract_attachment_sync " +
+            "SET sync_status = 'RETRY', " +
+            "sync_message = #{syncMessage}, " +
+            "retry_count = retry_count + 1, " +
+            "version = version + 1, " +
+            "last_sync_at = CURRENT_TIMESTAMP, " +
+            "updated_at = CURRENT_TIMESTAMP " +
+            "WHERE id = #{id} " +
+            "AND version = #{expectedVersion} " +
+            "AND sync_status = 'PROCESSING' " +
+            "AND is_deleted = 0")
+    int markRetry(@Param("id") Long id,
+                  @Param("expectedVersion") Integer expectedVersion,
+                  @Param("syncMessage") String syncMessage);
 }

@@ -95,6 +95,71 @@ public class OaContractAttachmentSyncServiceImpl implements IOaContractAttachmen
         return reclaimed;
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED, timeout = 30)
+    public boolean claimForProcess(Long id, Integer expectedVersion) {
+        if (id == null || expectedVersion == null) {
+            log.info("【{}】抢占跳过, reason=参数为空, id={}, version={}", BIZ, id, expectedVersion);
+            return false;
+        }
+        int claimed = syncMapper.claimForProcess(id, expectedVersion);
+        if (claimed == 0) {
+            log.info("【{}】抢占失败跳过处理, id={}, version={}, reason=并发冲突或状态已变化", BIZ, id, expectedVersion);
+        }
+        return claimed > 0;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED, timeout = 30)
+    public boolean markAttachmentReady(Long id,
+                                       Integer expectedVersion,
+                                       String oaAttachmentId,
+                                       String attachmentFileId,
+                                       String attachmentFileName,
+                                       String attachmentUrl) {
+        int updated = syncMapper.markAttachmentReady(id, expectedVersion,
+                oaAttachmentId, attachmentFileId, attachmentFileName, attachmentUrl);
+        if (updated == 0) {
+            log.info("【{}】附件就绪回填未生效, id={}, version={}, reason=状态或版本已变化", BIZ, id, expectedVersion);
+        }
+        return updated > 0;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED, timeout = 30)
+    public boolean markSkipped(Long id, Integer expectedVersion, String skipReason) {
+        int updated = syncMapper.markSkipped(id, expectedVersion, skipReason);
+        if (updated == 0) {
+            log.info("【{}】跳过回写未生效, id={}, version={}, skipReason={}",
+                    BIZ, id, expectedVersion, skipReason);
+        }
+        return updated > 0;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED, timeout = 30)
+    public boolean markRetry(Long id, Integer expectedVersion, String syncMessage) {
+        String message = truncateMessage(syncMessage);
+        int updated = syncMapper.markRetry(id, expectedVersion, message);
+        if (updated == 0) {
+            log.info("【{}】失败回写未生效, id={}, version={}, reason=状态或版本已变化", BIZ, id, expectedVersion);
+        }
+        return updated > 0;
+    }
+
+    /**
+     * 失败原因截断至 {@code MESSAGE_MAX_LENGTH}
+     *
+     * @param message 原始失败原因，可空
+     * @return 截断后的失败原因；入参为空时返回 null
+     */
+    private static String truncateMessage(String message) {
+        if (message == null || message.length() <= OaContractAttachmentConstants.MESSAGE_MAX_LENGTH) {
+            return message;
+        }
+        return message.substring(0, OaContractAttachmentConstants.MESSAGE_MAX_LENGTH);
+    }
+
     /**
      * 扫描行转中间记录 DO（主键预生成，初始状态 PENDING）
      *
