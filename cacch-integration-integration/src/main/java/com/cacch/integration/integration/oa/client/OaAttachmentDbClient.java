@@ -26,8 +26,11 @@ import java.util.Optional;
  *
  * <p>内部购销合同表 {@code formmain_5296} 的 NC 单号字段为 {@code field0273}，
  * {@code field0360} 为 NC 单号对应的附件引用字段，值对应致远 OA 附件表 {@code ctp_attachment}
- * 的 {@code sub_reference}（OA 含义：附件归属的子引用）；同一 NC 单号命中多附件时按附件 ID
+ * 的 {@code sub_reference}（OA 含义：附件归属的子引用）；同一引用命中多附件时按附件 ID
  * 升序取第一条。<strong>禁止</strong>对 OA 库执行写操作。</p>
+ *
+ * <p>提供两种查询入口：按 NC 单号（{@code field0273} = {@code sub_reference}，历史链路）与
+ * 按附件引用（{@code field0360} = {@code sub_reference}，REQ-OA-003 购销合同附件回传链路）。</p>
  *
  * @author hongfu_zhou@cacch.com
  */
@@ -110,6 +113,67 @@ public class OaAttachmentDbClient {
         } catch (Exception e) {
             log.info("【{}】按NC单号查询失败, ncNo={}, reason={}", BIZ, trimmed, e.getMessage());
             log.error("【{}】按NC单号查询异常, ncNo={}", BIZ, trimmed, e);
+            throw e;
+        }
+    }
+
+    /**
+     * 按附件引用查询第一条关联附件（REQ-OA-003 / F5）
+     *
+     * <p>购销合同 {@code field0360} 的值即附件表 {@code ctp_attachment.sub_reference}；
+     * 比较双方均转文本并 TRIM，避免隐式数值转换触发脏数据异常；命中多行时按附件 ID
+     * 升序仅取第一条。</p>
+     *
+     * @param attachmentRef 合同附件引用（对应合同表 field0360），不可为空
+     * @return 第一条附件行；引用无匹配或 OA 数据源未配置时返回 empty
+     */
+    public Optional<OaAttachmentRow> findFirstAttachmentByRef(String attachmentRef) {
+        if (!StringUtils.hasText(attachmentRef)) {
+            log.info("【{}】按附件引用查询终止, reason=attachmentRef为空", BIZ);
+            return Optional.empty();
+        }
+        JdbcTemplate jdbc = oaJdbcTemplateProvider.getIfAvailable();
+        if (jdbc == null) {
+            log.info("【{}】按附件引用查询终止, reason=OA数据源未配置(oa.datasource.url)", BIZ);
+            return Optional.empty();
+        }
+
+        DbProduct product = OaDbDialectSupport.detect(jdbc);
+        String subRefExpr = OaDbDialectSupport.castColumnAsText("a.sub_reference", product);
+
+        String sql = """
+                SELECT %s AS attachment_id,
+                       %s AS file_url,
+                       %s AS file_name
+                FROM %s a
+                WHERE TRIM(%s) = ?
+                ORDER BY a.id
+                """.formatted(
+                OaDbDialectSupport.castColumnAsText("a.id", product),
+                OaDbDialectSupport.castColumnAsText("a.file_url", product),
+                OaDbDialectSupport.castColumnAsText("a.filename", product),
+                OaConstants.CTP_ATTACHMENT_TABLE,
+                subRefExpr);
+        List<Object> args = new ArrayList<>();
+        args.add(attachmentRef.trim());
+        sql = OaDbDialectSupport.appendPagination(sql, args, 1, product);
+        ReadOnlyOaJdbcTemplate.assertSelectOnly(sql);
+
+        String trimmed = attachmentRef.trim();
+        log.info("【{}】按附件引用查询附件, attachmentRef={}", BIZ, trimmed);
+        try {
+            List<OaAttachmentRow> rows = jdbc.query(sql, new AttachmentRowMapper(), args.toArray());
+            if (rows.isEmpty()) {
+                log.info("【{}】按附件引用查询无结果, attachmentRef={}", BIZ, trimmed);
+                return Optional.empty();
+            }
+            OaAttachmentRow row = rows.getFirst();
+            log.info("【{}】按附件引用查询命中, attachmentRef={}, attachmentId={}, fileName={}, fileUrl={}",
+                    BIZ, trimmed, row.id(), row.fileName(), row.fileUrl());
+            return Optional.of(row);
+        } catch (Exception e) {
+            log.info("【{}】按附件引用查询失败, attachmentRef={}, reason={}", BIZ, trimmed, e.getMessage());
+            log.error("【{}】按附件引用查询异常, attachmentRef={}", BIZ, trimmed, e);
             throw e;
         }
     }
