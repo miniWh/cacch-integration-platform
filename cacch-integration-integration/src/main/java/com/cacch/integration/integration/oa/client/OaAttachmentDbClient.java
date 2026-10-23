@@ -70,29 +70,7 @@ public class OaAttachmentDbClient {
         }
 
         DbProduct product = OaDbDialectSupport.detect(jdbc);
-        String ncNoExpr = OaDbDialectSupport.castColumnAsText(
-                "m." + OaConstants.CONTRACT_FIELD_NC_NO, product);
-        String refExpr = OaDbDialectSupport.castColumnAsText(
-                "m." + OaConstants.CONTRACT_FIELD_ATTACHMENT_REF, product);
-        String subRefExpr = OaDbDialectSupport.castColumnAsText("a.sub_reference", product);
-
-        String sql = """
-                SELECT %s AS attachment_id,
-                       %s AS file_url,
-                       %s AS file_name
-                FROM %s m
-                INNER JOIN %s a ON %s = TRIM(%s)
-                WHERE TRIM(%s) = ?
-                ORDER BY a.id
-                """.formatted(
-                OaDbDialectSupport.castColumnAsText("a.id", product),
-                OaDbDialectSupport.castColumnAsText("a.file_url", product),
-                OaDbDialectSupport.castColumnAsText("a.filename", product),
-                OaConstants.CONTRACT_FORM_MAIN,
-                OaConstants.CTP_ATTACHMENT_TABLE,
-                subRefExpr,
-                refExpr,
-                ncNoExpr);
+        String sql = getString(product);
         List<Object> args = new ArrayList<>();
         args.add(ncNo.trim());
         sql = OaDbDialectSupport.appendPagination(sql, args, 1, product);
@@ -117,6 +95,32 @@ public class OaAttachmentDbClient {
         }
     }
 
+    private static @NonNull String getString(DbProduct product) {
+        String ncNoExpr = OaDbDialectSupport.castColumnAsText(
+                "m." + OaConstants.CONTRACT_FIELD_NC_NO, product);
+        String refExpr = OaDbDialectSupport.castColumnAsText(
+                "m." + OaConstants.CONTRACT_FIELD_ATTACHMENT_REF, product);
+        String subRefExpr = OaDbDialectSupport.castColumnAsText("a.sub_reference", product);
+
+        return """
+                SELECT %s AS attachment_id,
+                       %s AS file_url,
+                       %s AS file_name
+                FROM %s m
+                INNER JOIN %s a ON %s = TRIM(%s)
+                WHERE TRIM(%s) = ?
+                ORDER BY a.id
+                """.formatted(
+                OaDbDialectSupport.castColumnAsText("a.id", product),
+                OaDbDialectSupport.castColumnAsText("a.file_url", product),
+                OaDbDialectSupport.castColumnAsText("a.filename", product),
+                OaConstants.CONTRACT_FORM_MAIN,
+                OaConstants.CTP_ATTACHMENT_TABLE,
+                subRefExpr,
+                refExpr,
+                ncNoExpr);
+    }
+
     /**
      * 按附件引用查询第一条关联附件（REQ-OA-003 / F5）
      *
@@ -139,21 +143,7 @@ public class OaAttachmentDbClient {
         }
 
         DbProduct product = OaDbDialectSupport.detect(jdbc);
-        String subRefExpr = OaDbDialectSupport.castColumnAsText("a.sub_reference", product);
-
-        String sql = """
-                SELECT %s AS attachment_id,
-                       %s AS file_url,
-                       %s AS file_name
-                FROM %s a
-                WHERE TRIM(%s) = ?
-                ORDER BY a.id
-                """.formatted(
-                OaDbDialectSupport.castColumnAsText("a.id", product),
-                OaDbDialectSupport.castColumnAsText("a.file_url", product),
-                OaDbDialectSupport.castColumnAsText("a.filename", product),
-                OaConstants.CTP_ATTACHMENT_TABLE,
-                subRefExpr);
+        String sql = getSql(product);
         List<Object> args = new ArrayList<>();
         args.add(attachmentRef.trim());
         sql = OaDbDialectSupport.appendPagination(sql, args, 1, product);
@@ -176,6 +166,24 @@ public class OaAttachmentDbClient {
             log.error("【{}】按附件引用查询异常, attachmentRef={}", BIZ, trimmed, e);
             throw e;
         }
+    }
+
+    private static @NonNull String getSql(DbProduct product) {
+        String subRefExpr = OaDbDialectSupport.castColumnAsText("a.sub_reference", product);
+
+        return """
+                SELECT %s AS attachment_id,
+                       %s AS file_url,
+                       %s AS file_name
+                FROM %s a
+                WHERE TRIM(%s) = ?
+                ORDER BY a.id
+                """.formatted(
+                OaDbDialectSupport.castColumnAsText("a.id", product),
+                OaDbDialectSupport.castColumnAsText("a.file_url", product),
+                OaDbDialectSupport.castColumnAsText("a.filename", product),
+                OaConstants.CTP_ATTACHMENT_TABLE,
+                subRefExpr);
     }
 
     /**
