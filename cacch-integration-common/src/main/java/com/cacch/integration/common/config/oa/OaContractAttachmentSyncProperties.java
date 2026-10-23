@@ -28,12 +28,23 @@ public class OaContractAttachmentSyncProperties {
      */
     private final int batchSize;
 
-    public OaContractAttachmentSyncProperties(Boolean enabled, Integer scanChunkSize, Integer batchSize) {
+    /**
+     * PROCESSING 状态超时回收阈值（分钟）：超时未回写最终状态的记录视为僵尸记录，回收为 RETRY
+     */
+    private final int processingTimeoutMinutes;
+
+    public OaContractAttachmentSyncProperties(Boolean enabled,
+                                              Integer scanChunkSize,
+                                              Integer batchSize,
+                                              Integer processingTimeoutMinutes) {
         this.enabled = enabled == null || enabled;
         this.scanChunkSize = normalizeChunkSize(scanChunkSize);
         this.batchSize = batchSize != null && batchSize > 0
                 ? batchSize
                 : OaContractAttachmentConstants.DEFAULT_BATCH_SIZE;
+        this.processingTimeoutMinutes = processingTimeoutMinutes != null && processingTimeoutMinutes > 0
+                ? processingTimeoutMinutes
+                : OaContractAttachmentConstants.DEFAULT_PROCESSING_TIMEOUT_MINUTES;
     }
 
     /**

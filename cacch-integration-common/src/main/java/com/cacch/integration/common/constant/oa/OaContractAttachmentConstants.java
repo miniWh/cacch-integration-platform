@@ -71,6 +71,11 @@ public final class OaContractAttachmentConstants {
     public static final int DEFAULT_BATCH_SIZE = 200;
 
     /**
+     * 默认 PROCESSING 超时回收阈值（分钟）
+     */
+    public static final int DEFAULT_PROCESSING_TIMEOUT_MINUTES = 10;
+
+    /**
      * 按 FINISHEDFLAG 转换流程状态快照（对齐原查询 SQL 的 CASE 规则）
      *
      * @param finishedFlag OA 购销合同 FINISHEDFLAG 值，可为 null

@@ -6,7 +6,9 @@ import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -64,4 +66,38 @@ public interface OaContractAttachmentSyncMapper extends BaseMapper<OaContractAtt
             "WHERE t_integration_oa_contract_attachment_sync.is_deleted = 0" +
             "</script>")
     int upsertBatch(@Param("list") List<OaContractAttachmentSyncDO> records);
+
+    /**
+     * 捞取待处理记录（PENDING / RETRY，不设失败次数上限）
+     *
+     * <p>不校验 retry_count（仅观测字段），单次捞取条数由调用方限制；
+     * 按 updated_at 升序优先处理最早写入的数据。</p>
+     *
+     * @param limit 最大捞取条数
+     * @return 待处理记录列表；无数据时返回空列表（非 null）
+     */
+    @Select("SELECT * FROM t_integration_oa_contract_attachment_sync " +
+            "WHERE sync_status IN ('PENDING', 'RETRY') " +
+            "AND is_deleted = 0 " +
+            "ORDER BY updated_at ASC, id ASC " +
+            "LIMIT #{limit}")
+    List<OaContractAttachmentSyncDO> selectPendingForProcess(@Param("limit") int limit);
+
+    /**
+     * 回收超时 PROCESSING 记录为 RETRY
+     *
+     * <p>PROCESSING 表示已被任务抢占正在处理；超过阈值仍未回写最终状态的记录视为
+     * 任务异常遗留的僵尸记录，回收为 RETRY 以便下次执行重新捞取。乐观锁抢占（F8）
+     * 接入前正常运行不会产生 PROCESSING 记录，本方法回收数恒为 0。</p>
+     *
+     * @param threshold 回收阈值时间点，last_sync_at 早于该时间点的 PROCESSING 记录被回收
+     * @return 实际回收的记录数
+     */
+    @Update("UPDATE t_integration_oa_contract_attachment_sync " +
+            "SET sync_status = 'RETRY', version = version + 1, updated_at = CURRENT_TIMESTAMP " +
+            "WHERE sync_status = 'PROCESSING' " +
+            "AND is_deleted = 0 " +
+            "AND last_sync_at IS NOT NULL " +
+            "AND last_sync_at < #{threshold}")
+    int reclaimTimeoutProcessing(@Param("threshold") LocalDateTime threshold);
 }

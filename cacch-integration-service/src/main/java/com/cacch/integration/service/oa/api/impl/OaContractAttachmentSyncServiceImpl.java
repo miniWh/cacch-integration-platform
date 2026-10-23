@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -38,7 +39,7 @@ public class OaContractAttachmentSyncServiceImpl implements IOaContractAttachmen
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED, readOnly = false, timeout = 30)
+    @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED, timeout = 30)
     public int upsertFromScan(List<OaContractRow> rows) {
         if (rows == null || rows.isEmpty()) {
             log.info("【{}】扫描结果为空, 跳过入库", BIZ);
@@ -69,6 +70,29 @@ public class OaContractAttachmentSyncServiceImpl implements IOaContractAttachmen
         log.info("【{}】扫描结果入库完成, rows={}, 去重后={}, 受影响行数={}",
                 BIZ, rows.size(), distinct.size(), affected);
         return distinct.size();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class, propagation = Propagation.SUPPORTS, readOnly = true, timeout = 10)
+    public List<OaContractAttachmentSyncDO> listPendingForProcess(int limit) {
+        if (limit <= 0) {
+            log.info("【{}】捞取待处理跳过, reason=捞取条数非法, limit={}", BIZ, limit);
+            return List.of();
+        }
+        return syncMapper.selectPendingForProcess(limit);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED, timeout = 30)
+    public int reclaimTimeoutProcessing(int timeoutMinutes) {
+        if (timeoutMinutes <= 0) {
+            log.info("【{}】PROCESSING 超时回收跳过, reason=回收阈值非法, timeoutMinutes={}", BIZ, timeoutMinutes);
+            return 0;
+        }
+        LocalDateTime threshold = LocalDateTime.now().minusMinutes(timeoutMinutes);
+        int reclaimed = syncMapper.reclaimTimeoutProcessing(threshold);
+        log.info("【{}】PROCESSING 超时回收完成, threshold={}, reclaimed={}", BIZ, threshold, reclaimed);
+        return reclaimed;
     }
 
     /**

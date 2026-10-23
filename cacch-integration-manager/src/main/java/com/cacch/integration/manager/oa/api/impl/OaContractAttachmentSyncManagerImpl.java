@@ -3,6 +3,7 @@ package com.cacch.integration.manager.oa.api.impl;
 import com.cacch.integration.common.config.oa.OaContractAttachmentSyncProperties;
 import com.cacch.integration.common.constant.oa.OaContractAttachmentConstants;
 import com.cacch.integration.common.dto.oa.OaContractAttachmentSyncResult;
+import com.cacch.integration.entity.oa.OaContractAttachmentSyncDO;
 import com.cacch.integration.integration.oa.client.OaContractDbClient;
 import com.cacch.integration.integration.oa.client.dto.OaContractRow;
 import com.cacch.integration.manager.oa.api.IOaContractAttachmentSyncManager;
@@ -15,10 +16,6 @@ import java.util.List;
 
 /**
  * OA 货物购销合同附件回传 CRM 编排实现
- *
- * <p>当前实现覆盖 F2：中间表 NOT IN 增量扫描入库。CRM 回传处理阶段（F4-F9：
- * 待处理捞取、乐观锁抢占、线程池并发、状态回写、告警）由后续功能点接入，
- * 本轮 {@code picked} 恒为 0。</p>
  *
  * <p>执行锁（Redis 分布式互斥）随处理阶段一并接入；当前阶段由 ESB 侧
  * 保证调用串行。</p>
@@ -54,8 +51,20 @@ public class OaContractAttachmentSyncManagerImpl implements IOaContractAttachmen
         List<OaContractRow> rows = oaContractDbClient.scanContractsNotIn(excludedIds, properties.getScanChunkSize());
         result.setScanned(syncService.upsertFromScan(rows));
 
-        log.info("【{}】本轮扫描阶段完成, scanned={}, costMs={}",
-                BIZ, result.getScanned(), System.currentTimeMillis() - startMs);
+        // 先回收超时 PROCESSING 僵尸记录，再捞取待处理数据（PENDING / RETRY，不设失败上限）
+        int reclaimed = syncService.reclaimTimeoutProcessing(properties.getProcessingTimeoutMinutes());
+        List<OaContractAttachmentSyncDO> pendingList = syncService.listPendingForProcess(properties.getBatchSize());
+        result.setPicked(pendingList.size());
+        log.info("【{}】待处理捞取完成, reclaimed={}, picked={}, limit={}",
+                BIZ, reclaimed, pendingList.size(), properties.getBatchSize());
+
+        // 处理链路（乐观锁抢占 → OA 附件 → CRM 回传 → 状态回写/告警）；
+        // 当前阶段不动状态，避免占用记录导致后续轮次无法捞取
+        pendingList.forEach(record -> log.info("【{}】待处理记录待后续阶段处理, id={}, oaFormMainId={}, ncOrderNo={}, retryCount={}",
+                BIZ, record.getId(), record.getOaFormMainId(), record.getNcOrderNo(), record.getRetryCount()));
+
+        log.info("【{}】本轮执行完成, scanned={}, picked={}, costMs={}",
+                BIZ, result.getScanned(), result.getPicked(), System.currentTimeMillis() - startMs);
         return result;
     }
 }
