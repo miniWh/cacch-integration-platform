@@ -108,6 +108,7 @@ draft → reviewing → approved → in-progress → testing → done → closed
 |------|------|------|------|------|------|
 | REQ-CRM-001 | CRM订单同步OA表单 | CRM | integration | reviewing | [crm/integration/REQ-CRM-001-CRM订单同步OA表单.md](./crm/integration/REQ-CRM-001-CRM订单同步OA表单.md) |
 | REQ-OA-001 | 国内登记报告资料列表附件上传 | OA | feature | draft | [oa/feature/REQ-OA-001-国内登记报告资料列表附件上传.md](./oa/feature/REQ-OA-001-国内登记报告资料列表附件上传.md) |
+| REQ-OA-003 | OA货物购销合同附件回传CRM合同 | OA | integration | draft | [oa/integration/REQ-OA-003-货物购销合同附件回传CRM.md](./oa/integration/REQ-OA-003-货物购销合同附件回传CRM.md) |
 | REQ-WECOM-001 | 智能表格人员忙闲状态 | WECOM | feature | draft | wecom/feature/ (待创建) |
 | REQ-PLAT-001 | 法大大企业及个人实名认证 | PLAT | integration | draft | [platform/integration/REQ-PLAT-001-法大大企业及个人实名认证.md](./platform/integration/REQ-PLAT-001-法大大企业及个人实名认证.md) |
 | REQ-MOKA-001 | iHR人员信息同步Moka | MOKA | integration | draft | [moka/integration/REQ-MOKA-001-iHR人员信息同步Moka.md](./moka/integration/REQ-MOKA-001-iHR人员信息同步Moka.md) |
