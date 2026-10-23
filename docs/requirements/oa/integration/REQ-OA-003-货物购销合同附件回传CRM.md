@@ -375,6 +375,7 @@ crm:
 | service | `oa/api/IOaContractAttachmentSyncLockService.java` + `impl` | 新增：Redis 分布式执行锁 |
 | manager | `oa/api/IOaContractAttachmentSyncManager.java` + `impl` | 新增：执行编排与并发处理 |
 | web | `controller/oa/OaContractAttachmentSyncController.java` | 新增：执行 / 状态查询 / 重置重试 |
+| web | `config/oa/OaContractAttachmentConfiguration.java` | 新增：注册 `OaContractAttachmentSyncProperties` |
 | web | `config/oa/OaContractAttachmentAsyncConfig.java` | 新增：`oaContractAttachmentExecutor` 线程池 |
 | web | `dto/oa/request/OaContractAttachmentSyncExecuteRequest.java`、`OaContractAttachmentSyncQueryRequest.java`、`dto/oa/vo/OaContractAttachmentSyncRecordVO.java`、`OaContractAttachmentSyncExecuteVO.java` | 新增 |
 | web | `convert/oa/OaContractAttachmentSyncConverter.java` | 新增：MapStruct 转换 |
@@ -411,6 +412,7 @@ ORDER BY fm.ID
 实现要点：
 
 - **分片**：`scan-chunk-size` 默认 500，**必须 ≤ 1000**，规避 Oracle `ORA-01795`（IN 列表最多 1000 个表达式）；
+- **跨分片合并**：单个分片查询只排除了当前分片，其他分片已入库 ID 仍会命中本片结果，各片结果必须按**全集排除列表**二次过滤并跨片去重后合并；
 - **列表为空**：中间表无数据时不下发 `NOT IN` 条件，走首次全量；
 - **禁止 NULL**：`NOT IN` 子查询/列表含 `NULL` 会导致整体返回空集，排除列表只取中间表非空 `oa_form_main_id`，并在 Java 侧过滤 null；
 - 分页通过 `OaDbDialectSupport.appendPagination` 适配 Oracle；
