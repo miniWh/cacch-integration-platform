@@ -323,6 +323,8 @@ CREATE INDEX IF NOT EXISTS idx_oa_contract_attachment_sync_nc
 ```
 
 > 主键 `BIGINT` 由 MyBatis-Plus 雪花算法生成，不加 `SERIAL`；`sync_status` 取值见 `OaContractAttachmentSyncStatusEnum`；`version` 为乐观锁字段。
+> 唯一索引为**部分索引**（`WHERE is_deleted = 0`），UPSERT 的 `ON CONFLICT` 必须携带相同谓词，否则 PostgreSQL 无法推断冲突目标。
+> 脚本已落地：[V31__oa_contract_attachment_sync.sql](file:///d:/Software/IdeaProject/cacch-integration-platform/cacch-integration-web/src/main/resources/db/migration/V31__oa_contract_attachment_sync.sql)。
 
 ### 7.3 配置变更
 
@@ -425,7 +427,7 @@ ORDER BY fm.ID
 ```sql
 INSERT INTO t_integration_oa_contract_attachment_sync (...)
 VALUES (...)
-ON CONFLICT (oa_form_main_id) DO UPDATE
+ON CONFLICT (oa_form_main_id) WHERE is_deleted = 0 DO UPDATE
 SET oa_start_date = EXCLUDED.oa_start_date,
     flow_status   = EXCLUDED.flow_status,
     nc_order_no   = EXCLUDED.nc_order_no,
