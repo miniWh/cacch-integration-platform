@@ -296,28 +296,73 @@ public class MokaEntryCandidateServiceImpl implements IMokaEntryCandidateService
         // 回写主表
         int updated = 0;
         for (MokaEntryApplicationDO app : applications) {
-            OfferExtendInfo info = offerMap.get((long) app.getApplicationId());
-            if (info == null) {
-                log.info("【{}】Step1c 未查到 offer 扩展, applicationId={}", BIZ, app.getApplicationId());
-                continue;
-            }
-
-            LocalDateTime checkInDate = parseCheckInDate(info.getCheckInDate());
-            String deptCode = info.getHcmDepartmentId() != null ? String.valueOf(info.getHcmDepartmentId()) : null;
-            int rows = applicationMapper.updateOfferFieldsByApplicationId(
-                    app.getApplicationId(),
-                    checkInDate,
-                    deptCode,
-                    info.getHcmDepartmentName(),
-                    info.getStatus()
-            );
-            if (rows > 0) {
+            if (applyOfferExtendInfo(app.getApplicationId(), offerMap.get((long) app.getApplicationId()))) {
                 updated++;
             }
         }
 
         log.info("【{}】Step1c 完成, updated={}", BIZ, updated);
         return updated;
+    }
+
+    // ========== Step 1c 历史薪资补数 ==========
+
+    @Override
+    public int[] backfillOfferSalary() {
+        // 缺口查询：曾查到过 Offer 数据但未回填薪资的记录
+        List<Integer> missingIds = applicationMapper.listApplicationIdsMissingSalary();
+        log.info("【{}】Step1c薪资补数开始, missing={}", BIZ, missingIds.size());
+        if (missingIds.isEmpty()) {
+            log.info("【{}】Step1c薪资补数结束, reason=无缺口", BIZ);
+            return new int[]{0, 0};
+        }
+
+        // 批量查 offer 扩展（Client 内部按 100/批自动分批）
+        List<Long> appIds = missingIds.stream().map(Integer::longValue).collect(Collectors.toList());
+        Map<Long, OfferExtendInfo> offerMap;
+        try {
+            offerMap = mokaOfferClient.getOfferExtendInfos(appIds);
+        } catch (Exception e) {
+            log.info("【{}】Step1c薪资补数终止, reason={}", BIZ, e.getMessage());
+            return new int[]{missingIds.size(), 0};
+        }
+
+        // 逐条回写（5 个 Offer 字段整体刷新为最新值）
+        int updated = 0;
+        for (Integer appId : missingIds) {
+            if (applyOfferExtendInfo(appId, offerMap.get(appId.longValue()))) {
+                updated++;
+            }
+        }
+
+        log.info("【{}】Step1c薪资补数完成, missing={}, updated={}", BIZ, missingIds.size(), updated);
+        return new int[]{missingIds.size(), updated};
+    }
+
+    /**
+     * 回写单条 Offer 扩展信息到主表（Step 1c 常规同步与历史补数共用）
+     *
+     * @param applicationId Moka 申请 ID（业务唯一键）
+     * @param info          Offer 扩展信息，null 时跳过并打 INFO
+     * @return true=成功回写；false=未回写（info 为 null 或 UPDATE 命中 0 行）
+     */
+    private boolean applyOfferExtendInfo(Integer applicationId, OfferExtendInfo info) {
+        if (info == null) {
+            log.info("【{}】Step1c 未查到 offer 扩展, applicationId={}", BIZ, applicationId);
+            return false;
+        }
+
+        LocalDateTime checkInDate = parseCheckInDate(info.getCheckInDate());
+        String deptCode = info.getHcmDepartmentId() != null ? String.valueOf(info.getHcmDepartmentId()) : null;
+        int rows = applicationMapper.updateOfferFieldsByApplicationId(
+                applicationId,
+                checkInDate,
+                info.getSalaryNumber(),
+                deptCode,
+                info.getHcmDepartmentName(),
+                info.getStatus()
+        );
+        return rows > 0;
     }
 
     // ========== 时间转换工具 ==========

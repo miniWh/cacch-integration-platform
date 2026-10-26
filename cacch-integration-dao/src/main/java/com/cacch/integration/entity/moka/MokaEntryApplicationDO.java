@@ -134,6 +134,11 @@ public class MokaEntryApplicationDO {
     private LocalDateTime checkInDate;
 
     /**
+     * Offer 薪资（Moka salaryNumber 原始字符串，如 15000）
+     */
+    private String salaryNumber;
+
+    /**
      * 【Step 1c 补全】Offer 入职部门编码（备选，通常比职位部门更准确）
      */
     private String offerDepartmentCode;

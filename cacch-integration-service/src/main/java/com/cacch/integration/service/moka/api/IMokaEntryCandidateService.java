@@ -42,14 +42,26 @@ public interface IMokaEntryCandidateService {
     int enrichDepartmentCode(List<MokaEntryApplicationDO> applications);
 
     /**
-     * Step 1c：按 applicationId 批量查 Offer 扩展信息，回写入职日期与 Offer 部门
+     * 按 applicationId 批量查 Offer 扩展信息，回写入职日期、薪资与 Offer 部门
      *
      * <p>从主表收集所有 application_id，调用 MokaOfferClient 批量查 offer 扩展，
-     * 取 checkInDate / departmentCode / departmentName / approvalStatus，
+     * 取 checkInDate / salaryNumber / departmentCode / departmentName / approvalStatus，
      * 回写到主表对应列。Offer 不存在时保持 null。</p>
      *
      * @param applications 主表列表（包含 application_id）
      * @return 成功回写的记录数
      */
     int enrichOfferFields(List<MokaEntryApplicationDO> applications);
+
+    /**
+     * 历史薪资补数：回填 salary_number 为空的历史记录
+     *
+     * <p>补数范围：is_deleted=0 且 salary_number IS NULL 且
+     * （check_in_date 或 offer_status 非空）—— 即曾查到过 Offer 扩展数据但未回填薪资的记录。
+     * 逐批调用 Offer 扩展接口，复用 Step 1c 回写逻辑（5 个 Offer 字段整体刷新为最新值）。
+     * 幂等：以 salary_number IS NULL 为收敛条件，重复调用安全。</p>
+     *
+     * @return int[2]：[0]=缺口记录数，[1]=成功回写记录数
+     */
+    int[] backfillOfferSalary();
 }

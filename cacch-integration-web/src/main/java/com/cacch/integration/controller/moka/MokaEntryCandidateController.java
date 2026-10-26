@@ -3,6 +3,7 @@ package com.cacch.integration.controller.moka;
 import com.cacch.integration.common.result.Result;
 import com.cacch.integration.manager.moka.api.IMokaEntryCandidateSyncManager;
 import com.cacch.integration.manager.moka.api.IMokaEntryCandidateSyncManager.MokaEntrySyncResult;
+import com.cacch.integration.manager.moka.api.IMokaEntryCandidateSyncManager.MokaOfferSalaryBackfillResult;
 import com.cacch.integration.manager.moka.api.IMokaEntryPushManager;
 import com.cacch.integration.manager.moka.api.IMokaEntryPushManager.MokaEntryPushSummary;
 import lombok.RequiredArgsConstructor;
@@ -68,5 +69,21 @@ public class MokaEntryCandidateController {
         log.info("【MokaEntryCandidateController】收到 Step 2 推送 iHR 请求, statusList={}, limit={}", statusList, limit);
         MokaEntryPushSummary summary = pushManager.pushToIhr(statusList, limit);
         return Result.success(summary);
+    }
+
+    /**
+     * Moka 待入职候选人 -- 历史薪资补数
+     *
+     * <p>回填 salary_number 为空的历史记录（曾查到过 Offer 扩展数据的申请），
+     * 不依赖 Moka list_by_condition 拉取范围。幂等：重复调用以 salary_number IS NULL
+     * 收敛，无缺口时返回 {0, 0}。</p>
+     *
+     * @return 补数统计（missingCount=缺口数 / updatedCount=成功回写数）
+     */
+    @PostMapping("/offer-salary-backfill")
+    public Result<MokaOfferSalaryBackfillResult> backfillOfferSalary() {
+        log.info("【MokaEntryCandidateController】收到历史薪资补数请求");
+        MokaOfferSalaryBackfillResult result = syncManager.backfillOfferSalary();
+        return Result.success(result);
     }
 }

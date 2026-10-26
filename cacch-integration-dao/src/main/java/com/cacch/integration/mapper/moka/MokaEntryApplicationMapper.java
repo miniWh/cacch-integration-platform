@@ -105,13 +105,14 @@ public interface MokaEntryApplicationMapper extends BaseMapper<MokaEntryApplicat
                                             @Param("departmentCode") String departmentCode);
 
     /**
-     * Step 1c 回写：按 application_id 更新 Offer 扩展字段（入职日期 + Offer 部门）
+     * 按 application_id 更新 Offer 扩展字段（入职日期 + 薪资 + Offer 部门）
      *
      * <p>同 {@link #updateDepartmentCodeByApplicationId}，以业务键 {@code application_id}
      * 作为定位条件，避免主键 id 漂移导致 0 行更新。</p>
      *
      * @param applicationId       Moka 申请 ID（业务唯一键）
      * @param checkInDate         入职日期（ISO8601 或 yyyy-MM-dd）
+     * @param salaryNumber        Offer 薪资（Moka salaryNumber 原始字符串，可能为 null）
      * @param offerDepartmentCode Offer 入职部门编码（来自 HCM）
      * @param offerDepartmentName Offer 入职部门名称（来自 HCM）
      * @param offerStatus         Offer 当前状态：pending/accepted/rejected/invalid/expired
@@ -119,6 +120,7 @@ public interface MokaEntryApplicationMapper extends BaseMapper<MokaEntryApplicat
      */
     @Update("UPDATE t_integration_moka_entry_application " +
             "SET check_in_date = #{checkInDate}, " +
+            "    salary_number = #{salaryNumber}, " +
             "    offer_department_code = #{offerDepartmentCode}, " +
             "    offer_department_name = #{offerDepartmentName}, " +
             "    offer_status = #{offerStatus}, " +
@@ -126,9 +128,26 @@ public interface MokaEntryApplicationMapper extends BaseMapper<MokaEntryApplicat
             "WHERE application_id = #{applicationId} AND is_deleted = 0")
     int updateOfferFieldsByApplicationId(@Param("applicationId") Integer applicationId,
                                          @Param("checkInDate") LocalDateTime checkInDate,
+                                         @Param("salaryNumber") String salaryNumber,
                                          @Param("offerDepartmentCode") String offerDepartmentCode,
                                          @Param("offerDepartmentName") String offerDepartmentName,
                                          @Param("offerStatus") String offerStatus);
+
+    /**
+     * 查询历史缺口：曾查到过 Offer 扩展数据但未回填薪资的申请 ID
+     *
+     * <p>补数范围定义：未删除 且 salary_number 为空 且（check_in_date 或 offer_status
+     * 非空）—— 后者说明该申请曾完成 Step 1c 回写、确有 Offer 数据，避免对纯无 Offer
+     * 的申请浪费 Moka 接口调用。按 application_id 升序保证分批稳定。</p>
+     *
+     * @return 缺失薪资的申请 ID 列表，无缺口时返回空列表（非 null）
+     */
+    @Select("SELECT application_id FROM t_integration_moka_entry_application " +
+            "WHERE is_deleted = 0 " +
+            "  AND salary_number IS NULL " +
+            "  AND (check_in_date IS NOT NULL OR offer_status IS NOT NULL) " +
+            "ORDER BY application_id ASC")
+    List<Integer> listApplicationIdsMissingSalary();
 
     /**
      * 推送 iHR 前的联合查询：读取 4 表 + ihr_department JOIN 结果

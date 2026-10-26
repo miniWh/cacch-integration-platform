@@ -79,4 +79,12 @@ public class MokaEntryCandidateSyncManagerImpl implements IMokaEntryCandidateSyn
 
         return new MokaEntrySyncResult(step1aTotal, step1bUpdated, step1cUpdated);
     }
+
+    @Override
+    public MokaOfferSalaryBackfillResult backfillOfferSalary() {
+        log.info("【{}】开始历史薪资补数", BIZ);
+        int[] stats = entryCandidateService.backfillOfferSalary();
+        log.info("【{}】历史薪资补数完成, missing={}, updated={}", BIZ, stats[0], stats[1]);
+        return new MokaOfferSalaryBackfillResult(stats[0], stats[1]);
+    }
 }
