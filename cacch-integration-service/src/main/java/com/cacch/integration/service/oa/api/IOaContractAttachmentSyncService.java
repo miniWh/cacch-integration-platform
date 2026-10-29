@@ -43,6 +43,17 @@ public interface IOaContractAttachmentSyncService {
     List<OaContractAttachmentSyncDO> listPendingForProcess(int limit);
 
     /**
+     * 捞取待 CRM 回传记录（PENDING_CRM，附件已就绪）
+     *
+     * <p>回传阶段不做二次抢占，直接以捞取时的 version CAS 回写最终状态
+     * （contractEdit 幂等，重复回传无副作用）。</p>
+     *
+     * @param limit 最大捞取条数，≤0 时返回空列表
+     * @return 待 CRM 回传记录列表（updated_at 升序）；无数据时返回空列表（非 null）
+     */
+    List<OaContractAttachmentSyncDO> listPendingCrmForPush(int limit);
+
+    /**
      * 回收超时 PROCESSING 记录为 RETRY
      *
      * <p>乐观锁抢占接入前正常运行不会产生 PROCESSING 记录，回收数恒为 0。</p>
@@ -100,4 +111,26 @@ public interface IOaContractAttachmentSyncService {
      * @return true 表示回写成功
      */
     boolean markRetry(Long id, Integer expectedVersion, String syncMessage);
+
+    /**
+     * CRM 回传成功回写（PENDING_CRM → SUCCESS，终态）
+     *
+     * @param id              中间记录主键
+     * @param expectedVersion 捞取时读到的乐观锁版本号
+     * @param syncMessage     成功说明（如 return_code 与 msgId），超长自动截断
+     * @return true 表示回写成功
+     */
+    boolean markSuccess(Long id, Integer expectedVersion, String syncMessage);
+
+    /**
+     * CRM 回传失败回写（PENDING_CRM → RETRY，retry_count 累加，不设上限）
+     *
+     * <p>失败原因自动截断至 {@code OaContractAttachmentConstants.MESSAGE_MAX_LENGTH}。</p>
+     *
+     * @param id              中间记录主键
+     * @param expectedVersion 捞取时读到的乐观锁版本号
+     * @param syncMessage     失败原因（如 CRM return_code / return_msg）
+     * @return true 表示回写成功
+     */
+    boolean markCrmRetry(Long id, Integer expectedVersion, String syncMessage);
 }

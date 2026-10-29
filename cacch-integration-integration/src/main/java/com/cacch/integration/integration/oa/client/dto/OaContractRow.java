@@ -11,6 +11,7 @@ import java.time.LocalDateTime;
  * @param ncOrderNo       NC 销售订单号 formmain_5296.field0273
  * @param oaContractNo    销售订单编号 formmain_5296.field0104
  * @param oaAttachmentRef 合同附件引用 formmain_5296.field0360
+ * @param crmContractId   CRM 合同数据 ID（formmain_2817.field0495，标量子查询，可空）
  * @author hongfu_zhou@cacch.com
  */
 public record OaContractRow(Long oaFormMainId,
@@ -18,5 +19,6 @@ public record OaContractRow(Long oaFormMainId,
                             String flowStatus,
                             String ncOrderNo,
                             String oaContractNo,
-                            String oaAttachmentRef) {
+                            String oaAttachmentRef,
+                            String crmContractId) {
 }

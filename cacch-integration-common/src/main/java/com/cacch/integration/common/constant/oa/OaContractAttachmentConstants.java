@@ -26,6 +26,11 @@ public final class OaContractAttachmentConstants {
     public static final String SALES_ORDER_FIELD_SOURCE = "field0493";
 
     /**
+     * CRM 推送销售订单表单的 CRM 合同数据 ID 字段（formmain_2817.field0495，contractEdit 的 data_id）
+     */
+    public static final String SALES_ORDER_FIELD_CONTRACT_ID = "field0495";
+
+    /**
      * 销售订单来源判定值：来源于 CRM 推送
      */
     public static final String ORDER_SOURCE_CRM = "crm订单";
@@ -81,33 +86,14 @@ public final class OaContractAttachmentConstants {
     public static final String SKIP_REASON_ATTACHMENT_MISSING = "OA附件缺失";
 
     /**
+     * 业务跳过原因：CRM 合同数据 ID 为空（formmain_2817.field0495 无值，无法回传）
+     */
+    public static final String SKIP_REASON_CRM_CONTRACT_ID_MISSING = "CRM合同ID为空";
+
+    /**
      * 同步说明/失败原因统一截断长度
      */
     public static final int MESSAGE_MAX_LENGTH = 500;
-
-    /**
-     * OA 附件下载路径模板（与 {@code OaConstants.ATTACHMENT_FILE_DOWNLOAD_PATH} 一致，
-     * 独立声明避免 common 内跨包耦合）
-     */
-    public static final String ATTACHMENT_FILE_DOWNLOAD_PATH = "/seeyon/rest/attachment/file/";
-
-    /**
-     * 拼装 OA 附件下载地址（Q2 口径：不转存文件，直接回传 OA REST 下载地址）
-     *
-     * @param oaBaseUrl OA 基础地址（OaProperties.resolvedBaseUrl()，无末尾斜杠）
-     * @param fileId    附件文件标识（ctp_attachment.file_url）
-     * @return 形如 {oaBaseUrl}/seeyon/rest/attachment/file/{fileId} 的下载地址；
-     * fileId 为空时返回 null
-     */
-    public static String buildAttachmentDownloadUrl(String oaBaseUrl, String fileId) {
-        if (fileId == null || fileId.isBlank()) {
-            return null;
-        }
-        String base = oaBaseUrl == null || oaBaseUrl.isBlank()
-                ? ""
-                : oaBaseUrl.endsWith("/") ? oaBaseUrl.substring(0, oaBaseUrl.length() - 1) : oaBaseUrl;
-        return base + ATTACHMENT_FILE_DOWNLOAD_PATH + fileId.trim();
-    }
 
     /**
      * 按 FINISHEDFLAG 转换流程状态快照（对齐原查询 SQL 的 CASE 规则）

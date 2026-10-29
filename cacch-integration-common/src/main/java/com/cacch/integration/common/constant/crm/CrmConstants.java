@@ -37,6 +37,12 @@ public final class CrmConstants {
             "/api/employee/v3/queryEmployee/{openid}/{timestamp}/{digest}/{msgId}";
 
     /**
+     * 修改销售合同路径模板
+     */
+    public static final String CONTRACT_EDIT_PATH =
+            "/api/ig/v1/contractEdit/{openid}/{timestamp}/{digest}/{msgId}";
+
+    /**
      * 成功响应码
      */
     public static final String RETURN_CODE_SUCCESS = "0";

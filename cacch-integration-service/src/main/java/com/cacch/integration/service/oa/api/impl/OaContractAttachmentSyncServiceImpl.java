@@ -83,6 +83,16 @@ public class OaContractAttachmentSyncServiceImpl implements IOaContractAttachmen
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class, propagation = Propagation.SUPPORTS, readOnly = true, timeout = 10)
+    public List<OaContractAttachmentSyncDO> listPendingCrmForPush(int limit) {
+        if (limit <= 0) {
+            log.info("【{}】捞取待CRM回传跳过, reason=捞取条数非法, limit={}", BIZ, limit);
+            return List.of();
+        }
+        return syncMapper.selectPendingCrmForPush(limit);
+    }
+
+    @Override
     @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED, timeout = 30)
     public int reclaimTimeoutProcessing(int timeoutMinutes) {
         if (timeoutMinutes <= 0) {
@@ -147,6 +157,26 @@ public class OaContractAttachmentSyncServiceImpl implements IOaContractAttachmen
         return updated > 0;
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED, timeout = 30)
+    public boolean markSuccess(Long id, Integer expectedVersion, String syncMessage) {
+        int updated = syncMapper.markSuccess(id, expectedVersion, truncateMessage(syncMessage));
+        if (updated == 0) {
+            log.info("【{}】成功回写未生效, id={}, version={}, reason=状态或版本已变化", BIZ, id, expectedVersion);
+        }
+        return updated > 0;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED, timeout = 30)
+    public boolean markCrmRetry(Long id, Integer expectedVersion, String syncMessage) {
+        int updated = syncMapper.markCrmRetry(id, expectedVersion, truncateMessage(syncMessage));
+        if (updated == 0) {
+            log.info("【{}】CRM失败回写未生效, id={}, version={}, reason=状态或版本已变化", BIZ, id, expectedVersion);
+        }
+        return updated > 0;
+    }
+
     /**
      * 失败原因截断至 {@code MESSAGE_MAX_LENGTH}
      *
@@ -175,6 +205,7 @@ public class OaContractAttachmentSyncServiceImpl implements IOaContractAttachmen
         record.setNcOrderNo(row.ncOrderNo());
         record.setOaContractNo(row.oaContractNo());
         record.setOaAttachmentRef(row.oaAttachmentRef());
+        record.setCrmContractId(row.crmContractId());
         record.setSyncStatus(OaContractAttachmentSyncStatusEnum.PENDING.getCode());
         record.setRetryCount(0);
         record.setVersion(0);

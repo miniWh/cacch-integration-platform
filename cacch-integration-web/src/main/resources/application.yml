@@ -143,6 +143,21 @@ crm:
     cron: "0 */5 * * * ?"
     batch-size: 100
     max-retry: 3
+  # 修改销售合同 contractEdit（REQ-OA-003 合同附件回传）
+  contract:
+    # 合同附件自定义字段 key（联调可调整）
+    attachment-field-key: field_quRkU__c
+# ==================== 公司内部文件服务器（REQ-OA-003 / D12） ====================
+# OA 合同附件上传换取 URL 后回传 CRM；Q13 FTP 凭据待提供，当前固定 URL 占位
+file-server:
+  # 占位固定 URL：上传方法未定期间，所有附件回传同一地址（仅验证链路通）
+  fixed-upload-url: https://crmimage.cacch.com:50002/8960926526091930864/customFields/202610/202610241231538_2b68f6f1d10045d9b439e187bad001f6.jpeg
+  ftp:
+    host:
+    port: 21
+    username:
+    # 密码严禁明文：经环境变量 FILE_SERVER_FTP_PASSWORD 注入
+    password: ${FILE_SERVER_FTP_PASSWORD:}
 # ==================== 致远 OA REST（公共占位） ====================
 # 实际值请在 application-{profile}.yml 中覆盖；业务请求 Header 传 token
 oa:
@@ -209,6 +224,15 @@ oa:
     alert-not-empty-skipped: true
     # 空目录判定时忽略的文件名（默认空=不忽略，更安全）
     ignore-system-files: []
+  # REQ-OA-003 货物购销合同附件回传 CRM（ESB 每 10 分钟调用执行接口，无本地定时）
+  contract-attachment-sync:
+    enabled: true
+    # NOT IN 排除列表分片大小（≤1000，规避 ORA-01795）
+    scan-chunk-size: 500
+    # 单次执行最多处理条数
+    batch-size: 200
+    # PROCESSING 超时回收阈值（分钟）
+    processing-timeout-minutes: 10
 # ==================== 法大大实名认证（公共占位） ====================
 # 实际值请在 application-{profile}.yml 中覆盖；app-secret 通过环境变量 FDD_APP_SECRET 注入
 fdd:

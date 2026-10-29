@@ -2,6 +2,7 @@ package com.cacch.integration.integration.crm.client;
 
 import com.cacch.integration.common.config.crm.CrmProperties;
 import com.cacch.integration.common.constant.crm.CrmConstants;
+import com.cacch.integration.integration.crm.client.dto.CrmContractEditRequest;
 import com.cacch.integration.integration.crm.client.dto.CrmEmployeeQueryRequest;
 import com.cacch.integration.integration.crm.client.dto.CrmOpenApiResponse;
 import com.cacch.integration.integration.crm.client.dto.CrmPageQueryRequest;
@@ -52,6 +53,18 @@ public class CrmClient {
 
     public CrmOpenApiResponse queryEmployee(CrmEmployeeQueryRequest request) {
         return post(crmProperties.getEmployeeBaseUrl(), CrmConstants.EMPLOYEE_QUERY_PATH, request, "查询员工帐号");
+    }
+
+    /**
+     * 修改销售合同（REQ-OA-003 合同附件回传）
+     *
+     * @param request 合同修改请求体：data_id = CRM 合同数据 ID，
+     *                fields 含 {@code id} 与附件字段（[{path, name}]，不传 fileSize）
+     * @return CRM OpenAPI 统一响应信封；return_code=0 表示成功
+     * @throws RestClientException HTTP 调用失败或请求组装异常时抛出
+     */
+    public CrmOpenApiResponse contractEdit(CrmContractEditRequest request) {
+        return post(crmProperties.getBaseUrl(), CrmConstants.CONTRACT_EDIT_PATH, request, "修改销售合同");
     }
 
     private CrmOpenApiResponse post(String baseUrl, String pathTemplate, Object body, String action) {

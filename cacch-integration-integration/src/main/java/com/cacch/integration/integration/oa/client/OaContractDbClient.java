@@ -107,7 +107,9 @@ public class OaContractDbClient {
      * @return 合同行列表；无数据时返回空列表（非 null）
      */
     private List<OaContractRow> queryByNotInIds(JdbcTemplate jdbc, List<Long> notInIds) {
+        // 参数顺序：① 标量子查询 ?（CRM 合同 ID）→ ② NOT IN 分片 ID → ③ EXISTS ?（订单来源）
         List<Object> args = new ArrayList<>();
+        args.add(OaContractAttachmentConstants.ORDER_SOURCE_CRM);
         String notInClause = "";
         if (!notInIds.isEmpty()) {
             String placeholders = String.join(", ", java.util.Collections.nCopies(notInIds.size(), "?"));
@@ -122,7 +124,12 @@ public class OaContractDbClient {
                        fm.FINISHEDFLAG AS finished_flag,
                        fm.FIELD0273 AS nc_order_no,
                        fm.FIELD0104 AS oa_contract_no,
-                       fm.FIELD0360 AS oa_attachment_ref
+                       fm.FIELD0360 AS oa_attachment_ref,
+                       (SELECT f2817.%s
+                          FROM %s f2817
+                         WHERE f2817.%s = fm.FIELD0273
+                           AND f2817.%s = ?
+                           AND ROWNUM = 1) AS crm_contract_id
                 FROM %s fm
                 WHERE fm.FINISHEDFLAG = 1
                   AND fm.FIELD0273 IS NOT NULL
@@ -135,6 +142,10 @@ public class OaContractDbClient {
                   )
                 ORDER BY fm.ID
                 """.formatted(
+                OaContractAttachmentConstants.SALES_ORDER_FIELD_CONTRACT_ID,
+                OaConstants.FORM_MAIN,
+                OaContractAttachmentConstants.SALES_ORDER_FIELD_NO,
+                OaContractAttachmentConstants.SALES_ORDER_FIELD_SOURCE,
                 OaConstants.CONTRACT_FORM_MAIN,
                 notInClause,
                 OaConstants.FORM_MAIN,
@@ -182,7 +193,8 @@ public class OaContractDbClient {
                             finishedFlag == null ? null : finishedFlag.intValue()),
                     OaJdbcResultSetSupport.readString(rs, "nc_order_no"),
                     OaJdbcResultSetSupport.readString(rs, "oa_contract_no"),
-                    OaJdbcResultSetSupport.readString(rs, "oa_attachment_ref"));
+                    OaJdbcResultSetSupport.readString(rs, "oa_attachment_ref"),
+                    OaJdbcResultSetSupport.readString(rs, "crm_contract_id"));
         }
     }
 }
