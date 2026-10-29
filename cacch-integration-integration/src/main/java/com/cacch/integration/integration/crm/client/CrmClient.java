@@ -8,7 +8,6 @@ import com.cacch.integration.integration.crm.client.dto.CrmOpenApiResponse;
 import com.cacch.integration.integration.crm.client.dto.CrmPageQueryRequest;
 import com.cacch.integration.integration.crm.support.CrmDigestSupport;
 import com.cacch.integration.integration.support.RestTemplateHttpClient;
-import com.cacch.integration.integration.support.ThirdPartyHttpLogSupport;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
@@ -79,7 +78,7 @@ public class CrmClient {
                     .buildAndExpand(crmProperties.getOpenId(), timestamp, digest, msgId)
                     .toUriString();
 
-            ThirdPartyHttpLogSupport.logRequest(BIZ, action, url, bodyJson);
+            // 入参/出参日志统一由 RestTemplateHttpClient 打印，此处不再重复输出
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
