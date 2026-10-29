@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -156,6 +157,50 @@ public class OaContractDbClient {
             return jdbc.query(sql, new ContractRowMapper(), args.toArray());
         } catch (Exception e) {
             log.error("【{}】扫描查询异常, notInSize={}", OaContractAttachmentConstants.LOG_BIZ, notInIds.size(), e);
+            throw e;
+        }
+    }
+
+    /**
+     * 按 NC 销售订单号反查 CRM 合同数据 ID（formmain_2817.field0495）
+     *
+     * <p>用于存量数据补偿：field0495 标量子查询上线前入库的记录 {@code crm_contract_id} 为空，
+     * 且 NOT IN 增量扫描不会重刷已入库记录，需在处理链路按 {@code field0329}（NC 单号）
+     * 反查补偿；取 {@code ROWNUM = 1} 防止多行放大。</p>
+     *
+     * @param ncOrderNo NC 销售订单号（formmain_5296.field0273）
+     * @return CRM 合同数据 ID；未命中或 OA 数据源未配置时返回 Optional.empty()
+     */
+    public Optional<String> findCrmContractIdByNcNo(String ncOrderNo) {
+        if (ncOrderNo == null || ncOrderNo.isBlank()) {
+            log.info("【{}】CRM合同ID反查终止, reason=NC单号为空", OaContractAttachmentConstants.LOG_BIZ);
+            return Optional.empty();
+        }
+        JdbcTemplate jdbc = oaJdbcTemplateProvider.getIfAvailable();
+        if (jdbc == null) {
+            log.info("【{}】CRM合同ID反查终止, reason=OA数据源未配置(oa.datasource.url)",
+                    OaContractAttachmentConstants.LOG_BIZ);
+            return Optional.empty();
+        }
+        String sql = """
+                SELECT f2817.%s AS crm_contract_id
+                FROM %s f2817
+                WHERE f2817.%s = ?
+                  AND f2817.%s = ?
+                  AND ROWNUM = 1
+                """.formatted(
+                OaContractAttachmentConstants.SALES_ORDER_FIELD_CONTRACT_ID,
+                OaConstants.FORM_MAIN,
+                OaContractAttachmentConstants.SALES_ORDER_FIELD_NO,
+                OaContractAttachmentConstants.SALES_ORDER_FIELD_SOURCE);
+        ReadOnlyOaJdbcTemplate.assertSelectOnly(sql);
+        try {
+            List<String> ids = jdbc.query(sql, (rs, rowNum) ->
+                            OaJdbcResultSetSupport.readString(rs, "crm_contract_id"),
+                    ncOrderNo.trim(), OaContractAttachmentConstants.ORDER_SOURCE_CRM);
+            return ids.isEmpty() ? Optional.empty() : Optional.ofNullable(ids.getFirst());
+        } catch (Exception e) {
+            log.error("【{}】CRM合同ID反查异常, ncOrderNo={}", OaContractAttachmentConstants.LOG_BIZ, ncOrderNo, e);
             throw e;
         }
     }

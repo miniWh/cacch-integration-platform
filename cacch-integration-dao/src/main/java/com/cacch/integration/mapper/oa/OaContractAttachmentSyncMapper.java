@@ -270,4 +270,24 @@ public interface OaContractAttachmentSyncMapper extends BaseMapper<OaContractAtt
     int markCrmRetry(@Param("id") Long id,
                      @Param("expectedVersion") Integer expectedVersion,
                      @Param("syncMessage") String syncMessage);
+
+    /**
+     * 存量数据补偿回写 CRM 合同数据 ID（仅补快照字段）
+     *
+     * <p>field0495 标量子查询上线前入库的记录 {@code crm_contract_id} 为空，且 NOT IN 增量
+     * 扫描不会重刷已入库记录；处理链路反查 OA 命中后调用本方法回写。<strong>注意</strong>：
+     * 不累加 version、不改 sync_status，避免破坏 PENDING_CRM 阶段后续以捞取 version 进行的
+     * CAS 状态回写（markSuccess / markCrmRetry）。</p>
+     *
+     * @param id            中间记录主键
+     * @param crmContractId CRM 合同数据 ID（formmain_2817.field0495）
+     * @return 1 表示回写成功；0 表示记录不存在或已逻辑删除
+     */
+    @Update("UPDATE t_integration_oa_contract_attachment_sync " +
+            "SET crm_contract_id = #{crmContractId}, " +
+            "updated_at = CURRENT_TIMESTAMP " +
+            "WHERE id = #{id} " +
+            "AND is_deleted = 0")
+    int updateCrmContractId(@Param("id") Long id,
+                            @Param("crmContractId") String crmContractId);
 }

@@ -177,6 +177,16 @@ public class OaContractAttachmentSyncServiceImpl implements IOaContractAttachmen
         return updated > 0;
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED, timeout = 30)
+    public boolean updateCrmContractId(Long id, String crmContractId) {
+        int updated = syncMapper.updateCrmContractId(id, crmContractId);
+        if (updated == 0) {
+            log.info("【{}】CRM合同ID补偿回写未生效, id={}, reason=记录不存在或已逻辑删除", BIZ, id);
+        }
+        return updated > 0;
+    }
+
     /**
      * 失败原因截断至 {@code MESSAGE_MAX_LENGTH}
      *

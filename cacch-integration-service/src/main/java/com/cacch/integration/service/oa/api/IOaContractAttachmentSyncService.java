@@ -133,4 +133,15 @@ public interface IOaContractAttachmentSyncService {
      * @return true 表示回写成功
      */
     boolean markCrmRetry(Long id, Integer expectedVersion, String syncMessage);
+
+    /**
+     * 存量数据补偿回写 CRM 合同数据 ID（仅补快照字段）
+     *
+     * <p>不累加 version、不改 sync_status，避免破坏 PENDING_CRM 阶段后续 CAS 状态回写。</p>
+     *
+     * @param id            中间记录主键
+     * @param crmContractId CRM 合同数据 ID（formmain_2817.field0495），调用方保证非空
+     * @return true 表示回写成功
+     */
+    boolean updateCrmContractId(Long id, String crmContractId);
 }

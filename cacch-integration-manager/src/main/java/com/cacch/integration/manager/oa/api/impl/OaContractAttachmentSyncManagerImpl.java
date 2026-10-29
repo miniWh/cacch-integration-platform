@@ -40,6 +40,11 @@ import java.util.Optional;
  * 直接以捞取时的 version CAS 回写最终状态。PENDING_CRM 回传失败回写 RETRY 后，
  * 下次执行由主捞取入口重新捞取并完整重走附件与回传链路。</p>
  *
+ * <p><strong>CRM 合同 ID 存量补偿</strong>：field0495 标量子查询上线前入库的记录
+ * {@code crm_contract_id} 为空，且 NOT IN 增量扫描不会重刷已入库记录；两个阶段在
+ * CRM 合同 ID 为空时均按 NC 单号反查 OA 回写补偿——附件阶段补偿命中后继续处理、
+ * 未命中置 SKIPPED；CRM 回传阶段补偿命中后继续回传、未命中置 RETRY 持续重试。</p>
+ *
  * <p>当前逐条串行处理（单条 = 1 次 OA 查询 + 1 次文件服务器上传 + 1 次 CRM 调用，
  * 200 条/10 分钟余量充足）；线程池并发与 Redis 执行锁延后接入，当前由 ESB 侧保证调用串行。</p>
  *
@@ -130,15 +135,20 @@ public class OaContractAttachmentSyncManagerImpl implements IOaContractAttachmen
             }
             int claimedVersion = record.getVersion() + 1;
 
-            // 2. CRM 合同数据 ID 校验（field0495 为空时无法回传，业务性终止）
-            if (!StringUtils.hasText(record.getCrmContractId())) {
-                log.info("【{}】记录终止为跳过, id={}, oaFormMainId={}, ncOrderNo={}, reason={}",
-                        BIZ, id, record.getOaFormMainId(), ncOrderNo,
-                        OaContractAttachmentConstants.SKIP_REASON_CRM_CONTRACT_ID_MISSING);
-                syncService.markSkipped(id, claimedVersion,
-                        OaContractAttachmentConstants.SKIP_REASON_CRM_CONTRACT_ID_MISSING);
-                result.recordSkip(item, OaContractAttachmentConstants.SKIP_REASON_CRM_CONTRACT_ID_MISSING);
-                return false;
+            // 2. CRM 合同数据 ID 校验与存量补偿（crm_contract_id 为空时按 NC 单号反查 OA 回写）
+            String crmContractId = record.getCrmContractId();
+            if (!StringUtils.hasText(crmContractId)) {
+                crmContractId = compensateCrmContractId(record, claimedVersion);
+                if (!StringUtils.hasText(crmContractId)) {
+                    // 业务性终止：CRM 合同 ID 为空且反查未命中 → SKIPPED 终态，不参与重试
+                    log.info("【{}】记录终止为跳过, id={}, oaFormMainId={}, ncOrderNo={}, reason={}",
+                            BIZ, id, record.getOaFormMainId(), ncOrderNo,
+                            OaContractAttachmentConstants.SKIP_REASON_CRM_CONTRACT_ID_MISSING);
+                    syncService.markSkipped(id, claimedVersion,
+                            OaContractAttachmentConstants.SKIP_REASON_CRM_CONTRACT_ID_MISSING);
+                    result.recordSkip(item, OaContractAttachmentConstants.SKIP_REASON_CRM_CONTRACT_ID_MISSING);
+                    return false;
+                }
             }
 
             // 3. 按附件引用查 OA 附件（field0360 → ctp_attachment.sub_reference）
@@ -209,34 +219,49 @@ public class OaContractAttachmentSyncManagerImpl implements IOaContractAttachmen
         OaContractAttachmentSyncItem item =
                 new OaContractAttachmentSyncItem(record.getOaFormMainId(), ncOrderNo, record.getCrmContractId());
         try {
-            // 1. 回传前置字段校验（正常链路不会出现，防御性兜底：置 RETRY 便于观测）
-            if (!StringUtils.hasText(record.getCrmContractId())
-                    || !StringUtils.hasText(record.getAttachmentUrl())
+            // 1. CRM 合同数据 ID 校验与存量补偿（crm_contract_id 为空时按 NC 单号反查 OA 回写；
+            //    存量记录补偿后继续回传，未命中置 RETRY 保持无上限重试）
+            String crmContractId = record.getCrmContractId();
+            if (!StringUtils.hasText(crmContractId)) {
+                crmContractId = compensateCrmContractId(record, record.getVersion());
+                if (!StringUtils.hasText(crmContractId)) {
+                    String message = "CRM合同ID为空且OA反查未命中";
+                    log.info("【{}】CRM回传终止为重试, id={}, oaFormMainId={}, ncOrderNo={}, reason={}",
+                            BIZ, id, record.getOaFormMainId(), ncOrderNo, message);
+                    syncService.markCrmRetry(id, record.getVersion(), message);
+                    result.recordFailure(item, message);
+                    return;
+                }
+                item = new OaContractAttachmentSyncItem(record.getOaFormMainId(), ncOrderNo, crmContractId);
+            }
+
+            // 2. 回传前置字段校验（attachmentUrl / fileName 由附件阶段回填，缺失置 RETRY 便于观测）
+            if (!StringUtils.hasText(record.getAttachmentUrl())
                     || !StringUtils.hasText(record.getAttachmentFileName())) {
                 log.info("【{}】CRM回传终止为重试, id={}, oaFormMainId={}, ncOrderNo={}, " +
                                 "crmContractId={}, attachmentUrl={}, fileName={}",
                         BIZ, id, record.getOaFormMainId(), ncOrderNo,
-                        record.getCrmContractId(), record.getAttachmentUrl(), record.getAttachmentFileName());
+                        crmContractId, record.getAttachmentUrl(), record.getAttachmentFileName());
                 syncService.markCrmRetry(id, record.getVersion(), "CRM回传前置字段缺失");
                 result.recordFailure(item, "CRM回传前置字段缺失");
                 return;
             }
 
-            // 2. 组装 contractEdit 请求（data_id = field0495；附件字段 [{path, name}]，不传 fileSize）
+            // 3. 组装 contractEdit 请求（data_id = field0495；附件字段 [{path, name}]，不传 fileSize）
             Map<String, Object> attachmentValue = new LinkedHashMap<>();
             attachmentValue.put(CrmContractConstants.ATTACHMENT_PROP_PATH, record.getAttachmentUrl());
             attachmentValue.put(CrmContractConstants.ATTACHMENT_PROP_NAME, record.getAttachmentFileName());
             Map<String, Object> fields = new LinkedHashMap<>();
-            fields.put(CrmContractConstants.CONTRACT_FIELD_ID, record.getCrmContractId());
+            fields.put(CrmContractConstants.CONTRACT_FIELD_ID, crmContractId);
             fields.put(crmContractProperties.getAttachmentFieldKey(), List.of(attachmentValue));
             CrmContractEditRequest request = CrmContractEditRequest.builder()
-                    .dataId(record.getCrmContractId())
+                    .dataId(crmContractId)
                     .fields(fields)
                     .isTrigger(false)
                     .checkRule(false)
                     .build();
 
-            // 3. 调用 CRM 修改销售合同接口
+            // 4. 调用 CRM 修改销售合同接口
             CrmOpenApiResponse response = crmClient.contractEdit(request);
             if (response.isSuccess()) {
                 String message = "CRM回传成功, returnCode=" + response.getReturnCode()
@@ -245,7 +270,7 @@ public class OaContractAttachmentSyncManagerImpl implements IOaContractAttachmen
                 if (updated) {
                     log.info("【{}】CRM回传成功, id={}, oaFormMainId={}, ncOrderNo={}, crmContractId={}, msgId={}",
                             BIZ, id, record.getOaFormMainId(), ncOrderNo,
-                            record.getCrmContractId(), response.getMsgId());
+                            crmContractId, response.getMsgId());
                     result.recordSuccess(item);
                 } else {
                     result.recordSkip(item, "成功回写未生效，状态或版本已变化");
@@ -254,7 +279,7 @@ public class OaContractAttachmentSyncManagerImpl implements IOaContractAttachmen
                 String message = "CRM回传失败, returnCode=" + response.getReturnCode()
                         + ", returnMsg=" + response.getReturnMsg();
                 log.info("【{}】CRM回传终止为重试, id={}, oaFormMainId={}, ncOrderNo={}, crmContractId={}, {}",
-                        BIZ, id, record.getOaFormMainId(), ncOrderNo, record.getCrmContractId(), message);
+                        BIZ, id, record.getOaFormMainId(), ncOrderNo, crmContractId, message);
                 syncService.markCrmRetry(id, record.getVersion(), message);
                 result.recordFailure(item, message);
             }
@@ -267,6 +292,36 @@ public class OaContractAttachmentSyncManagerImpl implements IOaContractAttachmen
                 log.error("【{}】CRM失败状态回写异常, id={}, ncOrderNo={}", BIZ, id, ncOrderNo, markEx);
             }
             result.recordFailure(item, e.getMessage());
+        }
+    }
+
+    /**
+     * CRM 合同数据 ID 存量补偿：按 NC 销售订单号反查 OA formmain_2817.field0495 并回写中间表
+     *
+     * <p>field0495 标量子查询上线前入库的记录 {@code crm_contract_id} 为空，且 NOT IN 增量
+     * 扫描不会重刷已入库记录，故在处理链路反查补偿；反查异常按未命中处理（不阻断批次内其他记录）。
+     * 补偿回写仅补快照字段，不累加 version、不改 sync_status。</p>
+     *
+     * @param record  当前处理记录
+     * @param version 当前乐观锁版本号，仅用于日志观测
+     * @return 补偿到的 CRM 合同数据 ID；反查未命中或异常时返回 null
+     */
+    private String compensateCrmContractId(OaContractAttachmentSyncDO record, int version) {
+        try {
+            Optional<String> resolved = oaContractDbClient.findCrmContractIdByNcNo(record.getNcOrderNo());
+            if (resolved.isEmpty() || !StringUtils.hasText(resolved.get())) {
+                log.info("【{}】CRM合同ID反查未命中, id={}, oaFormMainId={}, ncOrderNo={}, version={}",
+                        BIZ, record.getId(), record.getOaFormMainId(), record.getNcOrderNo(), version);
+                return null;
+            }
+            syncService.updateCrmContractId(record.getId(), resolved.get());
+            log.info("【{}】CRM合同ID补偿成功, id={}, oaFormMainId={}, ncOrderNo={}, crmContractId={}, version={}",
+                    BIZ, record.getId(), record.getOaFormMainId(), record.getNcOrderNo(), resolved.get(), version);
+            return resolved.get();
+        } catch (Exception e) {
+            log.warn("【{}】CRM合同ID补偿异常, id={}, ncOrderNo={}",
+                    BIZ, record.getId(), record.getNcOrderNo(), e);
+            return null;
         }
     }
 }
