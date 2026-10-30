@@ -17,6 +17,7 @@ import com.cacch.integration.integration.oa.client.dto.OaAttachmentRow;
 import com.cacch.integration.integration.oa.client.dto.OaContractRow;
 import com.cacch.integration.manager.oa.api.IOaContractAttachmentSyncManager;
 import com.cacch.integration.service.oa.api.IOaContractAttachmentSyncService;
+import com.cacch.integration.service.oa.api.IOaTokenService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -32,9 +33,10 @@ import java.util.Optional;
  *
  * <p>执行链路（REQ-OA-003）：NOT IN 增量扫描入库 → 回收超时 PROCESSING →
  * <strong>附件阶段</strong>捞取 PENDING / RETRY：乐观锁 CAS 抢占 → CRM 合同 ID 空校验 →
- * 按附件引用查 OA 附件 → 上传公司内部文件服务器换取 URL（Q13 当前固定 URL 占位）→
- * 回填中间表（状态 PENDING_CRM）→ <strong>CRM 回传阶段</strong>捞取 PENDING_CRM：
- * 调用 contractEdit 回传附件 URL，成功置 SUCCESS，失败置 RETRY（无次数上限）。</p>
+ * 按附件引用查 OA 附件 → 上传公司内部文件服务器（NFS 挂载：OA 统一鉴权下载附件流 →
+ * 落盘挂载目录 → 前缀拼接可访问 URL）→ 回填中间表（状态 PENDING_CRM）→
+ * <strong>CRM 回传阶段</strong>捞取 PENDING_CRM：调用 contractEdit 回传附件 URL，
+ * 成功置 SUCCESS，失败置 RETRY（无次数上限）。</p>
  *
  * <p>CRM 回传阶段不做二次抢占：contractEdit 幂等（重复写同一附件 URL 无副作用），
  * 直接以捞取时的 version CAS 回写最终状态。PENDING_CRM 回传失败回写 RETRY 后，
@@ -63,6 +65,7 @@ public class OaContractAttachmentSyncManagerImpl implements IOaContractAttachmen
     private final FileServerUploadClient fileServerUploadClient;
     private final CrmClient crmClient;
     private final CrmContractProperties crmContractProperties;
+    private final IOaTokenService oaTokenService;
     private final IOaContractAttachmentSyncService syncService;
 
     @Override
@@ -165,17 +168,11 @@ public class OaContractAttachmentSyncManagerImpl implements IOaContractAttachmen
                 return false;
             }
 
-            // 4. 上传公司内部文件服务器换取附件 URL（Q13 当前固定 URL 占位）
+            // 4. 上传公司内部文件服务器（NFS 挂载）：OA 统一鉴权下载附件 → 落盘挂载目录 →
+            //    前缀拼接可访问 URL；下载/落盘失败抛异常，由外层 catch 统一回写 RETRY
             OaAttachmentRow attachment = attachmentOpt.get();
-            String attachmentUrl = fileServerUploadClient.upload(attachment.fileName(), attachment.fileUrl());
-            if (!StringUtils.hasText(attachmentUrl)) {
-                // 可恢复失败（如占位地址未配置）→ RETRY，下次执行重试
-                log.info("【{}】记录终止为重试, id={}, oaFormMainId={}, ncOrderNo={}, reason=文件服务器上传未取得URL",
-                        BIZ, id, record.getOaFormMainId(), ncOrderNo);
-                syncService.markRetry(id, claimedVersion, "文件服务器上传未取得URL");
-                result.recordFailure(item, "文件服务器上传未取得URL");
-                return false;
-            }
+            String oaToken = oaTokenService.getToken(null);
+            String attachmentUrl = fileServerUploadClient.upload(oaToken, attachment.fileName(), attachment.fileUrl());
 
             // 5. 回填附件信息与 URL（→ PENDING_CRM）
             boolean ready = syncService.markAttachmentReady(id, claimedVersion,
