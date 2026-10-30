@@ -6,7 +6,7 @@ import com.cacch.integration.common.dto.keruyun.KeruyunOrderSyncResult;
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.Result;
 import com.cacch.integration.common.result.ResultCode;
-import com.cacch.integration.convert.keruyun.KeruyunOrderConverter;
+import com.cacch.integration.convert.keruyun.KeruyunOrderVOConverter;
 import com.cacch.integration.dto.keruyun.request.KeruyunOrderQueryRequest;
 import com.cacch.integration.dto.keruyun.request.KeruyunOrderSyncRequest;
 import com.cacch.integration.dto.keruyun.request.KeruyunOrderSyncTaskExecuteRequest;
@@ -45,7 +45,7 @@ public class KeruyunOrderController {
     private final IKeruyunOrderManager keruyunOrderManager;
     private final IKeruyunOrderSyncTaskManager taskManager;
     private final IKeruyunOrderService orderService;
-    private final KeruyunOrderConverter orderConverter;
+    private final KeruyunOrderVOConverter orderConverter;
 
     /**
      * 手动指定时间窗口同步（调试 / 快速验证入口）

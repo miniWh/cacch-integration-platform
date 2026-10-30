@@ -11,12 +11,14 @@ import java.math.RoundingMode;
 /**
  * 客如云订单 DO → VO 转换器
  *
- * <p>金额字段在 DO 中以分为单位（Long），VO 中以元为单位（BigDecimal，保留 2 位小数）。</p>
+ * <p>金额字段在 DO 中以分为单位（Long），VO 中以元为单位（BigDecimal，保留 2 位小数）。
+ * 与 manager 模块的 {@code KeruyunOrderConverter}（DTO → DO 落库转换）职责不同，
+ * 故命名为 {@code KeruyunOrderVOConverter} 以避免 MapStruct 生成的实现类 bean name 冲突。</p>
  *
  * @author hongfu_zhou@cacch.com
  */
 @Mapper(componentModel = "spring")
-public abstract class KeruyunOrderConverter {
+public abstract class KeruyunOrderVOConverter {
 
     /**
      * DO → VO
