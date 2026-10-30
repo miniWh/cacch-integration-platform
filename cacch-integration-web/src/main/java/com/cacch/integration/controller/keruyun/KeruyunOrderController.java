@@ -24,6 +24,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 /**
  * 客如云订单接口
  *
@@ -121,5 +123,35 @@ public class KeruyunOrderController {
         // DO → VO（金额分转元在 Converter 内完成）
         IPage<KeruyunOrderVO> voPage = page.convert(orderConverter::toVO);
         return Result.success(voPage);
+    }
+
+    /**
+     * 按条件全量查询订单（Excel 导出专用，不分页）
+     *
+     * <p>供管理端导出 Excel 时直接调用，返回满足条件的全部订单数据。
+     * 实际返回行数超过默认上限 50000 条时返回 400 业务码，提示调用方缩小查询范围。
+     * 金额字段返回已从分转换为元（保留 2 位小数），按 open_time 升序排列。</p>
+     *
+     * @param request 查询参数（所有条件可选；不含分页参数）
+     * @return 订单 VO 列表；无数据时返回空列表（非 null）
+     */
+    @GetMapping("/export")
+    public Result<List<KeruyunOrderVO>> export(@Valid KeruyunOrderQueryRequest request) {
+        // 默认最大返回 50000 条，超过提示缩小范围
+        final int defaultMaxRows = 50000;
+        List<KeruyunOrderDO> rows = orderService.listForExport(
+                request.getOrderId(),
+                request.getShopId(),
+                request.getOrderStatus(),
+                request.getOrderType(),
+                request.getOpenTimeFrom(),
+                request.getOpenTimeTo(),
+                request.getCreatedAtFrom(),
+                request.getCreatedAtTo(),
+                defaultMaxRows);
+        List<KeruyunOrderVO> voList = rows.stream()
+                .map(orderConverter::toVO)
+                .toList();
+        return Result.success(voList);
     }
 }
