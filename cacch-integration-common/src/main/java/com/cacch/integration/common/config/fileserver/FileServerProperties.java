@@ -32,16 +32,23 @@ public class FileServerProperties {
     private final String urlPrefix;
 
     public FileServerProperties(String mountPath, String subDir, String urlPrefix) {
-        this.mountPath = normalizeDir(mountPath, "/oafiles");
+        // 挂载目录为绝对路径：必须保留前导 /，否则 Paths.get 解析为相对路径，
+        // toAbsolutePath 时会被拼上应用工作目录；仅去除尾部多余分隔符
+        this.mountPath = mountPath != null && !mountPath.isBlank()
+                ? mountPath.trim().replaceAll("/+$", "")
+                : "/oafiles";
         this.subDir = normalizeDir(subDir, "integration/contract-attachment");
         this.urlPrefix = urlPrefix != null && !urlPrefix.isBlank()
                 ? trimTrailingSlash(urlPrefix.trim())
                 : "https://crmimage.cacch.com:50002";
     }
 
+    /**
+     * 业务子目录规范化：去除首尾分隔符，避免拼接出现双斜杠（仅用于相对路径 subDir，
+     * 不可用于 mountPath 等绝对路径）
+     */
     private static String normalizeDir(String value, String defaultValue) {
         String dir = value != null && !value.isBlank() ? value.trim() : defaultValue;
-        // 统一去除首尾分隔符，避免拼接出现双斜杠
         while (dir.startsWith("/") && dir.length() > 1) {
             dir = dir.substring(1);
         }

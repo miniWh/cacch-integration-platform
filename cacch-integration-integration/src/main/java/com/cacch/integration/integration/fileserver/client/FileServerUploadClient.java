@@ -139,7 +139,8 @@ public class FileServerUploadClient {
      * @return 以 / 开头的绝对路径字符串
      */
     private String toAbsolutePathString(Path target) {
-        return "/" + target.toAbsolutePath().normalize().toString().replace('\\', '/')
-                .replaceAll("^/+", "");
+        String absolute = target.toAbsolutePath().normalize().toString().replace('\\', '/');
+        // Windows 调试环境可能产出盘符相对形态，兜底补前导 /
+        return absolute.startsWith("/") ? absolute : "/" + absolute;
     }
 }
