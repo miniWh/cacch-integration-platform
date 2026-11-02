@@ -289,3 +289,186 @@ XLSX.writeFile({ Sheets: { 订单: ws }, SheetNames: ['订单'] }, 'keruyun_orde
 4. **空值处理**：数值 / 时间字段无值时为 `null`，调用方需做空值判断。
 5. **鉴权**：本服务无独立鉴权，由前置网关统一处理；调用时须携带网关要求的认证凭据（Header 名称与格式以网关约定为准），测试环境与生产环境凭据不可混用。
 6. **环境地址**：测试 `http://10.80.68.10:8081`，生产 `http://10.80.68.11:8081`。
+
+---
+
+## 八、同步任务接口
+
+> 以下接口用于「客如云订单同步」页面：展示同步记录、手动触发跨天同步。
+
+### 8.1 分页查询同步记录
+
+| 项 | 内容 |
+|---|---|
+| URL | `GET /api/v1/keruyun/orders/sync/tasks` |
+| 功能 | 查询 `stg_keruyun_order_sync_task` 表的同步记录，按 `syncDate` **倒序** |
+| Content-Type | `application/json` |
+
+#### 请求参数
+
+| 参数 | 类型 | 必填 | 默认 | 说明 |
+|------|------|------|------|------|
+| `pageNum` | int | 否 | `1` | 页码，从 1 开始 |
+| `pageSize` | int | 否 | `20` | 每页条数，最大 `100`（超出自动截断为 100） |
+
+#### 响应
+
+`data` 为 MyBatis-Plus `IPage<T>` 结构：
+
+```json
+{
+  "code": 0,
+  "message": "操作成功",
+  "data": {
+    "records": [
+      {
+        "id": 1829214567890123456,
+        "syncDate": "2026-10-21",
+        "dateType": "OPEN_TIME",
+        "syncWindowStart": "2026-10-21T00:00:00",
+        "syncWindowEnd": "2026-10-21T23:59:59",
+        "status": "SUCCESS",
+        "retryCount": 0,
+        "lastPage": 3,
+        "totalPage": 3,
+        "totalCount": 128,
+        "successCount": 128,
+        "failureCount": 0,
+        "errorMessage": null,
+        "createdAt": "2026-10-22T10:00:00",
+        "updatedAt": "2026-10-22T10:00:30",
+        "syncedAt": "2026-10-22T10:00:30"
+      }
+    ],
+    "total": 15,
+    "size": 20,
+    "current": 1,
+    "pages": 1
+  }
+}
+```
+
+**`data.records` 单条字段说明**：见「九、同步任务对象字段表」。
+
+---
+
+### 8.2 手动触发跨天同步
+
+| 项 | 内容 |
+|---|---|
+| URL | `POST /api/v1/keruyun/orders/sync/tasks/manual` |
+| 功能 | 手动指定查询窗口，触发一次跨天同步（**dateType 固定 `OPEN_TIME`**，无需调用方传入） |
+| Content-Type | `application/json` |
+| 说明 | 以 `startTime` 的日期作为 `syncDate`，若该 `(syncDate, OPEN_TIME)` 已存在则重置查询窗口并重新执行，否则新建任务；**异步执行**，接口立即返回 |
+
+#### 请求体
+
+```json
+{
+  "startTime": "2026-10-01T00:00:00",
+  "endTime": "2026-10-07T23:59:59"
+}
+```
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `startTime` | LocalDateTime | 是 | 查询窗口起始时间 |
+| `endTime` | LocalDateTime | 是 | 查询窗口结束时间，**必须晚于 startTime** |
+
+#### 响应
+
+```json
+{
+  "code": 0,
+  "message": "操作成功",
+  "data": {
+    "createdTaskCount": 0,
+    "pendingTaskCount": 1,
+    "taskIds": [1829214567890123456],
+    "message": "手动跨天同步已触发, dateType=OPEN_TIME, syncDate=2026-10-01, window=[2026-10-01T00:00, 2026-10-07T23:59:59]"
+  }
+}
+```
+
+**`data` 字段说明：**
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `createdTaskCount` | int | 本次新建任务数（手动同步固定为 0，因为走创建/重置逻辑） |
+| `pendingTaskCount` | int | 本次待执行任务数（固定为 1） |
+| `taskIds` | array | 任务 ID 列表（可用于后续查询状态） |
+| `message` | string | 执行概览描述 |
+
+#### 参数错误响应
+
+| 场景 | code | message |
+|------|------|---------|
+| `startTime` 或 `endTime` 为空 | `40002` | 起始时间与结束时间均不可为空 / 查询窗口起始时间不可为空 |
+| `endTime` 不晚于 `startTime` | `40001` | 结束时间必须晚于起始时间 |
+
+---
+
+## 九、同步任务对象字段表
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `id` | long | 内部主键（雪花算法） |
+| `syncDate` | LocalDate | 同步日期（`startTime` 的日期部分） |
+| `dateType` | string | 查询时间类型，当前固定 `OPEN_TIME` |
+| `syncWindowStart` | LocalDateTime | 查询窗口起始时间 |
+| `syncWindowEnd` | LocalDateTime | 查询窗口结束时间 |
+| `status` | string | 任务状态，见下方状态枚举 |
+| `retryCount` | int | 已重试次数 |
+| `lastPage` | int | 断点续传用，已拉取到的最后页码 |
+| `totalPage` | int | 总页数（首次执行后回填） |
+| `totalCount` | int | 总订单数（首次执行后回填） |
+| `successCount` | int | 落库成功数 |
+| `failureCount` | int | 落库失败数 |
+| `errorMessage` | string | 失败原因（成功时为 null） |
+| `createdAt` | LocalDateTime | 任务创建时间 |
+| `updatedAt` | LocalDateTime | 任务最近状态/进度更新时间 |
+| `syncedAt` | LocalDateTime | 任务执行完成时间（未完成时为 null） |
+
+### 状态枚举（`status`）
+
+| 值 | 含义 |
+|----|------|
+| `PENDING` | 待执行 |
+| `IN_PROGRESS` | 执行中 |
+| `SUCCESS` | 成功 |
+| `FAILED` | 失败 |
+| `PARTIAL` | 部分失败 |
+
+---
+
+## 十、同步任务接口调用示例
+
+> 以**测试环境** `http://10.80.68.10:8081` 为例。
+
+### 10.1 查询同步记录
+
+```bash
+curl -X GET "http://10.80.68.10:8081/api/v1/keruyun/orders/sync/tasks?pageNum=1&pageSize=20" \
+  -H "{网关鉴权Header}: {网关鉴权凭据}"
+```
+
+### 10.2 手动跨天同步
+
+```bash
+curl -X POST "http://10.80.68.10:8081/api/v1/keruyun/orders/sync/tasks/manual" \
+  -H "Content-Type: application/json" \
+  -H "{网关鉴权Header}: {网关鉴权凭据}" \
+  -d '{
+    "startTime": "2026-10-01T00:00:00",
+    "endTime": "2026-10-07T23:59:59"
+  }'
+```
+
+---
+
+## 十一、同步任务对接注意事项
+
+1. **异步执行**：手动同步接口返回时任务仍在后台执行，前端需轮询「8.1 查询同步记录」接口查看 `status` 变化。
+2. **幂等重置**：同一天重复触发手动同步不会新建任务，而是更新查询窗口并重置为 `PENDING` 重新执行。
+3. **状态轮询**：建议前端每 3~5 秒轮询一次，直到 `status` 变为 `SUCCESS` / `FAILED` / `PARTIAL`。
+4. **时间格式**：`startTime` / `endTime` 使用 ISO-8601 格式 `yyyy-MM-ddTHH:mm:ss`。

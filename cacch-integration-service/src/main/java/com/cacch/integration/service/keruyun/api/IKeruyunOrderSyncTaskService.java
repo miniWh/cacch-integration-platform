@@ -122,7 +122,8 @@ public interface IKeruyunOrderSyncTaskService {
      * 创建或重置手动跨天任务（唯一键幂等）
      *
      * <p>唯一键 (sync_date, date_type) 已存在时：更新查询窗口起止时间、
-     * 重置状态为 PENDING、last_page 归零、retry_count +1；
+     * 重置状态为 PENDING、last_page 归零；仅当上次终态为 FAILED / PARTIAL
+     * （即失败后重试）时 retry_count +1，重新触发已成功的任务不计数；
      * 不存在时：创建一条 PENDING 任务，sync_window 取调用方指定的起止时间。</p>
      *
      * @param syncDate    同步日期（取 startTime 的日期部分）

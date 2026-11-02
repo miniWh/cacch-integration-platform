@@ -245,7 +245,10 @@ public class KeruyunOrderSyncTaskServiceImpl implements IKeruyunOrderSyncTaskSer
         KeruyunOrderSyncTaskDO existing = taskMapper.selectOne(wrapper);
 
         if (existing != null) {
-            // 已存在：更新查询窗口 + 重置 PENDING + retry_count +1
+            // 已存在：更新查询窗口 + 重置 PENDING；仅上次终态为 FAILED/PARTIAL 时 retry_count +1
+            String prevStatus = existing.getStatus();
+            boolean isFailureRetry = KeruyunOrderSyncStatus.FAILED.name().equals(prevStatus)
+                    || KeruyunOrderSyncStatus.PARTIAL.name().equals(prevStatus);
             existing.setSyncWindowStart(windowStart);
             existing.setSyncWindowEnd(windowEnd);
             existing.setStatus(KeruyunOrderSyncStatus.PENDING.name());
@@ -255,11 +258,13 @@ public class KeruyunOrderSyncTaskServiceImpl implements IKeruyunOrderSyncTaskSer
             existing.setTotalPage(null);
             existing.setTotalCount(null);
             existing.setErrorMessage(null);
-            existing.setRetryCount((existing.getRetryCount() == null ? 0 : existing.getRetryCount()) + 1);
+            if (isFailureRetry) {
+                existing.setRetryCount((existing.getRetryCount() == null ? 0 : existing.getRetryCount()) + 1);
+            }
             existing.setUpdatedAt(LocalDateTime.now());
             taskMapper.updateById(existing);
-            log.info("【{}】手动任务已重置, id={}, syncDate={}, dateType={}, window=[{}, {}]",
-                    BIZ, existing.getId(), syncDate, dateType, windowStart, windowEnd);
+            log.info("【{}】手动任务已重置, id={}, syncDate={}, dateType={}, window=[{}, {}], prevStatus={}, failureRetry={}",
+                    BIZ, existing.getId(), syncDate, dateType, windowStart, windowEnd, prevStatus, isFailureRetry);
             return existing;
         }
 
