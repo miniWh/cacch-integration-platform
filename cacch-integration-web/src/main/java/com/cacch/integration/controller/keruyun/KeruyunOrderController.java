@@ -6,15 +6,20 @@ import com.cacch.integration.common.dto.keruyun.KeruyunOrderSyncResult;
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.Result;
 import com.cacch.integration.common.result.ResultCode;
+import com.cacch.integration.convert.keruyun.KeruyunOrderSyncTaskConverter;
 import com.cacch.integration.convert.keruyun.KeruyunOrderVOConverter;
+import com.cacch.integration.dto.keruyun.request.KeruyunOrderManualSyncRequest;
 import com.cacch.integration.dto.keruyun.request.KeruyunOrderQueryRequest;
 import com.cacch.integration.dto.keruyun.request.KeruyunOrderSyncRequest;
 import com.cacch.integration.dto.keruyun.request.KeruyunOrderSyncTaskExecuteRequest;
+import com.cacch.integration.dto.keruyun.vo.KeruyunOrderSyncTaskVO;
 import com.cacch.integration.dto.keruyun.vo.KeruyunOrderVO;
 import com.cacch.integration.entity.keruyun.KeruyunOrderDO;
+import com.cacch.integration.entity.keruyun.KeruyunOrderSyncTaskDO;
 import com.cacch.integration.manager.keruyun.api.IKeruyunOrderManager;
 import com.cacch.integration.manager.keruyun.api.IKeruyunOrderSyncTaskManager;
 import com.cacch.integration.service.keruyun.api.IKeruyunOrderService;
+import com.cacch.integration.service.keruyun.api.IKeruyunOrderSyncTaskService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,6 +27,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -45,7 +51,9 @@ public class KeruyunOrderController {
     private final IKeruyunOrderManager keruyunOrderManager;
     private final IKeruyunOrderSyncTaskManager taskManager;
     private final IKeruyunOrderService orderService;
+    private final IKeruyunOrderSyncTaskService taskService;
     private final KeruyunOrderVOConverter orderConverter;
+    private final KeruyunOrderSyncTaskConverter taskConverter;
 
     /**
      * 手动指定时间窗口同步（调试 / 快速验证入口）
@@ -81,6 +89,44 @@ public class KeruyunOrderController {
                 request.getAnchorDate(),
                 request.getDateType());
         return Result.success(result);
+    }
+
+    /**
+     * 手动触发跨天同步（单任务，dateType 固定 OPEN_TIME）
+     *
+     * <p>调用方仅需指定查询窗口起始与结束时间，后端固定 dateType=OPEN_TIME、
+     * 以 startTime 的日期作为 sync_date 创建（或重置）一条任务并异步执行。
+     * 立即返回 BatchResult，不等待执行完成。</p>
+     *
+     * @param request 手动同步请求（startTime / endTime 必填，endTime 必须晚于 startTime）
+     * @return 批次执行结果（含任务 ID）
+     */
+    @PostMapping("/sync/tasks/manual")
+    public Result<KeruyunOrderSyncBatchResult> executeManualBatch(
+            @Valid @RequestBody KeruyunOrderManualSyncRequest request) {
+        KeruyunOrderSyncBatchResult result = taskManager.executeManualBatch(
+                request.getStartTime(),
+                request.getEndTime());
+        return Result.success(result);
+    }
+
+    /**
+     * 分页查询同步任务记录
+     *
+     * <p>从 stg_keruyun_order_sync_task 表读取，按 sync_date 倒序排列。
+     * 供管理端「客如云订单同步」页面展示同步记录。</p>
+     *
+     * @param pageNum  页码，默认 1
+     * @param pageSize 每页条数，默认 20，最大 100
+     * @return 分页结果，records 为任务 VO 列表
+     */
+    @GetMapping("/sync/tasks")
+    public Result<IPage<KeruyunOrderSyncTaskVO>> querySyncTasks(
+            @RequestParam(defaultValue = "1") int pageNum,
+            @RequestParam(defaultValue = "20") int pageSize) {
+        IPage<KeruyunOrderSyncTaskDO> page = taskService.pageQuery(pageNum, pageSize);
+        IPage<KeruyunOrderSyncTaskVO> voPage = page.convert(taskConverter::toVO);
+        return Result.success(voPage);
     }
 
     /**

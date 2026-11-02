@@ -1,6 +1,8 @@
 package com.cacch.integration.service.keruyun.api.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.cacch.integration.common.constant.keruyun.KeruyunOrderSyncStatus;
 import com.cacch.integration.entity.keruyun.KeruyunOrderSyncTaskDO;
 import com.cacch.integration.mapper.keruyun.KeruyunOrderSyncTaskMapper;
@@ -222,5 +224,60 @@ public class KeruyunOrderSyncTaskServiceImpl implements IKeruyunOrderSyncTaskSer
             return null;
         }
         return value.length() > maxLen ? value.substring(0, maxLen) + "..." : value;
+    }
+
+    @Override
+    public IPage<KeruyunOrderSyncTaskDO> pageQuery(int pageNum, int pageSize) {
+        int effectivePageNum = Math.max(1, pageNum);
+        int effectivePageSize = Math.max(1, Math.min(pageSize, 100));
+        LambdaQueryWrapper<KeruyunOrderSyncTaskDO> wrapper = new LambdaQueryWrapper<>();
+        wrapper.orderByDesc(KeruyunOrderSyncTaskDO::getSyncDate);
+        return taskMapper.selectPage(new Page<>(effectivePageNum, effectivePageSize), wrapper);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED, timeout = 10)
+    public KeruyunOrderSyncTaskDO createOrResetManualTask(LocalDate syncDate, String dateType,
+                                                          LocalDateTime windowStart, LocalDateTime windowEnd) {
+        LambdaQueryWrapper<KeruyunOrderSyncTaskDO> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(KeruyunOrderSyncTaskDO::getSyncDate, syncDate)
+                .eq(KeruyunOrderSyncTaskDO::getDateType, dateType);
+        KeruyunOrderSyncTaskDO existing = taskMapper.selectOne(wrapper);
+
+        if (existing != null) {
+            // 已存在：更新查询窗口 + 重置 PENDING + retry_count +1
+            existing.setSyncWindowStart(windowStart);
+            existing.setSyncWindowEnd(windowEnd);
+            existing.setStatus(KeruyunOrderSyncStatus.PENDING.name());
+            existing.setLastPage(0);
+            existing.setSuccessCount(0);
+            existing.setFailureCount(0);
+            existing.setTotalPage(null);
+            existing.setTotalCount(null);
+            existing.setErrorMessage(null);
+            existing.setRetryCount((existing.getRetryCount() == null ? 0 : existing.getRetryCount()) + 1);
+            existing.setUpdatedAt(LocalDateTime.now());
+            taskMapper.updateById(existing);
+            log.info("【{}】手动任务已重置, id={}, syncDate={}, dateType={}, window=[{}, {}]",
+                    BIZ, existing.getId(), syncDate, dateType, windowStart, windowEnd);
+            return existing;
+        }
+
+        // 不存在：新建
+        KeruyunOrderSyncTaskDO task = new KeruyunOrderSyncTaskDO();
+        task.setSyncDate(syncDate);
+        task.setDateType(dateType);
+        task.setSyncWindowStart(windowStart);
+        task.setSyncWindowEnd(windowEnd);
+        task.setStatus(KeruyunOrderSyncStatus.PENDING.name());
+        task.setRetryCount(0);
+        task.setLastPage(0);
+        task.setSuccessCount(0);
+        task.setFailureCount(0);
+        task.setVersion(0);
+        taskMapper.insert(task);
+        log.info("【{}】手动任务创建成功, id={}, syncDate={}, dateType={}, window=[{}, {}]",
+                BIZ, task.getId(), syncDate, dateType, windowStart, windowEnd);
+        return task;
     }
 }

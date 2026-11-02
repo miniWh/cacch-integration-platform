@@ -2,6 +2,8 @@ package com.cacch.integration.manager.keruyun.api.impl;
 
 import com.cacch.integration.common.constant.keruyun.KeruyunOrderSyncStatus;
 import com.cacch.integration.common.dto.keruyun.KeruyunOrderSyncBatchResult;
+import com.cacch.integration.common.exception.BizException;
+import com.cacch.integration.common.result.ResultCode;
 import com.cacch.integration.entity.keruyun.KeruyunOrderSyncTaskDO;
 import com.cacch.integration.manager.keruyun.api.IKeruyunOrderManager;
 import com.cacch.integration.manager.keruyun.api.IKeruyunOrderSyncTaskManager;
@@ -13,6 +15,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -86,5 +89,39 @@ public class KeruyunOrderSyncTaskManagerImpl implements IKeruyunOrderSyncTaskMan
             log.error("【{}】任务执行异常, id={}, reason={}", BIZ, taskId, e.getMessage(), e);
             taskService.markComplete(taskId, KeruyunOrderSyncStatus.FAILED.name(), e.getMessage());
         }
+    }
+
+    @Override
+    public KeruyunOrderSyncBatchResult executeManualBatch(LocalDateTime startTime, LocalDateTime endTime) {
+        if (startTime == null || endTime == null) {
+            log.info("【{}】手动同步终止, reason=时间参数为空", BIZ);
+            throw new BizException(ResultCode.PARAM_INVALID, "起始时间与结束时间均不可为空");
+        }
+        if (!endTime.isAfter(startTime)) {
+            log.info("【{}】手动同步终止, reason=结束时间不晚于起始时间, startTime={}, endTime={}",
+                    BIZ, startTime, endTime);
+            throw new BizException(ResultCode.PARAM_INVALID, "结束时间必须晚于起始时间");
+        }
+
+        // dateType 固定 OPEN_TIME，syncDate 取起始日期
+        final String dateType = "OPEN_TIME";
+        LocalDate syncDate = startTime.toLocalDate();
+
+        KeruyunOrderSyncTaskDO task = taskService.createOrResetManualTask(
+                syncDate, dateType, startTime, endTime);
+
+        Long taskId = task.getId();
+        try {
+            CompletableFuture.runAsync(() -> executeSingleTask(taskId));
+        } catch (Exception e) {
+            log.error("【{}】手动任务异步触发失败, id={}, reason={}", BIZ, taskId, e.getMessage(), e);
+            taskService.markComplete(taskId, KeruyunOrderSyncStatus.FAILED.name(),
+                    "异步执行触发失败: " + e.getMessage());
+        }
+
+        String message = String.format("手动跨天同步已触发, dateType=%s, syncDate=%s, window=[%s, %s]",
+                dateType, syncDate, startTime, endTime);
+        log.info("【{}】手动批次触发完成, {}", BIZ, message);
+        return new KeruyunOrderSyncBatchResult(0, 1, List.of(taskId), message);
     }
 }

@@ -3,6 +3,7 @@ package com.cacch.integration.manager.keruyun.api;
 import com.cacch.integration.common.dto.keruyun.KeruyunOrderSyncBatchResult;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 /**
  * 客如云订单同步任务编排接口
@@ -33,4 +34,17 @@ public interface IKeruyunOrderSyncTaskManager {
      * @param taskId 任务主键，不可为空
      */
     void executeSingleTask(Long taskId);
+
+    /**
+     * 手动触发跨天同步（单任务）
+     *
+     * <p>dateType 固定为 OPEN_TIME；以 startTime 的日期作为 sync_date，
+     * 若该 (sync_date, OPEN_TIME) 已存在则重置查询窗口并重新执行，否则新建任务。
+     * 立即返回 BatchResult，异步执行不阻塞。</p>
+     *
+     * @param startTime 查询窗口起始时间，不可为空
+     * @param endTime   查询窗口结束时间，必须晚于 startTime
+     * @return 批次执行结果（含任务 ID）
+     */
+    KeruyunOrderSyncBatchResult executeManualBatch(LocalDateTime startTime, LocalDateTime endTime);
 }

@@ -1,8 +1,10 @@
 package com.cacch.integration.service.keruyun.api;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.cacch.integration.entity.keruyun.KeruyunOrderSyncTaskDO;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -106,4 +108,29 @@ public interface IKeruyunOrderSyncTaskService {
      * @return true 表示重置成功；false 表示任务不存在或已在 IN_PROGRESS 中
      */
     boolean retry(Long id);
+
+    /**
+     * 分页查询同步任务（按 sync_date 倒序）
+     *
+     * @param pageNum  页码，从 1 开始
+     * @param pageSize 每页条数
+     * @return 分页结果
+     */
+    IPage<KeruyunOrderSyncTaskDO> pageQuery(int pageNum, int pageSize);
+
+    /**
+     * 创建或重置手动跨天任务（唯一键幂等）
+     *
+     * <p>唯一键 (sync_date, date_type) 已存在时：更新查询窗口起止时间、
+     * 重置状态为 PENDING、last_page 归零、retry_count +1；
+     * 不存在时：创建一条 PENDING 任务，sync_window 取调用方指定的起止时间。</p>
+     *
+     * @param syncDate    同步日期（取 startTime 的日期部分）
+     * @param dateType    查询时间类型（手动同步固定 OPEN_TIME）
+     * @param windowStart 查询窗口起始时间
+     * @param windowEnd   查询窗口结束时间
+     * @return 任务 DO（新建或更新后的）
+     */
+    KeruyunOrderSyncTaskDO createOrResetManualTask(LocalDate syncDate, String dateType,
+                                                   LocalDateTime windowStart, LocalDateTime windowEnd);
 }
