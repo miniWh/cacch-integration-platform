@@ -88,9 +88,9 @@ public class KeruyunOrderItemQueryRow {
     private BigDecimal quantity;
 
     /**
-     * 是否赠菜：0-否 1-是
+     * 是否赠菜：true-赠菜 false-非赠菜（对应表列 gift_flag，BOOLEAN）
      */
-    private Integer giftFlag;
+    private Boolean giftFlag;
 
     /**
      * 售卖状态码：NORMAL-销售 DISCARD-退菜

@@ -525,7 +525,7 @@ curl -X POST "http://10.80.68.10:8081/api/v1/keruyun/orders/sync/tasks/manual" \
         "unitName": "份",
         "specName": "中份/微辣",
         "quantity": 1.0000,
-        "giftFlag": 0,
+        "giftFlag": false,
         "saleStatusTypeCode": "NORMAL",
         "itemPriceYuan": 38.00,
         "salePriceYuan": 38.00,
@@ -558,7 +558,7 @@ curl -X POST "http://10.80.68.10:8081/api/v1/keruyun/orders/sync/tasks/manual" \
 | `unitName` | string | 单位 |
 | `specName` | string | 规格（拼接展示值） |
 | `quantity` | BigDecimal | 数量 |
-| `giftFlag` | int | 是否赠菜：`0` 否 / `1` 是 |
+| `giftFlag` | boolean | 是否赠菜：`true` 赠菜 / `false` 非赠菜 |
 | `saleStatusTypeCode` | string | 售卖状态：`NORMAL` 销售 / `DISCARD` 退菜 |
 | `itemPriceYuan` | BigDecimal | 原始单价（元，2 位小数） |
 | `salePriceYuan` | BigDecimal | 售价（元，2 位小数） |
@@ -606,5 +606,5 @@ curl -X GET "http://10.80.68.10:8081/api/v1/keruyun/order-items?itemName=宫保�
 
 1. **数据时延**：菜品明细依赖详情同步（列表同步完成后自动触发、仅同步**已完结订单**），列表页可见订单的明细通常在几分钟内补齐；`finishTime` 为空的订单暂无明细。
 2. **套餐子商品**：套餐内子商品已平铺为独立行，与普通菜品行结构一致。
-3. **退菜 / 赠菜**：通过 `saleStatusTypeCode=DISCARD`、`giftFlag=1` 标记，做销量统计时调用方需自行排除退菜行。
+3. **退菜 / 赠菜**：通过 `saleStatusTypeCode=DISCARD`、`giftFlag=true` 标记，做销量统计时调用方需自行排除退菜行。
 4. **空值处理**：单价/金额无值时为 `null`（如赠菜行可能无售价），调用方需做空值判断。
