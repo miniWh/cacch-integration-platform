@@ -472,3 +472,139 @@ curl -X POST "http://10.80.68.10:8081/api/v1/keruyun/orders/sync/tasks/manual" \
 2. **幂等重置**：同一天重复触发手动同步不会新建任务，而是更新查询窗口并重置为 `PENDING` 重新执行。
 3. **状态轮询**：建议前端每 3~5 秒轮询一次，直到 `status` 变为 `SUCCESS` / `FAILED` / `PARTIAL`。
 4. **时间格式**：`startTime` / `endTime` 使用 ISO-8601 格式 `yyyy-MM-ddTHH:mm:ss`。
+
+---
+
+## 十二、订单菜品明细接口（SKU 维度）
+
+> 以下接口以 SKU 为维度展示订单信息，**一行 = 一个订单 × 一个 SKU**。
+> 数据来源：`stg_keruyun_order_item` JOIN `stg_keruyun_order`，依赖订单详情同步落库（订单列表同步完成后自动触发，仅同步已完结订单）。
+
+### 12.1 分页查询菜品明细
+
+| 项 | 内容 |
+|---|---|
+| URL | `GET /api/v1/keruyun/order-items` |
+| 功能 | 按条件分页查询订单菜品明细（订单头信息 + SKU 数量/单价/金额） |
+| 排序 | 下单时间**倒序**；同一订单的 SKU 行相邻排列 |
+
+#### 请求参数
+
+| 参数 | 类型 | 必填 | 匹配方式 | 说明 |
+|------|------|------|------|------|
+| `orderId` | string | 否 | 精确 | 客如云订单 ID |
+| `itemCode` | string | 否 | 精确 | SKU 编码 |
+| `itemName` | string | 否 | **模糊** | 菜品名称 |
+| `orderStatus` | string | 否 | 精确 | 订单状态（客如云原始枚举值，见 12.3 映射表） |
+| `orderType` | string | 否 | 精确 | 订单类型（客如云原始枚举值，见 12.3 映射表） |
+| `openTimeFrom` | LocalDateTime | 否 | 范围 | 下单时间起始（含） |
+| `openTimeTo` | LocalDateTime | 否 | 范围 | 下单时间结束（含） |
+| `pageNum` | int | 否 | — | 页码，默认 `1` |
+| `pageSize` | int | 否 | — | 每页条数，默认 `20`，最大 `100` |
+
+#### 响应示例
+
+```json
+{
+  "code": 0,
+  "message": "操作成功",
+  "data": {
+    "records": [
+      {
+        "orderId": "18292145678901",
+        "shopId": "80250510",
+        "busiOrderNo": "BO20261021001",
+        "orderStatus": "已结账",
+        "orderType": "堂食",
+        "openTime": "2026-10-21T12:30:00",
+        "finishTime": "2026-10-21T13:05:00",
+        "itemCode": "SKU001",
+        "itemName": "宫保鸡丁",
+        "bigTypeName": "热菜",
+        "midTypeName": "川菜",
+        "unitName": "份",
+        "specName": "中份/微辣",
+        "quantity": 1.0000,
+        "giftFlag": 0,
+        "saleStatusTypeCode": "NORMAL",
+        "itemPriceYuan": 38.00,
+        "salePriceYuan": 38.00,
+        "itemSaleAmtYuan": 38.00
+      }
+    ],
+    "total": 326,
+    "size": 20,
+    "current": 1,
+    "pages": 17
+  }
+}
+```
+
+#### 明细行字段表
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `orderId` | string | 客如云订单 ID（同订单多行相同，可作前端分组依据） |
+| `shopId` | string | 门店 ID |
+| `busiOrderNo` | string | 业务订单号 |
+| `orderStatus` | string | 订单状态（**中文展示值**，未识别枚举返回原始值） |
+| `orderType` | string | 订单类型（**中文展示值**，未识别枚举返回原始值） |
+| `openTime` | LocalDateTime | 下单时间 |
+| `finishTime` | LocalDateTime | 完结时间 |
+| `itemCode` | string | SKU 编码 |
+| `itemName` | string | 菜品名称 |
+| `bigTypeName` | string | 菜品大类 |
+| `midTypeName` | string | 菜品中类 |
+| `unitName` | string | 单位 |
+| `specName` | string | 规格（拼接展示值） |
+| `quantity` | BigDecimal | 数量 |
+| `giftFlag` | int | 是否赠菜：`0` 否 / `1` 是 |
+| `saleStatusTypeCode` | string | 售卖状态：`NORMAL` 销售 / `DISCARD` 退菜 |
+| `itemPriceYuan` | BigDecimal | 原始单价（元，2 位小数） |
+| `salePriceYuan` | BigDecimal | 售价（元，2 位小数） |
+| `itemSaleAmtYuan` | BigDecimal | 销售金额（元，2 位小数） |
+
+### 12.2 全量导出查询（Excel 导出专用）
+
+| 项 | 内容 |
+|---|---|
+| URL | `GET /api/v1/keruyun/order-items/export` |
+| 功能 | 按条件查询**全部**菜品明细，供调用方生成 Excel（不分页） |
+| 排序 | 与分页接口一致 |
+| 上限 | 默认最多返回 **50000** 条，超出返回错误码提示缩小范围 |
+
+请求参数与 12.1 一致（**不含** `pageNum` / `pageSize`）；响应 `data` 为明细行数组，超限错误码同「3.2」。
+
+### 12.3 订单状态 / 类型中文映射表
+
+**过滤参数使用客如云原始枚举值，返回结果中已转换为中文：**
+
+| orderStatus 枚举 | 中文 | | orderType 枚举 | 中文 |
+|------|------|---|------|------|
+| `WAIT_PROCESSED` | 待处理 | | `FOR_HERE` | 堂食 |
+| `ORDER_RECEIVED` | 已接单 | | `PLATFORM_TAKE_OUT` | 平台外卖 |
+| `SUCCESS` | 成功 | | `SELF_TAKE_OUT` | 门店外带 |
+| `WAIT_SETTLED` | 待结账 | | `SELF_TAKE` | 自提 |
+| `SETTLED` | 已结账 | | `NO_ORDER_CASHIER` | 无单收银 |
+| `REFUND` | 已退单 | | `MEMBER_STORE` | 会员储值 |
+| `CLOSED` | 已关闭 | | `MEMBER_MANUAL_STORE` | 会员手工储值 |
+| `INVALID` | 已作废 | | `REPAYMENT_ORDER` | 销账订单 |
+| `CANCELLED` | 已取消 | | | |
+| `REJECTED` | 已拒单 | | | |
+| `ANTI_SETTLED` | 已反结 | | | |
+
+未识别的枚举值原样返回（不报错）。
+
+### 12.4 调用示例
+
+```bash
+curl -X GET "http://10.80.68.10:8081/api/v1/keruyun/order-items?itemName=宫保鸡丁&openTimeFrom=2026-10-01T00:00:00&openTimeTo=2026-10-31T23:59:59&pageNum=1&pageSize=20" \
+  -H "{网关鉴权Header}: {网关鉴权凭据}"
+```
+
+### 12.5 对接注意事项
+
+1. **数据时延**：菜品明细依赖详情同步（列表同步完成后自动触发、仅同步**已完结订单**），列表页可见订单的明细通常在几分钟内补齐；`finishTime` 为空的订单暂无明细。
+2. **套餐子商品**：套餐内子商品已平铺为独立行，与普通菜品行结构一致。
+3. **退菜 / 赠菜**：通过 `saleStatusTypeCode=DISCARD`、`giftFlag=1` 标记，做销量统计时调用方需自行排除退菜行。
+4. **空值处理**：单价/金额无值时为 `null`（如赠菜行可能无售价），调用方需做空值判断。

@@ -2,6 +2,8 @@ package com.cacch.integration.service.keruyun.api.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.ResultCode;
 import com.cacch.integration.entity.keruyun.KeruyunOrderDO;
@@ -10,6 +12,8 @@ import com.cacch.integration.entity.keruyun.KeruyunOrderPaymentDO;
 import com.cacch.integration.mapper.keruyun.KeruyunOrderItemMapper;
 import com.cacch.integration.mapper.keruyun.KeruyunOrderMapper;
 import com.cacch.integration.mapper.keruyun.KeruyunOrderPaymentMapper;
+import com.cacch.integration.query.keruyun.KeruyunOrderItemQueryCondition;
+import com.cacch.integration.query.keruyun.KeruyunOrderItemQueryRow;
 import com.cacch.integration.service.keruyun.api.IKeruyunOrderDetailService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -80,5 +84,67 @@ public class KeruyunOrderDetailServiceImpl implements IKeruyunOrderDetailService
         keruyunOrderMapper.update(null, new LambdaUpdateWrapper<KeruyunOrderDO>()
                 .eq(KeruyunOrderDO::getOrderId, orderId)
                 .set(KeruyunOrderDO::getDetailSyncedAt, LocalDateTime.now()));
+    }
+
+    @Override
+    public IPage<KeruyunOrderItemQueryRow> pageQueryItems(String orderId, String itemCode, String itemName,
+                                                          String orderStatus, String orderType,
+                                                          LocalDateTime openTimeFrom, LocalDateTime openTimeTo,
+                                                          int pageNum, int pageSize) {
+        // 页码与每页条数防御性收敛（与订单分页查询保持一致）
+        int effectivePageNum = Math.max(1, pageNum);
+        int effectivePageSize = Math.max(1, Math.min(pageSize, 100));
+
+        KeruyunOrderItemQueryCondition cond = buildCondition(orderId, itemCode, itemName,
+                orderStatus, orderType, openTimeFrom, openTimeTo);
+        return keruyunOrderItemMapper.pageQueryItems(new Page<>(effectivePageNum, effectivePageSize), cond);
+    }
+
+    @Override
+    public List<KeruyunOrderItemQueryRow> listItemsForExport(String orderId, String itemCode, String itemName,
+                                                             String orderStatus, String orderType,
+                                                             LocalDateTime openTimeFrom, LocalDateTime openTimeTo,
+                                                             int maxRows) {
+        if (maxRows <= 0) {
+            log.info("【{}】明细导出查询终止, reason=maxRows非法, maxRows={}", BIZ, maxRows);
+            throw new BizException(ResultCode.PARAM_INVALID, "maxRows 必须大于 0");
+        }
+
+        KeruyunOrderItemQueryCondition cond = buildCondition(orderId, itemCode, itemName,
+                orderStatus, orderType, openTimeFrom, openTimeTo);
+        // 多取 1 行用于判断是否超过 maxRows
+        List<KeruyunOrderItemQueryRow> rows = keruyunOrderItemMapper.listItemsForExport(cond, maxRows + 1);
+        if (rows.size() > maxRows) {
+            log.info("【{}】明细导出查询终止, reason=结果超出上限, maxRows={}, actual>{}", BIZ, maxRows, maxRows);
+            throw new BizException(ResultCode.PARAM_INVALID,
+                    "导出数据量超过上限 " + maxRows + " 条，请缩小查询条件范围");
+        }
+        return rows;
+    }
+
+    /**
+     * 组装菜品明细查询条件
+     *
+     * @param orderId      客如云订单 ID，可空
+     * @param itemCode     SKU 编码，可空
+     * @param itemName     菜品名称，可空
+     * @param orderStatus  订单状态，可空
+     * @param orderType    订单类型，可空
+     * @param openTimeFrom 下单时间起始，可空
+     * @param openTimeTo   下单时间结束，可空
+     * @return 查询条件对象（非 null）
+     */
+    private KeruyunOrderItemQueryCondition buildCondition(String orderId, String itemCode, String itemName,
+                                                          String orderStatus, String orderType,
+                                                          LocalDateTime openTimeFrom, LocalDateTime openTimeTo) {
+        KeruyunOrderItemQueryCondition cond = new KeruyunOrderItemQueryCondition();
+        cond.setOrderId(orderId);
+        cond.setItemCode(itemCode);
+        cond.setItemName(itemName);
+        cond.setOrderStatus(orderStatus);
+        cond.setOrderType(orderType);
+        cond.setOpenTimeFrom(openTimeFrom);
+        cond.setOpenTimeTo(openTimeTo);
+        return cond;
     }
 }

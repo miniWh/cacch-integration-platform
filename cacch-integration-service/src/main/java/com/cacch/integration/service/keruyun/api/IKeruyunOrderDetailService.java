@@ -1,9 +1,12 @@
 package com.cacch.integration.service.keruyun.api;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.cacch.integration.entity.keruyun.KeruyunOrderDO;
 import com.cacch.integration.entity.keruyun.KeruyunOrderItemDO;
 import com.cacch.integration.entity.keruyun.KeruyunOrderPaymentDO;
+import com.cacch.integration.query.keruyun.KeruyunOrderItemQueryRow;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -38,4 +41,49 @@ public interface IKeruyunOrderDetailService {
      * @param payments 支付明细列表（可为空列表）
      */
     void saveOrderDetails(String orderId, List<KeruyunOrderItemDO> items, List<KeruyunOrderPaymentDO> payments);
+
+    /**
+     * 分页查询订单菜品明细（SKU 维度，含订单头信息）
+     *
+     * <p>一行 = 一个订单 × 一个 SKU，按下单时间倒序、同一订单的 SKU 相邻排列。
+     * 订单状态/类型已在 SQL 中转换为中文，金额已从分转换为元（保留 2 位小数）。
+     * 简单只读查询，不开事务。</p>
+     *
+     * @param orderId      客如云订单 ID，精确匹配，可空
+     * @param itemCode     SKU 编码，精确匹配，可空
+     * @param itemName     菜品名称，模糊匹配，可空
+     * @param orderStatus  订单状态（客如云原始枚举值），精确匹配，可空
+     * @param orderType    订单类型（客如云原始枚举值），精确匹配，可空
+     * @param openTimeFrom 下单时间起始（含），可空
+     * @param openTimeTo   下单时间结束（含），可空
+     * @param pageNum      页码，从 1 开始，小于 1 时按 1 处理
+     * @param pageSize     每页条数，1~100，超出自动截断为 100
+     * @return 分页结果，records 为明细查询行；无数据时 records 为空列表（非 null）
+     */
+    IPage<KeruyunOrderItemQueryRow> pageQueryItems(String orderId, String itemCode, String itemName,
+                                                   String orderStatus, String orderType,
+                                                   LocalDateTime openTimeFrom, LocalDateTime openTimeTo,
+                                                   int pageNum, int pageSize);
+
+    /**
+     * 全量查询订单菜品明细（Excel 导出专用，不分页）
+     *
+     * <p>按下单时间倒序返回满足条件的全部明细行；实际行数超过 maxRows 时抛出业务异常，
+     * 提示调用方缩小查询范围。</p>
+     *
+     * @param orderId      客如云订单 ID，精确匹配，可空
+     * @param itemCode     SKU 编码，精确匹配，可空
+     * @param itemName     菜品名称，模糊匹配，可空
+     * @param orderStatus  订单状态（客如云原始枚举值），精确匹配，可空
+     * @param orderType    订单类型（客如云原始枚举值），精确匹配，可空
+     * @param openTimeFrom 下单时间起始（含），可空
+     * @param openTimeTo   下单时间结束（含），可空
+     * @param maxRows      最大返回条数，必须大于 0
+     * @return 明细查询行列表；无数据时返回空列表（非 null）
+     * @throws com.cacch.integration.common.exception.BizException 结果超过 maxRows 时抛出
+     */
+    List<KeruyunOrderItemQueryRow> listItemsForExport(String orderId, String itemCode, String itemName,
+                                                      String orderStatus, String orderType,
+                                                      LocalDateTime openTimeFrom, LocalDateTime openTimeTo,
+                                                      int maxRows);
 }
