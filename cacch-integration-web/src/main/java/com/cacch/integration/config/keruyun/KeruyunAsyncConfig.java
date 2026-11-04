@@ -38,4 +38,25 @@ public class KeruyunAsyncConfig {
         executor.initialize();
         return executor;
     }
+
+    /**
+     * 客如云订单详情同步固定并发线程池
+     *
+     * <p>固定并发数（核心=最大=5），与常量
+     * {@code KeruyunOrderDetailConstants.DETAIL_SYNC_CONCURRENCY} 对应，
+     * 用固定并发约束详情接口调用量，远低于客如云 220 QPS 限流阈值。
+     * 队列容量覆盖单次批量上限 1000 即可。</p>
+     */
+    @Bean("keruyunOrderDetailSyncExecutor")
+    public Executor keruyunOrderDetailSyncExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(5);
+        executor.setMaxPoolSize(5);
+        executor.setQueueCapacity(1000);
+        executor.setThreadNamePrefix("keruyun-order-detail-sync-");
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(60);
+        executor.initialize();
+        return executor;
+    }
 }

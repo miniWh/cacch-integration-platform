@@ -118,6 +118,11 @@ public class KeruyunOrderDO {
     private LocalDateTime syncedAt;
 
     /**
+     * 订单详情（菜品/支付）最近一次同步成功的时间；NULL 表示未同步
+     */
+    private LocalDateTime detailSyncedAt;
+
+    /**
      * 记录创建时间
      */
     @TableField(fill = FieldFill.INSERT)

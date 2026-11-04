@@ -4,6 +4,8 @@ import com.cacch.integration.common.constant.keruyun.KeruyunCommonConstants;
 import com.cacch.integration.common.constant.keruyun.KeruyunPathConstants;
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.ResultCode;
+import com.cacch.integration.integration.keruyun.client.dto.order.KeruyunOrderDetailQueryRequest;
+import com.cacch.integration.integration.keruyun.client.dto.order.KeruyunOrderDetailResponse;
 import com.cacch.integration.integration.keruyun.client.dto.order.KeruyunOrderQueryRequest;
 import com.cacch.integration.integration.keruyun.client.dto.order.KeruyunOrderQueryResponse;
 import lombok.RequiredArgsConstructor;
@@ -60,6 +62,40 @@ public class KeruyunOrderClient {
                 request.getPageBean() == null ? null : request.getPageBean().getPageNum(),
                 request.getPageBean() == null ? null : request.getPageBean().getPageSize(),
                 totalCount, response.getMessageUuid());
+        return response;
+    }
+
+    /**
+     * 查询单条订单详情
+     *
+     * <p>对应接口 {@code POST /open/standard/order/queryDetail}（最大 QPS 220/秒），
+     * 仅用于完结订单的明细拉取，禁止轮询。</p>
+     *
+     * @param orderId 客如云订单 ID，不可为空
+     * @param token   门店 token，由 Token Service 提供，不可为空
+     * @return 订单详情响应（含菜品明细与支付明细），已校验 {@code code=0}
+     * @throws BizException 响应成功码非 0 时抛出
+     */
+    public KeruyunOrderDetailResponse queryOrderDetail(String orderId, String token) {
+        KeruyunOrderDetailQueryRequest request = new KeruyunOrderDetailQueryRequest(orderId);
+        KeruyunOrderDetailResponse response = keruyunClient.post(
+                KeruyunPathConstants.PATH_QUERY_ORDER_DETAIL, request, token, KeruyunOrderDetailResponse.class);
+        if (response == null || !response.isSuccess()) {
+            String code = response == null ? "null" : String.valueOf(response.getCode());
+            String message = response == null ? "响应为空" : response.getMessage();
+            log.info("【{}】查询订单详情终止, orderId={}, code={}, message={}",
+                    KeruyunCommonConstants.LOG_BIZ, orderId, code, message);
+            throw new BizException(ResultCode.INTEGRATION_ERROR,
+                    "客如云订单详情查询失败: code=" + code + ", message=" + message);
+        }
+        int itemCount = response.getResult() == null || response.getResult().getData() == null
+                || response.getResult().getData().getOrderItemVoList() == null
+                ? 0 : response.getResult().getData().getOrderItemVoList().size();
+        int paymentCount = response.getResult() == null || response.getResult().getData() == null
+                || response.getResult().getData().getOpenPaymentDetailVoList() == null
+                ? 0 : response.getResult().getData().getOpenPaymentDetailVoList().size();
+        log.info("【{}】查询订单详情成功, orderId={}, itemCount={}, paymentCount={}, messageUuid={}",
+                KeruyunCommonConstants.LOG_BIZ, orderId, itemCount, paymentCount, response.getMessageUuid());
         return response;
     }
 }

@@ -1,6 +1,7 @@
 package com.cacch.integration.controller.keruyun;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.cacch.integration.common.dto.keruyun.KeruyunOrderDetailSyncResult;
 import com.cacch.integration.common.dto.keruyun.KeruyunOrderSyncBatchResult;
 import com.cacch.integration.common.dto.keruyun.KeruyunOrderSyncResult;
 import com.cacch.integration.common.exception.BizException;
@@ -8,6 +9,7 @@ import com.cacch.integration.common.result.Result;
 import com.cacch.integration.common.result.ResultCode;
 import com.cacch.integration.convert.keruyun.KeruyunOrderSyncTaskConverter;
 import com.cacch.integration.convert.keruyun.KeruyunOrderVOConverter;
+import com.cacch.integration.dto.keruyun.request.KeruyunOrderDetailSyncRequest;
 import com.cacch.integration.dto.keruyun.request.KeruyunOrderManualSyncRequest;
 import com.cacch.integration.dto.keruyun.request.KeruyunOrderQueryRequest;
 import com.cacch.integration.dto.keruyun.request.KeruyunOrderSyncRequest;
@@ -16,6 +18,7 @@ import com.cacch.integration.dto.keruyun.vo.KeruyunOrderSyncTaskVO;
 import com.cacch.integration.dto.keruyun.vo.KeruyunOrderVO;
 import com.cacch.integration.entity.keruyun.KeruyunOrderDO;
 import com.cacch.integration.entity.keruyun.KeruyunOrderSyncTaskDO;
+import com.cacch.integration.manager.keruyun.api.IKeruyunOrderDetailManager;
 import com.cacch.integration.manager.keruyun.api.IKeruyunOrderManager;
 import com.cacch.integration.manager.keruyun.api.IKeruyunOrderSyncTaskManager;
 import com.cacch.integration.service.keruyun.api.IKeruyunOrderService;
@@ -49,6 +52,7 @@ import java.util.List;
 public class KeruyunOrderController {
 
     private final IKeruyunOrderManager keruyunOrderManager;
+    private final IKeruyunOrderDetailManager orderDetailManager;
     private final IKeruyunOrderSyncTaskManager taskManager;
     private final IKeruyunOrderService orderService;
     private final IKeruyunOrderSyncTaskService taskService;
@@ -127,6 +131,36 @@ public class KeruyunOrderController {
         IPage<KeruyunOrderSyncTaskDO> page = taskService.pageQuery(pageNum, pageSize);
         IPage<KeruyunOrderSyncTaskVO> voPage = page.convert(taskConverter::toVO);
         return Result.success(voPage);
+    }
+
+    /**
+     * 批量同步完结订单详情（菜品/支付明细，固定并发）
+     *
+     * <p>仅处理已完结（finish_time 非空）且详情未同步（detail_synced_at 为空）的订单；
+     * 固定 5 并发拉取客如云详情接口（限流 220 QPS），单订单失败不阻断整批，
+     * 失败订单下次触发时自动重试。同步执行，处理上限默认 200 单，剩余可重复触发。</p>
+     *
+     * @param request 批量参数（limit 可选：单次处理上限，默认 200、最大 1000）
+     * @return 同步统计结果（成功/失败/跳过条数与明细、落库菜品/支付条数）
+     */
+    @PostMapping("/detail/sync")
+    public Result<KeruyunOrderDetailSyncResult> syncOrderDetails(@RequestBody(required = false) KeruyunOrderDetailSyncRequest request) {
+        Integer limit = request == null ? null : request.getLimit();
+        return Result.success(orderDetailManager.syncOrderDetails(limit));
+    }
+
+    /**
+     * 同步单条订单详情（调试 / 单单补偿入口）
+     *
+     * <p>显式指定订单即视为重新拉取：已同步过的订单也会覆盖落库；
+     * 订单不存在或未完结时返回对应业务码。</p>
+     *
+     * @param orderId 客如云订单 ID，业务唯一键
+     * @return 同步统计结果（成功/跳过明细）
+     */
+    @PostMapping("/detail/sync/{orderId}")
+    public Result<KeruyunOrderDetailSyncResult> syncOrderDetail(@PathVariable String orderId) {
+        return Result.success(orderDetailManager.syncOrderDetail(orderId));
     }
 
     /**

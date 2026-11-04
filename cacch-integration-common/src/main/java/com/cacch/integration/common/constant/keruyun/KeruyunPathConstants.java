@@ -21,4 +21,9 @@ public final class KeruyunPathConstants {
      * 订单列表查询接口路径（POST）
      */
     public static final String PATH_QUERY_ORDER_LIST = "/open/standard/order/queryList";
+
+    /**
+     * 订单详情查询接口路径（POST）
+     */
+    public static final String PATH_QUERY_ORDER_DETAIL = "/open/standard/order/queryDetail";
 }
