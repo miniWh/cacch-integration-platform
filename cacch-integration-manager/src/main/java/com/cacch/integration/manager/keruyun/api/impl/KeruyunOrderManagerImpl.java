@@ -2,6 +2,7 @@ package com.cacch.integration.manager.keruyun.api.impl;
 
 import com.cacch.integration.common.constant.keruyun.KeruyunOrderConstants;
 import com.cacch.integration.common.constant.keruyun.KeruyunOrderSyncStatus;
+import com.cacch.integration.common.dto.keruyun.KeruyunOrderDetailSyncResult;
 import com.cacch.integration.common.dto.keruyun.KeruyunOrderSyncItem;
 import com.cacch.integration.common.dto.keruyun.KeruyunOrderSyncResult;
 import com.cacch.integration.common.exception.BizException;
@@ -14,6 +15,7 @@ import com.cacch.integration.integration.keruyun.client.dto.order.KeruyunOrderQu
 import com.cacch.integration.integration.keruyun.client.dto.order.KeruyunOrderQueryResponse;
 import com.cacch.integration.integration.keruyun.client.dto.order.KeruyunPageBean;
 import com.cacch.integration.manager.keruyun.api.IKeruyunManager;
+import com.cacch.integration.manager.keruyun.api.IKeruyunOrderDetailManager;
 import com.cacch.integration.manager.keruyun.api.IKeruyunOrderManager;
 import com.cacch.integration.manager.keruyun.convert.KeruyunOrderConverter;
 import com.cacch.integration.service.keruyun.api.IKeruyunOrderService;
@@ -62,6 +64,7 @@ public class KeruyunOrderManagerImpl implements IKeruyunOrderManager {
     private final IKeruyunOrderService keruyunOrderService;
     private final KeruyunOrderConverter keruyunOrderConverter;
     private final IKeruyunOrderSyncTaskService taskService;
+    private final IKeruyunOrderDetailManager orderDetailManager;
 
     @Override
     public KeruyunOrderSyncResult syncOrders(String dateType, String startDate, String endDate,
@@ -337,13 +340,6 @@ public class KeruyunOrderManagerImpl implements IKeruyunOrderManager {
                 cumulativeSuccess += result.getInsertedCount() + result.getUpdatedCount();
                 cumulativeFailure += result.getFailureCount();
                 Integer totalPage = parseIntOrDefault(data.getTotalPage(), pageNum);
-                int totalCount = 0;
-                if (StringUtils.hasText(data.getTotalCount())) {
-                    try {
-                        totalCount = Integer.parseInt(data.getTotalCount().trim());
-                    } catch (NumberFormatException ignore) {
-                    }
-                }
                 taskService.updateProgress(taskId, pageNum, totalPage,
                         cumulativeSuccess, cumulativeFailure);
 
@@ -375,6 +371,9 @@ public class KeruyunOrderManagerImpl implements IKeruyunOrderManager {
                     result.getInsertedCount(), result.getUpdatedCount(), result.getSkipCount(),
                     result.getFailureCount(), finalStatus);
 
+            // 列表同步达终态后自动续拉完结订单详情（同一线程内执行，无需额外触发）
+            triggerDetailSync(taskId);
+
         } catch (Exception e) {
             log.error("【{}】任务驱动同步异常, taskId={}, dateType={}, syncDate={}",
                     BIZ, taskId, task.getDateType(), task.getSyncDate(), e);
@@ -382,6 +381,27 @@ public class KeruyunOrderManagerImpl implements IKeruyunOrderManager {
             throw e;
         }
 
+    }
+
+    /**
+     * 列表同步完成后自动续拉完结订单详情
+     *
+     * <p>详情同步失败不影响列表任务终态：失败订单因 detail_synced_at 未更新
+     * 自动保留在待同步队列，由下次触发（自动或手动）重试；此处不向上抛异常。</p>
+     *
+     * @param taskId 任务主键（仅用于日志追踪）
+     */
+    private void triggerDetailSync(Long taskId) {
+        try {
+            log.info("【{}】列表同步完成, 自动开始订单详情同步, taskId={}", BIZ, taskId);
+            KeruyunOrderDetailSyncResult detailResult = orderDetailManager.syncOrderDetails(null);
+            log.info("【{}】自动订单详情同步完成, taskId={}, pendingTotal={}, successCount={}, failureCount={}, skipCount={}",
+                    BIZ, taskId, detailResult.getPendingTotal(), detailResult.getSuccessCount(),
+                    detailResult.getFailureCount(), detailResult.getSkipCount());
+        } catch (Exception e) {
+            log.info("【{}】自动订单详情同步终止, taskId={}, reason={}", BIZ, taskId, e.getMessage());
+            log.error("【{}】自动订单详情同步异常, taskId={}", BIZ, taskId, e);
+        }
     }
 
     /**

@@ -31,6 +31,9 @@ public interface IKeruyunOrderManager {
     /**
      * 按任务驱动同步（控制表入口，支持断点续传）
      *
+     * <p>列表同步达终态（SUCCESS/PARTIAL）后，同一线程内自动续拉完结订单详情
+     * （菜品/支付明细）；详情同步失败不影响列表任务终态，待同步订单保留在队列中重试。</p>
+     *
      * @param taskId 任务主键
      */
     void syncByTaskId(Long taskId);
