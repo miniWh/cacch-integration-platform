@@ -1,5 +1,7 @@
 package com.cacch.integration.integration.crm.client;
 
+import org.apache.commons.lang3.StringUtils;
+
 import com.cacch.integration.common.config.crm.CrmProperties;
 import com.cacch.integration.common.constant.crm.CrmConstants;
 import com.cacch.integration.integration.crm.client.dto.CrmContractEditRequest;
@@ -87,7 +89,7 @@ public class CrmClient {
             String responseBody = httpClient.doPostOrPut(
                     HttpMethod.POST, url, bodyJson, headers, BIZ, action, String.class);
 
-            if (responseBody == null || responseBody.isBlank()) {
+            if (StringUtils.isBlank(responseBody)) {
                 log.info("【{}】{}终止, reason=响应体为空", BIZ, action);
                 throw new RestClientException("勤策 " + action + " 响应体为空");
             }

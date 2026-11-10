@@ -1,5 +1,7 @@
 package com.cacch.integration.common.config.oa;
 
+import org.apache.commons.lang3.StringUtils;
+
 import lombok.Getter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
@@ -113,6 +115,6 @@ public class OaRegReportProperties {
     }
 
     private static String blankToDefault(String value, String defaultValue) {
-        return value == null || value.isBlank() ? defaultValue : value.trim();
+        return StringUtils.isBlank(value) ? defaultValue : value.trim();
     }
 }

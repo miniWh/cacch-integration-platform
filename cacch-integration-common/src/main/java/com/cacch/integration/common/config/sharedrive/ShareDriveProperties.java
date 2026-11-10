@@ -1,4 +1,6 @@
-package com.cacch.integration.common.config.sharedrive;
+﻿package com.cacch.integration.common.config.sharedrive;
+
+import org.apache.commons.lang3.StringUtils;
 
 import com.cacch.integration.common.constant.sharedrive.ShareDriveConstants;
 import lombok.Getter;
@@ -80,7 +82,7 @@ public class ShareDriveProperties {
     }
 
     public boolean isConfigured() {
-        return !rootPath.isBlank();
+        return rootPath.isBlank();
     }
 
     /**
@@ -93,6 +95,6 @@ public class ShareDriveProperties {
     }
 
     private static String blankToDefault(String value, String defaultValue) {
-        return value == null || value.isBlank() ? defaultValue : value.trim();
+        return StringUtils.isBlank(value) ? defaultValue : value.trim();
     }
 }

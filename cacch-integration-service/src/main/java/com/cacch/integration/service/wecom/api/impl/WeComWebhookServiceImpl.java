@@ -1,5 +1,7 @@
 package com.cacch.integration.service.wecom.api.impl;
 
+import org.apache.commons.lang3.StringUtils;
+
 import com.cacch.integration.common.config.wecom.WeComWebhookProperties;
 import com.cacch.integration.common.constant.wecom.WeComConstants;
 import com.cacch.integration.integration.wecom.client.WeComWebhookClient;
@@ -78,7 +80,7 @@ public class WeComWebhookServiceImpl implements IWeComWebhookService {
     }
 
     private boolean isDuplicate(String dedupKey) {
-        if (dedupKey == null || dedupKey.isBlank()) {
+        if (StringUtils.isBlank(dedupKey)) {
             return false;
         }
         String redisKey = WeComConstants.webhookAlertRedisKey(dedupKey);
@@ -86,7 +88,7 @@ public class WeComWebhookServiceImpl implements IWeComWebhookService {
     }
 
     private void markSent(String dedupKey) {
-        if (dedupKey == null || dedupKey.isBlank()) {
+        if (StringUtils.isBlank(dedupKey)) {
             return;
         }
         String redisKey = WeComConstants.webhookAlertRedisKey(dedupKey);

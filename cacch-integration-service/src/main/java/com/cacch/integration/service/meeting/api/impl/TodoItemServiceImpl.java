@@ -1,5 +1,7 @@
 package com.cacch.integration.service.meeting.api.impl;
 
+import org.apache.commons.lang3.StringUtils;
+
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.cacch.integration.common.enums.meeting.TodoStatusEnum;
@@ -93,7 +95,7 @@ public class TodoItemServiceImpl implements ITodoItemService {
             timeout = 30
     )
     public boolean updateRecordIdIfAbsent(Long id, String recordId) {
-        if (id == null || recordId == null || recordId.isBlank()) {
+        if (id == null || StringUtils.isBlank(recordId)) {
             return false;
         }
         return todoItemMapper.update(null, new LambdaUpdateWrapper<TodoItemDO>()
@@ -112,7 +114,7 @@ public class TodoItemServiceImpl implements ITodoItemService {
             timeout = 10
     )
     public boolean existsByMeetingIdAndTodoTitle(Long meetingId, String todoTitle) {
-        if (meetingId == null || todoTitle == null || todoTitle.isBlank()) {
+        if (meetingId == null || StringUtils.isBlank(todoTitle)) {
             return false;
         }
         return todoItemMapper.selectCount(new LambdaQueryWrapper<TodoItemDO>()

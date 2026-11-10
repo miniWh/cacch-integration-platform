@@ -1,5 +1,7 @@
 package com.cacch.integration.common.config.oa;
 
+import org.apache.commons.lang3.StringUtils;
+
 import lombok.Getter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
@@ -76,7 +78,7 @@ public class OaProperties {
      * @return Base URL
      */
     public String resolvedBaseUrl() {
-        if (baseUrl == null || baseUrl.isBlank()) {
+        if (StringUtils.isBlank(baseUrl)) {
             return "http://placeholder-oa-host";
         }
         return baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;

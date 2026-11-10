@@ -1,4 +1,6 @@
-package com.cacch.integration.service.wecom.api.impl;
+﻿package com.cacch.integration.service.wecom.api.impl;
+
+import org.apache.commons.lang3.StringUtils;
 
 import com.cacch.integration.common.constant.wecom.WeComConstants;
 import com.cacch.integration.common.exception.BizException;
@@ -38,9 +40,9 @@ public class WeComMeetingServiceImpl implements IWeComMeetingService {
 
     @Override
     public WeComCreateMeetingResponse createMeeting(String accessToken, String adminUserid, String title,
-                                                      long meetingStartEpochSec, int durationMinutes,
-                                                      List<String> attendeeUserIds, String description,
-                                                      String location) {
+                                                    long meetingStartEpochSec, int durationMinutes,
+                                                    List<String> attendeeUserIds, String description,
+                                                    String location) {
         int durationSec = Math.max(durationMinutes * 60, WeComConstants.MEETING_MIN_DURATION_SECONDS);
         List<String> inviteeUserIds = orderInviteesWithCreatorFirst(adminUserid, attendeeUserIds);
         WeComCreateMeetingRequest.WeComMeetingInvitees invitees = null;
@@ -78,7 +80,7 @@ public class WeComMeetingServiceImpl implements IWeComMeetingService {
             return ordered;
         }
         for (String userId : attendeeUserIds) {
-            if (userId == null || userId.isBlank()) {
+            if (StringUtils.isBlank(userId)) {
                 continue;
             }
             String normalized = userId.trim();

@@ -1,8 +1,11 @@
-package com.cacch.integration.integration.oa.support;
+﻿package com.cacch.integration.integration.oa.support;
+
+import org.apache.commons.lang3.StringUtils;
 
 import com.cacch.integration.common.constant.oa.OaRegReportConstants;
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.ResultCode;
+import org.jspecify.annotations.NonNull;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.ConnectionCallback;
@@ -23,80 +26,78 @@ import java.util.Locale;
  */
 public class ReadOnlyOaJdbcTemplate extends JdbcTemplate {
 
-    private static final String BIZ = "OaRegReportDb";
-
     public ReadOnlyOaJdbcTemplate(DataSource dataSource) {
         super(dataSource);
     }
 
     @Override
-    public int update(String sql) throws DataAccessException {
+    public int update(@NonNull String sql) throws DataAccessException {
         rejectWrite("update", sql);
         return 0;
     }
 
     @Override
-    public int update(String sql, PreparedStatementSetter pss) throws DataAccessException {
+    public int update(@NonNull String sql, PreparedStatementSetter pss) throws DataAccessException {
         rejectWrite("update", sql);
         return 0;
     }
 
     @Override
-    public int update(String sql, Object... args) throws DataAccessException {
+    public int update(@NonNull String sql, Object... args) throws DataAccessException {
         rejectWrite("update", sql);
         return 0;
     }
 
     @Override
-    public int update(PreparedStatementCreator psc) throws DataAccessException {
+    public int update(@NonNull PreparedStatementCreator psc) throws DataAccessException {
         rejectWrite("update", "PreparedStatementCreator");
         return 0;
     }
 
     @Override
-    public int update(PreparedStatementCreator psc, KeyHolder generatedKeyHolder) throws DataAccessException {
+    public int update(@NonNull PreparedStatementCreator psc, @NonNull KeyHolder generatedKeyHolder) throws DataAccessException {
         rejectWrite("update", "PreparedStatementCreator+KeyHolder");
         return 0;
     }
 
     @Override
-    public int[] batchUpdate(String sql, BatchPreparedStatementSetter pss) throws DataAccessException {
+    public int @NonNull [] batchUpdate(@NonNull String sql, @NonNull BatchPreparedStatementSetter pss) throws DataAccessException {
         rejectWrite("batchUpdate", sql);
         return new int[0];
     }
 
     @Override
-    public int[] batchUpdate(String... sql) throws DataAccessException {
-        rejectWrite("batchUpdate", sql != null && sql.length > 0 ? sql[0] : "");
+    public int @NonNull [] batchUpdate(String @NonNull ... sql) throws DataAccessException {
+        rejectWrite("batchUpdate", sql.length > 0 ? sql[0] : "");
         return new int[0];
     }
 
     @Override
-    public void execute(String sql) throws DataAccessException {
+    public void execute(@NonNull String sql) throws DataAccessException {
         rejectWrite("execute", sql);
     }
 
     @Override
-    public <T> T execute(StatementCallback<T> action) throws DataAccessException {
+    public <T> T execute(@NonNull StatementCallback<T> action) throws DataAccessException {
         rejectWrite("execute(StatementCallback)", "StatementCallback");
         return null;
     }
 
     @Override
-    public <T> T execute(ConnectionCallback<T> action) throws DataAccessException {
+    public <T> T execute(@NonNull ConnectionCallback<T> action) throws DataAccessException {
         rejectWrite("execute(ConnectionCallback)", "ConnectionCallback");
         return null;
     }
 
     @Override
-    public <T> T execute(PreparedStatementCreator psc, PreparedStatementCallback<T> action)
+    public <T> T execute(@NonNull PreparedStatementCreator psc, @NonNull PreparedStatementCallback<T> action)
             throws DataAccessException {
         rejectWrite("execute(PreparedStatementCallback)", "PreparedStatementCallback");
         return null;
     }
 
     @Override
-    public <T> T execute(String sql, PreparedStatementCallback<T> action) throws DataAccessException {
+    public <T> T execute(@NonNull String sql, @NonNull PreparedStatementCallback<T> action) throws DataAccessException {
         assertSelectOnly(sql);
         return super.execute(sql, action);
     }
@@ -107,7 +108,7 @@ public class ReadOnlyOaJdbcTemplate extends JdbcTemplate {
      * @param sql SQL 文本
      */
     public static void assertSelectOnly(String sql) {
-        if (sql == null || sql.isBlank()) {
+        if (StringUtils.isBlank(sql)) {
             throw new BizException(ResultCode.PARAM_INVALID, "OA 库 SQL 不能为空");
         }
         String normalized = sql.stripLeading().toUpperCase(Locale.ROOT);

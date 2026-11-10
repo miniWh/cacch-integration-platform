@@ -1,5 +1,7 @@
 package com.cacch.integration.integration.oa.client;
 
+import org.apache.commons.lang3.StringUtils;
+
 import com.cacch.integration.common.constant.oa.OaConstants;
 import com.cacch.integration.common.constant.oa.OaContractAttachmentConstants;
 import com.cacch.integration.integration.oa.client.dto.OaContractRow;
@@ -172,7 +174,7 @@ public class OaContractDbClient {
      * @return CRM 合同数据 ID；未命中或 OA 数据源未配置时返回 Optional.empty()
      */
     public Optional<String> findCrmContractIdByNcNo(String ncOrderNo) {
-        if (ncOrderNo == null || ncOrderNo.isBlank()) {
+        if (StringUtils.isBlank(ncOrderNo)) {
             log.info("【{}】CRM合同ID反查终止, reason=NC单号为空", OaContractAttachmentConstants.LOG_BIZ);
             return Optional.empty();
         }

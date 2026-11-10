@@ -1,5 +1,7 @@
 package com.cacch.integration.integration.crm.support;
 
+import org.apache.commons.lang3.StringUtils;
+
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.ResultCode;
 
@@ -37,7 +39,7 @@ public final class CrmTimeSupport {
      * @return 毫秒时间戳字符串，如 {@code 1719763200000}
      */
     public static String toEpochMilliString(String timeInput, String fieldName) {
-        if (timeInput == null || timeInput.isBlank()) {
+        if (StringUtils.isBlank(timeInput)) {
             throw new BizException(ResultCode.PARAM_MISSING, fieldName + " 不能为空");
         }
         String trimmed = timeInput.trim();

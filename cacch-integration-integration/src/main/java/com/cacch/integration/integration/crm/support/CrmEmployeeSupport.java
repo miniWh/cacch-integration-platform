@@ -1,5 +1,7 @@
 package com.cacch.integration.integration.crm.support;
 
+import org.apache.commons.lang3.StringUtils;
+
 import tools.jackson.databind.JsonNode;
 
 /**
@@ -40,7 +42,7 @@ public final class CrmEmployeeSupport {
             return null;
         }
         String value = node.asString();
-        return value == null || value.isBlank() ? null : value.trim();
+        return StringUtils.isBlank(value) ? null : value.trim();
     }
 
     private static JsonNode unwrap(JsonNode raw) {

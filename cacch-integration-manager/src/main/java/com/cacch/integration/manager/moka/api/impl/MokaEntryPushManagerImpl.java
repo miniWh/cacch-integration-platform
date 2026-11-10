@@ -1,5 +1,7 @@
 package com.cacch.integration.manager.moka.api.impl;
 
+import org.apache.commons.lang3.StringUtils;
+
 import com.cacch.integration.common.enums.moka.MokaEntrySyncStatusEnum;
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.entity.moka.MokaEntryPushItemVO;
@@ -141,10 +143,10 @@ public class MokaEntryPushManagerImpl implements IMokaEntryPushManager {
      * @return null 表示校验通过；非 null 为跳过原因描述
      */
     private String validatePushItem(MokaEntryPushItemVO item) {
-        if (item.getName() == null || item.getName().isBlank()) {
+        if (StringUtils.isBlank(item.getName())) {
             return "候选人姓名缺失";
         }
-        if (item.getPhone() == null || item.getPhone().isBlank()) {
+        if (StringUtils.isBlank(item.getPhone())) {
             return "手机号缺失";
         }
         if (item.getCheckInDate() == null) {

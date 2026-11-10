@@ -1,7 +1,6 @@
 package com.cacch.integration.integration.oa.support;
 
 import com.cacch.integration.common.constant.oa.OaRegReportConstants;
-import com.cacch.integration.common.config.sharedrive.ShareDriveProperties;
 import com.cacch.integration.integration.sharedrive.support.ShareDriveIpdpDirectorySupport;
 import com.cacch.integration.integration.sharedrive.support.ShareDrivePathNormalizer;
 import org.springframework.util.StringUtils;
@@ -36,24 +35,6 @@ public final class OaRegReportPathSupport {
     }
 
     /**
-     * 拼接资料项目三级目录路径（L3 段为 {@link #formatL3DirectoryName} 结果）
-     *
-     * @param rootPath          共享盘根路径
-     * @param ownerName         登记负责人
-     * @param ipdpDirectoryName IPDP 目录段（磁盘 L2 原名，含项目编号括号）
-     * @param itemSeq           资料项目序号 field0212
-     * @param itemName          资料项目名称 field0214
-     * @return UNC 目录路径
-     */
-    public static String buildItemDirectory(String rootPath,
-                                            String ownerName,
-                                            String ipdpDirectoryName,
-                                            String itemSeq,
-                                            String itemName) {
-        return buildItemDirectory(rootPath, ownerName, ipdpDirectoryName, formatL3DirectoryName(itemSeq, itemName));
-    }
-
-    /**
      * 拼接资料项目三级目录路径（L3 段已格式化）
      *
      * @param rootPath          共享盘根路径
@@ -73,27 +54,6 @@ public final class OaRegReportPathSupport {
                 + trimSegment(l3DirectoryName);
     }
 
-    /**
-     * 按 OA 字段拼接资料项目三级目录路径（L2 默认中文括号，L3 含 field0212 序号前缀）
-     *
-     * @param rootPath      共享盘根路径
-     * @param ownerName     登记负责人（OA 原文）
-     * @param ipdpName      IPDP 名称（OA field0160）
-     * @param ipdpProjectNo IPDP 项目编号（OA field0164）
-     * @param itemSeq       资料项目序号（OA field0212）
-     * @param itemName      资料项目名称（OA field0214）
-     * @return UNC 目录路径
-     */
-    public static String buildItemDirectoryFromOaFields(String rootPath,
-                                                        String ownerName,
-                                                        String ipdpName,
-                                                        String ipdpProjectNo,
-                                                        String itemSeq,
-                                                        String itemName) {
-        String ipdpDirectoryName = ShareDriveIpdpDirectorySupport.formatDirectoryName(ipdpName, ipdpProjectNo);
-        return buildItemDirectory(rootPath, ownerName, ipdpDirectoryName, itemSeq, itemName);
-    }
-
     private static String trimSegment(String segment) {
         return segment != null ? segment.trim() : "";
     }
@@ -110,19 +70,6 @@ public final class OaRegReportPathSupport {
         return ShareDrivePathNormalizer.normalize(ownerName)
                 + "|" + ShareDrivePathNormalizer.normalize(ipdpName)
                 + "|" + ShareDriveIpdpDirectorySupport.normalizeProjectNo(ipdpProjectNo);
-    }
-
-    /**
-     * 从配置校验根路径
-     *
-     * @param properties 共享盘配置
-     * @return 规范化根路径；未配置时返回空串
-     */
-    public static String resolveRootPath(ShareDriveProperties properties) {
-        if (properties == null || !properties.isConfigured()) {
-            return "";
-        }
-        return normalizeRoot(properties.getRootPath());
     }
 
     private static String normalizeRoot(String rootPath) {

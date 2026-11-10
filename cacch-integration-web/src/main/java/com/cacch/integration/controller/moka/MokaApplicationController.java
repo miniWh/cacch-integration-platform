@@ -1,5 +1,7 @@
 package com.cacch.integration.controller.moka;
 
+import org.apache.commons.lang3.StringUtils;
+
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.Result;
 import com.cacch.integration.common.result.ResultCode;
@@ -74,7 +76,7 @@ public class MokaApplicationController {
 
         // —— 条件依赖校验：isResignWriteJob=1 时 resignJobName 必填 ——
         boolean writeJobEnabled = request.getIsResignWriteJob() != null && request.getIsResignWriteJob() == 1;
-        boolean jobNameBlank = request.getResignJobName() == null || request.getResignJobName().isBlank();
+        boolean jobNameBlank = StringUtils.isBlank(request.getResignJobName());
         if (writeJobEnabled && jobNameBlank) {
             log.info("【MokaApplicationController】参数校验终止, reason=isResignWriteJob=1 但 resignJobName 为空, applicationId={}",
                     applicationId);

@@ -1,5 +1,7 @@
 package com.cacch.integration.common.enums.fdd;
 
+import org.apache.commons.lang3.StringUtils;
+
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
@@ -32,7 +34,7 @@ public enum FddAuthTypeEnum {
      * @return 枚举；无法识别时返回 null
      */
     public static FddAuthTypeEnum fromCode(String code) {
-        if (code == null || code.isBlank()) {
+        if (StringUtils.isBlank(code)) {
             return null;
         }
         for (FddAuthTypeEnum value : values()) {

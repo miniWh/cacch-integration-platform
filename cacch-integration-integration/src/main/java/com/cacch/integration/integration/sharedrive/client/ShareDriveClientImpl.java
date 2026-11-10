@@ -64,7 +64,7 @@ public class ShareDriveClientImpl implements IShareDriveClient {
 
     @Override
     public boolean isAvailable() {
-        if (!shareDriveProperties.isConfigured()) {
+        if (shareDriveProperties.isConfigured()) {
             log.info("【{}】共享盘不可用, reason=root-path未配置", BIZ);
             return false;
         }
@@ -262,7 +262,7 @@ public class ShareDriveClientImpl implements IShareDriveClient {
                     if (!StringUtils.hasText(segment)) {
                         continue;
                     }
-                    if (current.length() > 0) {
+                    if (!current.isEmpty()) {
                         current.append("\\");
                     }
                     current.append(segment);
@@ -498,7 +498,7 @@ public class ShareDriveClientImpl implements IShareDriveClient {
             if (processed[0] >= request.maxItems()) {
                 return;
             }
-            if (!shouldScanIpdpDirectory(ownerDir, ipdpDir, request)) {
+            if (shouldScanIpdpDirectory(ownerDir, ipdpDir, request)) {
                 continue;
             }
             String ipdpPath = ownerDir + "\\" + ipdpDir;
@@ -510,30 +510,30 @@ public class ShareDriveClientImpl implements IShareDriveClient {
         ShareDriveIpdpDirectorySupport.ParsedIpdpDirectory parsed = ShareDriveIpdpDirectorySupport.parse(ipdpDir);
         if (parsed == null) {
             log.info("【{}】跳过L2, reason=未解析IPDP名称与项目编号, owner={}, ipdpDir={}", BIZ, ownerDir, ipdpDir);
-            return false;
+            return true;
         }
         if (StringUtils.hasText(request.ipdpNameFilter())
                 && !matchesIpdpFilter(ipdpDir, request.ipdpNameFilter())) {
-            return false;
+            return true;
         }
         if (request.ownerAllowedProjectNos().isEmpty()) {
-            return true;
+            return false;
         }
         Set<String> allowed = ShareDriveIpdpDirectorySupport.resolveAllowedProjectNos(
                 request.ownerAllowedProjectNos(), ownerDir);
         if (allowed.isEmpty()) {
             log.info("【{}】跳过L2, reason=负责人不在OA批次, owner={}, ipdpDir={}, projectNo={}",
                     BIZ, ownerDir, ipdpDir, parsed.ipdpProjectNo());
-            return false;
+            return true;
         }
         if (!ShareDriveIpdpDirectorySupport.matchesAllowedProjectNo(allowed, parsed.ipdpProjectNo())) {
             log.info("【{}】跳过L2, reason=项目编号与OA field0164不匹配, owner={}, ipdpDir={}, diskProjectNo={}, allowed={}",
                     BIZ, ownerDir, ipdpDir, parsed.ipdpProjectNo(), allowed);
-            return false;
+            return true;
         }
         log.info("【{}】L2项目编号匹配通过, owner={}, ipdpDir={}, projectNo={}",
                 BIZ, ownerDir, ipdpDir, parsed.ipdpProjectNo());
-        return true;
+        return false;
     }
 
     private void walkItemLevel(DiskShare share,
@@ -633,7 +633,7 @@ public class ShareDriveClientImpl implements IShareDriveClient {
                     return;
                 }
                 String ipdpDir = ipdpPath.getFileName().toString();
-                if (!shouldScanIpdpDirectory(ownerDir, ipdpDir, request)) {
+                if (shouldScanIpdpDirectory(ownerDir, ipdpDir, request)) {
                     return;
                 }
                 scanNioItemLevel(ipdpPath, ownerDir, ipdpDir, request, processor, processed);
@@ -915,8 +915,8 @@ public class ShareDriveClientImpl implements IShareDriveClient {
     }
 
     private CandidateFile toSmbCandidateMeta(String smbDir,
-                                               String fileName,
-                                               FileIdBothDirectoryInformation entry) {
+                                             String fileName,
+                                             FileIdBothDirectoryInformation entry) {
         if (!ShareDriveFileSupport.isAllowedExtension(fileName, shareDriveProperties.getAllowedExtensions())) {
             return null;
         }

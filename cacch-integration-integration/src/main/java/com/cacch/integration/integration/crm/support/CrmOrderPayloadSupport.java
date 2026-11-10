@@ -1,4 +1,6 @@
-package com.cacch.integration.integration.crm.support;
+﻿package com.cacch.integration.integration.crm.support;
+
+import org.apache.commons.lang3.StringUtils;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -120,20 +122,24 @@ public final class CrmOrderPayloadSupport {
      * @return JsonNode；无法转换时返回 missing node
      */
     public static JsonNode asJsonNode(Object raw) {
-        if (raw == null) {
-            return MAPPER.missingNode();
-        }
-        if (raw instanceof JsonNode node) {
-            return node;
-        }
-        if (raw instanceof String text) {
-            if (text.isBlank()) {
+        switch (raw) {
+            case null -> {
                 return MAPPER.missingNode();
             }
-            try {
-                return MAPPER.readTree(text);
-            } catch (Exception e) {
-                return MAPPER.missingNode();
+            case JsonNode node -> {
+                return node;
+            }
+            case String text -> {
+                if (text.isBlank()) {
+                    return MAPPER.missingNode();
+                }
+                try {
+                    return MAPPER.readTree(text);
+                } catch (Exception e) {
+                    return MAPPER.missingNode();
+                }
+            }
+            default -> {
             }
         }
         try {
@@ -171,6 +177,6 @@ public final class CrmOrderPayloadSupport {
             return null;
         }
         String value = node.asString();
-        return value == null || value.isBlank() ? null : value.trim();
+        return StringUtils.isBlank(value) ? null : value.trim();
     }
 }

@@ -1,5 +1,7 @@
 package com.cacch.integration.service.ihr.api.impl;
 
+import org.apache.commons.lang3.StringUtils;
+
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.cacch.integration.common.exception.BizException;
@@ -97,7 +99,7 @@ public class IhrDepartmentServiceImpl implements IIhrDepartmentService {
 
     @Override
     public List<IhrDepartmentDO> listRecursiveByParentId(String parentId) {
-        if (parentId == null || parentId.isBlank()) {
+        if (StringUtils.isBlank(parentId)) {
             log.info("【{}】listRecursiveByParentId 跳过, parentId 为空", BIZ);
             return Collections.emptyList();
         }

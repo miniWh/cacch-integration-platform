@@ -1,5 +1,7 @@
 package com.cacch.integration.integration.oa.support;
 
+import org.apache.commons.lang3.StringUtils;
+
 import com.cacch.integration.integration.oa.client.dto.OaOrgMember;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -90,7 +92,7 @@ public final class OaResponseSupport {
         }
         if (raw.isValueNode()) {
             String text = raw.asString();
-            return text == null || text.isBlank() ? null : text.trim();
+            return StringUtils.isBlank(text) ? null : text.trim();
         }
         String direct = firstNonBlankText(raw,
                 "processId", "process_id", "id", "summaryId", "affairId",
@@ -165,7 +167,7 @@ public final class OaResponseSupport {
     }
 
     private static int parseIntOrMinusOne(String text) {
-        if (text == null || text.isBlank()) {
+        if (StringUtils.isBlank(text)) {
             return -1;
         }
         try {

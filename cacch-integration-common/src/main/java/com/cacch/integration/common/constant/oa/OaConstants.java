@@ -1,5 +1,7 @@
 package com.cacch.integration.common.constant.oa;
 
+import org.apache.commons.lang3.StringUtils;
+
 import com.cacch.integration.common.constant.redis.RedisConstants;
 
 /**
@@ -180,7 +182,7 @@ public final class OaConstants {
      * @return Redis Key
      */
     public static String tokenRedisKey(String loginName) {
-        String suffix = (loginName == null || loginName.isBlank()) ? "_default" : loginName.trim();
+        String suffix = (StringUtils.isBlank(loginName)) ? "_default" : loginName.trim();
         return TOKEN_REDIS_KEY_PREFIX + suffix;
     }
 }

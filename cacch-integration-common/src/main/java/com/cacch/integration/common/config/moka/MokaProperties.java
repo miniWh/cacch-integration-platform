@@ -1,5 +1,7 @@
 package com.cacch.integration.common.config.moka;
 
+import org.apache.commons.lang3.StringUtils;
+
 import lombok.Getter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
@@ -124,10 +126,10 @@ public class MokaProperties {
      */
     private static String resolveBaseUrl(String ymlValue) {
         String candidate = ymlValue;
-        if (candidate == null || candidate.isBlank()) {
+        if (StringUtils.isBlank(candidate)) {
             candidate = System.getenv(ENV_MOKA_BASE_URL);
         }
-        if (candidate == null || candidate.isBlank()) {
+        if (StringUtils.isBlank(candidate)) {
             candidate = DEFAULT_BASE_URL;
         }
         return trimTrailingSlash(candidate.trim());
@@ -164,10 +166,10 @@ public class MokaProperties {
      */
     private static String resolveOrgId(String ymlValue) {
         String candidate = ymlValue;
-        if (candidate == null || candidate.isBlank()) {
+        if (StringUtils.isBlank(candidate)) {
             candidate = System.getenv(ENV_MOKA_ORG_ID);
         }
-        if (candidate == null || candidate.isBlank()) {
+        if (StringUtils.isBlank(candidate)) {
             candidate = DEFAULT_ORG_ID;
         }
         return candidate.trim();

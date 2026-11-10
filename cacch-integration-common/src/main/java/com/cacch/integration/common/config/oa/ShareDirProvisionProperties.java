@@ -1,5 +1,7 @@
 package com.cacch.integration.common.config.oa;
 
+import org.apache.commons.lang3.StringUtils;
+
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -74,6 +76,6 @@ public class ShareDirProvisionProperties {
     }
 
     private static String blankToDefault(String value, String defaultValue) {
-        return value == null || value.isBlank() ? defaultValue : value.trim();
+        return StringUtils.isBlank(value) ? defaultValue : value.trim();
     }
 }

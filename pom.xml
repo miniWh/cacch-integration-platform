@@ -48,6 +48,7 @@
         <ojdbc.version>23.6.0.24.10</ojdbc.version>
         <smbj.version>0.13.0</smbj.version>
         <wemeet-openapi-sdk.version>v1.0.12</wemeet-openapi-sdk.version>
+        <commons-lang3.version>3.14.0</commons-lang3.version>
     </properties>
 
     <dependencyManagement>
@@ -172,6 +173,13 @@
                 <groupId>com.tencentcloudapi.wemeet</groupId>
                 <artifactId>wemeet-openapi-sdk</artifactId>
                 <version>${wemeet-openapi-sdk.version}</version>
+            </dependency>
+
+            <!-- Apache Commons Lang3（字符串工具等） -->
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-lang3</artifactId>
+                <version>${commons-lang3.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

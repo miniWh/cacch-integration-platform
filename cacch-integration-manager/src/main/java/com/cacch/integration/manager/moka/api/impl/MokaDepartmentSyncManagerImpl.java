@@ -1,5 +1,7 @@
 package com.cacch.integration.manager.moka.api.impl;
 
+import org.apache.commons.lang3.StringUtils;
+
 import com.cacch.integration.entity.ihr.IhrDepartmentDO;
 import com.cacch.integration.entity.moka.MokaDepartmentDO;
 import com.cacch.integration.entity.moka.MokaDepartmentLocalizedDO;
@@ -69,7 +71,7 @@ public class MokaDepartmentSyncManagerImpl implements IMokaDepartmentSyncManager
 
         for (IhrDepartmentDO ihrDept : ihrDepts) {
             // 校验：departmentCode 为空则跳过
-            if (ihrDept.getDepartmentCode() == null || ihrDept.getDepartmentCode().isBlank()) {
+            if (StringUtils.isBlank(ihrDept.getDepartmentCode())) {
                 deptSkipped++;
                 log.info("【{}】跳过无 departmentCode 的部门, uuid={}, name={}",
                         BIZ, ihrDept.getUuid(), ihrDept.getName());
@@ -130,7 +132,7 @@ public class MokaDepartmentSyncManagerImpl implements IMokaDepartmentSyncManager
 
         // parent_code：parentDepartmentCode 为 null/空 时兜底 "0"（根部门）
         String parentDeptCode = ihr.getParentDepartmentCode();
-        moka.setParentCode((parentDeptCode == null || parentDeptCode.isBlank())
+        moka.setParentCode((StringUtils.isBlank(parentDeptCode))
                 ? ROOT_PARENT_CODE
                 : parentDeptCode);
 

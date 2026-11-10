@@ -1,5 +1,7 @@
 package com.cacch.integration.integration.oa.client.dto;
 
+import org.apache.commons.lang3.StringUtils;
+
 import com.cacch.integration.common.constant.oa.OaConstants;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Builder;
@@ -87,6 +89,6 @@ public class OaProcessStartRequest {
     }
 
     private static String blankToDefault(String value, String defaultValue) {
-        return value == null || value.isBlank() ? defaultValue : value.trim();
+        return StringUtils.isBlank(value) ? defaultValue : value.trim();
     }
 }

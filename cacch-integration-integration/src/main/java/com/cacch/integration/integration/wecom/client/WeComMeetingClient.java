@@ -1,5 +1,7 @@
 package com.cacch.integration.integration.wecom.client;
 
+import org.apache.commons.lang3.StringUtils;
+
 import com.cacch.integration.common.constant.wecom.WeComConstants;
 import com.cacch.integration.integration.support.RestTemplateHttpClient;
 import com.cacch.integration.integration.support.ThirdPartyHttpLogSupport;
@@ -88,7 +90,7 @@ public class WeComMeetingClient {
      * 否则 RestTemplate 二次编码会导致签名校验失败。</p>
      */
     public byte[] downloadBytes(String downloadUrl) {
-        if (downloadUrl == null || downloadUrl.isBlank()) {
+        if (StringUtils.isBlank(downloadUrl)) {
             throw new RestClientException("企业微信纪要下载地址为空");
         }
         String normalizedUrl = downloadUrl.trim();

@@ -1,4 +1,6 @@
-package com.cacch.integration.integration.wecom.adapter;
+﻿package com.cacch.integration.integration.wecom.adapter;
+
+import org.apache.commons.lang3.StringUtils;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -363,7 +365,7 @@ public final class WeComSmartSheetCellAdapter {
         if (!(cellValue instanceof List<?> list) || list.isEmpty()) {
             return "";
         }
-        Object item = list.get(0);
+        Object item = list.getFirst();
         if (item instanceof Map<?, ?> map) {
             Object name = map.get("name");
             if (name != null && !name.toString().isBlank()) {
@@ -393,7 +395,7 @@ public final class WeComSmartSheetCellAdapter {
      * 映射已改为列标题时返回 false 属正常现象，不代表无法读取表格数据。
      */
     public static boolean looksLikeFieldId(String value) {
-        if (value == null || value.isBlank()) {
+        if (StringUtils.isBlank(value)) {
             return false;
         }
         return value.matches("^[a-zA-Z][a-zA-Z0-9]{3,15}$");

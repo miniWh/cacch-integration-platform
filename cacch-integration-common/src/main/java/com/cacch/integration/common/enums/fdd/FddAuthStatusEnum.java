@@ -1,4 +1,4 @@
-package com.cacch.integration.common.enums.fdd;
+﻿package com.cacch.integration.common.enums.fdd;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -29,22 +29,4 @@ public enum FddAuthStatusEnum {
 
     private final String code;
     private final String desc;
-
-    /**
-     * 按 code 解析枚举
-     *
-     * @param code 状态编码
-     * @return 枚举；无法识别时返回 null
-     */
-    public static FddAuthStatusEnum fromCode(String code) {
-        if (code == null || code.isBlank()) {
-            return null;
-        }
-        for (FddAuthStatusEnum value : values()) {
-            if (value.code.equalsIgnoreCase(code.trim())) {
-                return value;
-            }
-        }
-        return null;
-    }
 }

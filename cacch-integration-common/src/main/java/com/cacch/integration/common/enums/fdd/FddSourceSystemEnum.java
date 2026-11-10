@@ -1,5 +1,7 @@
 package com.cacch.integration.common.enums.fdd;
 
+import org.apache.commons.lang3.StringUtils;
+
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
@@ -37,7 +39,7 @@ public enum FddSourceSystemEnum {
      * @return 枚举；无法识别时返回 null
      */
     public static FddSourceSystemEnum fromCode(String code) {
-        if (code == null || code.isBlank()) {
+        if (StringUtils.isBlank(code)) {
             return null;
         }
         for (FddSourceSystemEnum value : values()) {

@@ -218,7 +218,7 @@ public class OaClient {
             String responseBody = response.getBody();
             ThirdPartyHttpLogSupport.logResponse(BIZ, action, responseBody);
 
-            if (responseBody == null || responseBody.isBlank()) {
+            if (org.apache.commons.lang3.StringUtils.isBlank(responseBody)) {
                 log.info("【{}】{}终止, reason=响应体为空", BIZ, action);
                 throw new RestClientException("致远 OA 上传附件响应体为空");
             }
@@ -306,7 +306,7 @@ public class OaClient {
             String responseBody = response.getBody();
             ThirdPartyHttpLogSupport.logResponse(BIZ, action, responseBody);
 
-            if (responseBody == null || responseBody.isBlank()) {
+            if (org.apache.commons.lang3.StringUtils.isBlank(responseBody)) {
                 log.info("【{}】{}终止, reason=响应体为空", BIZ, action);
                 throw new RestClientException("致远 OA 上传附件响应体为空");
             }
@@ -450,7 +450,7 @@ public class OaClient {
             ResponseEntity<String> response = restTemplate.exchange(uri, method, entity, String.class);
             String responseBody = response.getBody();
             ThirdPartyHttpLogSupport.logResponse(BIZ, action, responseBody);
-            if (responseBody == null || responseBody.isBlank()) {
+            if (org.apache.commons.lang3.StringUtils.isBlank(responseBody)) {
                 log.info("【{}】{}终止, reason=响应体为空", BIZ, action);
                 throw new RestClientException("致远 OA " + action + " 响应体为空");
             }

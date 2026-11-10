@@ -1,4 +1,6 @@
-package com.cacch.integration.manager.ihr.api.impl;
+﻿package com.cacch.integration.manager.ihr.api.impl;
+
+import org.apache.commons.lang3.StringUtils;
 
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.entity.ihr.IhrDepartmentDO;
@@ -87,7 +89,7 @@ public class IhrDeptSyncManagerImpl implements IIhrDeptSyncManager {
 
             for (IhrDepartment ihrDept : content) {
                 // uuid 为业务主键，为空则跳过
-                if (ihrDept.getUuid() == null || ihrDept.getUuid().isBlank()) {
+                if (StringUtils.isBlank(ihrDept.getUuid())) {
                     skipped++;
                     log.info("【{}】跳过无 uuid 的部门, name={}", BIZ, ihrDept.getName());
                     continue;
@@ -132,9 +134,9 @@ public class IhrDeptSyncManagerImpl implements IIhrDeptSyncManager {
     private IhrDepartmentDO mapToDO(IhrDepartment src) {
         IhrDepartmentDO DO = new IhrDepartmentDO();
         DO.setUuid(src.getUuid());
-        DO.setIhrDeptId(src.getId() != null ? String.valueOf(src.getId()) : null);
+        DO.setIhrDeptId(src.getId() != null ? src.getId() : null);
         DO.setName(src.getName());
-        DO.setParentId(src.getParentId() != null ? String.valueOf(src.getParentId()) : null);
+        DO.setParentId(src.getParentId() != null ? src.getParentId() : null);
         DO.setType(src.getType());
         DO.setDepartmentCode(src.getDepartmentCode());
         DO.setStoreNumber(src.getStoreNumber());

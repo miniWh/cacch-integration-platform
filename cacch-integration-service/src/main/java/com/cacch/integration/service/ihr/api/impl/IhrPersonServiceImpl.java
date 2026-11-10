@@ -1,5 +1,7 @@
 package com.cacch.integration.service.ihr.api.impl;
 
+import org.apache.commons.lang3.StringUtils;
+
 import com.cacch.integration.entity.ihr.PersondetailDO;
 import com.cacch.integration.mapper.ihr.PersondetailMapper;
 import com.cacch.integration.service.ihr.api.IIhrPersonService;
@@ -28,7 +30,7 @@ public class IhrPersonServiceImpl implements IIhrPersonService {
 
     @Override
     public List<Map<String, Object>> listStaffByDeptTree(String ihrDeptId, LocalDate lastUpdateDate) {
-        if (ihrDeptId == null || ihrDeptId.isBlank()) {
+        if (StringUtils.isBlank(ihrDeptId)) {
             log.info("【{}】listStaffByDeptTree 跳过, ihrDeptId 为空", BIZ);
             return Collections.emptyList();
         }
@@ -44,7 +46,7 @@ public class IhrPersonServiceImpl implements IIhrPersonService {
 
     @Override
     public PersondetailDO getByStaffNo(String staffNo) {
-        if (staffNo == null || staffNo.isBlank()) {
+        if (StringUtils.isBlank(staffNo)) {
             log.info("【{}】getByStaffNo 跳过, staffNo 为空", BIZ);
             return null;
         }

@@ -1,5 +1,7 @@
 package com.cacch.integration.service.ihr.api.impl;
 
+import org.apache.commons.lang3.StringUtils;
+
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.ResultCode;
@@ -107,7 +109,7 @@ public class IhrPositionServiceImpl implements IIhrPositionService {
 
     @Override
     public List<IhrPositionDO> listByDeptTree(String deptId) {
-        if (deptId == null || deptId.isBlank()) {
+        if (StringUtils.isBlank(deptId)) {
             log.info("【{}】listByDeptTree 跳过, deptId 为空", BIZ);
             return Collections.emptyList();
         }

@@ -1,5 +1,7 @@
 package com.cacch.integration.common.config.oa;
 
+import org.apache.commons.lang3.StringUtils;
+
 import lombok.Getter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
@@ -44,7 +46,7 @@ public class OaDataSourceProperties {
      * @return 驱动类名
      */
     public static String inferDriverClassName(String jdbcUrl) {
-        if (jdbcUrl == null || jdbcUrl.isBlank()) {
+        if (StringUtils.isBlank(jdbcUrl)) {
             return "oracle.jdbc.OracleDriver";
         }
         String lower = jdbcUrl.toLowerCase();
@@ -58,6 +60,6 @@ public class OaDataSourceProperties {
     }
 
     private static String blankToDefault(String value, String defaultValue) {
-        return value == null || value.isBlank() ? defaultValue : value.trim();
+        return StringUtils.isBlank(value) ? defaultValue : value.trim();
     }
 }
