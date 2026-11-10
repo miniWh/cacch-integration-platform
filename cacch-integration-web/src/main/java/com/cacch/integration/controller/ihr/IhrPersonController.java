@@ -1,11 +1,16 @@
 package com.cacch.integration.controller.ihr;
 
 import com.cacch.integration.common.result.Result;
+import com.cacch.integration.convert.ihr.IhrPersonConverter;
 import com.cacch.integration.dto.ihr.request.DeptStaffRequest;
+import com.cacch.integration.dto.ihr.vo.PersondetailVO;
+import com.cacch.integration.entity.ihr.PersondetailDO;
 import com.cacch.integration.manager.ihr.api.IIhrPersonManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -35,6 +40,7 @@ public class IhrPersonController {
     private static final String FIXED_IHR_DEPT_ID = "396";
 
     private final IIhrPersonManager ihrPersonManager;
+    private final IhrPersonConverter ihrPersonConverter;
 
     /**
      * 按部门树递归查询在职员工
@@ -66,5 +72,26 @@ public class IhrPersonController {
         List<Map<String, Object>> result = ihrPersonManager.listStaffByDeptTree(FIXED_IHR_DEPT_ID, lastUpdateDate);
         log.info("【IhrPerson】查询完成, ihrDeptId={}, count={}", FIXED_IHR_DEPT_ID, result.size());
         return Result.success(result);
+    }
+
+    /**
+     * 按 userId 查询单条 persondetail 人员详情
+     *
+     * <p>接口参数 {@code userId} 对应外部表字段 {@code persondetail."staffNo"}（员工工号），
+     * 注意与 {@link PersondetailDO#getUserId()}（对应 {@code persondetail.id}）不是同一字段。
+     * 不做在职状态过滤，在职与离职记录均可查。</p>
+     *
+     * <p>未命中时返回字段全为 null 的空对象，HTTP 状态码仍为 200。</p>
+     *
+     * @param userId 员工工号（persondetail."staffNo"）
+     * @return 人员详情视图；未命中时返回空对象（非 null）
+     */
+    @GetMapping("/{userId}")
+    public Result<PersondetailVO> getByUserId(@PathVariable String userId) {
+        log.info("【IhrPerson】按 userId 查询人员, userId={}", userId);
+        PersondetailDO detail = ihrPersonManager.getByStaffNo(userId);
+        PersondetailVO vo = detail == null ? new PersondetailVO() : ihrPersonConverter.toVO(detail);
+        log.info("【IhrPerson】按 userId 查询完成, userId={}, found={}", userId, detail != null);
+        return Result.success(vo);
     }
 }

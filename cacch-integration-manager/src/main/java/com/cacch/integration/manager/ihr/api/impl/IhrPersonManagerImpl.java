@@ -1,5 +1,6 @@
 package com.cacch.integration.manager.ihr.api.impl;
 
+import com.cacch.integration.entity.ihr.PersondetailDO;
 import com.cacch.integration.manager.ihr.api.IIhrPersonManager;
 import com.cacch.integration.service.ihr.api.IIhrPersonService;
 import lombok.RequiredArgsConstructor;
@@ -31,5 +32,11 @@ public class IhrPersonManagerImpl implements IIhrPersonManager {
     public List<Map<String, Object>> listStaffByDeptTree(String ihrDeptId, LocalDate lastUpdateDate) {
         log.info("【{}】listStaffByDeptTree 入口, ihrDeptId={}, lastUpdateDate={}", BIZ, ihrDeptId, lastUpdateDate);
         return ihrPersonService.listStaffByDeptTree(ihrDeptId, lastUpdateDate);
+    }
+
+    @Override
+    public PersondetailDO getByStaffNo(String staffNo) {
+        log.info("【{}】getByStaffNo 入口, staffNo={}", BIZ, staffNo);
+        return ihrPersonService.getByStaffNo(staffNo);
     }
 }

@@ -88,6 +88,32 @@ public interface PersondetailMapper {
     List<PersondetailDO> selectByStaffNos(@Param("staffNos") List<String> staffNos);
 
     /**
+     * 按工号查询单条 persondetail 记录
+     *
+     * <p>返回字段与 {@link #selectAll()} 一致，不做在职状态过滤，离职记录同样可查。
+     * 外部表 {@code "staffNo"} 假定唯一；若存在重复工号，调用方将收到
+     * {@code TooManyResultsException}。</p>
+     *
+     * @param staffNo 员工工号（persondetail."staffNo"，非空且非空串）
+     * @return 匹配的员工记录；无数据时返回 null
+     */
+    @Select("SELECT " +
+            "id AS user_id, " +
+            "\"staffNo\" AS employee_no, " +
+            "\"staffName\" AS user_name, " +
+            "\"nickName\" AS nickname, " +
+            "\"workEmail\" AS company_email, " +
+            "\"mobileNo\" AS contact_phone, " +
+            "\"departmentId\" AS department_id, " +
+            "\"staffStatus\" AS employee_status, " +
+            "\"contractBeginDate\" AS contract_begin_date, " +
+            "\"probationEndDate\" AS probation_end_date, " +
+            "\"leaveDate\" AS leave_date " +
+            "FROM persondetail " +
+            "WHERE \"staffNo\" = #{staffNo}")
+    PersondetailDO selectByStaffNo(@Param("staffNo") String staffNo);
+
+    /**
      * 按 IHR 部门树递归查询在职员工（含 {@code ihr_staff_update_sync_record.last_update} 可选过滤）
      *
      * <p>SQL 执行流程：

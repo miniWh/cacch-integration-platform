@@ -1,5 +1,7 @@
 package com.cacch.integration.service.ihr.api;
 
+import com.cacch.integration.entity.ihr.PersondetailDO;
+
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -30,4 +32,14 @@ public interface IIhrPersonService {
      * @return 员工记录列表（每条为 Map，含 persondetail 所有字段 + 部门信息 + last_update）；无数据时返回空列表
      */
     List<Map<String, Object>> listStaffByDeptTree(String ihrDeptId, LocalDate lastUpdateDate);
+
+    /**
+     * 按工号查询单条 persondetail 记录
+     *
+     * <p>不做在职状态过滤，在职与离职记录均可查；入参为空时直接返回 null。</p>
+     *
+     * @param staffNo 员工工号（persondetail."staffNo"），可为 null 或空串
+     * @return 员工记录；工号为空或未命中时返回 null
+     */
+    PersondetailDO getByStaffNo(String staffNo);
 }

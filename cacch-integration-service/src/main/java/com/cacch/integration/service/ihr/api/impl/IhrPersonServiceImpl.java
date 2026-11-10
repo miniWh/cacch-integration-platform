@@ -1,5 +1,6 @@
 package com.cacch.integration.service.ihr.api.impl;
 
+import com.cacch.integration.entity.ihr.PersondetailDO;
 import com.cacch.integration.mapper.ihr.PersondetailMapper;
 import com.cacch.integration.service.ihr.api.IIhrPersonService;
 import lombok.RequiredArgsConstructor;
@@ -39,5 +40,21 @@ public class IhrPersonServiceImpl implements IIhrPersonService {
         }
         log.info("【{}】listStaffByDeptTree 命中, ihrDeptId={}, count={}", BIZ, ihrDeptId, list.size());
         return list;
+    }
+
+    @Override
+    public PersondetailDO getByStaffNo(String staffNo) {
+        if (staffNo == null || staffNo.isBlank()) {
+            log.info("【{}】getByStaffNo 跳过, staffNo 为空", BIZ);
+            return null;
+        }
+        log.info("【{}】getByStaffNo 查询, staffNo={}", BIZ, staffNo);
+        PersondetailDO detail = persondetailMapper.selectByStaffNo(staffNo);
+        if (detail == null) {
+            log.info("【{}】getByStaffNo 未命中, staffNo={}", BIZ, staffNo);
+            return null;
+        }
+        log.info("【{}】getByStaffNo 命中, staffNo={}", BIZ, staffNo);
+        return detail;
     }
 }
