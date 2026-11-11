@@ -145,6 +145,81 @@ public class MokaDepartmentPushManagerImpl implements IMokaDepartmentPushManager
         );
     }
 
+    // —— 手动删除编排 ——
+
+    /**
+     * 手动触发部门删除 —— 编码校验 + 标记待删除 + 立即执行删除编排
+     *
+     * <p>编码校验（逐条，单条失败不阻断）：
+     * 去重 → 本地不存在计 notFound → 状态 4（已删除）跳过标记计 alreadyDeleted →
+     * 状态 0/1/2 置 3（待删除）→ 状态已是 3 的无需重复标记。</p>
+     *
+     * <p>标记完成后立即调用 {@link #processPendingDeletes()}（与 pushToMoka 前置删除步骤
+     * 同一套编排，处理全部状态 3 部门，含此前差集标记的历史待删部门）。</p>
+     *
+     * @param departmentCodes 待删除部门编码列表，不可为空
+     * @return 手动删除执行结果
+     */
+    @Override
+    public MokaManualDeleteResult deleteDepartments(List<String> departmentCodes) {
+        // 1) 编码去重（LinkedHashSet 保持传入顺序）
+        List<String> distinctCodes = departmentCodes.stream().distinct().toList();
+        int requestCount = distinctCodes.size();
+        log.info("【{}】手动删除部门开始, requestCount={}", BIZ, requestCount);
+
+        // 2) 逐条校验并标记
+        int notFoundCount = 0;
+        int alreadyDeletedCount = 0;
+        int markedCount = 0;
+        int markFailedCount = 0;
+
+        for (String departmentCode : distinctCodes) {
+            MokaDepartmentDO dept = mokaDepartmentService.getByCode(departmentCode);
+            if (dept == null) {
+                notFoundCount++;
+                log.info("【{}】部门编码不存在, 跳过, departmentCode={}", BIZ, departmentCode);
+                continue;
+            }
+
+            Integer status = dept.getMokaSyncStatus();
+            if (status != null && status == STATUS_DELETED) {
+                alreadyDeletedCount++;
+                log.info("【{}】部门已是已删除状态, 跳过标记, departmentCode={}, name={}",
+                        BIZ, departmentCode, dept.getName());
+                continue;
+            }
+            if (status != null && status == STATUS_PENDING_DELETE) {
+                log.info("【{}】部门已是待删除状态, 无需重复标记, departmentCode={}, name={}",
+                        BIZ, departmentCode, dept.getName());
+                continue;
+            }
+
+            try {
+                mokaDepartmentService.updateMokaSyncStatus(departmentCode, STATUS_PENDING_DELETE);
+                markedCount++;
+                log.info("【{}】手动标记待删除, departmentCode={}, name={}",
+                        BIZ, departmentCode, dept.getName());
+            } catch (Exception e) {
+                markFailedCount++;
+                log.error("【{}】手动标记待删除失败, departmentCode={}, 已失败={}",
+                        BIZ, departmentCode, markFailedCount, e);
+            }
+        }
+        log.info("【{}】手动标记完成, requestCount={}, notFound={}, alreadyDeleted={}, marked={}, markFailed={}",
+                BIZ, requestCount, notFoundCount, alreadyDeletedCount, markedCount, markFailedCount);
+
+        // 3) 立即执行删除编排（处理全部状态 3 部门，含历史待删）
+        DeleteOutcome outcome = processPendingDeletes();
+
+        log.info("【{}】手动删除部门完成, deletePendingCount={}, deleteSkippedCount={}, deleteSuccess={}, deletedCount={}",
+                BIZ, outcome.pendingCount(), outcome.skippedCount(), outcome.success(), outcome.deletedCount());
+
+        return new MokaManualDeleteResult(
+                requestCount, notFoundCount, alreadyDeletedCount, markedCount,
+                outcome.pendingCount(), outcome.skippedCount(),
+                outcome.success(), outcome.deletedCount());
+    }
+
     // —— 前置删除步骤 ——
 
     /**
@@ -222,7 +297,7 @@ public class MokaDepartmentPushManagerImpl implements IMokaDepartmentPushManager
         }).toList());
         request.setEmail(mokaProperties.getDeleteEmail());
 
-        Boolean deleteSuccess = null;
+        boolean deleteSuccess;
         int deletedCount = 0;
         try {
             log.info("【{}】开始调用 Moka 删除部门, deptCount={}", BIZ, deletable.size());

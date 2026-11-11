@@ -1,5 +1,7 @@
 package com.cacch.integration.manager.moka.api;
 
+import java.util.List;
+
 /**
  * Moka 部门推送到 Moka 开放平台 —— 编排接口
  *
@@ -37,6 +39,44 @@ public interface IMokaDepartmentPushManager {
      * @return 推送执行结果
      */
     MokaDeptPushResult pushToMoka();
+
+    /**
+     * 手动触发部门删除 —— 标记指定部门为待删除并立即执行 Moka 删除编排
+     *
+     * <p>执行流程：
+     * <ol>
+     *     <li>部门编码校验（逐条，单条失败不阻断）：
+     *     本地不存在的计 notFound；状态已是 4（已删除）的跳过标记计 alreadyDeleted；
+     *     状态 0/1/2 的置 3（待删除）；状态已是 3 的无需重复标记</li>
+     *     <li>立即执行删除编排（与 pushToMoka 前置删除步骤同一套逻辑，处理全部状态 3 部门）：
+     *     {@code moka.delete-email} 未配置时跳过；孤儿校验（存在未删除子部门的跳过）；
+     *     自底向上排序后调 Moka DELETE /api-platform/v1/departments；成功置 4（记录 moka_delete_time），
+     *     失败保留 3 待下轮重试</li>
+     * </ol>
+     *
+     * @param departmentCodes 待删除部门编码列表，不可为空；调用方负责非空校验
+     * @return 手动删除执行结果
+     */
+    MokaManualDeleteResult deleteDepartments(List<String> departmentCodes);
+
+    /**
+     * 手动删除执行结果
+     *
+     * @param requestCount        请求传入的部门编码条数（去重后）
+     * @param notFoundCount       本地表中不存在的编码条数
+     * @param alreadyDeletedCount 状态已是 4（已删除）而跳过标记的条数
+     * @param markedCount         本次新标记为 3（待删除）的条数
+     * @param deletePendingCount  删除编排命中的待删除（状态 3）部门总数（含此前差集标记的历史待删部门）
+     * @param deleteSkippedCount  因存在未删除子部门（孤儿校验）而跳过删除的条数
+     * @param deleteSuccess       Moka DELETE API 整体是否成功；
+     *                            无待删除部门、未配置 delete-email 或全部被孤儿校验跳过时为 null（未调用）
+     * @param deletedCount        Moka 删除成功后本地置 4（DELETED，记录 moka_delete_time）的条数
+     *                            （deleteSuccess 非 true 时为 0）
+     */
+    record MokaManualDeleteResult(int requestCount, int notFoundCount, int alreadyDeletedCount,
+                                  int markedCount, int deletePendingCount, int deleteSkippedCount,
+                                  Boolean deleteSuccess, int deletedCount) {
+    }
 
     /**
      * 推送执行结果

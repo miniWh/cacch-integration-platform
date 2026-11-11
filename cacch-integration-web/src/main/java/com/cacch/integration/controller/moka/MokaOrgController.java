@@ -2,10 +2,12 @@ package com.cacch.integration.controller.moka;
 
 import com.cacch.integration.common.result.Result;
 import com.cacch.integration.convert.moka.MokaOrgConverter;
+import com.cacch.integration.dto.moka.request.DeleteMokaDepartmentsRequest;
 import com.cacch.integration.dto.moka.request.MokaOrgSyncRequest;
 import com.cacch.integration.dto.moka.vo.MokaDeptSyncFromIhrResultVO;
 import com.cacch.integration.dto.moka.vo.MokaDeptSyncResultVO;
 import com.cacch.integration.dto.moka.vo.MokaDeptVO;
+import com.cacch.integration.dto.moka.vo.MokaManualDeleteResultVO;
 import com.cacch.integration.integration.moka.client.dto.MokaDeptListResponse;
 import com.cacch.integration.integration.moka.client.dto.MokaDeptSyncRequest;
 import com.cacch.integration.dto.moka.vo.MokaDeptPushResultVO;
@@ -142,5 +144,39 @@ public class MokaOrgController {
         log.info("【MokaDeptPushToMoka】推送完成, totalPushed={}, mokaApiSuccess={}, newOnMoka={}, updatedOnMoka={}, deletedOnMoka={}, syncedCount={}, syncFailedCount={}, dbUpdateFailed={}, deletePendingCount={}, deleteSkippedCount={}, deleteSuccess={}, deletedCount={}",
                 result.totalPushed(), result.mokaApiSuccess(), result.newOnMoka(), result.updatedOnMoka(), result.deletedOnMoka(), result.syncedCount(), result.syncFailedCount(), result.dbUpdateFailedCount(), result.deletePendingCount(), result.deleteSkippedCount(), result.deleteSuccess(), result.deletedCount());
         return Result.success(MokaDeptPushResultVO.from(result));
+    }
+
+    /**
+     * 手动触发部门删除 —— 标记指定部门为待删除并立即调 Moka 删除接口
+     *
+     * <p>用于对本地已有部门数据（状态 0-未同步 / 1-已同步 / 2-同步失败）手动执行删除，
+     * 弥补仅靠 iHR 快照差集产生待删除记录的不足。</p>
+     *
+     * <p>执行流程：
+     * <ol>
+     *     <li>部门编码校验（逐条，单条失败不阻断）：本地不存在的跳过并计数；
+     *     状态已是 4（已删除）的跳过标记；状态 0/1/2 的置 3（待删除）；已是 3 的无需重复标记</li>
+     *     <li>立即执行删除编排（与 push-to-moka 前置删除步骤同一套逻辑，处理全部状态 3 部门，
+     *     含此前差集标记的历史待删部门）：孤儿校验（存在未删除子部门的跳过）→
+     *     树深度自底向上排序 → 调 Moka DELETE /api-platform/v1/departments →
+     *     成功置 4（记录 moka_delete_time），失败保留 3 待下轮 push-to-moka 重试</li>
+     * </ol>
+     *
+     * <p>注意：{@code moka.delete-email}（Moka 注册邮箱）未配置时仅完成标记，删除步骤跳过
+     * （deleteSuccess 返回 null），后续可通过 push-to-moka 补偿执行。</p>
+     *
+     * @param request 手动删除请求体，departmentCodes 列表必填（至少一条，不可有空白项）
+     * @return 手动删除执行结果，含编码校验计数 + 删除编排执行结果
+     */
+    @PostMapping("/delete-departments")
+    public Result<MokaManualDeleteResultVO> deleteDepartments(@Valid @RequestBody DeleteMokaDepartmentsRequest request) {
+        log.info("【MokaManualDelete】收到 Moka 部门手动删除请求, departmentCodeCount={}",
+                request.getDepartmentCodes() == null ? 0 : request.getDepartmentCodes().size());
+        IMokaDepartmentPushManager.MokaManualDeleteResult result =
+                mokaDeptPushManager.deleteDepartments(request.getDepartmentCodes());
+        log.info("【MokaManualDelete】手动删除完成, requestCount={}, notFoundCount={}, alreadyDeletedCount={}, markedCount={}, deletePendingCount={}, deleteSkippedCount={}, deleteSuccess={}, deletedCount={}",
+                result.requestCount(), result.notFoundCount(), result.alreadyDeletedCount(), result.markedCount(),
+                result.deletePendingCount(), result.deleteSkippedCount(), result.deleteSuccess(), result.deletedCount());
+        return Result.success(MokaManualDeleteResultVO.from(result));
     }
 }
