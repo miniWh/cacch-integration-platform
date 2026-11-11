@@ -1,11 +1,13 @@
 package com.cacch.integration.controller.ihr;
 
 import com.cacch.integration.common.result.Result;
+import com.cacch.integration.integration.ihr.client.dto.IhrStaffBasicInfo;
 import com.cacch.integration.service.ihr.api.IIhrStaffService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -48,5 +50,17 @@ public class TestIhrStaffController {
             @RequestParam(required = false) String staffStatus) {
         log.info("【IHR员工域测试】收到获取员工ID清单请求, staffStatus={}", staffStatus);
         return Result.success(ihrStaffService.fetchAllStaffIds(staffStatus));
+    }
+
+    /**
+     * 测试端点：按 staffId 查询单个员工的基本信息
+     *
+     * @param staffId 员工 ID
+     * @return 员工基本资料；iHR 响应无 data 时返回 null
+     */
+    @GetMapping("/{staffId}/basic")
+    public Result<IhrStaffBasicInfo> fetchStaffBasic(@PathVariable String staffId) {
+        log.info("【IHR员工域测试】收到获取员工基本信息请求, staffId={}", staffId);
+        return Result.success(ihrStaffService.fetchStaffBasic(staffId));
     }
 }

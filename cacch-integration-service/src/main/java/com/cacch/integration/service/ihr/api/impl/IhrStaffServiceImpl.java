@@ -5,6 +5,8 @@ import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.ResultCode;
 import com.cacch.integration.integration.ihr.client.IhrStaffClient;
 import com.cacch.integration.integration.ihr.client.dto.IhrPageInfo;
+import com.cacch.integration.integration.ihr.client.dto.IhrStaffBasicInfo;
+import com.cacch.integration.integration.ihr.client.dto.IhrStaffBasicResponse;
 import com.cacch.integration.integration.ihr.client.dto.IhrStaffIdsData;
 import com.cacch.integration.integration.ihr.client.dto.IhrStaffIdsResponse;
 import com.cacch.integration.service.ihr.api.IIhrStaffService;
@@ -14,6 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestClientException;
 
@@ -59,9 +62,50 @@ public class IhrStaffServiceImpl implements IIhrStaffService {
             }
         }
 
-        log.info("【{}】fetchAllStaffIds 完成, staffStatus={}, 总页数={}, 总条数={}",
-                BIZ, staffStatus, totalPages, all.size());
+        log.info("【{}】fetchAllStaffIds 完成, staffStatus={}, 总页数={}, 总条数={}", BIZ, staffStatus, totalPages, all.size());
         return all;
+    }
+
+    @Override
+    public IhrStaffBasicInfo fetchStaffBasic(String staffId) {
+        if (!StringUtils.hasText(staffId)) {
+            log.info("【{}】fetchStaffBasic 终止, reason=staffId 为空", BIZ);
+            throw new BizException(ResultCode.PARAM_ERROR, "staffId 不能为空");
+        }
+
+        String accessToken = ihrTokenService.getAccessToken();
+        IhrStaffBasicResponse resp;
+        try {
+            resp = ihrStaffClient.fetchStaffBasic(accessToken, staffId);
+        } catch (HttpStatusCodeException e) {
+            if (e.getStatusCode() == HttpStatus.UNAUTHORIZED || e.getStatusCode() == HttpStatus.FORBIDDEN) {
+                log.info("【{}】HTTP {}, 强制刷新 token 后重试, staffId={}", BIZ, e.getStatusCode().value(), staffId);
+                accessToken = ihrTokenService.forceRefresh();
+                resp = ihrStaffClient.fetchStaffBasic(accessToken, staffId);
+            } else {
+                log.info("【{}】HTTP 调用终止, status={}, staffId={}", BIZ, e.getStatusCode().value(), staffId);
+                throw e;
+            }
+        } catch (RestClientException e) {
+            log.info("【{}】HTTP 调用终止, staffId={}, reason={}", BIZ, staffId, e.getMessage());
+            throw e;
+        }
+
+        if (resp == null || !resp.isSuccess()) {
+            log.info("【{}】接口终止, staffId={}, code={}, message={}",
+                    BIZ, staffId, resp == null ? "null" : resp.getCode(),
+                    resp == null ? "空响应" : resp.getMessage());
+            throw new BizException(ResultCode.INTEGRATION_ERROR,
+                    "IHR 员工基本信息拉取失败: staffId=" + staffId
+                            + ", code=" + (resp == null ? "null" : resp.getCode())
+                            + ", message=" + (resp == null ? "空响应" : resp.getMessage()));
+        }
+
+        IhrStaffBasicInfo data = resp.getData();
+        if (data == null) {
+            log.info("【{}】fetchStaffBasic 返回空, staffId={}, reason=响应无 data", BIZ, staffId);
+        }
+        return data;
     }
 
     /**

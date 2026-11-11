@@ -4,6 +4,7 @@ import com.cacch.integration.common.config.ihr.IhrProperties;
 import com.cacch.integration.common.constant.ihr.IhrPathConstants;
 import com.cacch.integration.common.constant.ihr.IhrStaffConstants;
 import com.cacch.integration.common.constant.ihr.IhrStaffLogConstants;
+import com.cacch.integration.integration.ihr.client.dto.IhrStaffBasicResponse;
 import com.cacch.integration.integration.ihr.client.dto.IhrStaffIdsResponse;
 import com.cacch.integration.integration.support.RestTemplateHttpClient;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +30,7 @@ public class IhrStaffClient {
 
     private static final String BIZ = IhrStaffLogConstants.LOG_BIZ;
     private static final String ACTION_STAFF_IDS_LIST = IhrStaffLogConstants.buildAction("获取员工ID清单");
+    private static final String ACTION_STAFF_BASIC = IhrStaffLogConstants.buildAction("获取员工基本信息");
 
     private final RestTemplateHttpClient httpClient;
     private final IhrProperties ihrProperties;
@@ -69,6 +71,33 @@ public class IhrStaffClient {
             log.info("【{}】{}成功, code=0, pageNo={}, 本页条数={}", BIZ, ACTION_STAFF_IDS_LIST, pageNo, size);
         } else {
             log.info("【{}】{}终止, code={}, message={}", BIZ, ACTION_STAFF_IDS_LIST, body.getCode(), body.getMessage());
+        }
+        return body;
+    }
+
+    /**
+     * 按 staffId 查询单个员工的基本信息
+     *
+     * @param accessToken iHR access_token
+     * @param staffId     员工 ID（iHR 返回的 UUID，最大 36 位）
+     * @return iHR 原始响应体；业务成功以 {@link IhrStaffBasicResponse#isSuccess()} 判定
+     * @throws org.springframework.web.client.RestClientException HTTP 调用异常时抛出
+     */
+    public IhrStaffBasicResponse fetchStaffBasic(String accessToken, String staffId) {
+        String fullUrl = ihrProperties.getBaseUrl() + String.format(IhrPathConstants.STAFF_BASIC_PATH, staffId);
+        log.info("【{}】{}, 完整url={}", BIZ, ACTION_STAFF_BASIC, fullUrl);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setAccept(Collections.singletonList(org.springframework.http.MediaType.APPLICATION_JSON));
+        headers.set(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken);
+
+        IhrStaffBasicResponse body = httpClient.doGet(fullUrl, headers, BIZ, ACTION_STAFF_BASIC, IhrStaffBasicResponse.class);
+
+        if (body.isSuccess()) {
+            boolean hasData = body.getData() != null;
+            log.info("【{}】{}成功, code=0, staffId={}, hasData={}", BIZ, ACTION_STAFF_BASIC, staffId, hasData);
+        } else {
+            log.info("【{}】{}终止, code={}, message={}", BIZ, ACTION_STAFF_BASIC, body.getCode(), body.getMessage());
         }
         return body;
     }

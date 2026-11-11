@@ -17,4 +17,9 @@ public final class IhrPathConstants {
      * 获取员工 ID 清单
      */
     public static final String STAFF_IDS_LIST_PATH = "/openapi/thirdparty/api/staff/v1/staffs/ids";
+
+    /**
+     * 获取员工基本信息
+     */
+    public static final String STAFF_BASIC_PATH = "/openapi/thirdparty/api/staff/v1/staffs/%s/basic";
 }

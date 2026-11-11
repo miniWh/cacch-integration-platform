@@ -1,6 +1,7 @@
 package com.cacch.integration.service.ihr.api;
 
 import com.cacch.integration.common.exception.BizException;
+import com.cacch.integration.integration.ihr.client.dto.IhrStaffBasicInfo;
 
 import java.util.List;
 
@@ -26,4 +27,14 @@ public interface IIhrStaffService {
      * @throws BizException iHR 接口返回业务失败码、HTTP 异常或重试后仍失败时抛出
      */
     List<String> fetchAllStaffIds(String staffStatus);
+
+    /**
+     * 按 staffId 查询单个员工的基本信息
+     *
+     * @param staffId 员工 ID；不得为 null 或空字符串
+     * @return 员工基本资料；iHR 响应无 data 时返回 null
+     * @throws BizException                                        staffId 为空、iHR 接口返回业务失败码、重试后仍失败时抛出
+     * @throws com.cacch.integration.common.exception.BizException staffId 为空时抛出
+     */
+    IhrStaffBasicInfo fetchStaffBasic(String staffId);
 }
