@@ -38,90 +38,89 @@ public class IhrStaffServiceImpl implements IIhrStaffService {
 
     @Override
     public List<String> fetchAllStaffIds(String staffStatus) {
-        String accessToken = ihrTokenService.getAccessToken();
+        // 单元素数组作可变 token 引用：401 刷新后的新 token 写回 holder，跨页自动生效
+        String[] tokenHolder = {ihrTokenService.getAccessToken()};
 
-        // 第 1 页 — 先判断是否需要全量翻页
-        IhrStaffIdsResponse first;
-        try {
-            first = ihrStaffClient.fetchStaffIdsPage(accessToken, staffStatus, 1);
-        } catch (HttpStatusCodeException e) {
-            if (e.getStatusCode() == HttpStatus.UNAUTHORIZED || e.getStatusCode() == HttpStatus.FORBIDDEN) {
-                log.info("【{}】HTTP {}，强制刷新 token 后重试, staffStatus={}", BIZ, e.getStatusCode().value(), staffStatus);
-                accessToken = ihrTokenService.forceRefresh();
-                first = ihrStaffClient.fetchStaffIdsPage(accessToken, staffStatus, 1);
-            } else {
-                log.info("【{}】HTTP 调用终止, status={}, staffStatus={}", BIZ, e.getStatusCode().value(), staffStatus);
-                throw e;
-            }
-        } catch (RestClientException e) {
-            log.info("【{}】HTTP 调用终止, staffStatus={}, reason={}", BIZ, staffStatus, e.getMessage());
-            throw e;
-        }
-
-        if (first == null || !first.isSuccess()) {
-            log.info("【{}】接口终止, staffStatus={}, code={}, message={}",
-                    BIZ, staffStatus, first == null ? "null" : first.getCode(),
-                    first == null ? "空响应" : first.getMessage());
-            throw new BizException(ResultCode.INTEGRATION_ERROR,
-                    "IHR 员工ID清单拉取失败: code=" + (first == null ? "null" : first.getCode())
-                            + ", message=" + (first == null ? "空响应" : first.getMessage()));
-        }
-
-        IhrStaffIdsData data = first.getData();
-        if (data == null || CollectionUtils.isEmpty(data.getDataList())) {
+        // 第 1 页 — 同时探明总页数
+        IhrStaffIdsData first = fetchPageData(tokenHolder, staffStatus, 1);
+        if (first == null || CollectionUtils.isEmpty(first.getDataList())) {
             log.info("【{}】fetchAllStaffIds 返回空, staffStatus={}, reason=无员工数据", BIZ, staffStatus);
             return Collections.emptyList();
         }
 
-        List<String> all = new ArrayList<>(data.getDataList());
-        IhrPageInfo pageInfo = data.getPageInfo();
-        int totalPages = pageInfo == null ? 1 : pageInfo.getTotalPages();
-        if (totalPages < 1) {
-            totalPages = 1;
-        }
+        List<String> all = new ArrayList<>(first.getDataList());
+        int totalPages = resolveTotalPages(first.getPageInfo());
 
-        // 翻页拉取后续页
-        if (totalPages > 1) {
-            for (int p = 2; p <= totalPages; p++) {
-                IhrStaffIdsResponse resp;
-                try {
-                    resp = ihrStaffClient.fetchStaffIdsPage(accessToken, staffStatus, p);
-                } catch (HttpStatusCodeException e) {
-                    if (e.getStatusCode() == HttpStatus.UNAUTHORIZED
-                            || e.getStatusCode() == HttpStatus.FORBIDDEN) {
-                        log.info("【{}】翻页 HTTP {}, 强制刷新 token 后重试, pageNo={}, staffStatus={}",
-                                BIZ, e.getStatusCode().value(), p, staffStatus);
-                        accessToken = ihrTokenService.forceRefresh();
-                        resp = ihrStaffClient.fetchStaffIdsPage(accessToken, staffStatus, p);
-                    } else {
-                        log.info("【{}】翻页终止, pageNo={}, staffStatus={}, reason=HTTP {}",
-                                BIZ, p, staffStatus, e.getStatusCode().value());
-                        throw e;
-                    }
-                } catch (RestClientException e) {
-                    log.info("【{}】翻页终止, pageNo={}, staffStatus={}, reason={}",
-                            BIZ, p, staffStatus, e.getMessage());
-                    throw e;
-                }
-
-                if (resp == null || !resp.isSuccess()) {
-                    log.info("【{}】翻页接口终止, pageNo={}, staffStatus={}, code={}, message={}",
-                            BIZ, p, staffStatus, resp == null ? "null" : resp.getCode(),
-                            resp == null ? "空响应" : resp.getMessage());
-                    throw new BizException(ResultCode.INTEGRATION_ERROR,
-                            "IHR 员工ID清单翻页拉取失败: pageNo=" + p
-                                    + ", code=" + (resp == null ? "null" : resp.getCode())
-                                    + ", message=" + (resp == null ? "空响应" : resp.getMessage()));
-                }
-
-                IhrStaffIdsData pageData = resp.getData();
-                if (pageData != null && !CollectionUtils.isEmpty(pageData.getDataList())) {
-                    all.addAll(pageData.getDataList());
-                }
+        // 翻页拉取后续页（token 由 holder 自动携带最新值）
+        for (int p = 2; p <= totalPages; p++) {
+            IhrStaffIdsData page = fetchPageData(tokenHolder, staffStatus, p);
+            if (page != null && !CollectionUtils.isEmpty(page.getDataList())) {
+                all.addAll(page.getDataList());
             }
         }
 
-        log.info("【{}】fetchAllStaffIds 完成, staffStatus={}, 总页数={}, 总条数={}", BIZ, staffStatus, totalPages, all.size());
+        log.info("【{}】fetchAllStaffIds 完成, staffStatus={}, 总页数={}, 总条数={}",
+                BIZ, staffStatus, totalPages, all.size());
         return all;
+    }
+
+    /**
+     * 拉取单页员工 ID 数据 — 含 401/403 刷新 token 重试与业务失败判定
+     *
+     * <p>本方法保证「正常返回即业务成功」语义：任何失败路径（HTTP 异常、业务码非 0）
+     * 均以异常终止，调用方无需重复判定。401/403 时强制刷新 token 后重试一次，
+     * 新 token 写回 {@code tokenHolder[0]}，后续页自动复用。</p>
+     *
+     * @param tokenHolder 单元素数组，承载当前可用 access_token（可变引用）
+     * @param staffStatus 员工状态过滤，null 或空字符串查全部状态
+     * @param pageNo      拉取页码（从 1 起）
+     * @return 该页业务数据（含分页信息与 ID 列表）；响应无 data 时返回 null
+     * @throws BizException        业务码非 0 时抛出
+     * @throws RestClientException HTTP 调用异常、重试后仍失败时抛出
+     */
+    private IhrStaffIdsData fetchPageData(String[] tokenHolder, String staffStatus, int pageNo) {
+        IhrStaffIdsResponse resp;
+        try {
+            resp = ihrStaffClient.fetchStaffIdsPage(tokenHolder[0], staffStatus, pageNo);
+        } catch (HttpStatusCodeException e) {
+            if (e.getStatusCode() == HttpStatus.UNAUTHORIZED || e.getStatusCode() == HttpStatus.FORBIDDEN) {
+                log.info("【{}】HTTP {}, 强制刷新 token 后重试, pageNo={}, staffStatus={}", BIZ, e.getStatusCode().value(), pageNo, staffStatus);
+                tokenHolder[0] = ihrTokenService.forceRefresh();
+                resp = ihrStaffClient.fetchStaffIdsPage(tokenHolder[0], staffStatus, pageNo);
+            } else {
+                log.info("【{}】HTTP 调用终止, status={}, pageNo={}, staffStatus={}", BIZ, e.getStatusCode().value(), pageNo, staffStatus);
+                throw e;
+            }
+        } catch (RestClientException e) {
+            log.info("【{}】HTTP 调用终止, pageNo={}, staffStatus={}, reason={}", BIZ, pageNo, staffStatus, e.getMessage());
+            throw e;
+        }
+
+        if (resp == null || !resp.isSuccess()) {
+            log.info("【{}】接口终止, pageNo={}, staffStatus={}, code={}, message={}",
+                    BIZ, pageNo, staffStatus, resp == null ? "null" : resp.getCode(),
+                    resp == null ? "空响应" : resp.getMessage());
+            throw new BizException(ResultCode.INTEGRATION_ERROR,
+                    "IHR 员工ID清单拉取失败: pageNo=" + pageNo
+                            + ", code=" + (resp == null ? "null" : resp.getCode())
+                            + ", message=" + (resp == null ? "空响应" : resp.getMessage()));
+        }
+        return resp.getData();
+    }
+
+    /**
+     * 规范化总页数 — null 或小于 1 时兜底返回 1
+     *
+     * <p>避免 {@code pageInfo.getTotalPages()} 为 null 时自动拆箱 NPE，
+     * 同时保证单页场景（iHR 未返回分页信息）正常返回。</p>
+     *
+     * @param pageInfo 分页信息，可为 null
+     * @return 不小于 1 的总页数
+     */
+    private int resolveTotalPages(IhrPageInfo pageInfo) {
+        if (pageInfo == null || pageInfo.getTotalPages() == null || pageInfo.getTotalPages() < 1) {
+            return 1;
+        }
+        return pageInfo.getTotalPages();
     }
 }
