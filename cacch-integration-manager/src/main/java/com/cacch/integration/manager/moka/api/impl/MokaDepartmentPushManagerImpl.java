@@ -2,6 +2,7 @@ package com.cacch.integration.manager.moka.api.impl;
 
 import com.cacch.integration.common.config.moka.MokaProperties;
 import com.cacch.integration.common.exception.BizException;
+import com.cacch.integration.entity.ihr.IhrDepartmentDO;
 import com.cacch.integration.entity.moka.MokaDepartmentDO;
 import com.cacch.integration.entity.moka.MokaDepartmentLocalizedDO;
 import com.cacch.integration.integration.moka.client.dto.MokaDeptDeleteRequest;
@@ -9,6 +10,7 @@ import com.cacch.integration.integration.moka.client.dto.MokaDeptSyncRequest;
 import com.cacch.integration.integration.moka.client.dto.MokaDeptSyncResponse;
 import com.cacch.integration.integration.moka.client.dto.MokaDepartment;
 import com.cacch.integration.manager.moka.api.IMokaDepartmentPushManager;
+import com.cacch.integration.service.ihr.api.IIhrDepartmentService;
 import com.cacch.integration.service.moka.api.IMokaDepartmentService;
 import com.cacch.integration.service.moka.api.IMokaOrgService;
 import lombok.RequiredArgsConstructor;
@@ -70,6 +72,7 @@ public class MokaDepartmentPushManagerImpl implements IMokaDepartmentPushManager
     private static final String ROOT_PARENT_CODE = "0";
 
     private final IMokaDepartmentService mokaDepartmentService;
+    private final IIhrDepartmentService ihrDepartmentService;
     private final IMokaOrgService mokaOrgService;
     private final MokaProperties mokaProperties;
 
@@ -150,22 +153,42 @@ public class MokaDepartmentPushManagerImpl implements IMokaDepartmentPushManager
     /**
      * 手动触发部门删除 —— 编码校验 + 标记待删除 + 立即执行删除编排
      *
+     * <p>入口模式：
+     * <ul>
+     *     <li>departmentCodes 非空（手动模式）：去重后逐条校验标记</li>
+     *     <li>departmentCodes 为 null/空（自动模式）：查询本地 iHR 快照中
+     *     {@code department_status='DISABLE'}（停用）的部门编码全集作为待删除目标</li>
+     * </ul>
+     *
      * <p>编码校验（逐条，单条失败不阻断）：
-     * 去重 → 本地不存在计 notFound → 状态 4（已删除）跳过标记计 alreadyDeleted →
+     * 本地不存在计 notFound → 状态 4（已删除）跳过标记计 alreadyDeleted →
      * 状态 0/1/2 置 3（待删除）→ 状态已是 3 的无需重复标记。</p>
      *
      * <p>标记完成后立即调用 {@link #processPendingDeletes()}（与 pushToMoka 前置删除步骤
      * 同一套编排，处理全部状态 3 部门，含此前差集标记的历史待删部门）。</p>
      *
-     * @param departmentCodes 待删除部门编码列表，不可为空
+     * @param departmentCodes 待删除部门编码列表，可为 null/空（触发自动模式）
      * @return 手动删除执行结果
      */
     @Override
     public MokaManualDeleteResult deleteDepartments(List<String> departmentCodes) {
-        // 1) 编码去重（LinkedHashSet 保持传入顺序）
-        List<String> distinctCodes = departmentCodes.stream().distinct().toList();
+        // 1) 解析待删除编码：非空走手动模式，空走自动模式（iHR 停用部门全集）
+        boolean autoResolved;
+        List<String> distinctCodes;
+        if (departmentCodes == null || departmentCodes.isEmpty()) {
+            autoResolved = true;
+            distinctCodes = resolveDisabledIhrDeptCodes();
+            log.info("【{}】自动模式：按 iHR 停用部门执行删除, resolvedCount={}", BIZ, distinctCodes.size());
+            if (distinctCodes.isEmpty()) {
+                log.info("【{}】iHR 无停用部门, 自动模式结束", BIZ);
+                return new MokaManualDeleteResult(0, 0, 0, 0, 0, 0, null, 0, true);
+            }
+        } else {
+            autoResolved = false;
+            distinctCodes = departmentCodes.stream().distinct().toList();
+        }
         int requestCount = distinctCodes.size();
-        log.info("【{}】手动删除部门开始, requestCount={}", BIZ, requestCount);
+        log.info("【{}】手动删除部门开始, autoResolved={}, requestCount={}", BIZ, autoResolved, requestCount);
 
         // 2) 逐条校验并标记
         int notFoundCount = 0;
@@ -211,13 +234,30 @@ public class MokaDepartmentPushManagerImpl implements IMokaDepartmentPushManager
         // 3) 立即执行删除编排（处理全部状态 3 部门，含历史待删）
         DeleteOutcome outcome = processPendingDeletes();
 
-        log.info("【{}】手动删除部门完成, deletePendingCount={}, deleteSkippedCount={}, deleteSuccess={}, deletedCount={}",
-                BIZ, outcome.pendingCount(), outcome.skippedCount(), outcome.success(), outcome.deletedCount());
+        log.info("【{}】手动删除部门完成, autoResolved={}, deletePendingCount={}, deleteSkippedCount={}, deleteSuccess={}, deletedCount={}",
+                BIZ, autoResolved, outcome.pendingCount(), outcome.skippedCount(), outcome.success(), outcome.deletedCount());
 
         return new MokaManualDeleteResult(
                 requestCount, notFoundCount, alreadyDeletedCount, markedCount,
                 outcome.pendingCount(), outcome.skippedCount(),
-                outcome.success(), outcome.deletedCount());
+                outcome.success(), outcome.deletedCount(), autoResolved);
+    }
+
+    /**
+     * 解析 iHR 停用部门的编码列表（自动模式数据源）
+     *
+     * <p>读取本地 iHR 快照中 {@code department_status='DISABLE'} 的部门，
+     * 提取 departmentCode（过滤空白与重复）。</p>
+     *
+     * @return 停用部门编码列表，无数据时返回空列表
+     */
+    private List<String> resolveDisabledIhrDeptCodes() {
+        List<IhrDepartmentDO> disabledDepts = ihrDepartmentService.listDisabled();
+        return disabledDepts.stream()
+                .map(IhrDepartmentDO::getDepartmentCode)
+                .filter(StringUtils::isNotBlank)
+                .distinct()
+                .toList();
     }
 
     // —— 前置删除步骤 ——

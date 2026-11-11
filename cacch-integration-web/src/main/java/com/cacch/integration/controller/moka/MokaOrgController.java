@@ -152,6 +152,13 @@ public class MokaOrgController {
      * <p>用于对本地已有部门数据（状态 0-未同步 / 1-已同步 / 2-同步失败）手动执行删除，
      * 弥补仅靠 iHR 快照差集产生待删除记录的不足。</p>
      *
+     * <p>入口模式：
+     * <ul>
+     *     <li>departmentCodes 非空（手动模式）：按传入编码列表执行删除</li>
+     *     <li>departmentCodes 为空（自动模式）：自动查询本地 iHR 快照中
+     *     {@code department_status='DISABLE'}（停用）的部门编码全集执行删除</li>
+     * </ul>
+     *
      * <p>执行流程：
      * <ol>
      *     <li>部门编码校验（逐条，单条失败不阻断）：本地不存在的跳过并计数；
@@ -165,8 +172,9 @@ public class MokaOrgController {
      * <p>注意：{@code moka.delete-email}（Moka 注册邮箱）未配置时仅完成标记，删除步骤跳过
      * （deleteSuccess 返回 null），后续可通过 push-to-moka 补偿执行。</p>
      *
-     * @param request 手动删除请求体，departmentCodes 列表必填（至少一条，不可有空白项）
-     * @return 手动删除执行结果，含编码校验计数 + 删除编排执行结果
+     * @param request 手动删除请求体；departmentCodes 可选（为空时自动按 iHR 停用部门执行，
+     *                非空时列表项不可为空白）
+     * @return 手动删除执行结果，含入口模式标识（autoResolved）+ 编码校验计数 + 删除编排执行结果
      */
     @PostMapping("/delete-departments")
     public Result<MokaManualDeleteResultVO> deleteDepartments(@Valid @RequestBody DeleteMokaDepartmentsRequest request) {
@@ -174,8 +182,8 @@ public class MokaOrgController {
                 request.getDepartmentCodes() == null ? 0 : request.getDepartmentCodes().size());
         IMokaDepartmentPushManager.MokaManualDeleteResult result =
                 mokaDeptPushManager.deleteDepartments(request.getDepartmentCodes());
-        log.info("【MokaManualDelete】手动删除完成, requestCount={}, notFoundCount={}, alreadyDeletedCount={}, markedCount={}, deletePendingCount={}, deleteSkippedCount={}, deleteSuccess={}, deletedCount={}",
-                result.requestCount(), result.notFoundCount(), result.alreadyDeletedCount(), result.markedCount(),
+        log.info("【MokaManualDelete】手动删除完成, autoResolved={}, requestCount={}, notFoundCount={}, alreadyDeletedCount={}, markedCount={}, deletePendingCount={}, deleteSkippedCount={}, deleteSuccess={}, deletedCount={}",
+                result.autoResolved(), result.requestCount(), result.notFoundCount(), result.alreadyDeletedCount(), result.markedCount(),
                 result.deletePendingCount(), result.deleteSkippedCount(), result.deleteSuccess(), result.deletedCount());
         return Result.success(MokaManualDeleteResultVO.from(result));
     }

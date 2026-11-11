@@ -36,6 +36,11 @@ public class IhrDepartmentServiceImpl implements IIhrDepartmentService {
      */
     private static final String DEPARTMENT_STATUS_ENABLE = "ENABLE";
 
+    /**
+     * 部门停用状态枚举值（对齐 iHR 接口返回）
+     */
+    private static final String DEPARTMENT_STATUS_DISABLE = "DISABLE";
+
     private final IhrDepartmentMapper mapper;
 
     /**
@@ -78,6 +83,21 @@ public class IhrDepartmentServiceImpl implements IIhrDepartmentService {
             return Collections.emptyList();
         }
         log.info("【{}】listEnabled 命中, count={}", BIZ, list.size());
+        return list;
+    }
+
+    @Override
+    public List<IhrDepartmentDO> listDisabled() {
+        LambdaQueryWrapper<IhrDepartmentDO> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(IhrDepartmentDO::getDepartmentStatus, DEPARTMENT_STATUS_DISABLE)
+                .orderByAsc(IhrDepartmentDO::getSequence)
+                .orderByAsc(IhrDepartmentDO::getId);
+        List<IhrDepartmentDO> list = mapper.selectList(wrapper);
+        if (list == null || list.isEmpty()) {
+            log.info("【{}】listDisabled 返回空, 无 DISABLE 状态部门", BIZ);
+            return Collections.emptyList();
+        }
+        log.info("【{}】listDisabled 命中, count={}", BIZ, list.size());
         return list;
     }
 

@@ -32,6 +32,17 @@ public interface IIhrDepartmentService {
     List<IhrDepartmentDO> listEnabled();
 
     /**
+     * 查询所有停用状态（department_status = 'DISABLE'）的部门快照
+     *
+     * <p>用于 Moka 部门手动删除接口的自动模式：departmentCodes 为空时，
+     * 按 iHR 停用部门全集自动执行删除。结果仅含未逻辑删除记录，
+     * 按 sequence 升序、id 升序稳定排序，无数据时返回空列表。</p>
+     *
+     * @return 停用状态的部门 DO 列表，不会返回 null
+     */
+    List<IhrDepartmentDO> listDisabled();
+
+    /**
      * 递归查询指定 parent_id 下的所有子孙部门（仅 ENABLE 状态、未逻辑删除）
      *
      * <p>内部使用 PostgreSQL WITH RECURSIVE CTE 递归遍历部门树。

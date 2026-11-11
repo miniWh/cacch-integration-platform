@@ -43,6 +43,13 @@ public interface IMokaDepartmentPushManager {
     /**
      * 手动触发部门删除 —— 标记指定部门为待删除并立即执行 Moka 删除编排
      *
+     * <p>入口模式：
+     * <ul>
+     *     <li>departmentCodes 非空（手动模式）：去重后逐条校验标记</li>
+     *     <li>departmentCodes 为 null/空（自动模式）：查询本地 iHR 快照中
+     *     {@code department_status='DISABLE'}（停用）的部门编码全集作为待删除目标</li>
+     * </ul>
+     *
      * <p>执行流程：
      * <ol>
      *     <li>部门编码校验（逐条，单条失败不阻断）：
@@ -54,7 +61,7 @@ public interface IMokaDepartmentPushManager {
      *     失败保留 3 待下轮重试</li>
      * </ol>
      *
-     * @param departmentCodes 待删除部门编码列表，不可为空；调用方负责非空校验
+     * @param departmentCodes 待删除部门编码列表，可为 null/空（触发自动模式）
      * @return 手动删除执行结果
      */
     MokaManualDeleteResult deleteDepartments(List<String> departmentCodes);
@@ -62,7 +69,7 @@ public interface IMokaDepartmentPushManager {
     /**
      * 手动删除执行结果
      *
-     * @param requestCount        请求传入的部门编码条数（去重后）
+     * @param requestCount        本次参与校验的部门编码条数（手动模式=去重后传入数；自动模式=iHR 停用部门数）
      * @param notFoundCount       本地表中不存在的编码条数
      * @param alreadyDeletedCount 状态已是 4（已删除）而跳过标记的条数
      * @param markedCount         本次新标记为 3（待删除）的条数
@@ -72,10 +79,12 @@ public interface IMokaDepartmentPushManager {
      *                            无待删除部门、未配置 delete-email 或全部被孤儿校验跳过时为 null（未调用）
      * @param deletedCount        Moka 删除成功后本地置 4（DELETED，记录 moka_delete_time）的条数
      *                            （deleteSuccess 非 true 时为 0）
+     * @param autoResolved        true=自动模式（departmentCodes 为空，按 iHR 停用部门执行）；
+     *                            false=手动模式（按传入编码执行）
      */
     record MokaManualDeleteResult(int requestCount, int notFoundCount, int alreadyDeletedCount,
                                   int markedCount, int deletePendingCount, int deleteSkippedCount,
-                                  Boolean deleteSuccess, int deletedCount) {
+                                  Boolean deleteSuccess, int deletedCount, boolean autoResolved) {
     }
 
     /**

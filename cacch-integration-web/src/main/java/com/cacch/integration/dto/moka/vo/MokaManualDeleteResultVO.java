@@ -53,6 +53,12 @@ public class MokaManualDeleteResultVO {
     private Integer deletedCount;
 
     /**
+     * true=自动模式（departmentCodes 为空，按 iHR 停用部门执行）；
+     * false=手动模式（按传入编码执行）
+     */
+    private Boolean autoResolved;
+
+    /**
      * 构造 VO
      *
      * @param result Manager 层手动删除执行结果
@@ -68,6 +74,7 @@ public class MokaManualDeleteResultVO {
         vo.setDeleteSkippedCount(result.deleteSkippedCount());
         vo.setDeleteSuccess(result.deleteSuccess());
         vo.setDeletedCount(result.deletedCount());
+        vo.setAutoResolved(result.autoResolved());
         return vo;
     }
 }
