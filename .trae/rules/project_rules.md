@@ -314,11 +314,23 @@ is_deleted  SMALLINT NOT NULL DEFAULT 0  -- 逻辑删除标记（0正常 1删除
 | Manager 接口 | `I{业务名}Manager` | `IApiKeyManager` |
 | Manager 实现 | `{业务名}ManagerImpl` | `ApiKeyManagerImpl` |
 | Mapper 接口 | `{业务名}Mapper` | `ApiKeyMapper` |
-| Controller | `{业务名}Controller` | `ApiKeyController` |
-| 第三方客户端 | `{系统名}Client` | `WeComTokenClient` |
+| Controller（正式端点） | `{业务域}Controller` | `IhrStaffController` |
+| Controller（测试端点） | `Test{业务域}Controller` | `TestIhrStaffController` |
+| 第三方业务聚合 Client | `{业务域}Client` | `IhrStaffClient`（承载该域所有 HTTP 调用方法） |
+| 第三方响应基类 | `{业务域}BaseResponse` | `IhrBaseResponse` |
+| 第三方通用分页 | `{业务域}PageInfo` | `IhrPageInfo` |
+| 第三方单接口业务数据 DTO | `{业务域}{接口语义}Info` | `IhrStaffBasicInfo`（response.data 对象字段映射） |
+| 第三方单接口完整响应 DTO | `{业务域}{接口语义}Response` extends `{业务域}BaseResponse` | `IhrStaffBasicResponse` |
 | 适配器 | `{系统名}Adapter` | `WeComAdapter` |
 | MapStruct 转换器 | `{业务名}Converter` | `ApiKeyConverter` |
 | 全局异常处理 | `GlobalExceptionHandler` | — |
+
+**聚合类规则（严格遵守）**：
+- **一个业务域一个聚合 Client**：如 `IhrStaffClient` 承载员工域所有 HTTP 调用方法，**禁止按单接口建 Client**（如 `IhrStaffIdsClient` / `IhrStaffBasicClient` 均禁止）。
+- **一个业务域一个 Service 接口 + 实现**：如 `IIhrStaffService` + `IhrStaffServiceImpl` 承载该域所有业务方法，**禁止按单接口拆分 Service**。
+- **Controller 按业务域聚合**：正式端点 `{业务域}Controller`、测试端点 `Test{业务域}Controller`，**禁止按单接口建 Controller**。
+- 测试 Controller 路由 `/api/v1/test/{domain}/...`、正式 Controller 路由 `/api/v1/{domain}/...`，**URL + 类名双保险隔离**，测试完成可单独删除 Test 类。
+- 以上三条聚合规则不适用于 Manager 层（Manager 按跨聚合编排粒度拆分）和 Mapper 层（Mapper 按表粒度拆分）。
 
 ### 接口 URL 命名
 - RESTful 风格，名词复数，小写连字符：`/api/v1/api-keys`
@@ -330,38 +342,45 @@ is_deleted  SMALLINT NOT NULL DEFAULT 0  -- 逻辑删除标记（0正常 1删除
 
 ### 常量类命名
 
-- **业务域内按维度拆分**，放在 `common.constant.{biz}` 包下（基础设施类如 Redis 放 `common.constant.redis`），每个业务域按以下三个维度各建一个常量类：
-  - `{业务域}CommonConstants`：公共请求参数、签名规则、响应码、日志标识、Token 缓存 Key 等**跨接口共享**的常量
-  - `{业务域}PathConstants`：该业务域下所有接口 PATH
-  - `{业务域}{模块/接口}Constants`：单一接口或模块的**专有参数**，如 `KeruyunOrderConstants`
-- **命名规则**：例如 `constant.keruyun.KeruyunCommonConstants`、`KeruyunPathConstants`、`KeruyunOrderConstants`；不属于任何业务域的通用常量保留 `{域}Constants`（如 `constant.redis.RedisConstants`）。
-- **禁止**将所有常量堆叠在 `IntegrationConstants` 等单一「大杂烩」类中；也禁止在 `CommonConstants` 中混入单一接口专有参数。
-- **适用范围**：新增业务域一律按上述三维度拆分；**已存在的历史业务域常量类不做强制迁移**（如 `WeComConstants` 维持现状），待其发生功能性改动时再按新规拆分。
+- **业务域内按三类严格隔离**，放在 `common.constant.{biz}` 包下，职责零重叠：
+
+| 常量类 | 命名模式 | 承载内容 | 不包含 |
+|--------|----------|----------|--------|
+| Path 类 | `{业务域}PathConstants` | 该业务域下所有接口 URL 路径字符串 | BIZ 标识、业务枚举、默认值、buildAction |
+| 业务参数类 | `{业务域}{模块}Constants` 或 `{业务域}Constants` | 接口请求可选值枚举（如 staffStatus、idCardType）、默认值 | BIZ 标识、buildAction、PATH 字符串 |
+| 日志域类 | `{业务域}{模块}LogConstants` 或 `{业务域}LogConstants` | LOG_BIZ 常量、buildAction() 工具方法 | 任何业务参数、PATH 字符串 |
+
+- **枚举值常量命名**：`{域}_{属性}_{值}` 全大写下划线，如 `STAFF_STATUS_IN_SERVICE`、`STAFF_TYPE_FULLTIME`、`SEX_MALE`。`{域}_{属性}` 前缀在同一类内保持一致。
+- **旧合并类兼容**：已存在的历史业务域常量类（如 `IhrConstants`、`WeComConstants`）保持不动；新接口一律按上述三类新建，待全量迁移完毕再统一处理旧类。
+- **单接口专有常量**：若某接口存在独有的非枚举参数（如 `KeruyunOrderConstants.QUERY_MAX_DAYS = 31`），可额外建 `{业务域}{接口}Constants`，仅限**该接口唯一使用**的常量，禁止跨接口复用。
 - 每个常量类声明为 `final`，提供私有构造器，禁止实例化。
-- 跨常量类可互相引用（如 `{业务域}CommonConstants.tokenRedisKey()` 引用 `RedisConstants.KEY_PREFIX`），但不得引入业务逻辑。
+- 跨常量类可互相引用（如 `{业务域}LogConstants` 引用 `RedisConstants.KEY_PREFIX`），但不得引入业务逻辑。
 - 常量命名：全大写下划线（`TOKEN_URL`），工具方法使用 camelCase（`tokenRedisKey()`）。
 
 ```java
-// 正确 —— 业务域内按三维度拆分（以 keruyun 为例）
-package com.cacch.integration.common.constant.keruyun;
+// 正确 —— 三类严格隔离（以 iHR 员工域为例）
+package com.cacch.integration.common.constant.ihr;
 
-public final class KeruyunCommonConstants {
-    private KeruyunCommonConstants() {}
-    public static final String PARAM_SIGN = "sign";
-    public static final int SUCCESS_CODE = 0;
-    public static String tokenRedisKey(String appKey, String shopIdenty) {
-        return RedisConstants.KEY_PREFIX + "keruyun:token:" + appKey + ":" + shopIdenty;
-    }
+// Path 类 —— 仅接口 URL
+public final class IhrPathConstants {
+    private IhrPathConstants() {}
+    public static final String STAFF_IDS_LIST_PATH = "/openapi/thirdparty/api/staff/v1/staffs/ids";
+    public static final String STAFF_BASIC_PATH = "/openapi/thirdparty/api/staff/v1/staffs/%s/basic";
 }
 
-public final class KeruyunPathConstants {
-    private KeruyunPathConstants() {}
-    public static final String PATH_QUERY_ORDER_LIST = "/open/standard/order/queryList";
+// 业务参数类 —— 仅枚举 + 默认值
+public final class IhrStaffConstants {
+    private IhrStaffConstants() {}
+    public static final String STAFF_STATUS_IN_SERVICE = "IN_SERVICE";
+    public static final String STAFF_STATUS_QUIT = "QUIT";
+    public static final int DEFAULT_PAGE_SIZE = 500;
 }
 
-public final class KeruyunOrderConstants {
-    private KeruyunOrderConstants() {}
-    public static final int QUERY_MAX_DAYS = 31;
+// 日志域类 —— 仅 LOG_BIZ + buildAction
+public final class IhrStaffLogConstants {
+    private IhrStaffLogConstants() {}
+    public static final String LOG_BIZ = "iHR员工域";
+    public static String buildAction(String action) { return action; }
 }
 ```
 
