@@ -1,5 +1,6 @@
 package com.cacch.integration.service.ihr.api.impl;
 
+import com.cacch.integration.common.constant.ihr.IhrStaffLogConstants;
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.ResultCode;
 import com.cacch.integration.integration.ihr.client.IhrStaffClient;
@@ -12,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestClientException;
 
@@ -29,7 +31,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class IhrStaffServiceImpl implements IIhrStaffService {
 
-    private static final String BIZ = "IHR员工域Service";
+    private static final String BIZ = IhrStaffLogConstants.LOG_BIZ;
 
     private final IIhrTokenService ihrTokenService;
     private final IhrStaffClient ihrStaffClient;
@@ -66,7 +68,7 @@ public class IhrStaffServiceImpl implements IIhrStaffService {
         }
 
         IhrStaffIdsData data = first.getData();
-        if (data == null || data.getDataList() == null || data.getDataList().isEmpty()) {
+        if (data == null || CollectionUtils.isEmpty(data.getDataList())) {
             log.info("【{}】fetchAllStaffIds 返回空, staffStatus={}, reason=无员工数据", BIZ, staffStatus);
             return Collections.emptyList();
         }
@@ -113,7 +115,7 @@ public class IhrStaffServiceImpl implements IIhrStaffService {
                 }
 
                 IhrStaffIdsData pageData = resp.getData();
-                if (pageData != null && pageData.getDataList() != null && !pageData.getDataList().isEmpty()) {
+                if (pageData != null && !CollectionUtils.isEmpty(pageData.getDataList())) {
                     all.addAll(pageData.getDataList());
                 }
             }

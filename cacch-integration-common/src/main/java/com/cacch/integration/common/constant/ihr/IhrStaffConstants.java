@@ -21,4 +21,9 @@ public final class IhrStaffConstants {
      * 员工离职状态
      */
     public static final String STAFF_STATUS_QUIT = "QUIT";
+
+    /**
+     * 兜底页大小
+     */
+    public static final int DEFAULT_PAGE_SIZE = 500;
 }

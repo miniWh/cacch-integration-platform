@@ -1,9 +1,9 @@
 package com.cacch.integration.integration.ihr.client;
 
 import com.cacch.integration.common.config.ihr.IhrProperties;
-import com.cacch.integration.common.constant.ihr.IhrConstants;
 import com.cacch.integration.common.constant.ihr.IhrPathConstants;
 import com.cacch.integration.common.constant.ihr.IhrStaffConstants;
+import com.cacch.integration.common.constant.ihr.IhrStaffLogConstants;
 import com.cacch.integration.integration.ihr.client.dto.IhrStaffIdsResponse;
 import com.cacch.integration.integration.support.RestTemplateHttpClient;
 import lombok.RequiredArgsConstructor;
@@ -27,8 +27,8 @@ import java.util.Collections;
 @RequiredArgsConstructor
 public class IhrStaffClient {
 
-    private static final String BIZ = IhrConstants.LOG_BIZ;
-    private static final String ACTION_STAFF_IDS_LIST = "获取员工ID清单";
+    private static final String BIZ = IhrStaffLogConstants.LOG_BIZ;
+    private static final String ACTION_STAFF_IDS_LIST = IhrStaffLogConstants.buildAction("获取员工ID清单");
 
     private final RestTemplateHttpClient httpClient;
     private final IhrProperties ihrProperties;
