@@ -68,8 +68,18 @@ public class IhrStaffServiceImpl implements IIhrStaffService {
 
     @Override
     public IhrStaffBasicInfo fetchStaffBasic(String staffId) {
+        IhrStaffBasicResponse resp = fetchStaffBasicResponse(staffId);
+        IhrStaffBasicInfo data = resp.getData();
+        if (data == null) {
+            log.info("【{}】fetchStaffBasic 返回空, staffId={}, reason=响应无 data", BIZ, staffId);
+        }
+        return data;
+    }
+
+    @Override
+    public IhrStaffBasicResponse fetchStaffBasicResponse(String staffId) {
         if (!StringUtils.hasText(staffId)) {
-            log.info("【{}】fetchStaffBasic 终止, reason=staffId 为空", BIZ);
+            log.info("【{}】fetchStaffBasicResponse 终止, reason=staffId 为空", BIZ);
             throw new BizException(ResultCode.PARAM_ERROR, "staffId 不能为空");
         }
 
@@ -101,11 +111,10 @@ public class IhrStaffServiceImpl implements IIhrStaffService {
                             + ", message=" + (resp == null ? "空响应" : resp.getMessage()));
         }
 
-        IhrStaffBasicInfo data = resp.getData();
-        if (data == null) {
-            log.info("【{}】fetchStaffBasic 返回空, staffId={}, reason=响应无 data", BIZ, staffId);
+        if (resp.getData() == null) {
+            log.info("【{}】fetchStaffBasicResponse 返回空 data, staffId={}, reason=响应无 data", BIZ, staffId);
         }
-        return data;
+        return resp;
     }
 
     /**

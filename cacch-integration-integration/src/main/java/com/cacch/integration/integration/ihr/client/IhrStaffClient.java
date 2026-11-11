@@ -11,6 +11,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestClientException;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.util.Collections;
 
@@ -31,6 +34,11 @@ public class IhrStaffClient {
     private static final String BIZ = IhrStaffLogConstants.LOG_BIZ;
     private static final String ACTION_STAFF_IDS_LIST = IhrStaffLogConstants.buildAction("获取员工ID清单");
     private static final String ACTION_STAFF_BASIC = IhrStaffLogConstants.buildAction("获取员工基本信息");
+
+    /**
+     * 静态 ObjectMapper —— 将原始响应报文反序列化为 {@link IhrStaffBasicResponse}
+     */
+    private static final ObjectMapper MAPPER = JsonMapper.builder().build();
 
     private final RestTemplateHttpClient httpClient;
     private final IhrProperties ihrProperties;
@@ -80,8 +88,8 @@ public class IhrStaffClient {
      *
      * @param accessToken iHR access_token
      * @param staffId     员工 ID（iHR 返回的 UUID，最大 36 位）
-     * @return iHR 原始响应体；业务成功以 {@link IhrStaffBasicResponse#isSuccess()} 判定
-     * @throws org.springframework.web.client.RestClientException HTTP 调用异常时抛出
+     * @return iHR 原始响应体（含 rawJson 原文）；业务成功以 {@link IhrStaffBasicResponse#isSuccess()} 判定
+     * @throws RestClientException HTTP 调用异常或响应体反序列化失败时抛出
      */
     public IhrStaffBasicResponse fetchStaffBasic(String accessToken, String staffId) {
         String fullUrl = ihrProperties.getBaseUrl() + String.format(IhrPathConstants.STAFF_BASIC_PATH, staffId);
@@ -91,7 +99,17 @@ public class IhrStaffClient {
         headers.setAccept(Collections.singletonList(org.springframework.http.MediaType.APPLICATION_JSON));
         headers.set(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken);
 
-        IhrStaffBasicResponse body = httpClient.doGet(fullUrl, headers, BIZ, ACTION_STAFF_BASIC, IhrStaffBasicResponse.class);
+        String rawBody = httpClient.doGet(fullUrl, headers, BIZ, ACTION_STAFF_BASIC, String.class);
+
+        IhrStaffBasicResponse body;
+        try {
+            body = MAPPER.readValue(rawBody, IhrStaffBasicResponse.class);
+        } catch (Exception e) {
+            log.info("【{}】{}终止, reason=响应体反序列化失败", BIZ, ACTION_STAFF_BASIC);
+            log.error("【{}】{} 响应体反序列化失败", BIZ, ACTION_STAFF_BASIC, e);
+            throw new RestClientException(BIZ + " " + ACTION_STAFF_BASIC + " 响应体反序列化失败: " + e.getMessage(), e);
+        }
+        body.setRawJson(rawBody);
 
         if (body.isSuccess()) {
             boolean hasData = body.getData() != null;

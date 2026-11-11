@@ -2,6 +2,7 @@ package com.cacch.integration.service.ihr.api;
 
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.integration.ihr.client.dto.IhrStaffBasicInfo;
+import com.cacch.integration.integration.ihr.client.dto.IhrStaffBasicResponse;
 
 import java.util.List;
 
@@ -27,6 +28,19 @@ public interface IIhrStaffService {
      * @throws BizException iHR 接口返回业务失败码、HTTP 异常或重试后仍失败时抛出
      */
     List<String> fetchAllStaffIds(String staffStatus);
+
+    /**
+     * 按 staffId 查询单个员工的基本信息（完整响应，含原始报文原文）
+     *
+     * <p>供人员主数据治理链路使用：除业务数据外，
+     * {@link IhrStaffBasicResponse#getRawJson()} 携带 iHR 原始响应原文，
+     * 用于 stg 层贴源落库（stg_ihr_emp.raw_json）。</p>
+     *
+     * @param staffId 员工 ID；不得为 null 或空字符串
+     * @return iHR 完整响应（非 null，含 rawJson 原文；data 可能为 null）
+     * @throws BizException staffId 为空、iHR 接口返回业务失败码、重试后仍失败时抛出
+     */
+    IhrStaffBasicResponse fetchStaffBasicResponse(String staffId);
 
     /**
      * 按 staffId 查询单个员工的基本信息
