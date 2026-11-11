@@ -1,4 +1,4 @@
-﻿package com.cacch.integration.service.wecom.api.impl;
+package com.cacch.integration.service.wecom.api.impl;
 
 import org.apache.commons.lang3.StringUtils;
 

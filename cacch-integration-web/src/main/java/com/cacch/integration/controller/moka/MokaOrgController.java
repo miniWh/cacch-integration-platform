@@ -93,7 +93,10 @@ public class MokaOrgController {
      * <ol>
      *     <li>从本地 {@code t_integration_ihr_department} 表读取 {@code department_status='ENABLE'} 的部门快照</li>
      *     <li>字段映射：iHR 字段 → t_integration_moka_department 主表 + t_integration_moka_department_localized 子表</li>
-     *     <li>批量 upsert 落库（主表按 department_code upsert，子表固定 locale=zh_CN）</li>
+     *     <li>批量 upsert 落库（主表按 department_code upsert，子表固定 locale=zh_CN；
+     *     iHR 重新启用已删部门时复活：状态重置 0、moka_delete_time 置 NULL）</li>
+     *     <li>差集标记待删除：本地 Moka 表中不在 IHR ENABLE 集合、状态非 3/4 的部门置 3（待删除），
+     *     由推送接口（POST /push-to-moka）的前置删除步骤调 Moka 删除接口处理</li>
      * </ol>
      *
      * <p>本接口不再回源调用 IHR 开放平台，IHR 数据刷新由独立的
@@ -101,40 +104,43 @@ public class MokaOrgController {
      *
      * <p>请求体为空（{} 或不传）即可触发；同步过程为同步阻塞，建议在低峰期执行。</p>
      *
-     * @return 同步执行结果，含总读取数 / 主表成功数 / 子表成功数 / 跳过数
+     * @return 同步执行结果，含总读取数 / 主表成功数 / 子表成功数 / 跳过数 / 标记待删除数
      */
     @PostMapping("/sync-from-ihr")
     public Result<MokaDeptSyncFromIhrResultVO> syncFromIhr() {
         log.info("【MokaDeptSyncFromIhr】开始执行 IHR 本地快照 → Moka 部门同步");
         IMokaDepartmentSyncManager.MokaDeptSyncResult result = mokaDeptSyncManager.syncFromIhr();
-        log.info("【MokaDeptSyncFromIhr】同步完成, totalFetched={}, deptUpserted={}, localizedUpserted={}, deptSkipped={}",
-                result.totalFetched(), result.deptUpserted(), result.localizedUpserted(), result.deptSkipped());
+        log.info("【MokaDeptSyncFromIhr】同步完成, totalFetched={}, deptUpserted={}, localizedUpserted={}, deptSkipped={}, markedDeleteCount={}",
+                result.totalFetched(), result.deptUpserted(), result.localizedUpserted(), result.deptSkipped(), result.markedDeleteCount());
         return Result.success(MokaDeptSyncFromIhrResultVO.from(result));
     }
 
     /**
-     * 将本地 PG 表全量推送到 Moka 开放平台（手动触发）
+     * 将本地 PG 表全量推送到 Moka 开放平台（手动触发，前置处理待删除部门）
      *
      * <p>执行流程：
      * <ol>
-     *     <li>查询本地 PG 表 {@code t_integration_moka_department} 全量记录</li>
-     *     <li>查询子表 {@code t_integration_moka_department_localized} 多语言数据</li>
+     *     <li>前置删除步骤：查询 {@code moka_sync_status=3}（待删除）的部门，经孤儿校验与
+     *     自底向上排序后调 Moka DELETE /api-platform/v1/departments 标记删除；
+     *     成功置 4（已删除，记录 moka_delete_time），失败保留 3 待下轮重试。
+     *     {@code moka.delete-email}（Moka 注册邮箱）未配置时本步骤跳过</li>
+     *     <li>查询本地 PG 表全量记录（排除待删除 3 / 已删除 4）与子表多语言数据</li>
      *     <li>DO → Moka API DTO 字段映射（含多语言填充）</li>
      *     <li>调用 Moka PUT /api-platform/v2/departments 全量同步</li>
-     *     <li>根据 API 返回结果更新本地 moka_sync_status：成功→1(SYNCED)、失败→2(SYNC_FAILED)</li>
+     *     <li>根据 API 返回结果更新本地 moka_sync_status：成功→1(SYNCED，记录 moka_sync_time)、失败→2(SYNC_FAILED)</li>
      * </ol>
      *
      * <p>全量推送语义：Moka API 以 departmentCode 为主键，本次传入的 departments 即 Moka 侧完整最新列表。
-     * 因此推送范围必须是本地 PG 全量，不能只推 PENDING/FAILED 的子集。</p>
+     * 因此推送范围必须是本地 PG 全量（排除待删/已删），不能只推 PENDING/FAILED 的子集。</p>
      *
-     * @return 推送执行结果，含 Moka 侧 new/update/delete 计数 + 本地 moka_sync_status 更新条数
+     * @return 推送执行结果，含 Moka 侧 new/update/delete 计数 + 本地状态更新条数 + 删除步骤执行结果
      */
     @PostMapping("/push-to-moka")
     public Result<MokaDeptPushResultVO> pushToMoka() {
-        log.info("【MokaDeptPushToMoka】开始执行本地 PG → Moka 开放平台部门全量推送");
+        log.info("【MokaDeptPushToMoka】开始执行本地 PG → Moka 开放平台部门全量推送（含待删除部门处理）");
         IMokaDepartmentPushManager.MokaDeptPushResult result = mokaDeptPushManager.pushToMoka();
-        log.info("【MokaDeptPushToMoka】推送完成, totalPushed={}, mokaApiSuccess={}, newOnMoka={}, updatedOnMoka={}, deletedOnMoka={}, syncedCount={}, syncFailedCount={}, dbUpdateFailed={}",
-                result.totalPushed(), result.mokaApiSuccess(), result.newOnMoka(), result.updatedOnMoka(), result.deletedOnMoka(), result.syncedCount(), result.syncFailedCount(), result.dbUpdateFailedCount());
+        log.info("【MokaDeptPushToMoka】推送完成, totalPushed={}, mokaApiSuccess={}, newOnMoka={}, updatedOnMoka={}, deletedOnMoka={}, syncedCount={}, syncFailedCount={}, dbUpdateFailed={}, deletePendingCount={}, deleteSkippedCount={}, deleteSuccess={}, deletedCount={}",
+                result.totalPushed(), result.mokaApiSuccess(), result.newOnMoka(), result.updatedOnMoka(), result.deletedOnMoka(), result.syncedCount(), result.syncFailedCount(), result.dbUpdateFailedCount(), result.deletePendingCount(), result.deleteSkippedCount(), result.deleteSuccess(), result.deletedCount());
         return Result.success(MokaDeptPushResultVO.from(result));
     }
 }

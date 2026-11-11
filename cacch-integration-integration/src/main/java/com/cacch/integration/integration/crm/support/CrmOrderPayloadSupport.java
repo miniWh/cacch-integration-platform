@@ -1,4 +1,4 @@
-﻿package com.cacch.integration.integration.crm.support;
+package com.cacch.integration.integration.crm.support;
 
 import org.apache.commons.lang3.StringUtils;
 

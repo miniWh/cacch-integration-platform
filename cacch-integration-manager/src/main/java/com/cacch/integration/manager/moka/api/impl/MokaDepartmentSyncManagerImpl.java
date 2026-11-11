@@ -13,7 +13,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Moka 部门同步编排实现 — 从本地 IHR 部门快照表读取启用状态部门，映射后批量 upsert 到 Moka 表
@@ -36,6 +38,12 @@ import java.util.List;
 public class MokaDepartmentSyncManagerImpl implements IMokaDepartmentSyncManager {
 
     private static final String BIZ = "Moka部门同步编排";
+
+    /**
+     * moka_sync_status 常量：3-待删除，4-已删除
+     */
+    private static final int STATUS_PENDING_DELETE = 3;
+    private static final int STATUS_DELETED = 4;
 
     /**
      * 子表 locale 固定值
@@ -61,7 +69,7 @@ public class MokaDepartmentSyncManagerImpl implements IMokaDepartmentSyncManager
 
         if (ihrDepts.isEmpty()) {
             log.info("【{}】本地 IHR 快照为空, 同步结束（请先调用 POST /api/v1/ihr/departments/sync 刷新快照）", BIZ);
-            return new MokaDeptSyncResult(0, 0, 0, 0);
+            return new MokaDeptSyncResult(0, 0, 0, 0, 0);
         }
 
         // 逐条转换并加入批次
@@ -93,7 +101,7 @@ public class MokaDepartmentSyncManagerImpl implements IMokaDepartmentSyncManager
         if (deptBatch.isEmpty()) {
             log.info("【{}】本地 IHR 快照无有效部门（全部缺 departmentCode）, 同步结束, totalFetched={}, skipped={}",
                     BIZ, totalFetched, deptSkipped);
-            return new MokaDeptSyncResult(totalFetched, 0, 0, deptSkipped);
+            return new MokaDeptSyncResult(totalFetched, 0, 0, deptSkipped, 0);
         }
 
         // 批量落库
@@ -103,10 +111,64 @@ public class MokaDepartmentSyncManagerImpl implements IMokaDepartmentSyncManager
         int deptUpserted = mokaDepartmentService.batchUpsert(deptBatch);
         int localizedUpserted = mokaDepartmentService.batchUpsertLocalized(localBatch);
 
-        log.info("【{}】同步完成, totalFetched={}, deptUpserted={}, localizedUpserted={}, deptSkipped={}",
-                BIZ, totalFetched, deptUpserted, localizedUpserted, deptSkipped);
+        // 差集标记待删除：本地 Moka 表中不在 IHR ENABLE 集合、且状态非 3/4 的部门 → 置 3（待删除）
+        Set<String> ihrEnabledCodes = new HashSet<>();
+        for (IhrDepartmentDO ihrDept : ihrDepts) {
+            if (StringUtils.isNotBlank(ihrDept.getDepartmentCode())) {
+                ihrEnabledCodes.add(ihrDept.getDepartmentCode());
+            }
+        }
+        int markedDeleteCount = markPendingDeletes(ihrEnabledCodes);
 
-        return new MokaDeptSyncResult(totalFetched, deptUpserted, localizedUpserted, deptSkipped);
+        log.info("【{}】同步完成, totalFetched={}, deptUpserted={}, localizedUpserted={}, deptSkipped={}, markedDelete={}",
+                BIZ, totalFetched, deptUpserted, localizedUpserted, deptSkipped, markedDeleteCount);
+
+        return new MokaDeptSyncResult(totalFetched, deptUpserted, localizedUpserted, deptSkipped, markedDeleteCount);
+    }
+
+    /**
+     * 差集计算并标记待删除部门
+     *
+     * <p>本地 Moka 表中 departmentCode 不在 IHR ENABLE 集合、且 moka_sync_status 非 3（待删除）
+     * / 4（已删除）的部门，逐条置 3（待删除）。单条失败不阻断批次（try-catch 累计）。</p>
+     *
+     * <p>iHR 重新启用的部门会在 upsert 阶段复活（状态重置 0、moka_delete_time 置 NULL），
+     * 不会进入待删除集合。</p>
+     *
+     * @param ihrEnabledCodes IHR ENABLE 状态部门的 departmentCode 集合
+     * @return 成功标记为待删除的条数
+     */
+    private int markPendingDeletes(Set<String> ihrEnabledCodes) {
+        List<MokaDepartmentDO> localDepts = mokaDepartmentService.listAll();
+        int marked = 0;
+        int failed = 0;
+
+        for (MokaDepartmentDO dept : localDepts) {
+            if (ihrEnabledCodes.contains(dept.getDepartmentCode())) {
+                continue;
+            }
+            Integer status = dept.getMokaSyncStatus();
+            if (status != null && (status == STATUS_PENDING_DELETE || status == STATUS_DELETED)) {
+                continue;
+            }
+            try {
+                mokaDepartmentService.updateMokaSyncStatus(dept.getDepartmentCode(), STATUS_PENDING_DELETE);
+                marked++;
+                log.info("【{}】标记待删除, departmentCode={}, name={}",
+                        BIZ, dept.getDepartmentCode(), dept.getName());
+            } catch (Exception e) {
+                failed++;
+                log.error("【{}】标记待删除失败, departmentCode={}, 已失败={}",
+                        BIZ, dept.getDepartmentCode(), failed, e);
+            }
+        }
+
+        if (marked > 0 || failed > 0) {
+            log.info("【{}】差集标记待删除完成, marked={}, failed={}", BIZ, marked, failed);
+        } else {
+            log.info("【{}】无差集部门, 未产生待删除标记", BIZ);
+        }
+        return marked;
     }
 
     // —— 字段映射 ——

@@ -1,4 +1,4 @@
-﻿package com.cacch.integration.manager.ihr.api.impl;
+package com.cacch.integration.manager.ihr.api.impl;
 
 import org.apache.commons.lang3.StringUtils;
 

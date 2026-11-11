@@ -1,5 +1,7 @@
 package com.cacch.integration.service.moka.api;
 
+import com.cacch.integration.integration.moka.client.dto.MokaDeptDeleteRequest;
+import com.cacch.integration.integration.moka.client.dto.MokaDeptDeleteResponse;
 import com.cacch.integration.integration.moka.client.dto.MokaDeptListResponse;
 import com.cacch.integration.integration.moka.client.dto.MokaDeptSyncRequest;
 import com.cacch.integration.integration.moka.client.dto.MokaDeptSyncResponse;
@@ -36,4 +38,17 @@ public interface IMokaOrgService {
      *                                                             HTTP 调用失败或 Moka 返回业务失败时抛出
      */
     MokaDeptListResponse getDepartments(String updateTimeStart);
+
+    /**
+     * 删除部门 —— 调用 Moka {@code DELETE /api-platform/v1/departments}
+     *
+     * <p>本项目仅标记删除（不传 target_department_code 合并人员）。
+     * 响应为 {success, errorMessage} 结构，批量删除为整体成败语义（success 布尔）。</p>
+     *
+     * @param request 删除请求体，不可为空；departments 列表与 email（Moka 注册邮箱）均必填
+     * @return Moka 删除结果响应
+     * @throws com.cacch.integration.common.exception.BizException Moka API Key 未配置、
+     *                                                             HTTP 调用失败或 Moka 返回 success=false 时抛出
+     */
+    MokaDeptDeleteResponse deleteDepartments(MokaDeptDeleteRequest request);
 }

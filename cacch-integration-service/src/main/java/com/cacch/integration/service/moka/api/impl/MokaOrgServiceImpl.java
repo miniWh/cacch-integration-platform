@@ -3,6 +3,8 @@ package com.cacch.integration.service.moka.api.impl;
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.ResultCode;
 import com.cacch.integration.integration.moka.client.MokaOrgClient;
+import com.cacch.integration.integration.moka.client.dto.MokaDeptDeleteRequest;
+import com.cacch.integration.integration.moka.client.dto.MokaDeptDeleteResponse;
 import com.cacch.integration.integration.moka.client.dto.MokaDeptListResponse;
 import com.cacch.integration.integration.moka.client.dto.MokaDeptSyncRequest;
 import com.cacch.integration.integration.moka.client.dto.MokaDeptSyncResponse;
@@ -98,6 +100,41 @@ public class MokaOrgServiceImpl implements IMokaOrgService {
             log.error("【{}】未知异常", BIZ, e);
             throw new BizException(ResultCode.SYSTEM_ERROR,
                     "Moka 获取全量组织架构系统异常", e);
+        }
+    }
+
+    @Override
+    public MokaDeptDeleteResponse deleteDepartments(MokaDeptDeleteRequest request) {
+        if (request == null) {
+            log.info("【{}】删除部门终止, reason=请求体为空", BIZ);
+            throw new BizException(ResultCode.PARAM_MISSING, "Moka 删除部门请求体为空");
+        }
+
+        log.info("【{}】开始删除部门, departmentCount={}",
+                BIZ, request.getDepartments() == null ? 0 : request.getDepartments().size());
+
+        try {
+            MokaDeptDeleteResponse response = mokaOrgClient.deleteDepartments(request);
+            if (!response.isSuccess()) {
+                log.info("【{}】删除部门终止, errorMessage={}", BIZ, response.getErrorMessage());
+                throw new BizException(ResultCode.INTEGRATION_ERROR,
+                        String.format("Moka 删除部门业务失败: errorMessage=%s", response.getErrorMessage()));
+            }
+            log.info("【{}】删除部门成功", BIZ);
+            return response;
+
+        } catch (BizException e) {
+            throw e;
+        } catch (RestClientException e) {
+            log.info("【{}】删除部门终止, reason={}", BIZ, e.getMessage());
+            log.error("【{}】Moka HTTP 调用失败", BIZ, e);
+            throw new BizException(ResultCode.INTEGRATION_ERROR,
+                    "Moka 删除部门失败: " + e.getMessage(), e);
+        } catch (Exception e) {
+            log.info("【{}】删除部门终止, reason={}", BIZ, e.getMessage());
+            log.error("【{}】未知异常", BIZ, e);
+            throw new BizException(ResultCode.SYSTEM_ERROR,
+                    "Moka 删除部门系统异常", e);
         }
     }
 }

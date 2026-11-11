@@ -2,6 +2,8 @@ package com.cacch.integration.integration.moka.client;
 
 import com.cacch.integration.common.config.moka.MokaProperties;
 import com.cacch.integration.common.constant.moka.MokaConstants;
+import com.cacch.integration.integration.moka.client.dto.MokaDeptDeleteRequest;
+import com.cacch.integration.integration.moka.client.dto.MokaDeptDeleteResponse;
 import com.cacch.integration.integration.moka.client.dto.MokaDeptListResponse;
 import com.cacch.integration.integration.moka.client.dto.MokaDeptSyncRequest;
 import com.cacch.integration.integration.moka.client.dto.MokaDeptSyncResponse;
@@ -21,6 +23,7 @@ import org.springframework.web.client.RestClientException;
  * <ul>
  *     <li>{@link #syncDepartmentsFull(MokaDeptSyncRequest)} — 组织架构全量同步（PUT /api-platform/v2/departments）</li>
  *     <li>{@link #getDepartments(String)} — 获取全量组织架构（GET /api-platform/v1/departments）</li>
+ *     <li>{@link #deleteDepartments(MokaDeptDeleteRequest)} — 删除及合并组织架构（DELETE /api-platform/v1/departments）</li>
  * </ul>
  *
  * <p>HTTP 通用调用（URI 构造、出入参日志、异常兜底）统一由
@@ -37,6 +40,7 @@ public class MokaOrgClient {
     private static final String BIZ = MokaConstants.LOG_BIZ;
     private static final String ACTION_FULL_SYNC = "组织架构全量同步";
     private static final String ACTION_GET_DEPTS = "获取全量组织架构";
+    private static final String ACTION_DELETE_DEPTS = "删除及合并组织架构";
 
     private final RestTemplateHttpClient httpClient;
     private final MokaProperties mokaProperties;
@@ -102,6 +106,43 @@ public class MokaOrgClient {
         } else {
             log.info("【{}】{}终止, code={}, msg={}",
                     BIZ, ACTION_GET_DEPTS, body.getCode(), body.getMsg());
+        }
+        return body;
+    }
+
+    /**
+     * 删除及合并组织架构 —— 仅标记删除，不传 target_department_code
+     *
+     * @param request 删除请求体（departments 列表与 email 均必填）
+     * @return Moka 删除结果响应（success 布尔为整体成败语义）
+     * @throws RestClientException API Key 未配置、请求体非法、操作人邮箱缺失、
+     *                             URL 非法、HTTP 调用异常或响应体为空时抛出
+     */
+    public MokaDeptDeleteResponse deleteDepartments(MokaDeptDeleteRequest request) {
+        if (!mokaProperties.isApiKeyConfigured()) {
+            log.info("【{}】{}终止, reason=Moka API Key 未配置", BIZ, ACTION_DELETE_DEPTS);
+            throw new RestClientException("Moka API Key 未配置");
+        }
+        if (request == null || request.getDepartments() == null || request.getDepartments().isEmpty()) {
+            log.info("【{}】{}终止, reason=请求体或 departments 为空", BIZ, ACTION_DELETE_DEPTS);
+            throw new RestClientException("Moka 删除及合并组织架构请求体为空");
+        }
+        if (!StringUtils.hasText(request.getEmail())) {
+            log.info("【{}】{}终止, reason=操作人邮箱缺失", BIZ, ACTION_DELETE_DEPTS);
+            throw new RestClientException("Moka 删除及合并组织架构操作人邮箱缺失");
+        }
+
+        String url = mokaProperties.getBaseUrl() + MokaConstants.DEPT_DELETE_PATH;
+        log.info("【{}】开始{}, deptCount={}", BIZ, ACTION_DELETE_DEPTS, request.getDepartments().size());
+
+        HttpHeaders headers = MokaAuthSupport.buildBasicAuthHeaders(mokaProperties, true);
+        MokaDeptDeleteResponse body = httpClient.doPostOrPut(
+                HttpMethod.DELETE, url, request, headers, BIZ, ACTION_DELETE_DEPTS, MokaDeptDeleteResponse.class);
+
+        if (body.isSuccess()) {
+            log.info("【{}】{}成功, deptCount={}", BIZ, ACTION_DELETE_DEPTS, request.getDepartments().size());
+        } else {
+            log.info("【{}】{}终止, errorMessage={}", BIZ, ACTION_DELETE_DEPTS, body.getErrorMessage());
         }
         return body;
     }

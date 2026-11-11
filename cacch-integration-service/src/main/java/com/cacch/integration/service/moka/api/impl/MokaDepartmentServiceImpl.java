@@ -61,7 +61,7 @@ public class MokaDepartmentServiceImpl implements IMokaDepartmentService {
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED, readOnly = false, timeout = 10)
+    @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED, timeout = 10)
     public MokaDepartmentDO upsert(MokaDepartmentDO dept) {
         int rows = deptMapper.upsert(
                 dept.getDepartmentCode(),
@@ -78,7 +78,7 @@ public class MokaDepartmentServiceImpl implements IMokaDepartmentService {
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED, readOnly = false, timeout = 60)
+    @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED, timeout = 60)
     public int batchUpsert(List<MokaDepartmentDO> depts) {
         if (CollectionUtils.isEmpty(depts)) {
             log.info("【MokaDept】批量 upsert 空列表, 跳过");
@@ -109,20 +109,32 @@ public class MokaDepartmentServiceImpl implements IMokaDepartmentService {
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED, readOnly = false, timeout = 10)
+    @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED, timeout = 10)
     public int deleteByCode(String departmentCode) {
         // 子表通过外键 ON DELETE CASCADE 自动清除，主表直接删
         return deptMapper.deleteById(departmentCode);
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED, readOnly = false, timeout = 10)
+    @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED, timeout = 10)
     public int updateMokaSyncStatus(String departmentCode, Integer mokaSyncStatus) {
         return deptMapper.updateMokaSyncStatus(departmentCode, mokaSyncStatus);
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED, readOnly = false, timeout = 10)
+    @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED, timeout = 10)
+    public int markMokaSynced(String departmentCode) {
+        return deptMapper.markMokaSynced(departmentCode);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED, timeout = 10)
+    public int markMokaDeleted(String departmentCode) {
+        return deptMapper.markMokaDeleted(departmentCode);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED, timeout = 10)
     public int deleteAll() {
         // 先删子表（无 cascade 时显式控制顺序），再删主表
         int localRows = localizedMapper.delete(new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<>());
@@ -144,7 +156,7 @@ public class MokaDepartmentServiceImpl implements IMokaDepartmentService {
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED, readOnly = false, timeout = 10)
+    @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED, timeout = 10)
     public MokaDepartmentLocalizedDO upsertLocalized(MokaDepartmentLocalizedDO localized) {
         int rows = localizedMapper.upsert(
                 localized.getDepartmentCode(),
@@ -164,7 +176,7 @@ public class MokaDepartmentServiceImpl implements IMokaDepartmentService {
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED, readOnly = false, timeout = 60)
+    @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED, timeout = 60)
     public int batchUpsertLocalized(List<MokaDepartmentLocalizedDO> localizes) {
         if (CollectionUtils.isEmpty(localizes)) {
             log.info("【MokaDeptLocalized】批量 upsert 空列表, 跳过");
@@ -192,7 +204,7 @@ public class MokaDepartmentServiceImpl implements IMokaDepartmentService {
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED, readOnly = false, timeout = 10)
+    @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED, timeout = 10)
     public int deleteLocalizedByDeptCode(String departmentCode) {
         return localizedMapper.deleteByDepartmentCode(departmentCode);
     }

@@ -32,6 +32,11 @@ public class MokaDeptSyncFromIhrResultVO {
     private Integer deptSkipped;
 
     /**
+     * 差集计算后标记为待删除（moka_sync_status=3）的条数
+     */
+    private Integer markedDeleteCount;
+
+    /**
      * 构造 VO
      *
      * @param result Manager 层同步执行结果
@@ -43,6 +48,7 @@ public class MokaDeptSyncFromIhrResultVO {
         vo.setDeptUpserted(result.deptUpserted());
         vo.setLocalizedUpserted(result.localizedUpserted());
         vo.setDeptSkipped(result.deptSkipped());
+        vo.setMarkedDeleteCount(result.markedDeleteCount());
         return vo;
     }
 }

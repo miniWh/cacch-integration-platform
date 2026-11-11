@@ -69,6 +69,11 @@ public class MokaProperties {
     public static final String ENV_MOKA_ORG_ID = "MOKA_ORG_ID";
 
     /**
+     * 环境变量名 —— Moka 删除及合并组织架构操作人邮箱
+     */
+    public static final String ENV_MOKA_DELETE_EMAIL = "MOKA_DELETE_EMAIL";
+
+    /**
      * Moka 开放平台网关根地址（自动去除结尾斜杠）
      *
      * <p>取值优先级：yml {@code moka.base-url} → 环境变量 {@code MOKA_BASE_URL} → 兜底值
@@ -93,13 +98,23 @@ public class MokaProperties {
      */
     private final String orgId;
 
-    public MokaProperties(String baseUrl, String apiKey, String orgId) {
+    /**
+     * Moka 删除及合并组织架构接口的操作人邮箱 —— DELETE /api-platform/v1/departments 必填参数
+     *
+     * <p>取值优先级：yml {@code moka.delete-email} → 环境变量 {@code MOKA_DELETE_EMAIL} → 空串。
+     * 须为 Moka 注册邮箱；未配置时部门删除步骤跳过（不影响全量推送）。</p>
+     */
+    private final String deleteEmail;
+
+    public MokaProperties(String baseUrl, String apiKey, String orgId, String deleteEmail) {
         // baseUrl：yml → 环境变量 → 兜底
         this.baseUrl = resolveBaseUrl(baseUrl);
         // apiKey：yml → 环境变量（yml 为 null/空串时主动读 System.getenv）
         this.apiKey = resolveApiKey(apiKey);
         // orgId：yml → 环境变量 → 兜底 "cac"
         this.orgId = resolveOrgId(orgId);
+        // deleteEmail：yml → 环境变量 → 空串（不兜底，未配置时删除步骤跳过）
+        this.deleteEmail = resolveDeleteEmail(deleteEmail);
     }
 
     /**
@@ -119,6 +134,17 @@ public class MokaProperties {
      */
     public boolean isOrgIdConfigured() {
         return orgId != null && !orgId.isBlank();
+    }
+
+    /**
+     * 删除操作人邮箱是否已配置（非空且非空白）
+     *
+     * <p>未配置时 Manager 层的部门删除步骤整体跳过，不影响 PUT 全量推送。</p>
+     *
+     * @return deleteEmail 非空且非空白时返回 true
+     */
+    public boolean isDeleteEmailConfigured() {
+        return deleteEmail != null && !deleteEmail.isBlank();
     }
 
     /**
@@ -173,5 +199,21 @@ public class MokaProperties {
             candidate = DEFAULT_ORG_ID;
         }
         return candidate.trim();
+    }
+
+    /**
+     * 解析 deleteEmail：yml 值优先，null/空白时回退环境变量，再兜底空串
+     *
+     * <p>不设默认操作人邮箱：未配置时删除步骤整体跳过，避免以错误身份调用 Moka 删除接口。</p>
+     *
+     * @param ymlValue yml 中 {@code moka.delete-email} 绑定的值（可为 null/空白）
+     * @return 解析后的操作人邮箱，未配置时返回空串（永不返回 null）
+     */
+    private static String resolveDeleteEmail(String ymlValue) {
+        if (ymlValue != null && !ymlValue.isBlank()) {
+            return ymlValue.trim();
+        }
+        String envValue = System.getenv(ENV_MOKA_DELETE_EMAIL);
+        return envValue != null ? envValue.trim() : "";
     }
 }

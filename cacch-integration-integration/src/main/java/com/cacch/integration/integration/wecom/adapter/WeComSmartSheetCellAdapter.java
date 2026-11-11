@@ -1,4 +1,4 @@
-﻿package com.cacch.integration.integration.wecom.adapter;
+package com.cacch.integration.integration.wecom.adapter;
 
 import org.apache.commons.lang3.StringUtils;
 

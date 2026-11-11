@@ -41,7 +41,7 @@ public interface MokaDepartmentMapper extends BaseMapper<MokaDepartmentDO> {
     /**
      * 按 Moka 同步状态筛选部门列表
      *
-     * @param mokaSyncStatus 同步状态：0-未同步 1-已同步 2-同步失败
+     * @param mokaSyncStatus 同步状态：0-未同步 1-已同步 2-同步失败 3-待删除 4-已删除
      * @return 匹配状态的部门列表
      */
     @Select("SELECT * FROM t_integration_moka_department WHERE moka_sync_status = #{mokaSyncStatus} ORDER BY sequence, create_time")
@@ -50,7 +50,9 @@ public interface MokaDepartmentMapper extends BaseMapper<MokaDepartmentDO> {
     /**
      * UPSERT：INSERT ON CONFLICT (department_code) DO UPDATE
      *
-     * <p>PostgreSQL 12 兼容写法，使用 {@code EXCLUDED} 虚拟表引用待插入值。</p>
+     * <p>PostgreSQL 12 兼容写法，使用 {@code EXCLUDED} 虚拟表引用待插入值。
+     * 冲突更新时将 {@code moka_delete_time} 置 NULL —— iHR 重新启用已删除部门时，
+     * upsert 复活该记录（清除 Moka 侧删除时间标记）。</p>
      *
      * @param departmentCode 部门编码（主键）
      * @param name           部门名称
@@ -67,7 +69,8 @@ public interface MokaDepartmentMapper extends BaseMapper<MokaDepartmentDO> {
             "parent_code = EXCLUDED.parent_code, " +
             "type = EXCLUDED.type, " +
             "sequence = EXCLUDED.sequence, " +
-            "moka_sync_status = EXCLUDED.moka_sync_status")
+            "moka_sync_status = EXCLUDED.moka_sync_status, " +
+            "moka_delete_time = NULL")
     int upsert(@Param("departmentCode") String departmentCode,
                @Param("name") String name,
                @Param("parentCode") String parentCode,
@@ -79,10 +82,28 @@ public interface MokaDepartmentMapper extends BaseMapper<MokaDepartmentDO> {
      * 更新指定部门的 Moka 同步状态
      *
      * @param departmentCode 部门编码
-     * @param mokaSyncStatus 目标状态：0-未同步 1-已同步 2-同步失败
+     * @param mokaSyncStatus 目标状态：0-未同步 1-已同步 2-同步失败 3-待删除 4-已删除
      * @return 受影响行数
      */
     @Update("UPDATE t_integration_moka_department SET moka_sync_status = #{mokaSyncStatus} WHERE department_code = #{departmentCode}")
     int updateMokaSyncStatus(@Param("departmentCode") String departmentCode,
                              @Param("mokaSyncStatus") Integer mokaSyncStatus);
+
+    /**
+     * 标记部门已成功推送 Moka —— 状态置 1（已同步），并记录推送成功时间
+     *
+     * @param departmentCode 部门编码
+     * @return 受影响行数
+     */
+    @Update("UPDATE t_integration_moka_department SET moka_sync_status = 1, moka_sync_time = NOW() WHERE department_code = #{departmentCode}")
+    int markMokaSynced(@Param("departmentCode") String departmentCode);
+
+    /**
+     * 标记部门已在 Moka 侧删除成功 —— 状态置 4（已删除），并记录删除成功时间
+     *
+     * @param departmentCode 部门编码
+     * @return 受影响行数
+     */
+    @Update("UPDATE t_integration_moka_department SET moka_sync_status = 4, moka_delete_time = NOW() WHERE department_code = #{departmentCode}")
+    int markMokaDeleted(@Param("departmentCode") String departmentCode);
 }

@@ -82,9 +82,12 @@ public class RestTemplateHttpClient {
     }
 
     /**
-     * 发送 HTTP POST / PUT 请求 —— 带 JSON 请求体
+     * 发送 HTTP POST / PUT / DELETE 请求 —— 带 JSON 请求体
      *
-     * @param method       HttpMethod.POST 或 HttpMethod.PUT
+     * <p>DELETE 带 body 通过 {@link RestTemplate#exchange} 实现（Moka 删除及合并组织架构等
+     * 第三方接口要求 DELETE 携带 JSON 请求体）。</p>
+     *
+     * @param method       HttpMethod.POST / HttpMethod.PUT / HttpMethod.DELETE
      * @param fullUrl      完整 URL（调用方负责拼接 baseUrl + path + 路径占位符替换）
      * @param requestBody  请求体对象（可为 null）
      * @param headers      HTTP Headers（调用方负责构造鉴权头 + Content-Type）

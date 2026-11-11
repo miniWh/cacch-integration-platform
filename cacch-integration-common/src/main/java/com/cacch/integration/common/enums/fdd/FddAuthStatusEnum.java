@@ -1,4 +1,4 @@
-﻿package com.cacch.integration.common.enums.fdd;
+package com.cacch.integration.common.enums.fdd;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;

@@ -87,10 +87,12 @@ ihr:
 # ---------- Moka 开放平台 ----------
 # api-key 由环境变量 MOKA_API_KEY 注入（test 允许空值，调用接口时返回 50001 集成错误）
 # org-id 为 Moka 租户 ID（offer 扩展信息等接口必填），固定值 "cac"
+# delete-email 为删除及合并组织架构接口的操作人邮箱（须为 Moka 注册邮箱）；test 允许空值（为空时删除步骤跳过）
 moka:
   base-url: ${MOKA_BASE_URL:https://api.mokahr.com}
   api-key: ${MOKA_API_KEY:}
   org-id: ${MOKA_ORG_ID:cac}
+  delete-email: ${MOKA_DELETE_EMAIL:}
 
 # ---------- 勤策 CRM OpenAPI ----------
 # app-key 经环境变量 CRM_APP_KEY 注入

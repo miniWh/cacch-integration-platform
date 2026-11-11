@@ -33,6 +33,18 @@ public final class MokaConstants {
     public static final String DEPT_LIST_PATH = "/api-platform/v1/departments";
 
     /**
+     * 删除及合并组织架构接口路径 —— 相对 {@code MokaProperties#getBaseUrl()} 拼接
+     *
+     * <p>DELETE 请求（与 {@link #DEPT_LIST_PATH} 同路径、不同 HTTP 方法），对接 Moka 开放平台
+     * 删除及合并组织架构接口（{@linkplain <a href="https://www.mokahr.com/docs/api/">API 文档 — 删除及合并组织架构</a>}）。
+     * 请求体为 {@code {departments: [{department_code 必填, target_department_code 可选}], email 必填}}，
+     * 其中 email 须为 Moka 注册邮箱；响应为 {@code {success, errorMessage}} 结构，
+     * 成功判定以 {@code success} 布尔值为准。本项目仅标记删除，不传 {@code target_department_code}
+     * （不把人员合并到其他部门）。</p>
+     */
+    public static final String DEPT_DELETE_PATH = "/api-platform/v1/departments";
+
+    /**
      * 获取全量自定义角色接口路径 —— 相对 {@code MokaProperties#getBaseUrl()} 拼接
      *
      * <p>GET 请求，对接 Moka 开放平台角色查询接口

@@ -62,6 +62,27 @@ public class MokaDeptPushResultVO {
     private Integer dbUpdateFailedCount;
 
     /**
+     * 前置删除步骤命中的待删除（moka_sync_status=3）部门总数
+     */
+    private Integer deletePendingCount;
+
+    /**
+     * 因存在未删除子部门（孤儿校验）而跳过删除的条数
+     */
+    private Integer deleteSkippedCount;
+
+    /**
+     * Moka DELETE API 整体是否成功；
+     * 无待删除部门、未配置 moka.delete-email 或全部被孤儿校验跳过时为 null（未调用）
+     */
+    private Boolean deleteSuccess;
+
+    /**
+     * Moka 删除成功后本地置 4（已删除，记录 moka_delete_time）的条数
+     */
+    private Integer deletedCount;
+
+    /**
      * 构造 VO
      *
      * @param result Manager 层推送执行结果
@@ -78,6 +99,10 @@ public class MokaDeptPushResultVO {
         vo.setSyncedCount(result.syncedCount());
         vo.setSyncFailedCount(result.syncFailedCount());
         vo.setDbUpdateFailedCount(result.dbUpdateFailedCount());
+        vo.setDeletePendingCount(result.deletePendingCount());
+        vo.setDeleteSkippedCount(result.deleteSkippedCount());
+        vo.setDeleteSuccess(result.deleteSuccess());
+        vo.setDeletedCount(result.deletedCount());
         return vo;
     }
 }

@@ -51,9 +51,19 @@ public class MokaDepartmentDO {
     private Integer sequence;
 
     /**
-     * Moka 开放平台同步状态：0-未同步 1-已同步 2-同步失败
+     * Moka 开放平台同步状态：0-未同步 1-已同步 2-同步失败 3-待删除 4-已删除
      */
     private Integer mokaSyncStatus;
+
+    /**
+     * 最近一次推送 Moka 成功时间（推送成功置 1 时同步写入）
+     */
+    private LocalDateTime mokaSyncTime;
+
+    /**
+     * Moka 侧删除成功时间（状态置 4 时同步写入；iHR 重新启用部门复活时置 NULL）
+     */
+    private LocalDateTime mokaDeleteTime;
 
     /**
      * 记录创建时间

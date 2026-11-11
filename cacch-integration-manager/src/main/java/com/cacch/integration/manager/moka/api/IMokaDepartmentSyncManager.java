@@ -22,11 +22,15 @@ public interface IMokaDepartmentSyncManager {
      *
      * <p>落库策略：
      * <ul>
-     *     <li>主表 {@code t_integration_moka_department} — 按 department_code upsert</li>
+     *     <li>主表 {@code t_integration_moka_department} — 按 department_code upsert
+     *     （iHR 重新启用已删部门时复活：状态重置 0，moka_delete_time 置 NULL）</li>
      *     <li>子表 {@code t_integration_moka_department_localized} — 同步写入，locale 固定 zh_CN，prop_value = name</li>
      * </ul>
      *
-     * @return 同步结果（总读取数 / 主表 upsert 成功数 / 子表 upsert 成功数 / 跳过数）
+     * <p>差集标记待删除：本地 Moka 表中 departmentCode 不在 IHR ENABLE 集合、
+     * 且状态非 3（待删除）/4（已删除）的部门，逐条置 3（待删除），由推送编排调 Moka 删除接口。</p>
+     *
+     * @return 同步结果（总读取数 / 主表 upsert 成功数 / 子表 upsert 成功数 / 跳过数 / 标记待删除数）
      */
     MokaDeptSyncResult syncFromIhr();
 
@@ -37,7 +41,9 @@ public interface IMokaDepartmentSyncManager {
      * @param deptUpserted      主表 upsert 成功条数
      * @param localizedUpserted 子表 upsert 成功条数
      * @param deptSkipped       因缺失 departmentCode 等校验失败而跳过的条数
+     * @param markedDeleteCount 差集计算后标记为待删除（状态 3）的条数
      */
-    record MokaDeptSyncResult(int totalFetched, int deptUpserted, int localizedUpserted, int deptSkipped) {
+    record MokaDeptSyncResult(int totalFetched, int deptUpserted, int localizedUpserted,
+                              int deptSkipped, int markedDeleteCount) {
     }
 }

@@ -1,4 +1,4 @@
-﻿package com.cacch.integration.integration.oa.support;
+package com.cacch.integration.integration.oa.support;
 
 import org.apache.commons.lang3.StringUtils;
 

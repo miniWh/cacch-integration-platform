@@ -51,7 +51,7 @@ public interface IMokaDepartmentService {
     /**
      * 按 Moka 开放平台同步状态筛选
      *
-     * @param mokaSyncStatus 同步状态：0-未同步 1-已同步 2-同步失败
+     * @param mokaSyncStatus 同步状态：0-未同步 1-已同步 2-同步失败 3-待删除 4-已删除
      * @return 匹配状态的部门列表
      */
     List<MokaDepartmentDO> listByMokaSyncStatus(Integer mokaSyncStatus);
@@ -84,10 +84,26 @@ public interface IMokaDepartmentService {
      * 更新指定部门的 Moka 开放平台同步状态
      *
      * @param departmentCode 部门编码
-     * @param mokaSyncStatus 目标状态：0-未同步 1-已同步 2-同步失败
+     * @param mokaSyncStatus 目标状态：0-未同步 1-已同步 2-同步失败 3-待删除 4-已删除
      * @return 受影响行数
      */
     int updateMokaSyncStatus(String departmentCode, Integer mokaSyncStatus);
+
+    /**
+     * 标记部门已成功推送 Moka —— 状态置 1（已同步），并记录推送成功时间（moka_sync_time）
+     *
+     * @param departmentCode 部门编码，不可为空
+     * @return 受影响行数
+     */
+    int markMokaSynced(String departmentCode);
+
+    /**
+     * 标记部门已在 Moka 侧删除成功 —— 状态置 4（已删除），并记录删除成功时间（moka_delete_time）
+     *
+     * @param departmentCode 部门编码，不可为空
+     * @return 受影响行数
+     */
+    int markMokaDeleted(String departmentCode);
 
     /**
      * 清空所有部门数据（谨慎使用）
