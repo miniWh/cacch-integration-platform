@@ -194,13 +194,6 @@ tencent-meeting:
     minute-type: 1
     lang: default
 
-# ---------- 人员主数据（MDM）----------
-# 人员同步由 ESB 调用 /api/v1/mdm/emp-sync/trigger 定时调度，应用内无定时任务
-# 身份哈希盐经 MDM_ID_HASH_SALT 注入（md_emp.id_hash = SHA-256(盐+证件号)）
-mdm:
-  emp:
-    id-hash-salt: ${MDM_ID_HASH_SALT:}
-
 # ---------- Actuator 健康监控 ----------
 management:
   endpoints:

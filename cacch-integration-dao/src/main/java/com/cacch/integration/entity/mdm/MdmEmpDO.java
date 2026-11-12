@@ -32,11 +32,6 @@ public class MdmEmpDO {
     private Long mdCode;
 
     /**
-     * 身份哈希 SHA-256(盐 + 证件号)，自然人唯一识别（UNIQUE）
-     */
-    private String idHash;
-
-    /**
      * 工号（变更不断链，仅覆盖更新）
      */
     private String empNo;
@@ -62,9 +57,14 @@ public class MdmEmpDO {
     private String mobile;
 
     /**
-     * 邮箱（优先工作邮箱）
+     * 个人邮箱
      */
-    private String email;
+    private String personalEmail;
+
+    /**
+     * 工作邮箱
+     */
+    private String workEmail;
 
     /**
      * 最高学历
@@ -72,12 +72,32 @@ public class MdmEmpDO {
     private String education;
 
     /**
-     * 首次入职日期（首次建档时取 iHR enrollInDate）
+     * 证件类型：IDENTITY_CARD / CHINA_PASSPORT / FOREIGN_PASSPORT / MTP / MTPFHKAMR / OTHER
+     */
+    private String idCardType;
+
+    /**
+     * 证件号
+     */
+    private String idCard;
+
+    /**
+     * 首次入职日期
      */
     private LocalDate firstHireDate;
 
     /**
-     * 首次建档来源系统：IHR
+     * 当前离职日期快照
+     */
+    private LocalDate leaveDate;
+
+    /**
+     * 当前试用结束日期快照
+     */
+    private LocalDate probationEndDate;
+
+    /**
+     * 首次建档来源系统：IHR / WECOM / OA ...
      */
     private String srcSysCode;
 

@@ -39,17 +39,6 @@ public interface MdmEmpConverter {
         return MdmEmpUtils.parseDate(dateStr, staffId, fieldName);
     }
 
-    /**
-     * workEmail 优先策略（基本信息 → 邮箱字段）
-     */
-    default String primaryEmail(IhrStaffBasicInfo basic) {
-        if (basic == null) {
-            return null;
-        }
-        return basic.getWorkEmail() != null && !basic.getWorkEmail().isEmpty()
-                ? basic.getWorkEmail() : basic.getEmail();
-    }
-
     // ==================== ODS 规范化 ====================
 
     /**
@@ -88,16 +77,40 @@ public interface MdmEmpConverter {
     @Mapping(target = "dqFlag", source = "dqFlag")
     OdsIhrEmpDO toOds(IhrStaffBasicInfo basic, Long odsId, String rowHash, int verNo, int dqFlag);
 
-    // ==================== MD_EMP 主档 ====================
+    // ==================== MDM_EMP 主档 ====================
 
     /**
-     * 更新 MdEmpDO 基础人属性（empNo / empName / gender / birthday / mobile / email / education）
+     * 构造 MdmEmpDO（首次建档时调用）
      *
-     * <p>业务主键字段（mdCode / idHash / firstHireDate / srcSysCode）由 Service 预填，
-     * 本方法仅做 overwrite，不触碰主键。</p>
+     * @param basic         iHR 员工基本信息 DTO
+     * @param mdCode        人员主数据编码（雪花，由 Service 预生成）
+     * @param srcSysCode    首次建档来源系统（如 IHR）
+     * @param firstHireDate 首次入职日期（Service 解析好传入）
+     */
+    @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
+    @Mapping(target = "mdCode", source = "mdCode")
+    @Mapping(target = "srcSysCode", source = "srcSysCode")
+    @Mapping(target = "firstHireDate", source = "firstHireDate")
+    @Mapping(target = "empNo", source = "basic.staffNo")
+    @Mapping(target = "empName", source = "basic.staffName")
+    @Mapping(target = "gender", source = "basic.sex")
+    @Mapping(target = "birthday", expression = "java(toLocalDate(basic.getBirthday(), basic.getStaffId(), \"birthday\"))")
+    @Mapping(target = "mobile", source = "basic.mobileNo")
+    @Mapping(target = "personalEmail", source = "basic.email")
+    @Mapping(target = "workEmail", source = "basic.workEmail")
+    @Mapping(target = "education", source = "basic.highestEducation")
+    @Mapping(target = "idCardType", source = "basic.idCardType")
+    @Mapping(target = "idCard", source = "basic.idCardNo")
+    @Mapping(target = "probationEndDate", expression = "java(toLocalDate(basic.getProbationEndDate(), basic.getStaffId(), \"probationEndDate\"))")
+    @Mapping(target = "leaveDate", expression = "java(toLocalDate(basic.getLeaveDate(), basic.getStaffId(), \"leaveDate\"))")
+    MdmEmpDO toNewMdEmp(IhrStaffBasicInfo basic, Long mdCode, String srcSysCode,
+                        LocalDate firstHireDate);
+
+    /**
+     * 更新 MdmEmpDO 基础人属性（已有主档增量覆盖）
      *
      * @param basic  iHR 员工基本信息 DTO
-     * @param target 已预填业务主键的 MdEmpDO
+     * @param target 已预填业务主键的 MdmEmpDO
      */
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     @Mapping(target = "empNo", source = "basic.staffNo")
@@ -105,14 +118,19 @@ public interface MdmEmpConverter {
     @Mapping(target = "gender", source = "basic.sex")
     @Mapping(target = "birthday", expression = "java(toLocalDate(basic.getBirthday(), basic.getStaffId(), \"birthday\"))")
     @Mapping(target = "mobile", source = "basic.mobileNo")
-    @Mapping(target = "email", expression = "java(primaryEmail(basic))")
+    @Mapping(target = "personalEmail", source = "basic.email")
+    @Mapping(target = "workEmail", source = "basic.workEmail")
     @Mapping(target = "education", source = "basic.highestEducation")
+    @Mapping(target = "idCardType", source = "basic.idCardType")
+    @Mapping(target = "idCard", source = "basic.idCardNo")
+    @Mapping(target = "probationEndDate", expression = "java(toLocalDate(basic.getProbationEndDate(), basic.getStaffId(), \"probationEndDate\"))")
+    @Mapping(target = "leaveDate", expression = "java(toLocalDate(basic.getLeaveDate(), basic.getStaffId(), \"leaveDate\"))")
     void updateBasicInfo(IhrStaffBasicInfo basic, @MappingTarget MdmEmpDO target);
 
-    // ==================== MD_EMP_ORG_ASSIGN 任职 ====================
+    // ==================== MDM_EMP_ORG_ASSIGN 任职 ====================
 
     /**
-     * 构造 MdEmpOrgAssignDO（mdCode / orgCode / orgName / positionCode / positionName
+     * 构造 MdmEmpOrgAssignDO（mdCode / orgCode / orgName / positionCode / positionName
      * / assignStatus / principalFlag / validFrom 由调用方显式传入）
      *
      * @param basic         iHR 员工基本信息 DTO（departmentId / departmentName / positionId / positionName 复用）
