@@ -11,8 +11,7 @@
 -- 先删 UNIQUE 约束再删列（PostgreSQL 12 必须顺序操作）
 ALTER TABLE mdm_emp DROP CONSTRAINT IF EXISTS uk_mdm_emp_id_hash;
 ALTER TABLE mdm_emp DROP COLUMN IF EXISTS id_hash;
--- 删除遗留 COMMENT
-COMMENT ON COLUMN mdm_emp.id_hash IS NULL;
+-- DROP COLUMN 会自动清除列 COMMENT，无需手动清理
 
 -- ---------- 2. mdm_emp 补 6 个业务字段 ----------
 ALTER TABLE mdm_emp ADD COLUMN IF NOT EXISTS personal_email      VARCHAR(128);  -- 个人邮箱（原 email 字段改名为 work_email）

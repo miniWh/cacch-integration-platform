@@ -1,6 +1,5 @@
 package com.cacch.integration.config.mdm;
 
-import com.cacch.integration.common.config.mdm.MdmEmpProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 
@@ -10,6 +9,6 @@ import org.springframework.context.annotation.Configuration;
  * @author hongfu_zhou@cacch.com
  */
 @Configuration
-@EnableConfigurationProperties(MdmEmpProperties.class)
+@EnableConfigurationProperties()
 public class MdmConfiguration {
 }
