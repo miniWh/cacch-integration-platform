@@ -27,11 +27,6 @@ public class MdmEmpDO {
     private Long id;
 
     /**
-     * 人员主数据编码（雪花生成，对外稳定标识，UNIQUE）
-     */
-    private Long mdCode;
-
-    /**
      * 工号（变更不断链，仅覆盖更新）
      */
     private String empNo;

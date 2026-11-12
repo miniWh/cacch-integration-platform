@@ -23,7 +23,7 @@ public interface MdmEmpSrcRefMapper extends BaseMapper<MdmEmpSrcRefDO> {
      * @param srcEntityId   源系统实体 ID（如 iHR staffId UUID）
      * @return src_ref 记录；不存在时返回 null
      */
-    @Select("SELECT id, md_code, src_sys_code, src_entity_type, src_entity_id, created_at, updated_at, is_deleted "
+    @Select("SELECT id, emp_id, src_sys_code, src_entity_type, src_entity_id, created_at, updated_at, is_deleted "
             + "FROM mdm_emp_src_ref "
             + "WHERE src_sys_code = #{srcSysCode} "
             + "  AND src_entity_type = #{srcEntityType} "
@@ -36,17 +36,17 @@ public interface MdmEmpSrcRefMapper extends BaseMapper<MdmEmpSrcRefDO> {
     /**
      * 幂等插入
      *
-     * @param id            内部主键（雪花生成，由调用方填充）
-     * @param mdCode        关联的 mdm_emp.md_code
+     * @param id            内部主键
+     * @param empId         关联的 mdm_emp.id
      * @param srcSysCode    来源系统编码
      * @param srcEntityType 源系统实体类型
      * @param srcEntityId   源系统实体 ID
      */
-    @Insert("INSERT INTO mdm_emp_src_ref (id, md_code, src_sys_code, src_entity_type, src_entity_id) "
-            + "VALUES (#{id}, #{mdCode}, #{srcSysCode}, #{srcEntityType}, #{srcEntityId}) "
+    @Insert("INSERT INTO mdm_emp_src_ref (id, emp_id, src_sys_code, src_entity_type, src_entity_id) "
+            + "VALUES (#{id}, #{empId}, #{srcSysCode}, #{srcEntityType}, #{srcEntityId}) "
             + "ON CONFLICT (src_sys_code, src_entity_type, src_entity_id) DO NOTHING")
     int insertIgnore(@Param("id") Long id,
-                     @Param("mdCode") Long mdCode,
+                     @Param("empId") Long empId,
                      @Param("srcSysCode") String srcSysCode,
                      @Param("srcEntityType") String srcEntityType,
                      @Param("srcEntityId") String srcEntityId);

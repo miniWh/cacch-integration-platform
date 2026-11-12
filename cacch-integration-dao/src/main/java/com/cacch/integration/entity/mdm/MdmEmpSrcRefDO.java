@@ -20,15 +20,15 @@ import java.time.LocalDateTime;
 public class MdmEmpSrcRefDO {
 
     /**
-     * 内部主键（雪花生成）
+     * 内部主键
      */
     @TableId(type = IdType.ASSIGN_ID)
     private Long id;
 
     /**
-     * 关联 mdm_emp.md_code（人员主数据编码）
+     * 关联 mdm_emp.id
      */
-    private Long mdCode;
+    private Long empId;
 
     /**
      * 来源系统编码：IHR / WECOM / OA ...

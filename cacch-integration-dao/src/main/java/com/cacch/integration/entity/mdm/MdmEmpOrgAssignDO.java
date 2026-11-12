@@ -21,18 +21,18 @@ import java.time.LocalDateTime;
 public class MdmEmpOrgAssignDO {
 
     /**
-     * 内部主键（雪花生成，BaseMapper.insert 自动填充 ASSIGN_ID）
+     * 内部主键
      */
     @TableId(type = IdType.ASSIGN_ID)
     private Long id;
 
     /**
-     * 人员主数据编码（关联 mdm_emp.md_code）
+     * 关联 mdm_emp.id
      */
-    private Long mdCode;
+    private Long empId;
 
     /**
-     * 组织编码（暂存 iHR departmentId 字符串形式，后续融合 md_org）
+     * 组织编码
      */
     private String orgCode;
 

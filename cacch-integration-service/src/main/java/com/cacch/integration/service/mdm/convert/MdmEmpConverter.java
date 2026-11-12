@@ -21,7 +21,7 @@ import java.time.LocalDate;
 @Mapper(componentModel = "spring")
 public interface MdmEmpConverter {
 
-    // ==================== null 安全辅助方法（接口 default，生成代码直接调用） ====================
+    // ==================== null / 空串 安全辅助方法（接口 default，生成代码直接调用） ====================
 
     /**
      * Long departmentId → String（iHR 返回 Long，ODS 与任职表存字符串形式）
@@ -39,6 +39,13 @@ public interface MdmEmpConverter {
         return MdmEmpUtils.parseDate(dateStr, staffId, fieldName);
     }
 
+    /**
+     * String → null 安全（空串视为 NULL，防止数据库存储 '' 污染）
+     */
+    default String nullIfBlank(String value) {
+        return MdmEmpUtils.nullIfBlank(value);
+    }
+
     // ==================== ODS 规范化 ====================
 
     /**
@@ -54,20 +61,20 @@ public interface MdmEmpConverter {
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     @Mapping(target = "id", source = "odsId")
     @Mapping(target = "ihrStaffId", source = "basic.staffId")
-    @Mapping(target = "ihrStaffNo", source = "basic.staffNo")
-    @Mapping(target = "ihrStaffName", source = "basic.staffName")
-    @Mapping(target = "ihrMobile", source = "basic.mobileNo")
-    @Mapping(target = "ihrEmail", source = "basic.email")
-    @Mapping(target = "ihrWorkEmail", source = "basic.workEmail")
-    @Mapping(target = "ihrIdCardType", source = "basic.idCardType")
-    @Mapping(target = "ihrIdCard", source = "basic.idCardNo")
+    @Mapping(target = "ihrStaffNo", expression = "java(nullIfBlank(basic.getStaffNo()))")
+    @Mapping(target = "ihrStaffName", expression = "java(nullIfBlank(basic.getStaffName()))")
+    @Mapping(target = "ihrMobile", expression = "java(nullIfBlank(basic.getMobileNo()))")
+    @Mapping(target = "ihrEmail", expression = "java(nullIfBlank(basic.getEmail()))")
+    @Mapping(target = "ihrWorkEmail", expression = "java(nullIfBlank(basic.getWorkEmail()))")
+    @Mapping(target = "ihrIdCardType", expression = "java(nullIfBlank(basic.getIdCardType()))")
+    @Mapping(target = "ihrIdCard", expression = "java(nullIfBlank(basic.getIdCardNo()))")
     @Mapping(target = "ihrDeptId", expression = "java(toOrgCode(basic.getDepartmentId()))")
-    @Mapping(target = "ihrDeptName", source = "basic.departmentName")
-    @Mapping(target = "ihrPositionId", source = "basic.positionId")
-    @Mapping(target = "ihrPositionName", source = "basic.positionName")
-    @Mapping(target = "ihrStatus", source = "basic.staffStatus")
-    @Mapping(target = "ihrGender", source = "basic.sex")
-    @Mapping(target = "ihrEducation", source = "basic.highestEducation")
+    @Mapping(target = "ihrDeptName", expression = "java(nullIfBlank(basic.getDepartmentName()))")
+    @Mapping(target = "ihrPositionId", expression = "java(nullIfBlank(basic.getPositionId()))")
+    @Mapping(target = "ihrPositionName", expression = "java(nullIfBlank(basic.getPositionName()))")
+    @Mapping(target = "ihrStatus", expression = "java(nullIfBlank(basic.getStaffStatus()))")
+    @Mapping(target = "ihrGender", expression = "java(nullIfBlank(basic.getSex()))")
+    @Mapping(target = "ihrEducation", expression = "java(nullIfBlank(basic.getHighestEducation()))")
     @Mapping(target = "ihrBirthday", expression = "java(toLocalDate(basic.getBirthday(), basic.getStaffId(), \"birthday\"))")
     @Mapping(target = "ihrHireDate", expression = "java(toLocalDate(basic.getEnrollInDate(), basic.getStaffId(), \"enrollInDate\"))")
     @Mapping(target = "ihrLeaveDate", expression = "java(toLocalDate(basic.getLeaveDate(), basic.getStaffId(), \"leaveDate\"))")
@@ -80,31 +87,28 @@ public interface MdmEmpConverter {
     // ==================== MDM_EMP 主档 ====================
 
     /**
-     * 构造 MdmEmpDO（首次建档时调用）
+     * 构造 MdmEmpDO（首次建档时调用；id 由 MyBatis-Plus ASSIGN_ID 自动填充）
      *
      * @param basic         iHR 员工基本信息 DTO
-     * @param mdCode        人员主数据编码（雪花，由 Service 预生成）
      * @param srcSysCode    首次建档来源系统（如 IHR）
      * @param firstHireDate 首次入职日期（Service 解析好传入）
      */
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
-    @Mapping(target = "mdCode", source = "mdCode")
     @Mapping(target = "srcSysCode", source = "srcSysCode")
     @Mapping(target = "firstHireDate", source = "firstHireDate")
-    @Mapping(target = "empNo", source = "basic.staffNo")
-    @Mapping(target = "empName", source = "basic.staffName")
-    @Mapping(target = "gender", source = "basic.sex")
+    @Mapping(target = "empNo", expression = "java(nullIfBlank(basic.getStaffNo()))")
+    @Mapping(target = "empName", expression = "java(nullIfBlank(basic.getStaffName()))")
+    @Mapping(target = "gender", expression = "java(nullIfBlank(basic.getSex()))")
     @Mapping(target = "birthday", expression = "java(toLocalDate(basic.getBirthday(), basic.getStaffId(), \"birthday\"))")
-    @Mapping(target = "mobile", source = "basic.mobileNo")
-    @Mapping(target = "personalEmail", source = "basic.email")
-    @Mapping(target = "workEmail", source = "basic.workEmail")
-    @Mapping(target = "education", source = "basic.highestEducation")
-    @Mapping(target = "idCardType", source = "basic.idCardType")
-    @Mapping(target = "idCard", source = "basic.idCardNo")
+    @Mapping(target = "mobile", expression = "java(nullIfBlank(basic.getMobileNo()))")
+    @Mapping(target = "personalEmail", expression = "java(nullIfBlank(basic.getEmail()))")
+    @Mapping(target = "workEmail", expression = "java(nullIfBlank(basic.getWorkEmail()))")
+    @Mapping(target = "education", expression = "java(nullIfBlank(basic.getHighestEducation()))")
+    @Mapping(target = "idCardType", expression = "java(nullIfBlank(basic.getIdCardType()))")
+    @Mapping(target = "idCard", expression = "java(nullIfBlank(basic.getIdCardNo()))")
     @Mapping(target = "probationEndDate", expression = "java(toLocalDate(basic.getProbationEndDate(), basic.getStaffId(), \"probationEndDate\"))")
     @Mapping(target = "leaveDate", expression = "java(toLocalDate(basic.getLeaveDate(), basic.getStaffId(), \"leaveDate\"))")
-    MdmEmpDO toNewMdEmp(IhrStaffBasicInfo basic, Long mdCode, String srcSysCode,
-                        LocalDate firstHireDate);
+    MdmEmpDO toNewMdEmp(IhrStaffBasicInfo basic, String srcSysCode, LocalDate firstHireDate);
 
     /**
      * 更新 MdmEmpDO 基础人属性（已有主档增量覆盖）
@@ -113,16 +117,16 @@ public interface MdmEmpConverter {
      * @param target 已预填业务主键的 MdmEmpDO
      */
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
-    @Mapping(target = "empNo", source = "basic.staffNo")
-    @Mapping(target = "empName", source = "basic.staffName")
-    @Mapping(target = "gender", source = "basic.sex")
+    @Mapping(target = "empNo", expression = "java(nullIfBlank(basic.getStaffNo()))")
+    @Mapping(target = "empName", expression = "java(nullIfBlank(basic.getStaffName()))")
+    @Mapping(target = "gender", expression = "java(nullIfBlank(basic.getSex()))")
     @Mapping(target = "birthday", expression = "java(toLocalDate(basic.getBirthday(), basic.getStaffId(), \"birthday\"))")
-    @Mapping(target = "mobile", source = "basic.mobileNo")
-    @Mapping(target = "personalEmail", source = "basic.email")
-    @Mapping(target = "workEmail", source = "basic.workEmail")
-    @Mapping(target = "education", source = "basic.highestEducation")
-    @Mapping(target = "idCardType", source = "basic.idCardType")
-    @Mapping(target = "idCard", source = "basic.idCardNo")
+    @Mapping(target = "mobile", expression = "java(nullIfBlank(basic.getMobileNo()))")
+    @Mapping(target = "personalEmail", expression = "java(nullIfBlank(basic.getEmail()))")
+    @Mapping(target = "workEmail", expression = "java(nullIfBlank(basic.getWorkEmail()))")
+    @Mapping(target = "education", expression = "java(nullIfBlank(basic.getHighestEducation()))")
+    @Mapping(target = "idCardType", expression = "java(nullIfBlank(basic.getIdCardType()))")
+    @Mapping(target = "idCard", expression = "java(nullIfBlank(basic.getIdCardNo()))")
     @Mapping(target = "probationEndDate", expression = "java(toLocalDate(basic.getProbationEndDate(), basic.getStaffId(), \"probationEndDate\"))")
     @Mapping(target = "leaveDate", expression = "java(toLocalDate(basic.getLeaveDate(), basic.getStaffId(), \"leaveDate\"))")
     void updateBasicInfo(IhrStaffBasicInfo basic, @MappingTarget MdmEmpDO target);
@@ -130,24 +134,27 @@ public interface MdmEmpConverter {
     // ==================== MDM_EMP_ORG_ASSIGN 任职 ====================
 
     /**
-     * 构造 MdmEmpOrgAssignDO（mdCode / orgCode / orgName / positionCode / positionName
-     * / assignStatus / principalFlag / validFrom 由调用方显式传入）
+     * 构造 MdmEmpOrgAssignDO（empId / assignStatus / principalFlag / validFrom / validTo
+     * 由调用方显式传入）
      *
      * @param basic         iHR 员工基本信息 DTO（departmentId / departmentName / positionId / positionName 复用）
-     * @param mdCode        人员主数据编码（雪花）
+     * @param empId         关联 mdm_emp.id
      * @param assignStatus  任职状态常量
      * @param principalFlag 主任职标记
      * @param validFrom     生效起始日
+     * @param validTo       生效截止日（NULL 表示当前有效）
      * @return 已填充字段的任职 DO
      */
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
-    @Mapping(target = "mdCode", source = "mdCode")
+    @Mapping(target = "empId", source = "empId")
     @Mapping(target = "orgCode", expression = "java(toOrgCode(basic.getDepartmentId()))")
-    @Mapping(target = "orgName", source = "basic.departmentName")
-    @Mapping(target = "positionCode", source = "basic.positionId")
-    @Mapping(target = "positionName", source = "basic.positionName")
+    @Mapping(target = "orgName", expression = "java(nullIfBlank(basic.getDepartmentName()))")
+    @Mapping(target = "positionCode", expression = "java(nullIfBlank(basic.getPositionId()))")
+    @Mapping(target = "positionName", expression = "java(nullIfBlank(basic.getPositionName()))")
     @Mapping(target = "assignStatus", source = "assignStatus")
     @Mapping(target = "principalFlag", source = "principalFlag")
     @Mapping(target = "validFrom", source = "validFrom")
-    MdmEmpOrgAssignDO toAssign(IhrStaffBasicInfo basic, Long mdCode, String assignStatus, String principalFlag, LocalDate validFrom);
+    @Mapping(target = "validTo", source = "validTo")
+    MdmEmpOrgAssignDO toAssign(IhrStaffBasicInfo basic, Long empId, String assignStatus,
+                               String principalFlag, LocalDate validFrom, LocalDate validTo);
 }

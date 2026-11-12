@@ -29,7 +29,7 @@ public class MdmEmpEventDO {
     private Long id;
 
     /**
-     * 事件幂等键 SHA-256(mdCode:eventType:rowHash)（UNIQUE）
+     * 事件幂等键 SHA-256(empId:eventType:rowHash)（UNIQUE）
      */
     private String eventId;
 
@@ -44,9 +44,9 @@ public class MdmEmpEventDO {
     private String changeLevel;
 
     /**
-     * 人员主数据编码
+     * 关联 mdm_emp.id
      */
-    private Long mdCode;
+    private Long empId;
 
     /**
      * 事件发生时工号（快照）

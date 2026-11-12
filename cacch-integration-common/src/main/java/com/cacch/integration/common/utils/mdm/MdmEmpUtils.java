@@ -70,6 +70,16 @@ public final class MdmEmpUtils {
     }
 
     /**
+     * null 或空串 → null（防止数据库存储 '' 污染）
+     *
+     * @param value 原值（可为 null 或空串）
+     * @return null —— 空串或纯空白视为 null；否则返回原值
+     */
+    public static String nullIfBlank(String value) {
+        return StringUtils.isBlank(value) ? null : value;
+    }
+
+    /**
      * null 转空串（rowHash 字段拼接用）
      *
      * @param value 原值（可为 null）
