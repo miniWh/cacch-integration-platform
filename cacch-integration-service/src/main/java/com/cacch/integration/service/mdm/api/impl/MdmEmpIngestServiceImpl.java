@@ -115,7 +115,7 @@ public class MdmEmpIngestServiceImpl implements IMdmEmpIngestService {
             return MdmEmpIngestResultEnum.SKIPPED_UNCHANGED;
         }
 
-        // 3. 数据质检：证件号缺失（致命）；离职无离职日期（置 dq_flag 继续）
+        // 3. 数据质检
         boolean idCardMissing = !StringUtils.hasText(basic.getIdCardNo());
         boolean quitWithoutLeave = IhrStaffConstants.STAFF_STATUS_QUIT.equals(basic.getStaffStatus())
                 && !StringUtils.hasText(basic.getLeaveDate());
@@ -184,9 +184,11 @@ public class MdmEmpIngestServiceImpl implements IMdmEmpIngestService {
      *
      * <p>判定规则（按当前有效行 validTo IS NULL）：
      * <ul>
-     *     <li>无有效行 → 新开任职；主档已存在为 REHIRE，否则 HIRE（HIGH）</li>
-     *     <li>离职 → 关链（validTo=离职日期，状态 ENDED），LEAVE（HIGH）</li>
-     *     <li>部门或职位变更 → 旧行关链（validTo=入职日期）+ 新开行，TRANSFER（NORMAL）</li>
+     *     <li>无有效行且离职 + 存在已关链行 → 离职后属性修正：不开新任职行，UPDATE（NORMAL）</li>
+     *     <li>无有效行且离职 + 无已关链行 → 首次同步已离职：开完整封口行（validFrom=入职日 / validTo=离职日），LEAVE（HIGH）</li>
+     *     <li>无有效行且在职 → 新开任职；主档已存在为 REHIRE，否则 HIRE（HIGH）</li>
+     *     <li>有有效行 + 离职 → 关链（validTo=离职日期，状态 ENDED），LEAVE（HIGH）</li>
+     *     <li>有有效行 + 部门或职位变更 → 旧行关链（validTo=当天调岗生效日）+ 新开行（validFrom=当天），TRANSFER（NORMAL）</li>
      *     <li>其余属性变更 → 更新当前行组织/职位名，UPDATE（NORMAL）</li>
      * </ul></p>
      *
@@ -217,9 +219,31 @@ public class MdmEmpIngestServiceImpl implements IMdmEmpIngestService {
                 .last("LIMIT 1"));
 
         String eventType;
-        if (active == null) {
+        if (active == null && quit) {
+            // 无当前有效行 + 离职状态：补查最近一条已关链行，区分属性修正与首次同步
+            MdmEmpOrgAssignDO lastEnded = mdEmpOrgAssignMapper.selectOne(new LambdaQueryWrapper<MdmEmpOrgAssignDO>()
+                    .eq(MdmEmpOrgAssignDO::getMdCode, mdCode)
+                    .isNotNull(MdmEmpOrgAssignDO::getValidTo)
+                    .orderByDesc(MdmEmpOrgAssignDO::getValidTo)
+                    .last("LIMIT 1"));
+            if (lastEnded != null) {
+                // 离职后属性修正：不开新任职行（避免误判 REHIRE 与矛盾行），仅发 UPDATE 事件
+                log.info("【{}】离职员工属性修正, 不新开任职行, ihrStaffId={}, mdCode={}, batchNo={}",
+                        BIZ, staffId, mdCode, etlBatchNo);
+                eventType = MdmEmpEventConstants.EVENT_TYPE_UPDATE;
+                insertEvent(mdEmp, basic, eventType, MdmEmpEventConstants.CHANGE_LEVEL_NORMAL,
+                        lastEnded.getOrgCode(), lastEnded.getOrgName(), lastEnded.getPositionCode(), lastEnded.getPositionName(),
+                        lastEnded.getValidFrom(), lastEnded.getValidTo(), etlBatchNo, rowHash);
+            } else {
+                // 首次同步即离职：开一行完整封口的任职行（validFrom=入职日, validTo=离职日）
+                insertAssign(mdCode, basic, enrollInDate, probationEndDate, leaveDate, leaveDate, staffId);
+                eventType = MdmEmpEventConstants.EVENT_TYPE_LEAVE;
+                insertEvent(mdEmp, basic, eventType, MdmEmpEventConstants.CHANGE_LEVEL_HIGH,
+                        orgCode, orgName, positionCode, positionName, enrollInDate, leaveDate, etlBatchNo, rowHash);
+            }
+        } else if (active == null) {
             // 新开任职（首次建档或再入职）
-            insertAssign(mdCode, basic, enrollInDate, probationEndDate, leaveDate, staffId);
+            insertAssign(mdCode, basic, enrollInDate, probationEndDate, leaveDate, null, staffId);
             eventType = mdExisted ? MdmEmpEventConstants.EVENT_TYPE_REHIRE : MdmEmpEventConstants.EVENT_TYPE_HIRE;
             insertEvent(mdEmp, basic, eventType, MdmEmpEventConstants.CHANGE_LEVEL_HIGH,
                     orgCode, orgName, positionCode, positionName, enrollInDate, null, etlBatchNo, rowHash);
@@ -238,14 +262,15 @@ public class MdmEmpIngestServiceImpl implements IMdmEmpIngestService {
                     active.getValidFrom(), leaveDate, etlBatchNo, rowHash);
         } else if (!Objects.equals(active.getOrgCode(), orgCode)
                 || !Objects.equals(active.getPositionCode(), positionCode)) {
-            // 调岗：旧行关链（validTo=入职日期）+ 新开行
-            active.setValidTo(enrollInDate);
+            // 调岗：以当天为调岗生效日，旧行关链 + 新开行（iHR 无调岗日期字段，SCD2 以批次日为界）
+            LocalDate transferDate = LocalDate.now();
+            active.setValidTo(transferDate);
             active.setAssignStatus(MdmEmpOrgAssignConstants.ASSIGN_STATUS_ENDED);
             mdEmpOrgAssignMapper.updateById(active);
-            insertAssign(mdCode, basic, enrollInDate, probationEndDate, leaveDate, staffId);
+            insertAssign(mdCode, basic, transferDate, probationEndDate, leaveDate, null, staffId);
             eventType = MdmEmpEventConstants.EVENT_TYPE_TRANSFER;
             insertEvent(mdEmp, basic, eventType, MdmEmpEventConstants.CHANGE_LEVEL_NORMAL,
-                    orgCode, orgName, positionCode, positionName, enrollInDate, null, etlBatchNo, rowHash);
+                    orgCode, orgName, positionCode, positionName, transferDate, null, etlBatchNo, rowHash);
         } else {
             // 属性更新：仅刷新当前行的组织/职位名称
             active.setOrgName(orgName);
@@ -260,13 +285,24 @@ public class MdmEmpIngestServiceImpl implements IMdmEmpIngestService {
     }
 
     /**
-     * 新开任职行（主任职，validTo 为 NULL 表示当前有效）
+     * 新开任职行（validTo 为 NULL 表示当前有效；封口场景显式传入 validTo）
+     *
+     * @param mdCode           人员主数据编码
+     * @param basic            iHR 员工基本信息（Converter 复用 departmentId / departmentName / positionId / positionName）
+     * @param validFrom        任职生效起始日（入职场景=入职日期；调岗场景=调岗生效日）
+     * @param probationEndDate 解析后的试用结束日期
+     * @param leaveDate        解析后的离职日期
+     * @param validTo          任职生效截止日；null 表示当前有效（首次同步已离职场景传离职日形成完整封口行）
+     * @param staffId          员工 ID（日志定位用）
      */
-    private void insertAssign(Long mdCode, IhrStaffBasicInfo basic, LocalDate enrollInDate,
-                              LocalDate probationEndDate, LocalDate leaveDate, String staffId) {
+    private void insertAssign(Long mdCode, IhrStaffBasicInfo basic, LocalDate validFrom,
+                              LocalDate probationEndDate, LocalDate leaveDate, LocalDate validTo, String staffId) {
         MdmEmpOrgAssignDO assign = mdmEmpConverter.toAssign(basic, mdCode,
-                deriveAssignStatus(basic.getStaffStatus(), enrollInDate, probationEndDate, leaveDate),
-                MdmEmpOrgAssignConstants.PRINCIPAL_FLAG_YES, enrollInDate);
+                deriveAssignStatus(basic.getStaffStatus(), validFrom, probationEndDate, leaveDate),
+                MdmEmpOrgAssignConstants.PRINCIPAL_FLAG_YES, validFrom);
+        if (validTo != null) {
+            assign.setValidTo(validTo);
+        }
         mdEmpOrgAssignMapper.insert(assign);
     }
 
