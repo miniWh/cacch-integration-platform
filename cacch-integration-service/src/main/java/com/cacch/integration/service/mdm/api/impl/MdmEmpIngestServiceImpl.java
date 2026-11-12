@@ -156,8 +156,7 @@ public class MdmEmpIngestServiceImpl implements IMdmEmpIngestService {
 
         if (mdEmp == null) {
             // 首次建档：构造完整主档 DO（证件号明文存储，敏感字段对外查询/导出侧脱敏）
-            mdEmp = mdmEmpConverter.toNewMdEmp(basic, IdWorker.getId(),
-                    MdmEmpCommonConstants.SRC_SYS_CODE_IHR, enrollInDate);
+            mdEmp = mdmEmpConverter.toNewMdEmp(basic, IdWorker.getId(), MdmEmpCommonConstants.SRC_SYS_CODE_IHR, enrollInDate);
             mdEmpMapper.insert(mdEmp);
             log.info("【{}】新建主档, mdCode={}, ihrStaffId={}, batchNo={}", BIZ, mdEmp.getMdCode(), staffId, etlBatchNo);
         } else {
@@ -171,8 +170,7 @@ public class MdmEmpIngestServiceImpl implements IMdmEmpIngestService {
                 MdmEmpCommonConstants.SRC_SYS_CODE_IHR, SRC_ENTITY_TYPE_STAFF, staffId);
 
         // 7. 任职拉链判定 + 事件产生
-        String eventType = resolveAssignAndEvent(mdEmp, basic, enrollInDate, probationEndDate,
-                leaveDate, mdExisted, etlBatchNo, rowHash);
+        String eventType = resolveAssignAndEvent(mdEmp, basic, enrollInDate, probationEndDate, leaveDate, mdExisted, etlBatchNo, rowHash);
 
         log.info("【{}】单员工落库完成, ihrStaffId={}, mdCode={}, eventType={}, mdExisted={}, batchNo={}",
                 BIZ, staffId, mdEmp.getMdCode(), eventType, mdExisted, etlBatchNo);
@@ -228,8 +226,7 @@ public class MdmEmpIngestServiceImpl implements IMdmEmpIngestService {
                     .last("LIMIT 1"));
             if (lastEnded != null) {
                 // 离职后属性修正：不开新任职行（避免误判 REHIRE 与矛盾行），仅发 UPDATE 事件
-                log.info("【{}】离职员工属性修正, 不新开任职行, ihrStaffId={}, mdCode={}, batchNo={}",
-                        BIZ, staffId, mdCode, etlBatchNo);
+                log.info("【{}】离职员工属性修正, 不新开任职行, ihrStaffId={}, mdCode={}, batchNo={}", BIZ, staffId, mdCode, etlBatchNo);
                 eventType = MdmEmpEventConstants.EVENT_TYPE_UPDATE;
                 insertEvent(mdEmp, basic, eventType, MdmEmpEventConstants.CHANGE_LEVEL_NORMAL,
                         lastEnded.getOrgCode(), lastEnded.getOrgName(), lastEnded.getPositionCode(), lastEnded.getPositionName(),
