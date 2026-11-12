@@ -17,7 +17,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class MdmEmpProperties {
 
     /**
-     * 身份哈希盐 —— md_emp.id_hash = SHA-256(盐 + 证件号)；
+     * 身份哈希盐 —— mdm_emp.id_hash = SHA-256(盐 + 证件号)；
      */
     private final String idHashSalt;
 

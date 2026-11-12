@@ -12,13 +12,13 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * 人员任职记录 DO —— 映射 PG 表 {@code md_emp_org_assign}（SCD2 拉链）
+ * 人员任职记录 DO —— 映射 PG 表 {@code mdm_emp_org_assign}（SCD2 拉链）
  *
  * @author hongfu_zhou@cacch.com
  */
 @Data
-@TableName("md_emp_org_assign")
-public class MdEmpOrgAssignDO {
+@TableName("mdm_emp_org_assign")
+public class MdmEmpOrgAssignDO {
 
     /**
      * 内部主键（雪花生成，BaseMapper.insert 自动填充 ASSIGN_ID）
@@ -27,7 +27,7 @@ public class MdEmpOrgAssignDO {
     private Long id;
 
     /**
-     * 人员主数据编码（关联 md_emp.md_code）
+     * 人员主数据编码（关联 mdm_emp.md_code）
      */
     private Long mdCode;
 

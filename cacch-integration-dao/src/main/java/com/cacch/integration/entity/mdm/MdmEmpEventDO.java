@@ -11,7 +11,7 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 /**
- * 人员主数据变更事件 DO —— 映射 PG 表 {@code sys_event}
+ * 人员主数据变更事件 DO —— 映射 PG 表 {@code mdm_emp_event}
  *
  * <p>事件层：落库过程中识别的入离职/调岗/属性更新事件，
  * {@code eventId} 为幂等键（UNIQUE），重复产生时 DO NOTHING 吞掉。</p>
@@ -19,8 +19,8 @@ import java.time.LocalDateTime;
  * @author hongfu_zhou@cacch.com
  */
 @Data
-@TableName("sys_event")
-public class SysEventDO {
+@TableName("mdm_emp_event")
+public class MdmEmpEventDO {
 
     /**
      * 内部主键（雪花生成；手写 insertIgnore SQL 不触发 ASSIGN_ID，由 Service 层预生成）

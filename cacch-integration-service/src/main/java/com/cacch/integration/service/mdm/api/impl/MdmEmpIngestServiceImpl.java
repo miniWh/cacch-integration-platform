@@ -12,17 +12,14 @@ import com.cacch.integration.common.enums.mdm.MdmEmpIngestResultEnum;
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.ResultCode;
 import com.cacch.integration.common.utils.mdm.MdmEmpUtils;
-import com.cacch.integration.entity.mdm.MdEmpDO;
-import com.cacch.integration.entity.mdm.MdEmpOrgAssignDO;
-import com.cacch.integration.entity.mdm.OdsIhrEmpDO;
-import com.cacch.integration.entity.mdm.StgIhrEmpDO;
-import com.cacch.integration.entity.mdm.SysEventDO;
+import com.cacch.integration.entity.mdm.*;
+import com.cacch.integration.entity.mdm.MdmEmpOrgAssignDO;
 import com.cacch.integration.integration.ihr.client.dto.IhrStaffBasicInfo;
-import com.cacch.integration.mapper.mdm.MdEmpMapper;
-import com.cacch.integration.mapper.mdm.MdEmpOrgAssignMapper;
+import com.cacch.integration.mapper.mdm.MdmEmpMapper;
+import com.cacch.integration.mapper.mdm.MdmEmpOrgAssignMapper;
 import com.cacch.integration.mapper.mdm.OdsIhrEmpMapper;
 import com.cacch.integration.mapper.mdm.StgIhrEmpMapper;
-import com.cacch.integration.mapper.mdm.SysEventMapper;
+import com.cacch.integration.mapper.mdm.MdmEmpEventMapper;
 import com.cacch.integration.service.mdm.api.IMdmEmpIngestService;
 import com.cacch.integration.service.mdm.convert.MdmEmpConverter;
 import lombok.RequiredArgsConstructor;
@@ -45,11 +42,11 @@ import java.util.Objects;
  *
  * <p>单员工事务粒度（纯 DB 操作，无 HTTP / Redis），由 Manager 编排调用。
  * 链路：stg 贴源 → rowHash 幂等短路 → ods upsert → 证件号质检 →
- * md_emp 主档 upsert（idHash 识别自然人）→ 任职拉链 → sys_event。</p>
+ * mdm_emp 主档 upsert（idHash 识别自然人）→ 任职拉链 → mdm_emp_event。</p>
  *
- * <p>主键策略：手写 SQL（stg / ods / sys_event）由本类调用
+ * <p>主键策略：手写 SQL（stg / ods / mdm_emp_event）由本类调用
  * {@link IdWorker#getId()} 预生成雪花主键；走 BaseMapper 的
- * md_emp / md_emp_org_assign 由 ASSIGN_ID 自动填充（mdCode 需显式预生成）。</p>
+ * mdm_emp / mdm_emp_org_assign 由 ASSIGN_ID 自动填充（mdCode 需显式预生成）。</p>
  *
  * @author hongfu_zhou@cacch.com
  */
@@ -72,9 +69,9 @@ public class MdmEmpIngestServiceImpl implements IMdmEmpIngestService {
 
     private final StgIhrEmpMapper stgIhrEmpMapper;
     private final OdsIhrEmpMapper odsIhrEmpMapper;
-    private final MdEmpMapper mdEmpMapper;
-    private final MdEmpOrgAssignMapper mdEmpOrgAssignMapper;
-    private final SysEventMapper sysEventMapper;
+    private final MdmEmpMapper mdEmpMapper;
+    private final MdmEmpOrgAssignMapper mdEmpOrgAssignMapper;
+    private final MdmEmpEventMapper sysEventMapper;
     private final MdmEmpProperties mdmEmpProperties;
     private final MdmEmpConverter mdmEmpConverter;
 
@@ -126,15 +123,15 @@ public class MdmEmpIngestServiceImpl implements IMdmEmpIngestService {
             return MdmEmpIngestResultEnum.SKIPPED_MISSING_IDCARD;
         }
 
-        // 5. md_emp 主档 upsert（idHash 识别自然人，工号变更不断链）
+        // 5. mdm_emp 主档 upsert（idHash 识别自然人，工号变更不断链）
         String idHash = MdmEmpUtils.sha256Hex(mdmEmpProperties.getIdHashSalt() + basic.getIdCardNo());
-        MdEmpDO mdEmp = mdEmpMapper.selectOne(new LambdaQueryWrapper<MdEmpDO>()
-                .eq(MdEmpDO::getIdHash, idHash)
+        MdmEmpDO mdEmp = mdEmpMapper.selectOne(new LambdaQueryWrapper<MdmEmpDO>()
+                .eq(MdmEmpDO::getIdHash, idHash)
                 .last("LIMIT 1"));
         boolean mdExisted = mdEmp != null;
         LocalDate enrollInDate = MdmEmpUtils.parseDate(basic.getEnrollInDate(), staffId, "enrollInDate");
         if (mdEmp == null) {
-            mdEmp = new MdEmpDO();
+            mdEmp = new MdmEmpDO();
             mdEmp.setMdCode(IdWorker.getId());
             mdEmp.setIdHash(idHash);
             mdEmp.setFirstHireDate(enrollInDate);
@@ -174,7 +171,7 @@ public class MdmEmpIngestServiceImpl implements IMdmEmpIngestService {
      * @param rowHash      行哈希（事件幂等键组成部分）
      * @return 事件类型（HIRE / REHIRE / LEAVE / TRANSFER / UPDATE）
      */
-    private String resolveAssignAndEvent(MdEmpDO mdEmp, IhrStaffBasicInfo basic, LocalDate enrollInDate,
+    private String resolveAssignAndEvent(MdmEmpDO mdEmp, IhrStaffBasicInfo basic, LocalDate enrollInDate,
                                          boolean mdExisted, String etlBatchNo, String rowHash) {
         String staffId = basic.getStaffId();
         Long mdCode = mdEmp.getMdCode();
@@ -186,9 +183,9 @@ public class MdmEmpIngestServiceImpl implements IMdmEmpIngestService {
         LocalDate leaveDate = MdmEmpUtils.parseDate(basic.getLeaveDate(), staffId, "leaveDate");
         boolean quit = IhrStaffConstants.STAFF_STATUS_QUIT.equals(basic.getStaffStatus());
 
-        MdEmpOrgAssignDO active = mdEmpOrgAssignMapper.selectOne(new LambdaQueryWrapper<MdEmpOrgAssignDO>()
-                .eq(MdEmpOrgAssignDO::getMdCode, mdCode)
-                .isNull(MdEmpOrgAssignDO::getValidTo)
+        MdmEmpOrgAssignDO active = mdEmpOrgAssignMapper.selectOne(new LambdaQueryWrapper<MdmEmpOrgAssignDO>()
+                .eq(MdmEmpOrgAssignDO::getMdCode, mdCode)
+                .isNull(MdmEmpOrgAssignDO::getValidTo)
                 .last("LIMIT 1"));
 
         String eventType;
@@ -246,7 +243,7 @@ public class MdmEmpIngestServiceImpl implements IMdmEmpIngestService {
      */
     private void insertAssign(Long mdCode, IhrStaffBasicInfo basic, LocalDate enrollInDate,
                               LocalDate probationEndDate, LocalDate leaveDate, String staffId) {
-        MdEmpOrgAssignDO assign = mdmEmpConverter.toAssign(basic, mdCode,
+        MdmEmpOrgAssignDO assign = mdmEmpConverter.toAssign(basic, mdCode,
                 deriveAssignStatus(basic.getStaffStatus(), enrollInDate, probationEndDate, leaveDate),
                 MdmEmpOrgAssignConstants.PRINCIPAL_FLAG_YES, enrollInDate);
         mdEmpOrgAssignMapper.insert(assign);
@@ -271,7 +268,7 @@ public class MdmEmpIngestServiceImpl implements IMdmEmpIngestService {
      * @param etlBatchNo   ETL 批次号
      * @param rowHash      行哈希（幂等键组成部分）
      */
-    private void insertEvent(MdEmpDO mdEmp, IhrStaffBasicInfo basic, String eventType, String changeLevel,
+    private void insertEvent(MdmEmpDO mdEmp, IhrStaffBasicInfo basic, String eventType, String changeLevel,
                              String orgCode, String orgName, String positionCode, String positionName,
                              LocalDate validFrom, LocalDate validTo, String etlBatchNo, String rowHash) {
         Map<String, Object> payloadMap = new LinkedHashMap<>();
@@ -296,7 +293,7 @@ public class MdmEmpIngestServiceImpl implements IMdmEmpIngestService {
         }
 
         String eventId = MdmEmpUtils.sha256Hex(mdEmp.getMdCode() + ":" + eventType + ":" + rowHash);
-        SysEventDO event = new SysEventDO();
+        MdmEmpEventDO event = new MdmEmpEventDO();
         event.setId(IdWorker.getId());
         event.setEventId(eventId);
         event.setEventType(eventType);

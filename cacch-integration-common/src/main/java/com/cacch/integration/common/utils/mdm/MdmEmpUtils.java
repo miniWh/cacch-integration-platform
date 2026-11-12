@@ -26,8 +26,8 @@ public final class MdmEmpUtils {
     /**
      * SHA-256 哈希（小写 hex）
      *
-     * <p>用于 md_emp.id_hash（身份哈希）、ods 行哈希（rowHash）、
-     * sys_event.event_id（事件幂等键）。</p>
+     * <p>用于 mdm_emp.id_hash（身份哈希）、ods 行哈希（rowHash）、
+     * mdm_emp_event.event_id（事件幂等键）。</p>
      *
      * @param value 原文（可为 null，按空串处理）
      * @return 64 位小写 hex 哈希

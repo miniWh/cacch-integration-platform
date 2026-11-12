@@ -11,7 +11,7 @@ import lombok.Getter;
 public enum MdmEmpIngestResultEnum {
 
     /**
-     * 已完成 stg/ods/md_emp/任职/事件全链路落库
+     * 已完成 stg/ods/mdm_emp/任职/事件全链路落库
      */
     INGESTED("已落库并产生事件"),
 

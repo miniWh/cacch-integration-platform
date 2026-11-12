@@ -14,8 +14,8 @@ public interface IMdmEmpIngestService {
      * 单员工落库（单员工事务粒度，纯 DB 操作）
      *
      * <p>处理顺序：stg 贴源（幂等）→ rowHash 比对幂等短路 → ods upsert →
-     * 证件号质检 → md_emp 主档 upsert（按 idHash 识别自然人）→
-     * 任职拉链判定（HIRE/REHIRE/LEAVE/TRANSFER/UPDATE）→ sys_event 幂等插入。</p>
+     * 证件号质检 → mdm_emp 主档 upsert（按 idHash 识别自然人）→
+     * 任职拉链判定（HIRE/REHIRE/LEAVE/TRANSFER/UPDATE）→ mdm_emp_event 幂等插入。</p>
      *
      * <p>幂等与质检规则：
      * <ul>

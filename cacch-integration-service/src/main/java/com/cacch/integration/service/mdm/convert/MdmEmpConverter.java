@@ -1,8 +1,8 @@
 package com.cacch.integration.service.mdm.convert;
 
 import com.cacch.integration.common.utils.mdm.MdmEmpUtils;
-import com.cacch.integration.entity.mdm.MdEmpDO;
-import com.cacch.integration.entity.mdm.MdEmpOrgAssignDO;
+import com.cacch.integration.entity.mdm.MdmEmpDO;
+import com.cacch.integration.entity.mdm.MdmEmpOrgAssignDO;
 import com.cacch.integration.entity.mdm.OdsIhrEmpDO;
 import com.cacch.integration.integration.ihr.client.dto.IhrStaffBasicInfo;
 import org.mapstruct.BeanMapping;
@@ -107,7 +107,7 @@ public interface MdmEmpConverter {
     @Mapping(target = "mobile", source = "basic.mobileNo")
     @Mapping(target = "email", expression = "java(primaryEmail(basic))")
     @Mapping(target = "education", source = "basic.highestEducation")
-    void updateBasicInfo(IhrStaffBasicInfo basic, @MappingTarget MdEmpDO target);
+    void updateBasicInfo(IhrStaffBasicInfo basic, @MappingTarget MdmEmpDO target);
 
     // ==================== MD_EMP_ORG_ASSIGN 任职 ====================
 
@@ -131,5 +131,5 @@ public interface MdmEmpConverter {
     @Mapping(target = "assignStatus", source = "assignStatus")
     @Mapping(target = "principalFlag", source = "principalFlag")
     @Mapping(target = "validFrom", source = "validFrom")
-    MdEmpOrgAssignDO toAssign(IhrStaffBasicInfo basic, Long mdCode, String assignStatus, String principalFlag, LocalDate validFrom);
+    MdmEmpOrgAssignDO toAssign(IhrStaffBasicInfo basic, Long mdCode, String assignStatus, String principalFlag, LocalDate validFrom);
 }

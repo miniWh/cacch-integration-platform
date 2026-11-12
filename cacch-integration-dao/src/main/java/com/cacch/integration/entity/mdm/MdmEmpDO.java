@@ -12,13 +12,13 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * 人员主数据身份主档 DO —— 映射 PG 表 {@code md_emp}
+ * 人员主数据身份主档 DO —— 映射 PG 表 {@code mdm_emp}
  *
  * @author hongfu_zhou@cacch.com
  */
 @Data
-@TableName("md_emp")
-public class MdEmpDO {
+@TableName("mdm_emp")
+public class MdmEmpDO {
 
     /**
      * 内部主键（雪花生成，BaseMapper.insert 自动填充 ASSIGN_ID）

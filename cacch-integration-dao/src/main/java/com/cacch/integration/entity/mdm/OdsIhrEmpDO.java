@@ -66,7 +66,7 @@ public class OdsIhrEmpDO {
     private String ihrIdCardType;
 
     /**
-     * 证件号码（用于 md_emp.id_hash 溯源；禁止打印到日志）
+     * 证件号码（用于 mdm_emp.id_hash 溯源；禁止打印到日志）
      */
     private String ihrIdCard;
 

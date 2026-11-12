@@ -1,7 +1,7 @@
 package com.cacch.integration.mapper.mdm;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.cacch.integration.entity.mdm.MdEmpDO;
+import com.cacch.integration.entity.mdm.MdmEmpDO;
 import org.apache.ibatis.annotations.Mapper;
 
 /**
@@ -10,5 +10,5 @@ import org.apache.ibatis.annotations.Mapper;
  * @author hongfu_zhou@cacch.com
  */
 @Mapper
-public interface MdEmpMapper extends BaseMapper<MdEmpDO> {
+public interface MdmEmpMapper extends BaseMapper<MdmEmpDO> {
 }
