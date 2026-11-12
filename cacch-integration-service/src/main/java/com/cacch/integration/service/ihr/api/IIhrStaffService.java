@@ -3,7 +3,9 @@ package com.cacch.integration.service.ihr.api;
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.integration.ihr.client.dto.IhrStaffBasicInfo;
 import com.cacch.integration.integration.ihr.client.dto.IhrStaffBasicResponse;
+import com.cacch.integration.integration.ihr.client.dto.IhrStaffModificationInfo;
 
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -51,4 +53,33 @@ public interface IIhrStaffService {
      * @throws com.cacch.integration.common.exception.BizException staffId 为空时抛出
      */
     IhrStaffBasicInfo fetchStaffBasic(String staffId);
+
+    /**
+     * 拉取指定日期新增的员工 ID 全量清单（内部循环翻页直到末页）
+     *
+     * <p>调用方无需关心分页实现，本方法一次返回合并后的完整 ID 列表。</p>
+     *
+     * @param date 拉取日期（员工在 iHR 的创建时间在此日期）；传 null 默认当天
+     * @return 合并后的员工 ID 字符串列表；无数据时返回空列表，不会返回 null
+     * @throws BizException iHR 接口返回业务失败码、HTTP 异常或重试后仍失败时抛出
+     */
+    List<String> fetchAddedStaffIds(LocalDate date);
+
+    /**
+     * 拉取指定日期更新的员工变更记录全量清单（内部循环翻页直到末页）
+     *
+     * <p>iHR 更新接口 V2 返回 staffId + lastUpdate（秒级时间戳），
+     * 用于增量同步时按时间戳升序处理，保证早变更先落库。</p>
+     *
+     * @param date        拉取日期（员工在 iHR 的最后修改时间在此日期及之后）；传 null 默认当天
+     * @param staffStatus 员工状态过滤：
+     *                    <ul>
+     *                        <li>{@link com.cacch.integration.common.constant.ihr.IhrStaffConstants#STAFF_STATUS_IN_SERVICE} — 仅在职</li>
+     *                        <li>{@link com.cacch.integration.common.constant.ihr.IhrStaffConstants#STAFF_STATUS_QUIT} — 仅离职</li>
+     *                        <li>null — 不传 iHR 默认 IN_SERVICE</li>
+     *                    </ul>
+     * @return 合并后的员工变更记录列表；无数据时返回空列表，不会返回 null
+     * @throws BizException iHR 接口返回业务失败码、HTTP 异常或重试后仍失败时抛出
+     */
+    List<IhrStaffModificationInfo> fetchModifications(LocalDate date, String staffStatus);
 }

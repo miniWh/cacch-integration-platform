@@ -9,6 +9,9 @@ import com.cacch.integration.integration.ihr.client.dto.IhrStaffBasicInfo;
 import com.cacch.integration.integration.ihr.client.dto.IhrStaffBasicResponse;
 import com.cacch.integration.integration.ihr.client.dto.IhrStaffIdsData;
 import com.cacch.integration.integration.ihr.client.dto.IhrStaffIdsResponse;
+import com.cacch.integration.integration.ihr.client.dto.IhrStaffModificationInfo;
+import com.cacch.integration.integration.ihr.client.dto.IhrStaffModificationsData;
+import com.cacch.integration.integration.ihr.client.dto.IhrStaffModificationsResponse;
 import com.cacch.integration.service.ihr.api.IIhrStaffService;
 import com.cacch.integration.service.ihr.api.IIhrTokenService;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +23,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestClientException;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -45,7 +49,7 @@ public class IhrStaffServiceImpl implements IIhrStaffService {
         String[] tokenHolder = {ihrTokenService.getAccessToken()};
 
         // 第 1 页 — 同时探明总页数
-        IhrStaffIdsData first = fetchPageData(tokenHolder, staffStatus, 1);
+        IhrStaffIdsData first = fetchStaffIdsPageData(tokenHolder, staffStatus, 1);
         if (first == null || CollectionUtils.isEmpty(first.getDataList())) {
             log.info("【{}】fetchAllStaffIds 返回空, staffStatus={}, reason=无员工数据", BIZ, staffStatus);
             return Collections.emptyList();
@@ -56,13 +60,62 @@ public class IhrStaffServiceImpl implements IIhrStaffService {
 
         // 翻页拉取后续页（token 由 holder 自动携带最新值）
         for (int p = 2; p <= totalPages; p++) {
-            IhrStaffIdsData page = fetchPageData(tokenHolder, staffStatus, p);
+            IhrStaffIdsData page = fetchStaffIdsPageData(tokenHolder, staffStatus, p);
             if (page != null && !CollectionUtils.isEmpty(page.getDataList())) {
                 all.addAll(page.getDataList());
             }
         }
 
         log.info("【{}】fetchAllStaffIds 完成, staffStatus={}, 总页数={}, 总条数={}", BIZ, staffStatus, totalPages, all.size());
+        return all;
+    }
+
+    @Override
+    public List<String> fetchAddedStaffIds(LocalDate date) {
+        String[] tokenHolder = {ihrTokenService.getAccessToken()};
+
+        IhrStaffIdsData first = fetchAdditionsPageData(tokenHolder, date, 1);
+        if (first == null || CollectionUtils.isEmpty(first.getDataList())) {
+            log.info("【{}】fetchAddedStaffIds 返回空, date={}, reason=无新增员工数据", BIZ, date);
+            return Collections.emptyList();
+        }
+
+        List<String> all = new ArrayList<>(first.getDataList());
+        int totalPages = resolveTotalPages(first.getPageInfo());
+
+        for (int p = 2; p <= totalPages; p++) {
+            IhrStaffIdsData page = fetchAdditionsPageData(tokenHolder, date, p);
+            if (page != null && !CollectionUtils.isEmpty(page.getDataList())) {
+                all.addAll(page.getDataList());
+            }
+        }
+
+        log.info("【{}】fetchAddedStaffIds 完成, date={}, 总页数={}, 总条数={}", BIZ, date, totalPages, all.size());
+        return all;
+    }
+
+    @Override
+    public List<IhrStaffModificationInfo> fetchModifications(LocalDate date, String staffStatus) {
+        String[] tokenHolder = {ihrTokenService.getAccessToken()};
+
+        IhrStaffModificationsData first = fetchModificationsPageData(tokenHolder, date, staffStatus, 1);
+        if (first == null || CollectionUtils.isEmpty(first.getDataList())) {
+            log.info("【{}】fetchModifications 返回空, date={}, staffStatus={}, reason=无更新员工数据", BIZ, date, staffStatus);
+            return Collections.emptyList();
+        }
+
+        List<IhrStaffModificationInfo> all = new ArrayList<>(first.getDataList());
+        int totalPages = resolveTotalPages(first.getPageInfo());
+
+        for (int p = 2; p <= totalPages; p++) {
+            IhrStaffModificationsData page = fetchModificationsPageData(tokenHolder, date, staffStatus, p);
+            if (page != null && !CollectionUtils.isEmpty(page.getDataList())) {
+                all.addAll(page.getDataList());
+            }
+        }
+
+        log.info("【{}】fetchModifications 完成, date={}, staffStatus={}, 总页数={}, 总条数={}",
+                BIZ, date, staffStatus, totalPages, all.size());
         return all;
     }
 
@@ -117,21 +170,12 @@ public class IhrStaffServiceImpl implements IIhrStaffService {
         return resp;
     }
 
+    // ==================== 单页拉取 + 401 刷新重试（3 类响应独立实现） ====================
+
     /**
-     * 拉取单页员工 ID 数据 — 含 401/403 刷新 token 重试与业务失败判定
-     *
-     * <p>本方法保证「正常返回即业务成功」语义：任何失败路径（HTTP 异常、业务码非 0）
-     * 均以异常终止，调用方无需重复判定。401/403 时强制刷新 token 后重试一次，
-     * 新 token 写回 {@code tokenHolder[0]}，后续页自动复用。</p>
-     *
-     * @param tokenHolder 单元素数组，承载当前可用 access_token（可变引用）
-     * @param staffStatus 员工状态过滤，null 或空字符串查全部状态
-     * @param pageNo      拉取页码（从 1 起）
-     * @return 该页业务数据（含分页信息与 ID 列表）；响应无 data 时返回 null
-     * @throws BizException        业务码非 0 时抛出
-     * @throws RestClientException HTTP 调用异常、重试后仍失败时抛出
+     * 拉取全量员工 ID 清单单页 — 含 401/403 刷新 token 重试与业务失败判定
      */
-    private IhrStaffIdsData fetchPageData(String[] tokenHolder, String staffStatus, int pageNo) {
+    private IhrStaffIdsData fetchStaffIdsPageData(String[] tokenHolder, String staffStatus, int pageNo) {
         IhrStaffIdsResponse resp;
         try {
             resp = ihrStaffClient.fetchStaffIdsPage(tokenHolder[0], staffStatus, pageNo);
@@ -162,10 +206,81 @@ public class IhrStaffServiceImpl implements IIhrStaffService {
     }
 
     /**
+     * 拉取新增员工 ID 清单单页 — 含 401/403 刷新 token 重试与业务失败判定
+     */
+    private IhrStaffIdsData fetchAdditionsPageData(String[] tokenHolder, LocalDate date, int pageNo) {
+        IhrStaffIdsResponse resp;
+        try {
+            resp = ihrStaffClient.fetchAddedStaffIdsPage(tokenHolder[0], date, pageNo);
+        } catch (HttpStatusCodeException e) {
+            if (e.getStatusCode() == HttpStatus.UNAUTHORIZED || e.getStatusCode() == HttpStatus.FORBIDDEN) {
+                log.info("【{}】HTTP {}, 强制刷新 token 后重试, pageNo={}, date={}", BIZ, e.getStatusCode().value(), pageNo, date);
+                tokenHolder[0] = ihrTokenService.forceRefresh();
+                resp = ihrStaffClient.fetchAddedStaffIdsPage(tokenHolder[0], date, pageNo);
+            } else {
+                log.info("【{}】HTTP 调用终止, status={}, pageNo={}, date={}", BIZ, e.getStatusCode().value(), pageNo, date);
+                throw e;
+            }
+        } catch (RestClientException e) {
+            log.info("【{}】HTTP 调用终止, pageNo={}, date={}, reason={}", BIZ, pageNo, date, e.getMessage());
+            throw e;
+        }
+
+        if (resp == null || !resp.isSuccess()) {
+            log.info("【{}】接口终止, pageNo={}, date={}, code={}, message={}",
+                    BIZ, pageNo, date, resp == null ? "null" : resp.getCode(),
+                    resp == null ? "空响应" : resp.getMessage());
+            throw new BizException(ResultCode.INTEGRATION_ERROR,
+                    "IHR 新增员工ID清单拉取失败: pageNo=" + pageNo + ", date=" + date
+                            + ", code=" + (resp == null ? "null" : resp.getCode())
+                            + ", message=" + (resp == null ? "空响应" : resp.getMessage()));
+        }
+        return resp.getData();
+    }
+
+    /**
+     * 拉取更新员工 ID 清单 V2 单页 — 含 401/403 刷新 token 重试与业务失败判定
+     */
+    private IhrStaffModificationsData fetchModificationsPageData(String[] tokenHolder, LocalDate date,
+                                                                 String staffStatus, int pageNo) {
+        IhrStaffModificationsResponse resp;
+        try {
+            resp = ihrStaffClient.fetchModificationsPage(tokenHolder[0], date, staffStatus, pageNo);
+        } catch (HttpStatusCodeException e) {
+            if (e.getStatusCode() == HttpStatus.UNAUTHORIZED || e.getStatusCode() == HttpStatus.FORBIDDEN) {
+                log.info("【{}】HTTP {}, 强制刷新 token 后重试, pageNo={}, date={}, staffStatus={}",
+                        BIZ, e.getStatusCode().value(), pageNo, date, staffStatus);
+                tokenHolder[0] = ihrTokenService.forceRefresh();
+                resp = ihrStaffClient.fetchModificationsPage(tokenHolder[0], date, staffStatus, pageNo);
+            } else {
+                log.info("【{}】HTTP 调用终止, status={}, pageNo={}, date={}, staffStatus={}",
+                        BIZ, e.getStatusCode().value(), pageNo, date, staffStatus);
+                throw e;
+            }
+        } catch (RestClientException e) {
+            log.info("【{}】HTTP 调用终止, pageNo={}, date={}, staffStatus={}, reason={}",
+                    BIZ, pageNo, date, staffStatus, e.getMessage());
+            throw e;
+        }
+
+        if (resp == null || !resp.isSuccess()) {
+            log.info("【{}】接口终止, pageNo={}, date={}, staffStatus={}, code={}, message={}",
+                    BIZ, pageNo, date, staffStatus,
+                    resp == null ? "null" : resp.getCode(),
+                    resp == null ? "空响应" : resp.getMessage());
+            throw new BizException(ResultCode.INTEGRATION_ERROR,
+                    "IHR 更新员工ID清单V2拉取失败: pageNo=" + pageNo + ", date=" + date
+                            + ", staffStatus=" + staffStatus
+                            + ", code=" + (resp == null ? "null" : resp.getCode())
+                            + ", message=" + (resp == null ? "空响应" : resp.getMessage()));
+        }
+        return resp.getData();
+    }
+
+    // ==================== 通用工具方法 ====================
+
+    /**
      * 规范化总页数 — null 或小于 1 时兜底返回 1
-     *
-     * <p>避免 {@code pageInfo.getTotalPages()} 为 null 时自动拆箱 NPE，
-     * 同时保证单页场景（iHR 未返回分页信息）正常返回。</p>
      *
      * @param pageInfo 分页信息，可为 null
      * @return 不小于 1 的总页数

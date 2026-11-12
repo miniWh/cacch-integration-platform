@@ -22,4 +22,14 @@ public final class IhrPathConstants {
      * 获取员工基本信息
      */
     public static final String STAFF_BASIC_PATH = "/openapi/thirdparty/api/staff/v1/staffs/%s/basic";
+
+    /**
+     * 获取当日新增员工 ID 清单
+     */
+    public static final String STAFF_ADDITIONS_PATH = "/openapi/thirdparty/api/staff/v1/staffs/additions";
+
+    /**
+     * 获取当日更新员工 ID 清单 V2
+     */
+    public static final String STAFF_MODIFICATIONS_PATH = "/openapi/thirdparty/api/staff/v2/staffs/modifications";
 }
