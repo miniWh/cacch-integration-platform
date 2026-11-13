@@ -26,11 +26,18 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * 部门主数据（MDM）单部门落库 Service 实现
@@ -118,19 +125,104 @@ public class MdmDeptIngestServiceImpl implements IMdmDeptIngestService {
     }
 
     /**
+     * 停用比对 —— mdm_dept 中不在 iHR 存活集合内的部门置停用并写 DISABLE/HIGH 事件
+     *
+     * <p>逐条处理未逻辑删除行：uuid 不在存活集且状态非 DISABLE 的置
+     * {@code dept_status='DISABLE'} 并写事件（eventId =
+     * SHA-256(deptUuid:DISABLE:etlBatchNo)，同批次幂等）；
+     * 已停用的跳过并汇总计数。</p>
+     *
+     * @param aliveDeptUuids 本轮 iHR 全量拉取到的部门 uuid 集合
+     * @param etlBatchNo     ETL 批次号（事件幂等键组成部分）
+     * @return 本轮实际停用的部门数量
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED, timeout = 30)
+    public int disableMissing(Collection<String> aliveDeptUuids, String etlBatchNo) {
+        if (CollectionUtils.isEmpty(aliveDeptUuids)) {
+            log.info("【{}】存活部门集合为空, 跳过停用比对, reason=防止误停用全量, batchNo={}", BIZ, etlBatchNo);
+            return 0;
+        }
+        List<MdmDeptDO> mdmList = mdmDeptMapper.selectList(null);
+        int disabled = 0;
+        int alreadyDisabled = 0;
+        for (MdmDeptDO mdDept : mdmList) {
+            if (aliveDeptUuids.contains(mdDept.getDeptUuid())) {
+                continue;
+            }
+            if (MdmDeptCommonConstants.DEPT_STATUS_DISABLED.equals(mdDept.getDeptStatus())) {
+                alreadyDisabled++;
+                continue;
+            }
+            mdDept.setDeptStatus(MdmDeptCommonConstants.DEPT_STATUS_DISABLED);
+            mdmDeptMapper.updateById(mdDept);
+            insertEvent(mdDept, MdmDeptEventConstants.EVENT_TYPE_DISABLE,
+                    MdmDeptEventConstants.CHANGE_LEVEL_HIGH, etlBatchNo, etlBatchNo);
+            disabled++;
+            log.info("【{}】部门停用完成, deptId={}, ihrDeptUuid={}, deptCode={}, batchNo={}",
+                    BIZ, mdDept.getId(), mdDept.getDeptUuid(), mdDept.getDeptCode(), etlBatchNo);
+        }
+        log.info("【{}】停用比对完成, 停用数={}, 既往已停用数={}, 存活集大小={}, batchNo={}",
+                BIZ, disabled, alreadyDisabled, aliveDeptUuids.size(), etlBatchNo);
+        return disabled;
+    }
+
+    /**
+     * 按 iHR 部门 ID 解析部门编码（ods_ihr_dept.ihr_dept_id → department_code）
+     *
+     * @param ihrDeptId iHR 部门 ID（数字字符串形式；null 或空时直接返回 null）
+     * @return 部门编码；未匹配或编码为空时返回 null
+     */
+    @Override
+    public String resolveDeptCodeByIhrDeptId(String ihrDeptId) {
+        if (!StringUtils.hasText(ihrDeptId)) {
+            return null;
+        }
+        OdsIhrDeptDO odsDept = odsIhrDeptMapper.selectOne(new LambdaQueryWrapper<OdsIhrDeptDO>()
+                .eq(OdsIhrDeptDO::getIhrDeptId, ihrDeptId)
+                .last("LIMIT 1"));
+        return odsDept == null ? null : MdmDeptUtils.nullIfBlank(odsDept.getDepartmentCode());
+    }
+
+    /**
+     * 部门主数据一致性核对（mdm_dept 与 ods_ihr_dept 双向 uuid 差集，纯查询无事务）
+     */
+    @Override
+    public DeptVerifyResult verifyWithOds() {
+        List<MdmDeptDO> mdmList = mdmDeptMapper.selectList(null);
+        List<OdsIhrDeptDO> odsList = odsIhrDeptMapper.selectList(null);
+
+        Set<String> mdmUuids = new HashSet<>();
+        for (MdmDeptDO md : mdmList) {
+            mdmUuids.add(md.getDeptUuid());
+        }
+        Set<String> odsUuids = new HashSet<>();
+        for (OdsIhrDeptDO ods : odsList) {
+            odsUuids.add(ods.getIhrDeptUuid());
+        }
+
+        List<String> missingInMdm = new ArrayList<>(odsUuids);
+        missingInMdm.removeAll(mdmUuids);
+        List<String> missingInOds = new ArrayList<>(mdmUuids);
+        missingInOds.removeAll(odsUuids);
+        return new DeptVerifyResult(mdmList.size(), odsList.size(), missingInMdm, missingInOds);
+    }
+
+    /**
      * 写入变更事件（幂等键冲突时静默吞掉）
      *
-     * <p>eventId = SHA-256(deptUuid:eventType:rowHash)：内容不变的事件重复产生时
-     * 幂等去重，真实内容变化（rowHash 变化）则生成新事件。</p>
+     * <p>eventId = SHA-256(deptUuid:eventType:idBasis)：落库场景 idBasis 为 rowHash
+     * （内容不变的事件重复产生时幂等去重）；停用场景 idBasis 为 etlBatchNo
+     * （同批次同部门仅一条 DISABLE 事件）。</p>
      *
      * @param mdDept      部门主档 DO（已落库，含 id）
-     * @param eventType   事件类型（CREATE / UPDATE）
+     * @param eventType   事件类型（CREATE / UPDATE / DISABLE）
      * @param changeLevel 变更级别（HIGH / NORMAL）
      * @param etlBatchNo  ETL 批次号
-     * @param rowHash     行哈希（事件幂等键组成部分）
+     * @param idBasis     事件幂等键基础串（落库场景传 rowHash，停用场景传 etlBatchNo）
      */
     private void insertEvent(MdmDeptDO mdDept, String eventType, String changeLevel,
-                             String etlBatchNo, String rowHash) {
+                             String etlBatchNo, String idBasis) {
         Long deptId = mdDept.getId();
         Map<String, Object> payloadMap = new LinkedHashMap<>();
         payloadMap.put("deptId", deptId);
@@ -147,7 +239,7 @@ public class MdmDeptIngestServiceImpl implements IMdmDeptIngestService {
             throw new BizException(ResultCode.SYSTEM_ERROR, "事件 payload 序列化失败");
         }
 
-        String eventId = MdmDeptUtils.sha256Hex(mdDept.getDeptUuid() + ":" + eventType + ":" + rowHash);
+        String eventId = MdmDeptUtils.sha256Hex(mdDept.getDeptUuid() + ":" + eventType + ":" + idBasis);
         MdmDeptEventDO event = new MdmDeptEventDO();
         event.setId(IdWorker.getId());
         event.setEventId(eventId);

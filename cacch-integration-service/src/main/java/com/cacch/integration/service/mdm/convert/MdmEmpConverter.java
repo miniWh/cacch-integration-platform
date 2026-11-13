@@ -134,11 +134,12 @@ public interface MdmEmpConverter {
     // ==================== MDM_EMP_ORG_ASSIGN 任职 ====================
 
     /**
-     * 构造 MdmEmpOrgAssignDO（empId / assignStatus / principalFlag / validFrom / validTo
-     * 由调用方显式传入）
+     * 构造 MdmEmpOrgAssignDO（empId / orgCode / assignStatus / principalFlag / validFrom / validTo
+     * 由调用方显式传入；orgCode 为解析后的部门编码，映射缺失时由调用方回退）
      *
-     * @param basic         iHR 员工基本信息 DTO（departmentId / departmentName / positionId / positionName 复用）
+     * @param basic         iHR 员工基本信息 DTO（departmentName / positionId / positionName 复用）
      * @param empId         关联 mdm_emp.id
+     * @param orgCode       组织编码（ods_ihr_dept 映射出的部门编码；映射缺失时为部门 ID 字符串）
      * @param assignStatus  任职状态常量
      * @param principalFlag 主任职标记
      * @param validFrom     生效起始日
@@ -147,7 +148,7 @@ public interface MdmEmpConverter {
      */
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     @Mapping(target = "empId", source = "empId")
-    @Mapping(target = "orgCode", expression = "java(toOrgCode(basic.getDepartmentId()))")
+    @Mapping(target = "orgCode", source = "orgCode")
     @Mapping(target = "orgName", expression = "java(nullIfBlank(basic.getDepartmentName()))")
     @Mapping(target = "positionCode", expression = "java(nullIfBlank(basic.getPositionId()))")
     @Mapping(target = "positionName", expression = "java(nullIfBlank(basic.getPositionName()))")
@@ -155,6 +156,6 @@ public interface MdmEmpConverter {
     @Mapping(target = "principalFlag", source = "principalFlag")
     @Mapping(target = "validFrom", source = "validFrom")
     @Mapping(target = "validTo", source = "validTo")
-    MdmEmpOrgAssignDO toAssign(IhrStaffBasicInfo basic, Long empId, String assignStatus,
+    MdmEmpOrgAssignDO toAssign(IhrStaffBasicInfo basic, Long empId, String orgCode, String assignStatus,
                                String principalFlag, LocalDate validFrom, LocalDate validTo);
 }

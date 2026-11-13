@@ -3,6 +3,7 @@ package com.cacch.integration.service.ihr.api.impl;
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.ResultCode;
 import com.cacch.integration.integration.ihr.client.IhrOrgClient;
+import com.cacch.integration.integration.ihr.client.dto.IhrDepartment;
 import com.cacch.integration.integration.ihr.client.dto.IhrDepartmentDetailResponse;
 import com.cacch.integration.integration.ihr.client.dto.IhrOrgSearchRequest;
 import com.cacch.integration.integration.ihr.client.dto.IhrOrgSearchResponse;
@@ -11,8 +12,12 @@ import com.cacch.integration.service.ihr.api.IIhrTokenService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClientException;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * IHR 组织架构/部门服务实现
@@ -28,6 +33,52 @@ public class IhrOrgServiceImpl implements IIhrOrgService {
     private final IhrOrgClient ihrOrgClient;
 
     private static final String BIZ = "IHR 组织架构/部门服务实现";
+
+    /**
+     * 全量拉取部门清单每页条数
+     */
+    private static final int DEPT_PAGE_SIZE = 100;
+
+    /**
+     * 翻页安全上限（防止 end / totalPages 均缺失时死循环）
+     */
+    private static final int MAX_PAGES = 1000;
+
+    @Override
+    public List<IhrDepartment> fetchAllDepartments() {
+        List<IhrDepartment> all = new ArrayList<>();
+        for (int page = 0; page < MAX_PAGES; page++) {
+            IhrOrgSearchRequest request = new IhrOrgSearchRequest();
+            request.setPage(page);
+            request.setSize(DEPT_PAGE_SIZE);
+
+            IhrOrgSearchResponse resp = searchDepartments(request);
+            if (resp == null || !resp.isSuccess()) {
+                log.info("【{}】全量拉取部门终止, page={}, code={}, message={}, reason=业务失败",
+                        BIZ, page, resp == null ? "null" : resp.getCode(),
+                        resp == null ? "空响应" : resp.getMessage());
+                throw new BizException(ResultCode.INTEGRATION_ERROR,
+                        "IHR 全量拉取部门失败: page=" + page
+                                + ", code=" + (resp == null ? "null" : resp.getCode())
+                                + ", message=" + (resp == null ? "空响应" : resp.getMessage()));
+            }
+            if (CollectionUtils.isEmpty(resp.getData())) {
+                if (page == 0) {
+                    log.info("【{}】全量拉取部门返回空, reason=首页即无数据", BIZ);
+                    return List.of();
+                }
+                break;
+            }
+            all.addAll(resp.getData());
+
+            Integer totalPages = resp.getTotalPages();
+            if (Boolean.TRUE.equals(resp.getEnd()) || (totalPages != null && page >= totalPages - 1)) {
+                break;
+            }
+        }
+        log.info("【{}】fetchAllDepartments 完成, 部门总数={}", BIZ, all.size());
+        return all;
+    }
 
     @Override
     public IhrOrgSearchResponse searchDepartments(IhrOrgSearchRequest request) {

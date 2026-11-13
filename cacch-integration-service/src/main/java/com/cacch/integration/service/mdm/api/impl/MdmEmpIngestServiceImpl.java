@@ -15,6 +15,7 @@ import com.cacch.integration.entity.mdm.MdmEmpDO;
 import com.cacch.integration.entity.mdm.MdmEmpEventDO;
 import com.cacch.integration.entity.mdm.MdmEmpOrgAssignDO;
 import com.cacch.integration.entity.mdm.MdmEmpSrcRefDO;
+import com.cacch.integration.entity.mdm.OdsIhrDeptDO;
 import com.cacch.integration.entity.mdm.OdsIhrEmpDO;
 import com.cacch.integration.entity.mdm.StgIhrEmpDO;
 import com.cacch.integration.integration.ihr.client.dto.IhrStaffBasicInfo;
@@ -22,6 +23,7 @@ import com.cacch.integration.mapper.mdm.MdmEmpEventMapper;
 import com.cacch.integration.mapper.mdm.MdmEmpMapper;
 import com.cacch.integration.mapper.mdm.MdmEmpOrgAssignMapper;
 import com.cacch.integration.mapper.mdm.MdmEmpSrcRefMapper;
+import com.cacch.integration.mapper.mdm.OdsIhrDeptMapper;
 import com.cacch.integration.mapper.mdm.OdsIhrEmpMapper;
 import com.cacch.integration.mapper.mdm.StgIhrEmpMapper;
 import com.cacch.integration.service.mdm.api.IMdmEmpIngestService;
@@ -79,6 +81,7 @@ public class MdmEmpIngestServiceImpl implements IMdmEmpIngestService {
 
     private final StgIhrEmpMapper stgIhrEmpMapper;
     private final OdsIhrEmpMapper odsIhrEmpMapper;
+    private final OdsIhrDeptMapper odsIhrDeptMapper;
     private final MdmEmpMapper mdEmpMapper;
     private final MdmEmpOrgAssignMapper mdEmpOrgAssignMapper;
     private final MdmEmpEventMapper sysEventMapper;
@@ -200,7 +203,7 @@ public class MdmEmpIngestServiceImpl implements IMdmEmpIngestService {
                                          boolean mdExisted, String etlBatchNo, String rowHash) {
         String staffId = basic.getStaffId();
         Long empId = mdEmp.getId();
-        String orgCode = MdmEmpUtils.nullIfBlank(MdmEmpUtils.longToStringSafe(basic.getDepartmentId()));
+        String orgCode = resolveOrgCode(basic.getDepartmentId(), staffId);
         String orgName = MdmEmpUtils.nullIfBlank(basic.getDepartmentName());
         String positionCode = MdmEmpUtils.nullIfBlank(basic.getPositionId());
         String positionName = MdmEmpUtils.nullIfBlank(basic.getPositionName());
@@ -228,14 +231,14 @@ public class MdmEmpIngestServiceImpl implements IMdmEmpIngestService {
                         lastEnded.getValidFrom(), lastEnded.getValidTo(), etlBatchNo, rowHash);
             } else {
                 // 首次同步即离职：开一行完整封口的任职行（validFrom=入职日, validTo=离职日）
-                insertAssign(empId, basic, enrollInDate, probationEndDate, leaveDate, leaveDate);
+                insertAssign(empId, basic, orgCode, enrollInDate, probationEndDate, leaveDate, leaveDate);
                 eventType = MdmEmpEventConstants.EVENT_TYPE_LEAVE;
                 insertEvent(mdEmp, basic, eventType, MdmEmpEventConstants.CHANGE_LEVEL_HIGH,
                         orgCode, orgName, positionCode, positionName, enrollInDate, leaveDate, etlBatchNo, rowHash);
             }
         } else if (active == null) {
             // 新开任职（首次建档或再入职）
-            insertAssign(empId, basic, enrollInDate, probationEndDate, leaveDate, null);
+            insertAssign(empId, basic, orgCode, enrollInDate, probationEndDate, leaveDate, null);
             eventType = mdExisted ? MdmEmpEventConstants.EVENT_TYPE_REHIRE : MdmEmpEventConstants.EVENT_TYPE_HIRE;
             insertEvent(mdEmp, basic, eventType, MdmEmpEventConstants.CHANGE_LEVEL_HIGH,
                     orgCode, orgName, positionCode, positionName, enrollInDate, null, etlBatchNo, rowHash);
@@ -259,7 +262,7 @@ public class MdmEmpIngestServiceImpl implements IMdmEmpIngestService {
             active.setValidTo(transferDate);
             active.setAssignStatus(MdmEmpOrgAssignConstants.ASSIGN_STATUS_ENDED);
             mdEmpOrgAssignMapper.updateById(active);
-            insertAssign(empId, basic, transferDate, probationEndDate, leaveDate, null);
+            insertAssign(empId, basic, orgCode, transferDate, probationEndDate, leaveDate, null);
             eventType = MdmEmpEventConstants.EVENT_TYPE_TRANSFER;
             insertEvent(mdEmp, basic, eventType, MdmEmpEventConstants.CHANGE_LEVEL_NORMAL,
                     orgCode, orgName, positionCode, positionName, transferDate, null, etlBatchNo, rowHash);
@@ -280,18 +283,44 @@ public class MdmEmpIngestServiceImpl implements IMdmEmpIngestService {
      * 新开任职行（validTo 为 NULL 表示当前有效；封口场景显式传入 validTo）
      *
      * @param empId            关联 mdm_emp.id
-     * @param basic            iHR 员工基本信息（Converter 复用 departmentId / departmentName / positionId / positionName）
+     * @param basic            iHR 员工基本信息（Converter 复用 departmentName / positionId / positionName）
+     * @param orgCode          组织编码（解析后的部门编码；映射缺失时为部门 ID 字符串）
      * @param validFrom        任职生效起始日（入职场景=入职日期；调岗场景=调岗生效日）
      * @param probationEndDate 解析后的试用结束日期
      * @param leaveDate        解析后的离职日期
      * @param validTo          任职生效截止日；null 表示当前有效（首次同步已离职场景传离职日形成完整封口行）
      */
-    private void insertAssign(Long empId, IhrStaffBasicInfo basic, LocalDate validFrom,
+    private void insertAssign(Long empId, IhrStaffBasicInfo basic, String orgCode, LocalDate validFrom,
                               LocalDate probationEndDate, LocalDate leaveDate, LocalDate validTo) {
-        MdmEmpOrgAssignDO assign = mdmEmpConverter.toAssign(basic, empId,
+        MdmEmpOrgAssignDO assign = mdmEmpConverter.toAssign(basic, empId, orgCode,
                 deriveAssignStatus(basic.getStaffStatus(), validFrom, probationEndDate, leaveDate),
                 MdmEmpOrgAssignConstants.PRINCIPAL_FLAG_YES, validFrom, validTo);
         mdEmpOrgAssignMapper.insert(assign);
+    }
+
+    /**
+     * 解析任职组织编码 —— iHR departmentId 优先映射为部门编码（ods_ihr_dept.ihr_dept_id → department_code）
+     *
+     * <p>映射缺失（部门主数据未同步或 iHR 新增滞后）时回退部门 ID 字符串并打 INFO 提示，
+     * 不阻断员工落库。</p>
+     *
+     * @param departmentId iHR 部门 ID（Long，可为 null）
+     * @param staffId      员工 ID（日志定位用）
+     * @return 部门编码；映射缺失时回退部门 ID 字符串；入参为空时返回 null
+     */
+    private String resolveOrgCode(Long departmentId, String staffId) {
+        String ihrDeptId = MdmEmpUtils.longToStringSafe(departmentId);
+        if (!StringUtils.hasText(ihrDeptId)) {
+            return null;
+        }
+        OdsIhrDeptDO odsDept = odsIhrDeptMapper.selectOne(new LambdaQueryWrapper<OdsIhrDeptDO>()
+                .eq(OdsIhrDeptDO::getIhrDeptId, ihrDeptId)
+                .last("LIMIT 1"));
+        if (odsDept != null && StringUtils.hasText(odsDept.getDepartmentCode())) {
+            return odsDept.getDepartmentCode();
+        }
+        log.info("【{}】部门编码映射缺失, 回退部门ID, ihrStaffId={}, ihrDeptId={}", BIZ, staffId, ihrDeptId);
+        return ihrDeptId;
     }
 
     /**

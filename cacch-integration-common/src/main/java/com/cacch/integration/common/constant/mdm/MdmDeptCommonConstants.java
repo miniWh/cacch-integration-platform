@@ -21,6 +21,11 @@ public final class MdmDeptCommonConstants {
     public static final String SRC_SYS_CODE_IHR = "IHR";
 
     /**
+     * 部门停用状态
+     */
+    public static final String DEPT_STATUS_DISABLED = "DISABLE";
+
+    /**
      * ETL 批次号时间格式（精确到毫秒，保证单轮批次唯一）
      */
     private static final DateTimeFormatter BATCH_NO_FMT = DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS");
