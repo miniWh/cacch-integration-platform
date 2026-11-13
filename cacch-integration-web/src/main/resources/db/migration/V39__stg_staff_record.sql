@@ -38,8 +38,7 @@ COMMENT ON COLUMN stg_staff_record.status IS '处理状态: PENDING-待处理 / 
 
 CREATE INDEX IF NOT EXISTS idx_stg_staff_record_status
     ON stg_staff_record(status, updated_at);
-CREATE INDEX IF NOT EXISTS idx_stg_staff_record_order
-    ON stg_staff_record(
-        CASE source WHEN 'ADD' THEN 1 ELSE 2 END,
-        COALESCE(last_update, 0) ASC
-    );
+CREATE INDEX IF NOT EXISTS idx_stg_staff_record_source
+    ON stg_staff_record(source);
+CREATE INDEX IF NOT EXISTS idx_stg_staff_record_last_update
+    ON stg_staff_record(last_update);
