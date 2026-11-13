@@ -13,11 +13,10 @@ import java.util.List;
 /**
  * iHR 增量员工暂存队列 Mapper
  *
- * <p>手写 SQL 场景：</p>
  * <ul>
- *     <li>insertIgnore —— 入队幂等（UNIQUE 冲突时保留 ADD 优先级 + lastUpdate 取较大值）</li>
- *     <li>selectPendingBatch —— 用 FOR UPDATE SKIP LOCKED 防多实例并发捞取</li>
- *     <li>markProcessed —— 单条立即标记 PROCESSED</li>
+ *     <li>source='ADD' → 部分唯一索引 ON(staff_id) WHERE source='ADD' — 新增只发生一次</li>
+ *     <li>source='UPDATE' → 部分唯一索引 ON(staff_id, last_update) WHERE source='UPDATE' — 不同变更版本各一行</li>
+ *     <li>ON CONFLICT DO NOTHING —— 任何唯一约束冲突直接跳过，零写放大</li>
  * </ul>
  *
  * @author hongfu_zhou@cacch.com
@@ -28,31 +27,18 @@ public interface StgStaffRecordMapper extends BaseMapper<StgStaffRecordDO> {
     /**
      * 幂等入队
      *
-     * <p>UNIQUE(staff_id, pull_batch_no) 冲突时 DO UPDATE：</p>
-     * <ul>
-     *     <li>source：已存在 ADD → 保留 ADD；否则用新值</li>
-     *     <li>lastUpdate：取冲突行与新入参中较大者（更新接口同一批次多次返回取最晚时间）</li>
-     *     <li>pull_batch_no / updated_at：强制刷新（让冲突行保持活跃，下次 process 仍可捞到）</li>
-     * </ul>
+     * <p>依赖表上的两个部分唯一索引（add 按 staff_id / update 按 staff_id+last_update），
+     * 任何冲突都 DO NOTHING —— 无新变更 → 不动；有新变更（last_update 变大）→ 新行插入。</p>
      *
      * @param id          雪花生成的内部主键
      * @param staffId     iHR 员工 UUID
      * @param source      ADD / UPDATE
-     * @param lastUpdate  更新接口秒级时间戳（新增填 0）
-     * @param pullBatchNo 拉取批次号
+     * @param lastUpdate  毫秒时间戳（additions 固定传 0）
+     * @param pullBatchNo 拉取批次号（审计用，不参与唯一约束）
      */
     @Insert("INSERT INTO stg_staff_record (id, staff_id, source, last_update, pull_batch_no, status) "
-            + "VALUES (#{id}, #{staffId}, #{source}, #{lastUpdate}, #{pullBatchNo}, 'PENDING') "
-            + "ON CONFLICT (staff_id, pull_batch_no) DO UPDATE SET "
-            + "    updated_at      = NOW(), "
-            + "    pull_batch_no   = EXCLUDED.pull_batch_no, "
-            + "    source          = CASE WHEN stg_staff_record.source = 'ADD' "
-            + "                           THEN stg_staff_record.source "
-            + "                           ELSE EXCLUDED.source END, "
-            + "    last_update     = CASE WHEN stg_staff_record.source = 'ADD' "
-            + "                           THEN stg_staff_record.last_update "
-            + "                           ELSE GREATEST(COALESCE(stg_staff_record.last_update, 0), "
-            + "                                        COALESCE(EXCLUDED.last_update, 0)) END")
+            + "VALUES (#{id}, #{staffId}, #{source}, COALESCE(#{lastUpdate}, 0), #{pullBatchNo}, 'PENDING') "
+            + "ON CONFLICT DO NOTHING")
     int insertIgnore(@Param("id") Long id,
                      @Param("staffId") String staffId,
                      @Param("source") String source,
@@ -65,7 +51,7 @@ public interface StgStaffRecordMapper extends BaseMapper<StgStaffRecordDO> {
      * <p>排序规则保证业务正确性：</p>
      * <ol>
      *     <li>source = 'ADD' 必须先于 'UPDATE' 处理（新员工先建档，拉链才能正确关链新开）</li>
-     *     <li>UPDATE 内部按 last_update 秒级时间戳升序（早变更先落库，追溯顺序正确）</li>
+     *     <li>UPDATE 内部按 last_update 升序（早变更先落库，追溯顺序正确）</li>
      * </ol>
      *
      * @param limit 单次捞取上限（默认 500）
