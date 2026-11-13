@@ -71,12 +71,16 @@ public interface MdmDeptConverter {
     // ==================== MDM_DEPT 主档 ====================
 
     /**
-     * 构造 MdmDeptDO（首次建档时调用；id 由 MyBatis-Plus ASSIGN_ID 自动填充）
+     * 构造 MdmDeptDO（首次建档时调用）
+     *
+     * <p>id 显式忽略（防止 MapStruct 同名隐式映射把 iHR 部门 ID 填入主键），
+     * insert 时保持 null 由 MyBatis-Plus ASSIGN_ID 生成雪花主键。</p>
      *
      * @param dept       iHR 部门实体 DTO
      * @param srcSysCode 首次建档来源系统（如 IHR）
      */
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
+    @Mapping(target = "id", ignore = true)
     @Mapping(target = "deptUuid", source = "dept.uuid")
     @Mapping(target = "srcSysCode", source = "srcSysCode")
     @Mapping(target = "deptCode", expression = "java(nullIfBlank(dept.getDepartmentCode()))")
@@ -89,12 +93,16 @@ public interface MdmDeptConverter {
     MdmDeptDO toNewMdDept(IhrDepartment dept, String srcSysCode);
 
     /**
-     * 更新 MdmDeptDO 可变属性（已有主档增量覆盖；srcSysCode 保留不映射）
+     * 更新 MdmDeptDO 可变属性（已有主档增量覆盖；srcSysCode / id 均保留不映射）
+     *
+     * <p>id 显式忽略：防止 MapStruct 同名隐式映射用 iHR 部门 ID 覆写已有主键，
+     * 导致 updateById 指向错误行。</p>
      *
      * @param dept   iHR 部门实体 DTO
-     * @param target 已预填业务主键的 MdmDeptDO
+     * @param target 已按 dept_uuid 定位的 MdmDeptDO（含真实主键）
      */
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
+    @Mapping(target = "id", ignore = true)
     @Mapping(target = "deptCode", expression = "java(nullIfBlank(dept.getDepartmentCode()))")
     @Mapping(target = "deptName", expression = "java(nullIfBlank(dept.getName()))")
     @Mapping(target = "parentDeptCode", expression = "java(nullIfBlank(dept.getParentDepartmentCode()))")
