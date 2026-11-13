@@ -32,4 +32,10 @@ public final class IhrPathConstants {
      * 获取当日更新员工 ID 清单 V2
      */
     public static final String STAFF_MODIFICATIONS_PATH = "/openapi/thirdparty/api/staff/v2/staffs/modifications";
+
+    /**
+     * 获取部门详情 — 组织架构/部门
+     */
+    public static final String ORG_DEPARTMENT_DETAIL_PATH =
+            "/openapi/thirdparty/api/org/v1/organizations/departments/%s";
 }

@@ -2,24 +2,26 @@ package com.cacch.integration.integration.ihr.client;
 
 import com.cacch.integration.common.config.ihr.IhrProperties;
 import com.cacch.integration.common.constant.ihr.IhrConstants;
+import com.cacch.integration.common.constant.ihr.IhrPathConstants;
+import com.cacch.integration.integration.ihr.client.dto.IhrDepartmentDetailResponse;
 import com.cacch.integration.integration.ihr.client.dto.IhrOrgSearchRequest;
 import com.cacch.integration.integration.ihr.client.dto.IhrOrgSearchResponse;
 import com.cacch.integration.integration.support.RestTemplateHttpClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClientException;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.util.Collections;
 
 /**
  * IHR 组织架构/部门 HTTP 客户端
- *
- * <p>HTTP 通用调用统一由 {@link RestTemplateHttpClient} 承担；
- * Bearer Token 鉴权头由本类构造。</p>
  *
  * @author hongfu_zhou@cacch.com
  */
@@ -30,6 +32,15 @@ public class IhrOrgClient {
 
     private static final String BIZ = IhrConstants.LOG_BIZ;
     private static final String ACTION_SEARCH_DEPARTMENTS = "获取部门清单v3";
+    private static final String ACTION_GET_DEPARTMENT_DETAIL = "获取部门详情";
+
+    /**
+     * 静态 ObjectMapper —— 用于将原始响应报文反序列化为详情响应
+     *
+     * <p>与 {@link RestTemplateHttpClient} 使用相同模式（静态 JsonMapper），
+     * 不依赖 Spring Bean 注入，避免 Bean 缺失导致启动失败。</p>
+     */
+    private static final ObjectMapper MAPPER = JsonMapper.builder().build();
 
     private final RestTemplateHttpClient httpClient;
     private final IhrProperties ihrProperties;
@@ -47,11 +58,12 @@ public class IhrOrgClient {
             throw new RestClientException("IHR 部门查询请求体为空");
         }
 
-        String url = ihrProperties.getBaseUrl() + IhrConstants.ORG_SEARCH_DEPARTMENT_PATH;
+        String fullUrl = ihrProperties.getBaseUrl() + IhrConstants.ORG_SEARCH_DEPARTMENT_PATH;
+        log.info("【{}】{}, 完整url={}", BIZ, ACTION_SEARCH_DEPARTMENTS, fullUrl);
         HttpHeaders headers = buildBearerHeaders(accessToken, true);
 
         IhrOrgSearchResponse body = httpClient.doPostOrPut(
-                HttpMethod.POST, url, request, headers, BIZ, ACTION_SEARCH_DEPARTMENTS, IhrOrgSearchResponse.class);
+                HttpMethod.POST, fullUrl, request, headers, BIZ, ACTION_SEARCH_DEPARTMENTS, IhrOrgSearchResponse.class);
 
         if (body.isSuccess()) {
             int count = body.getData() == null ? 0 : body.getData().size();
@@ -60,6 +72,45 @@ public class IhrOrgClient {
         } else {
             log.info("【{}】{}终止, code={}, message={}", BIZ, ACTION_SEARCH_DEPARTMENTS,
                     body.getCode(), body.getMessage());
+        }
+        return body;
+    }
+
+    /**
+     * 获取部门详情（单部门查询）
+     *
+     * @param accessToken IHR access_token（来自 Token 服务缓存），不可为空
+     * @param deptId      部门 ID（部门清单 v3 返回的 {@code id} 字段），不可为空
+     * @return 部门详情响应（含 rawJson 原文）；业务成功以 {@link IhrDepartmentDetailResponse#isSuccess()} 判定
+     * @throws RestClientException HTTP 调用异常或响应体反序列化失败时抛出
+     */
+    public IhrDepartmentDetailResponse getDepartmentDetail(String accessToken, String deptId) {
+        if (StringUtils.isBlank(deptId)) {
+            throw new RestClientException("IHR 部门详情查询 deptId 为空");
+        }
+
+        String fullUrl = ihrProperties.getBaseUrl() + String.format(IhrPathConstants.ORG_DEPARTMENT_DETAIL_PATH, deptId);
+        log.info("【{}】{}, 完整url={}", BIZ, ACTION_SEARCH_DEPARTMENTS, fullUrl);
+        HttpHeaders headers = buildBearerHeaders(accessToken, false);
+
+        String rawBody = httpClient.doGet(fullUrl, headers, BIZ, ACTION_GET_DEPARTMENT_DETAIL, String.class);
+
+        IhrDepartmentDetailResponse body;
+        try {
+            body = MAPPER.readValue(rawBody, IhrDepartmentDetailResponse.class);
+        } catch (Exception e) {
+            log.info("【{}】{}终止, reason=响应体反序列化失败, deptId={}", BIZ, ACTION_GET_DEPARTMENT_DETAIL, deptId);
+            log.error("【{}】{} 响应体反序列化失败, deptId={}", BIZ, ACTION_GET_DEPARTMENT_DETAIL, deptId, e);
+            throw new RestClientException(BIZ + " " + ACTION_GET_DEPARTMENT_DETAIL + " 响应体反序列化失败: " + e.getMessage(), e);
+        }
+        body.setRawJson(rawBody);
+
+        if (body.isSuccess()) {
+            boolean hasData = body.getData() != null;
+            log.info("【{}】{}成功, code=0, deptId={}, hasData={}", BIZ, ACTION_GET_DEPARTMENT_DETAIL, deptId, hasData);
+        } else {
+            log.info("【{}】{}终止, deptId={}, code={}, message={}", BIZ, ACTION_GET_DEPARTMENT_DETAIL,
+                    deptId, body.getCode(), body.getMessage());
         }
         return body;
     }
