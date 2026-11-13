@@ -4,6 +4,7 @@ import com.cacch.integration.common.config.ihr.IhrProperties;
 import com.cacch.integration.common.constant.ihr.IhrConstants;
 import com.cacch.integration.common.constant.ihr.IhrPathConstants;
 import com.cacch.integration.integration.ihr.client.dto.IhrDepartmentDetailResponse;
+import com.cacch.integration.integration.ihr.client.dto.IhrDepartmentListResponse;
 import com.cacch.integration.integration.ihr.client.dto.IhrOrgSearchRequest;
 import com.cacch.integration.integration.ihr.client.dto.IhrOrgSearchResponse;
 import com.cacch.integration.integration.support.RestTemplateHttpClient;
@@ -19,6 +20,7 @@ import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.util.Collections;
+import java.util.List;
 
 /**
  * IHR 组织架构/部门 HTTP 客户端
@@ -33,6 +35,7 @@ public class IhrOrgClient {
     private static final String BIZ = IhrConstants.LOG_BIZ;
     private static final String ACTION_SEARCH_DEPARTMENTS = "获取部门清单v3";
     private static final String ACTION_GET_DEPARTMENT_DETAIL = "获取部门详情";
+    private static final String ACTION_LIST_DEPARTMENTS_BY_IDS = "根据部门id集合获取部门详情";
 
     /**
      * 静态 ObjectMapper —— 用于将原始响应报文反序列化为详情响应
@@ -111,6 +114,47 @@ public class IhrOrgClient {
         } else {
             log.info("【{}】{}终止, departmentCode={}, code={}, message={}", BIZ, ACTION_GET_DEPARTMENT_DETAIL,
                     departmentCode, body.getCode(), body.getMessage());
+        }
+        return body;
+    }
+
+    /**
+     * 根据部门 id 集合批量获取部门详情
+     *
+     * @param accessToken   IHR access_token（来自 Token 服务缓存），不可为空
+     * @param departmentIds 部门 ID 集合（非空；单批建议 ≤100）
+     * @return 部门详情列表响应（含 rawJson 原文）；业务成功以 {@link IhrDepartmentListResponse#isSuccess()} 判定
+     * @throws RestClientException HTTP 调用异常或响应体反序列化失败时抛出
+     */
+    public IhrDepartmentListResponse listDepartmentsByIds(String accessToken, List<Long> departmentIds) {
+        if (departmentIds == null || departmentIds.isEmpty()) {
+            throw new RestClientException("IHR 根据部门id集合获取部门详情 departmentIds 为空");
+        }
+
+        String fullUrl = ihrProperties.getBaseUrl() + IhrPathConstants.ORG_DEPARTMENT_LIST_BY_IDS_PATH;
+        log.info("【{}】{}, 完整url={}, deptIdCount={}", BIZ, ACTION_LIST_DEPARTMENTS_BY_IDS, fullUrl, departmentIds.size());
+        HttpHeaders headers = buildBearerHeaders(accessToken, true);
+
+        String rawBody = httpClient.doPostOrPut(
+                HttpMethod.POST, fullUrl, departmentIds, headers, BIZ, ACTION_LIST_DEPARTMENTS_BY_IDS, String.class);
+
+        IhrDepartmentListResponse body;
+        try {
+            body = MAPPER.readValue(rawBody, IhrDepartmentListResponse.class);
+        } catch (Exception e) {
+            log.info("【{}】{}终止, reason=响应体反序列化失败, deptIdCount={}", BIZ, ACTION_LIST_DEPARTMENTS_BY_IDS, departmentIds.size());
+            log.error("【{}】{} 响应体反序列化失败, deptIdCount={}", BIZ, ACTION_LIST_DEPARTMENTS_BY_IDS, departmentIds.size(), e);
+            throw new RestClientException(BIZ + " " + ACTION_LIST_DEPARTMENTS_BY_IDS + " 响应体反序列化失败: " + e.getMessage(), e);
+        }
+        body.setRawJson(rawBody);
+
+        if (body.isSuccess()) {
+            int count = body.getData() == null ? 0 : body.getData().size();
+            log.info("【{}】{}成功, code=0, deptIdCount={}, returnCount={}",
+                    BIZ, ACTION_LIST_DEPARTMENTS_BY_IDS, departmentIds.size(), count);
+        } else {
+            log.info("【{}】{}终止, deptIdCount={}, code={}, message={}", BIZ, ACTION_LIST_DEPARTMENTS_BY_IDS,
+                    departmentIds.size(), body.getCode(), body.getMessage());
         }
         return body;
     }

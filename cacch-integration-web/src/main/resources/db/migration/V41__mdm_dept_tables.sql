@@ -47,6 +47,10 @@ CREATE TABLE IF NOT EXISTS ods_ihr_dept (
     principal_staff_id     VARCHAR(64),                 -- 部门负责人 staffId
     dept_status            VARCHAR(32),                 -- 部门状态：ENABLE 等
     is_virtual             SMALLINT,                    -- 是否虚拟节点：0-否 1-是
+    cost_name              VARCHAR(128),                -- 成本中心（根据部门id获取部门详情接口返回）
+    cost_code              VARCHAR(64),                 -- 成本编码（根据部门id获取部门详情接口返回）
+    company_site_id        VARCHAR(64),                 -- 工作地点 id（根据部门id获取部门详情接口返回）
+    company_site_name      VARCHAR(128),                -- 工作地点名称（根据部门id获取部门详情接口返回）
     sequence               INT,                         -- 排序号
     row_hash               VARCHAR(64)  NOT NULL,       -- 变更检测哈希（SHA-256，未变则幂等短路）
     ver_no                 INT          NOT NULL DEFAULT 1,  -- 数据版本号（每次内容变更 +1）
@@ -72,6 +76,10 @@ COMMENT ON COLUMN ods_ihr_dept.store_number        IS '门店编号';
 COMMENT ON COLUMN ods_ihr_dept.principal_staff_id  IS '部门负责人staffId';
 COMMENT ON COLUMN ods_ihr_dept.dept_status         IS '部门状态';
 COMMENT ON COLUMN ods_ihr_dept.is_virtual          IS '是否虚拟节点：0-否 1-是';
+COMMENT ON COLUMN ods_ihr_dept.cost_name           IS '成本中心';
+COMMENT ON COLUMN ods_ihr_dept.cost_code           IS '成本编码';
+COMMENT ON COLUMN ods_ihr_dept.company_site_id     IS '工作地点id';
+COMMENT ON COLUMN ods_ihr_dept.company_site_name   IS '工作地点名称';
 COMMENT ON COLUMN ods_ihr_dept.sequence            IS '排序号';
 COMMENT ON COLUMN ods_ihr_dept.row_hash            IS '变更检测哈希';
 COMMENT ON COLUMN ods_ihr_dept.ver_no              IS '数据版本号';

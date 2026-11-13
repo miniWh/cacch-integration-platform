@@ -36,6 +36,21 @@ public interface IIhrOrgService {
     List<IhrDepartment> fetchAllDepartments();
 
     /**
+     * 根据部门 ID 集合批量获取部门详情（自动分批，每批 100）
+     *
+     * <p>内部按 100 个 ID 一批调用 iHR「根据部门id获取部门详情」接口
+     * （POST organizations/list，Body 为 ID 数组），汇总全部批次结果返回；
+     * 每批校验业务 code（非 0 抛 BizException），鉴权失败自动强刷 token 重试。
+     * 返回前对 parentId 归一化：list 接口以 -1 表示无上级部门，统一转 null
+     * （与搜索接口"无上级不返回该字段"语义对齐，保证 rowHash 跨接口稳定）。</p>
+     *
+     * @param departmentIds 部门 ID 集合；null 或空时返回空列表
+     * @return 部门详情列表（iHR 侧不存在的 ID 无对应元素）；无数据时返回空列表（非 null）
+     * @throws com.cacch.integration.common.exception.BizException 任一批次 HTTP 调用失败（含重试后）或业务 code 非 0 时抛出
+     */
+    List<IhrDepartment> listDepartmentsByIds(List<Long> departmentIds);
+
+    /**
      * 查询单个部门详情（按部门编码）
      *
      * @param departmentCode 部门编码

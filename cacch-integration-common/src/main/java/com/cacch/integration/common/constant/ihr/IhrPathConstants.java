@@ -42,4 +42,9 @@ public final class IhrPathConstants {
      * 获取部门详情 — 组织架构/部门
      */
     public static final String ORG_DEPARTMENT_DETAIL_PATH = "/openapi/thirdparty/api/org/v1/organizations/code/%s";
+
+    /**
+     * 根据部门 id 集合获取部门详情
+     */
+    public static final String ORG_DEPARTMENT_LIST_BY_IDS_PATH = "/openapi/thirdparty/api/org/v1/organizations/list";
 }

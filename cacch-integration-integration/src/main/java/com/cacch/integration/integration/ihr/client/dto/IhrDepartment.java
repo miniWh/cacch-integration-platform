@@ -75,6 +75,30 @@ public class IhrDepartment {
     private Boolean virtual;
 
     /**
+     * 成本中心
+     */
+    @JsonProperty("costName")
+    private String costName;
+
+    /**
+     * 成本编码
+     */
+    @JsonProperty("costCode")
+    private String costCode;
+
+    /**
+     * 工作地点 id
+     */
+    @JsonProperty("companySiteId")
+    private String companySiteId;
+
+    /**
+     * 工作地点名称
+     */
+    @JsonProperty("companySiteName")
+    private String companySiteName;
+
+    /**
      * 部门状态（实测枚举值：ENABLE 等）
      */
     @JsonProperty("departmentStatus")

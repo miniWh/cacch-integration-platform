@@ -85,6 +85,26 @@ public class OdsIhrDeptDO {
     private Integer isVirtual;
 
     /**
+     * 成本中心
+     */
+    private String costName;
+
+    /**
+     * 成本编码
+     */
+    private String costCode;
+
+    /**
+     * 工作地点 id
+     */
+    private String companySiteId;
+
+    /**
+     * 工作地点名称
+     */
+    private String companySiteName;
+
+    /**
      * 排序号
      */
     private Integer sequence;

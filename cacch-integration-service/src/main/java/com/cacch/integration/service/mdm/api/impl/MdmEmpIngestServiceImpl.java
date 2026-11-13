@@ -34,12 +34,17 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -73,6 +78,11 @@ public class MdmEmpIngestServiceImpl implements IMdmEmpIngestService {
      * src_ref 匹配：来源系统编码与实体类型（IHR 员工域）
      */
     private static final String SRC_ENTITY_TYPE_STAFF = "STAFF";
+
+    /**
+     * 上一快照部门批量查询的 IN 分片大小
+     */
+    private static final int FIND_PREV_CHUNK_SIZE = 500;
 
     /**
      * 静态 ObjectMapper —— 仅用于事件 payload 序列化
@@ -173,6 +183,31 @@ public class MdmEmpIngestServiceImpl implements IMdmEmpIngestService {
         log.info("【{}】单员工落库完成, ihrStaffId={}, empId={}, eventType={}, mdExisted={}, batchNo={}",
                 BIZ, staffId, mdEmp.getId(), eventType, mdExisted, etlBatchNo);
         return MdmEmpIngestResultEnum.INGESTED;
+    }
+
+    /**
+     * 批量查询员工上一快照的部门 ID（分片 IN 查询，500/片）
+     */
+    @Override
+    public Map<String, String> findPrevDeptIdByStaffIds(Collection<String> staffIds) {
+        if (CollectionUtils.isEmpty(staffIds)) {
+            return Map.of();
+        }
+        Map<String, String> result = new HashMap<>();
+        List<String> ids = new ArrayList<>(staffIds);
+        for (int from = 0; from < ids.size(); from += FIND_PREV_CHUNK_SIZE) {
+            List<String> chunk = ids.subList(from, Math.min(from + FIND_PREV_CHUNK_SIZE, ids.size()));
+            List<OdsIhrEmpDO> rows = odsIhrEmpMapper.selectList(new LambdaQueryWrapper<OdsIhrEmpDO>()
+                    .in(OdsIhrEmpDO::getIhrStaffId, chunk)
+                    .isNotNull(OdsIhrEmpDO::getIhrDeptId));
+            for (OdsIhrEmpDO row : rows) {
+                if (StringUtils.hasText(row.getIhrDeptId())) {
+                    result.put(row.getIhrStaffId(), row.getIhrDeptId());
+                }
+            }
+        }
+        log.info("【{}】批量查询员工上一快照部门完成, 查询员工数={}, 命中部门数={}", BIZ, staffIds.size(), result.size());
+        return result;
     }
 
     /**

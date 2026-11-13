@@ -1,12 +1,14 @@
 package com.cacch.integration.controller.ihr;
 
 import com.cacch.integration.common.result.Result;
+import com.cacch.integration.integration.ihr.client.dto.IhrDepartment;
 import com.cacch.integration.integration.ihr.client.dto.IhrDepartmentDetailResponse;
 import com.cacch.integration.integration.ihr.client.dto.IhrOrgSearchRequest;
 import com.cacch.integration.integration.ihr.client.dto.IhrOrgSearchResponse;
 import com.cacch.integration.service.ihr.api.IIhrOrgService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.util.CollectionUtils;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -14,6 +16,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 /**
  * IHR 组织架构/部门域测试端点 — 部门类所有接口测试端点的聚合 Controller
@@ -55,5 +59,26 @@ public class TestIhrOrgController {
     public Result<IhrDepartmentDetailResponse> getDepartmentDetail(@PathVariable String departmentCode) {
         log.info("【IHR组织架构域测试】收到获取部门详情请求, departmentCode={}", departmentCode);
         return Result.success(ihrOrgService.getDepartmentDetail(departmentCode));
+    }
+
+    /**
+     * 测试端点：根据部门 id 集合批量查询部门详情（联调用）
+     *
+     * <p>用于实测该接口的返回字段全集（重点确认 sequence / lastUpdate / createdDate /
+     * costName 等新增字段是否返回，未返回字段显示为 null）；
+     * 注意返回结果已经过 parentId=-1 → null 归一化。</p>
+     *
+     * @param departmentIds 部门 ID 数组（List&lt;Long&gt;），非空
+     * @return 部门详情列表（iHR 侧不存在的 ID 无对应元素）；业务失败时由全局异常处理返回错误码
+     */
+    @PostMapping("/departments/list-by-ids")
+    public Result<List<IhrDepartment>> listDepartmentsByIds(@RequestBody List<Long> departmentIds) {
+        if (CollectionUtils.isEmpty(departmentIds)) {
+            log.info("【IHR组织架构域测试】按ID集合查询部门终止, reason=departmentIds 为空");
+            return Result.success(List.of());
+        }
+        log.info("【IHR组织架构域测试】收到按ID集合查询部门请求, deptIdCount={}, deptIds={}",
+                departmentIds.size(), departmentIds);
+        return Result.success(ihrOrgService.listDepartmentsByIds(departmentIds));
     }
 }

@@ -3,6 +3,9 @@ package com.cacch.integration.service.mdm.api;
 import com.cacch.integration.common.enums.mdm.MdmEmpIngestResultEnum;
 import com.cacch.integration.integration.ihr.client.dto.IhrStaffBasicInfo;
 
+import java.util.Collection;
+import java.util.Map;
+
 /**
  * 人员主数据（MDM）单员工落库 Service 接口
  *
@@ -32,4 +35,15 @@ public interface IMdmEmpIngestService {
      * @throws com.cacch.integration.common.exception.BizException DB 写入失败等不可恢复错误时抛出（事务回滚）
      */
     MdmEmpIngestResultEnum ingestOne(IhrStaffBasicInfo basic, String rawJson, String etlBatchNo);
+
+    /**
+     * 批量查询员工上一快照的部门 ID（ods_ihr_emp.ihr_dept_id）
+     *
+     * <p>供员工同步 Manager 在落库前汇总"变更前部门"集合做部门保障。
+     * 内部分片 IN 查询（500/片）；无快照或快照部门为空的员工不含于返回 Map。</p>
+     *
+     * @param staffIds 员工 ID 集合；null 或空时返回空 Map
+     * @return staffId → 上一快照 ihr_dept_id；无快照的员工不含 key
+     */
+    Map<String, String> findPrevDeptIdByStaffIds(Collection<String> staffIds);
 }
