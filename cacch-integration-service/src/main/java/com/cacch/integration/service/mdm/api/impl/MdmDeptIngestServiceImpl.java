@@ -72,7 +72,17 @@ public class MdmDeptIngestServiceImpl implements IMdmDeptIngestService {
     public MdmDeptIngestResultEnum ingestOne(IhrDepartment dept, String rawJson, String etlBatchNo) {
         String deptUuid = dept.getUuid();
 
-        // 1. stg 贴源（同批次重复报文幂等吞掉）
+        // 1. rowHash 比对 —— 未变化则幂等短路（不写贴源层，避免每轮同步产生重复 stg 数据）
+        String rowHash = buildRowHash(dept);
+        OdsIhrDeptDO existing = odsIhrDeptMapper.selectOne(new LambdaQueryWrapper<OdsIhrDeptDO>()
+                .eq(OdsIhrDeptDO::getIhrDeptUuid, deptUuid)
+                .last("LIMIT 1"));
+        if (existing != null && rowHash.equals(existing.getRowHash())) {
+            log.info("【{}】ods 数据无变化, 幂等跳过后续处理（含贴源）, ihrDeptUuid={}, batchNo={}", BIZ, deptUuid, etlBatchNo);
+            return MdmDeptIngestResultEnum.SKIPPED_UNCHANGED;
+        }
+
+        // 2. stg 贴源（仅变更数据进入；同批次重复报文幂等吞掉）
         StgIhrDeptDO stg = new StgIhrDeptDO();
         stg.setId(IdWorker.getId());
         stg.setEtlBatchNo(etlBatchNo);
@@ -80,16 +90,6 @@ public class MdmDeptIngestServiceImpl implements IMdmDeptIngestService {
         stg.setRawJson(rawJson);
         stg.setHttpStatus(HttpStatus.OK.value());
         stgIhrDeptMapper.insertIgnore(stg);
-
-        // 2. rowHash 比对 —— 未变化则幂等短路
-        String rowHash = buildRowHash(dept);
-        OdsIhrDeptDO existing = odsIhrDeptMapper.selectOne(new LambdaQueryWrapper<OdsIhrDeptDO>()
-                .eq(OdsIhrDeptDO::getIhrDeptUuid, deptUuid)
-                .last("LIMIT 1"));
-        if (existing != null && rowHash.equals(existing.getRowHash())) {
-            log.info("【{}】ods 数据无变化, 幂等跳过后续处理, ihrDeptUuid={}, batchNo={}", BIZ, deptUuid, etlBatchNo);
-            return MdmDeptIngestResultEnum.SKIPPED_UNCHANGED;
-        }
 
         // 3. ods 规范化 upsert（verNo 递增；dqFlag 当前恒 0，部门域暂无致命质检项）
         OdsIhrDeptDO ods = mdmDeptConverter.toOds(dept, IdWorker.getId(), rowHash,

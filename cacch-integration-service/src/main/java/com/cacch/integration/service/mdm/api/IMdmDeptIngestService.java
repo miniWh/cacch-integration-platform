@@ -18,7 +18,7 @@ public interface IMdmDeptIngestService {
      *
      * <p>幂等规则：
      * <ul>
-     *     <li>rowHash 未变化：跳过后续所有处理（仅写 stg）</li>
+     *     <li>rowHash 未变化：跳过后续所有处理（不写 stg 贴源层）</li>
      *     <li>事件幂等键 = SHA-256(deptUuid:eventType:rowHash)，重复事件吞掉</li>
      *     <li>parentDeptCode 直接存 iHR parentDepartmentCode，不做主键自引用，
      *         父部门晚于子部门到达（乱序建档）不阻断落库</li>
