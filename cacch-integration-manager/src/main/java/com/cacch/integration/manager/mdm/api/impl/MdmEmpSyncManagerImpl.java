@@ -223,10 +223,11 @@ public class MdmEmpSyncManagerImpl implements IMdmEmpSyncManager {
     // ==================== Process 增量落库 ====================
 
     /**
-     * 从 stg_staff_record 捞取 PENDING 行 → 调 fetchStaffBasic → ingestOne → 立即 markProcessed
+     * 从 stg_staff_record 认领一批待处理行 → 调 fetchStaffBasic → ingestOne → 立即 markProcessed
      *
-     * <p>FOR UPDATE SKIP LOCKED 防多实例并发；捞取后关闭事务释放锁，
-     * 再逐个处理（每个 ingestOne 自带 REQUIRED 事务）。</p>
+     * <p>UPDATE…RETURNING 原子认领（行置 PROCESSING）防多实例并发；
+     * 认领与处理分离，逐个处理（每个 ingestOne 自带 REQUIRED 事务），
+     * 处理完成标 PROCESSED，异常崩溃的行由超时回收重置 PENDING。</p>
      */
     private BatchProcessResult<String> doProcessIncrementalFromQueue(int limit) {
         String processBatchNo = MdmEmpCommonConstants.buildProcessBatchNo();
@@ -234,13 +235,13 @@ public class MdmEmpSyncManagerImpl implements IMdmEmpSyncManager {
         log.info("【{}】开始本轮增量 Process, processBatchNo={}, etlBatchNo={}, limit={}",
                 BIZ, processBatchNo, etlBatchNo, limit);
 
-        // 短事务 FOR UPDATE SKIP LOCKED 拿锁 → 关事务释放
-        List<StgStaffRecordDO> batch = incrementalQueueService.pollPendingBatch(limit);
+        // 原子认领：单条 SQL 置 PROCESSING，并发（含多实例）互斥
+        List<StgStaffRecordDO> batch = incrementalQueueService.claimPendingBatch(limit);
         if (CollectionUtils.isEmpty(batch)) {
             log.info("【{}】PENDING 队列为空, 本轮 Process 结束", BIZ);
             return new BatchProcessResult<>();
         }
-        log.info("【{}】已锁定 {} 行待处理（ADD先 / UPDATE按lastUpdate升序）", BIZ, batch.size());
+        log.info("【{}】已认领 {} 行待处理（ADD先 / UPDATE按lastUpdate升序）", BIZ, batch.size());
 
         BatchProcessResult<String> result = new BatchProcessResult<>();
         for (StgStaffRecordDO row : batch) {

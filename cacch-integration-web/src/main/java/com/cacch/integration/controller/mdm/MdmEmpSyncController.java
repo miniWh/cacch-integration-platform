@@ -56,7 +56,7 @@ public class MdmEmpSyncController {
      *
      * <p>ESB 建议每 2 分钟调用一次。捞取规则：</p>
      * <ul>
-     *     <li>FOR UPDATE SKIP LOCKED 防多实例并发</li>
+     *     <li>UPDATE…RETURNING 原子认领（行置 PROCESSING），防多实例并发重复处理</li>
      *     <li>ORDER BY source='ADD' 先于 'UPDATE'</li>
      *     <li>UPDATE 内部按 last_update 秒级时间戳升序</li>
      * </ul>

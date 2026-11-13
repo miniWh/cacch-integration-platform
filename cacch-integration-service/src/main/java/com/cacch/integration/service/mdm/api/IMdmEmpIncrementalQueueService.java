@@ -29,12 +29,14 @@ public interface IMdmEmpIncrementalQueueService {
     int enqueueOne(String staffId, String source, Long lastUpdate, String pullBatchNo);
 
     /**
-     * 捞取一批待处理行（FOR UPDATE SKIP LOCKED）
+     * 原子认领一批待处理行（先回收超时 PROCESSING 行，再 UPDATE…RETURNING 认领置 PROCESSING）
      *
-     * @param limit 单次上限，建议 500
-     * @return 已拿到锁的待处理行列表；空列表表示本轮无待处理
+     * <p>认领由单条 SQL 原子完成，并发调用（含多实例）不会拿到同一批行。</p>
+     *
+     * @param limit 单次认领上限，建议 500
+     * @return 本轮认领成功的行列表（status 均为 PROCESSING）；空列表表示本轮无待处理
      */
-    List<StgStaffRecordDO> pollPendingBatch(int limit);
+    List<StgStaffRecordDO> claimPendingBatch(int limit);
 
     /**
      * 单条标记 PROCESSED（处理完立即调用）

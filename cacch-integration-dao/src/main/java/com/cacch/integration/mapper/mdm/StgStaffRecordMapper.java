@@ -46,7 +46,10 @@ public interface StgStaffRecordMapper extends BaseMapper<StgStaffRecordDO> {
                      @Param("pullBatchNo") String pullBatchNo);
 
     /**
-     * 捞取待处理批次 —— FOR UPDATE SKIP LOCKED 防多实例并发
+     * 原子认领一批待处理行 —— UPDATE ... WHERE id IN (SELECT ... FOR UPDATE SKIP LOCKED) RETURNING
+     *
+     * <p>单条语句内完成「选行 + 加锁 + 置 PROCESSING」：子查询行锁持有至 UPDATE 提交，
+     * 认领后行不再是 PENDING，并发调用（含多实例）不会拿到同一批行，SKIP LOCKED 真正生效。</p>
      *
      * <p>排序规则保证业务正确性：</p>
      * <ol>
@@ -54,21 +57,40 @@ public interface StgStaffRecordMapper extends BaseMapper<StgStaffRecordDO> {
      *     <li>UPDATE 内部按 last_update 升序（早变更先落库，追溯顺序正确）</li>
      * </ol>
      *
-     * @param limit 单次捞取上限（默认 500）
-     * @return 锁已拿到的待处理行列表；空列表表示本轮无待处理数据
+     * @param limit 单次认领上限（默认 500）
+     * @return 本轮认领成功的行列表（status 均为 PROCESSING）；空列表表示本轮无待处理数据
      */
-    @Select("SELECT id, staff_id, source, last_update, pull_batch_no, process_batch_no, status, "
-            + "       created_at, updated_at, is_deleted "
-            + "FROM stg_staff_record "
-            + "WHERE status = 'PENDING' "
+    @Select("UPDATE stg_staff_record "
+            + "SET status = 'PROCESSING', updated_at = NOW() "
+            + "WHERE id IN ("
+            + "    SELECT id FROM stg_staff_record "
+            + "    WHERE status = 'PENDING' "
+            + "      AND is_deleted = 0 "
+            + "    ORDER BY "
+            + "        CASE source WHEN 'ADD' THEN 1 ELSE 2 END ASC, "
+            + "        COALESCE(last_update, 0) ASC, "
+            + "        id ASC "
+            + "    LIMIT #{limit} "
+            + "    FOR UPDATE SKIP LOCKED"
+            + ") "
+            + "RETURNING id, staff_id, source, last_update, pull_batch_no, "
+            + "          process_batch_no, status, created_at, updated_at, is_deleted")
+    List<StgStaffRecordDO> claimPendingBatch(@Param("limit") int limit);
+
+    /**
+     * 回收超时卡死的 PROCESSING 行 —— 重置为 PENDING 供下轮重新认领
+     *
+     * <p>兜底进程崩溃导致认领后未处理完的行永久滞留；超时阈值固定 30 分钟
+     * （单轮 500 行逐人处理正常远小于该值，不会误回收处理中的行）。</p>
+     *
+     * @return 本轮重置回 PENDING 的行数（0 表示无卡死行）
+     */
+    @Update("UPDATE stg_staff_record "
+            + "SET status = 'PENDING', updated_at = NOW() "
+            + "WHERE status = 'PROCESSING' "
             + "  AND is_deleted = 0 "
-            + "ORDER BY "
-            + "    CASE source WHEN 'ADD' THEN 1 ELSE 2 END ASC, "
-            + "    COALESCE(last_update, 0) ASC, "
-            + "    id ASC "
-            + "LIMIT #{limit} "
-            + "FOR UPDATE SKIP LOCKED")
-    List<StgStaffRecordDO> selectPendingBatch(@Param("limit") int limit);
+            + "  AND updated_at < NOW() - INTERVAL '30 minutes'")
+    int resetStaleProcessing();
 
     /**
      * 单条标记 PROCESSED

@@ -15,12 +15,29 @@
 -- =============================================
 
 -- 1. 删除旧的整表 UNIQUE 约束（名字由 PG 自动生成，通过系统表查并动态删除）
+DO $$
+DECLARE
+    con_name text;
+BEGIN
+    SELECT c.conname INTO con_name
+    FROM pg_constraint c
+    JOIN pg_class t ON t.oid = c.conrelid
+    JOIN pg_namespace n ON n.oid = t.relnamespace
+    WHERE t.relname = 'stg_staff_record'
+      AND n.nspname = 'public'
+      AND c.contype = 'u'
+      AND c.conname LIKE '%staff_id%pull_batch_no%';
 
--- 2. last_update 加 DEFAULT 0（additions 固定传 0，不按 last_update 判重）
+    IF con_name IS NOT NULL THEN
+        EXECUTE format('ALTER TABLE stg_staff_record DROP CONSTRAINT IF EXISTS %I', con_name);
+    END IF;
+END $$;
+
+-- 3. last_update 加 DEFAULT 0（additions 固定传 0，不按 last_update 判重）
 ALTER TABLE stg_staff_record ALTER COLUMN last_update SET DEFAULT 0;
 UPDATE stg_staff_record SET last_update = 0 WHERE last_update IS NULL;
 
--- 3. 为 source='ADD' 建部分唯一索引（业务上同一员工只新增一次）
+-- 4. 为 source='ADD' 建部分唯一索引（业务上同一员工只新增一次）
 CREATE UNIQUE INDEX IF NOT EXISTS idx_stg_staff_record_add_unique
     ON stg_staff_record(staff_id)
     WHERE source = 'ADD';
