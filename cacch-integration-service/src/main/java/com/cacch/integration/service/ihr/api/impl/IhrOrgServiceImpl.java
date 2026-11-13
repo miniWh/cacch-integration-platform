@@ -50,41 +50,41 @@ public class IhrOrgServiceImpl implements IIhrOrgService {
     }
 
     @Override
-    public IhrDepartmentDetailResponse getDepartmentDetail(String deptId) {
-        if (!StringUtils.hasText(deptId)) {
-            log.info("【{}】获取部门详情终止, reason=deptId 为空", BIZ);
-            throw new BizException(ResultCode.PARAM_ERROR, "deptId 不能为空");
+    public IhrDepartmentDetailResponse getDepartmentDetail(String departmentCode) {
+        if (!StringUtils.hasText(departmentCode)) {
+            log.info("【{}】获取部门详情终止, reason=departmentCode 为空", BIZ);
+            throw new BizException(ResultCode.PARAM_ERROR, "departmentCode 不能为空");
         }
 
         String accessToken = ihrTokenService.getAccessToken();
         IhrDepartmentDetailResponse resp;
         try {
-            resp = ihrOrgClient.getDepartmentDetail(accessToken, deptId);
+            resp = ihrOrgClient.getDepartmentDetail(accessToken, departmentCode);
         } catch (RestClientException e) {
             // 401/403 等鉴权失败时强制刷新 token，再重试一次
-            log.info("【{}】获取部门详情失败，尝试强制刷新 token 后重试, deptId={}, reason={}", BIZ, deptId, e.getMessage());
+            log.info("【{}】获取部门详情失败，尝试强制刷新 token 后重试, departmentCode={}, reason={}", BIZ, departmentCode, e.getMessage());
             String newToken = ihrTokenService.forceRefresh();
             try {
-                resp = ihrOrgClient.getDepartmentDetail(newToken, deptId);
+                resp = ihrOrgClient.getDepartmentDetail(newToken, departmentCode);
             } catch (RestClientException retryError) {
-                log.info("【{}】获取部门详情重试仍失败, deptId={}, reason={}", BIZ, deptId, retryError.getMessage());
-                log.error("【{}】获取部门详情 HTTP 调用失败, deptId={}", BIZ, deptId, retryError);
+                log.info("【{}】获取部门详情重试仍失败, departmentCode={}, reason={}", BIZ, departmentCode, retryError.getMessage());
+                log.error("【{}】获取部门详情 HTTP 调用失败, departmentCode={}", BIZ, departmentCode, retryError);
                 throw new BizException(ResultCode.INTEGRATION_ERROR,
-                        "IHR 获取部门详情失败: deptId=" + deptId + ", reason=" + retryError.getMessage(), retryError);
+                        "IHR 获取部门详情失败: departmentCode=" + departmentCode + ", reason=" + retryError.getMessage(), retryError);
             }
         }
 
         if (resp == null || !resp.isSuccess()) {
-            log.info("【{}】获取部门详情接口终止, deptId={}, code={}, message={}",
-                    BIZ, deptId, resp == null ? "null" : resp.getCode(),
+            log.info("【{}】获取部门详情接口终止, departmentCode={}, code={}, message={}",
+                    BIZ, departmentCode, resp == null ? "null" : resp.getCode(),
                     resp == null ? "空响应" : resp.getMessage());
             throw new BizException(ResultCode.INTEGRATION_ERROR,
-                    "IHR 获取部门详情失败: deptId=" + deptId
+                    "IHR 获取部门详情失败: departmentCode=" + departmentCode
                             + ", code=" + (resp == null ? "null" : resp.getCode())
                             + ", message=" + (resp == null ? "空响应" : resp.getMessage()));
         }
         if (resp.getData() == null) {
-            log.info("【{}】获取部门详情返回空 data, deptId={}, reason=响应无 data", BIZ, deptId);
+            log.info("【{}】获取部门详情返回空 data, departmentCode={}, reason=响应无 data", BIZ, departmentCode);
         }
         return resp;
     }

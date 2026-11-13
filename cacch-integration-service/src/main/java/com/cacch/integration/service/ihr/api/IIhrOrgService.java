@@ -20,11 +20,11 @@ public interface IIhrOrgService {
     IhrOrgSearchResponse searchDepartments(IhrOrgSearchRequest request);
 
     /**
-     * 查询单个部门详情
+     * 查询单个部门详情（按部门编码）
      *
-     * @param deptId 部门 ID（部门清单 v3 返回的 {@code id} 字段），不可为空
+     * @param departmentCode 部门编码
      * @return 部门详情响应（含 rawJson 原文，供贴源留底）
-     * @throws com.cacch.integration.common.exception.BizException deptId 为空、HTTP 调用失败（含重试后）或业务 code 非 0 时抛出
+     * @throws com.cacch.integration.common.exception.BizException departmentCode 为空、HTTP 调用失败（含重试后）或业务 code 非 0 时抛出
      */
-    IhrDepartmentDetailResponse getDepartmentDetail(String deptId);
+    IhrDepartmentDetailResponse getDepartmentDetail(String departmentCode);
 }

@@ -77,20 +77,20 @@ public class IhrOrgClient {
     }
 
     /**
-     * 获取部门详情（单部门查询）
+     * 获取部门详情（单部门查询，按部门编码）
      *
-     * @param accessToken IHR access_token（来自 Token 服务缓存），不可为空
-     * @param deptId      部门 ID（部门清单 v3 返回的 {@code id} 字段），不可为空
+     * @param accessToken    IHR access_token（来自 Token 服务缓存），不可为空
+     * @param departmentCode 部门编码
      * @return 部门详情响应（含 rawJson 原文）；业务成功以 {@link IhrDepartmentDetailResponse#isSuccess()} 判定
      * @throws RestClientException HTTP 调用异常或响应体反序列化失败时抛出
      */
-    public IhrDepartmentDetailResponse getDepartmentDetail(String accessToken, String deptId) {
-        if (StringUtils.isBlank(deptId)) {
-            throw new RestClientException("IHR 部门详情查询 deptId 为空");
+    public IhrDepartmentDetailResponse getDepartmentDetail(String accessToken, String departmentCode) {
+        if (StringUtils.isBlank(departmentCode)) {
+            throw new RestClientException("IHR 部门详情查询 departmentCode 为空");
         }
 
-        String fullUrl = ihrProperties.getBaseUrl() + String.format(IhrPathConstants.ORG_DEPARTMENT_DETAIL_PATH, deptId);
-        log.info("【{}】{}, 完整url={}", BIZ, ACTION_SEARCH_DEPARTMENTS, fullUrl);
+        String fullUrl = ihrProperties.getBaseUrl() + String.format(IhrPathConstants.ORG_DEPARTMENT_DETAIL_PATH, departmentCode);
+        log.info("【{}】{}, 完整url={}", BIZ, ACTION_GET_DEPARTMENT_DETAIL, fullUrl);
         HttpHeaders headers = buildBearerHeaders(accessToken, false);
 
         String rawBody = httpClient.doGet(fullUrl, headers, BIZ, ACTION_GET_DEPARTMENT_DETAIL, String.class);
@@ -99,18 +99,18 @@ public class IhrOrgClient {
         try {
             body = MAPPER.readValue(rawBody, IhrDepartmentDetailResponse.class);
         } catch (Exception e) {
-            log.info("【{}】{}终止, reason=响应体反序列化失败, deptId={}", BIZ, ACTION_GET_DEPARTMENT_DETAIL, deptId);
-            log.error("【{}】{} 响应体反序列化失败, deptId={}", BIZ, ACTION_GET_DEPARTMENT_DETAIL, deptId, e);
+            log.info("【{}】{}终止, reason=响应体反序列化失败, departmentCode={}", BIZ, ACTION_GET_DEPARTMENT_DETAIL, departmentCode);
+            log.error("【{}】{} 响应体反序列化失败, departmentCode={}", BIZ, ACTION_GET_DEPARTMENT_DETAIL, departmentCode, e);
             throw new RestClientException(BIZ + " " + ACTION_GET_DEPARTMENT_DETAIL + " 响应体反序列化失败: " + e.getMessage(), e);
         }
         body.setRawJson(rawBody);
 
         if (body.isSuccess()) {
             boolean hasData = body.getData() != null;
-            log.info("【{}】{}成功, code=0, deptId={}, hasData={}", BIZ, ACTION_GET_DEPARTMENT_DETAIL, deptId, hasData);
+            log.info("【{}】{}成功, code=0, departmentCode={}, hasData={}", BIZ, ACTION_GET_DEPARTMENT_DETAIL, departmentCode, hasData);
         } else {
-            log.info("【{}】{}终止, deptId={}, code={}, message={}", BIZ, ACTION_GET_DEPARTMENT_DETAIL,
-                    deptId, body.getCode(), body.getMessage());
+            log.info("【{}】{}终止, departmentCode={}, code={}, message={}", BIZ, ACTION_GET_DEPARTMENT_DETAIL,
+                    departmentCode, body.getCode(), body.getMessage());
         }
         return body;
     }

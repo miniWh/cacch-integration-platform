@@ -46,14 +46,14 @@ public class TestIhrOrgController {
     }
 
     /**
-     * 测试端点：按部门 ID 查询单个部门详情
+     * 测试端点：按部门编码查询单个部门详情
      *
-     * @param deptId 部门 ID（部门清单 v3 返回的 {@code id} 字段）
+     * @param departmentCode 部门编码
      * @return 部门详情完整响应（含 rawJson 原文）；业务失败时由全局异常处理返回错误码
      */
-    @GetMapping("/departments/{deptId}/detail")
-    public Result<IhrDepartmentDetailResponse> getDepartmentDetail(@PathVariable String deptId) {
-        log.info("【IHR组织架构域测试】收到获取部门详情请求, deptId={}", deptId);
-        return Result.success(ihrOrgService.getDepartmentDetail(deptId));
+    @GetMapping("/departments/{departmentCode}/detail")
+    public Result<IhrDepartmentDetailResponse> getDepartmentDetail(@PathVariable String departmentCode) {
+        log.info("【IHR组织架构域测试】收到获取部门详情请求, departmentCode={}", departmentCode);
+        return Result.success(ihrOrgService.getDepartmentDetail(departmentCode));
     }
 }
