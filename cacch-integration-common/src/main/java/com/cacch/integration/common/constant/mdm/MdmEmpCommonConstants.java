@@ -36,4 +36,22 @@ public final class MdmEmpCommonConstants {
     public static String buildEtlBatchNo() {
         return SRC_SYS_CODE_IHR + LocalDateTime.now().format(BATCH_NO_FMT);
     }
+
+    /**
+     * 生成 iHR 增量同步 Pull 批次号（入队 stg_staff_record 的 pull_batch_no）
+     *
+     * <p>格式：{@code pull- + yyyyMMddHHmmssSSS}，同一轮 pull 任务所有入队行共享。</p>
+     */
+    public static String buildPullBatchNo() {
+        return "pull-" + LocalDateTime.now().format(BATCH_NO_FMT);
+    }
+
+    /**
+     * 生成 iHR 增量同步 Process 批次号（stg_staff_record 的 process_batch_no）
+     *
+     * <p>格式：{@code proc- + yyyyMMddHHmmssSSS}，同一轮 process 任务所有已处理行共享。</p>
+     */
+    public static String buildProcessBatchNo() {
+        return "proc-" + LocalDateTime.now().format(BATCH_NO_FMT);
+    }
 }
