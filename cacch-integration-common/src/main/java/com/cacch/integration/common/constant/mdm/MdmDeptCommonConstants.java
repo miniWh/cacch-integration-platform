@@ -21,6 +21,11 @@ public final class MdmDeptCommonConstants {
     public static final String SRC_SYS_CODE_IHR = "IHR";
 
     /**
+     * 源系统实体类型：部门（src_ref 映射用）
+     */
+    public static final String SRC_ENTITY_TYPE_DEPT = "DEPT";
+
+    /**
      * 部门停用状态
      */
     public static final String DEPT_STATUS_DISABLED = "DISABLE";

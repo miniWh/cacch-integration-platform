@@ -26,11 +26,6 @@ public class MdmDeptDO {
     private Long id;
 
     /**
-     * iHR 部门 UUID
-     */
-    private String deptUuid;
-
-    /**
      * 部门编码
      */
     private String deptCode;

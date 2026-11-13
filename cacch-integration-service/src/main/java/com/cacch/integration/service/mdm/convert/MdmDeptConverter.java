@@ -81,7 +81,6 @@ public interface MdmDeptConverter {
      */
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     @Mapping(target = "id", ignore = true)
-    @Mapping(target = "deptUuid", source = "dept.uuid")
     @Mapping(target = "srcSysCode", source = "srcSysCode")
     @Mapping(target = "deptCode", expression = "java(nullIfBlank(dept.getDepartmentCode()))")
     @Mapping(target = "deptName", expression = "java(nullIfBlank(dept.getName()))")

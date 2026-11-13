@@ -11,11 +11,13 @@ import com.cacch.integration.common.result.ResultCode;
 import com.cacch.integration.common.utils.mdm.MdmDeptUtils;
 import com.cacch.integration.entity.mdm.MdmDeptDO;
 import com.cacch.integration.entity.mdm.MdmDeptEventDO;
+import com.cacch.integration.entity.mdm.MdmDeptSrcRefDO;
 import com.cacch.integration.entity.mdm.OdsIhrDeptDO;
 import com.cacch.integration.entity.mdm.StgIhrDeptDO;
 import com.cacch.integration.integration.ihr.client.dto.IhrDepartment;
 import com.cacch.integration.mapper.mdm.MdmDeptEventMapper;
 import com.cacch.integration.mapper.mdm.MdmDeptMapper;
+import com.cacch.integration.mapper.mdm.MdmDeptSrcRefMapper;
 import com.cacch.integration.mapper.mdm.OdsIhrDeptMapper;
 import com.cacch.integration.mapper.mdm.StgIhrDeptMapper;
 import com.cacch.integration.service.mdm.api.IMdmDeptIngestService;
@@ -33,6 +35,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -65,6 +68,7 @@ public class MdmDeptIngestServiceImpl implements IMdmDeptIngestService {
     private final OdsIhrDeptMapper odsIhrDeptMapper;
     private final MdmDeptMapper mdmDeptMapper;
     private final MdmDeptEventMapper mdmDeptEventMapper;
+    private final MdmDeptSrcRefMapper mdmDeptSrcRefMapper;
     private final MdmDeptConverter mdmDeptConverter;
 
     @Override
@@ -96,10 +100,13 @@ public class MdmDeptIngestServiceImpl implements IMdmDeptIngestService {
                 existing == null || existing.getVerNo() == null ? 1 : existing.getVerNo() + 1);
         odsIhrDeptMapper.upsert(ods);
 
-        // 4. mdm_dept 主档 upsert（按 deptUuid 识别唯一部门；parentDeptCode 存编码不做自引用，乱序建档安全）
-        MdmDeptDO mdDept = mdmDeptMapper.selectOne(new LambdaQueryWrapper<MdmDeptDO>()
-                .eq(MdmDeptDO::getDeptUuid, deptUuid)
-                .last("LIMIT 1"));
+        // 4. mdm_dept 主档 upsert（经 src_ref 定位唯一部门；parentDeptCode 存编码不做自引用，乱序建档安全）
+        MdmDeptSrcRefDO srcRef = mdmDeptSrcRefMapper.selectByBusinessKey(
+                MdmDeptCommonConstants.SRC_SYS_CODE_IHR, MdmDeptCommonConstants.SRC_ENTITY_TYPE_DEPT, deptUuid);
+        MdmDeptDO mdDept = null;
+        if (srcRef != null) {
+            mdDept = mdmDeptMapper.selectById(srcRef.getDeptId());
+        }
         boolean mdExisted = mdDept != null;
         String eventType;
         String changeLevel;
@@ -116,8 +123,12 @@ public class MdmDeptIngestServiceImpl implements IMdmDeptIngestService {
             changeLevel = MdmDeptEventConstants.CHANGE_LEVEL_NORMAL;
         }
 
+        // 4.1 src_ref 幂等插入（主档建立后立即建立来源映射，保证后续定位与多源追溯可查）
+        mdmDeptSrcRefMapper.insertIgnore(IdWorker.getId(), mdDept.getId(),
+                MdmDeptCommonConstants.SRC_SYS_CODE_IHR, MdmDeptCommonConstants.SRC_ENTITY_TYPE_DEPT, deptUuid);
+
         // 5. 事件幂等插入
-        insertEvent(mdDept, eventType, changeLevel, etlBatchNo, rowHash);
+        insertEvent(mdDept, deptUuid, eventType, changeLevel, etlBatchNo, rowHash);
 
         log.info("【{}】单部门落库完成, ihrDeptUuid={}, deptId={}, eventType={}, mdExisted={}, batchNo={}",
                 BIZ, deptUuid, mdDept.getId(), eventType, mdExisted, etlBatchNo);
@@ -127,9 +138,10 @@ public class MdmDeptIngestServiceImpl implements IMdmDeptIngestService {
     /**
      * 停用比对 —— mdm_dept 中不在 iHR 存活集合内的部门置停用并写 DISABLE/HIGH 事件
      *
-     * <p>逐条处理未逻辑删除行：uuid 不在存活集且状态非 DISABLE 的置
-     * {@code dept_status='DISABLE'} 并写事件（eventId =
-     * SHA-256(deptUuid:DISABLE:etlBatchNo)，同批次幂等）；
+     * <p>经 src_ref（IHR / DEPT）反查各主档行的 iHR uuid 后与存活集比对：
+     * 无 iHR 映射的部门不受本轮停用比对管辖（多源保护）；
+     * uuid 不在存活集且状态非 DISABLE 的置 {@code dept_status='DISABLE'} 并写事件
+     * （eventId = SHA-256(deptUuid:DISABLE:etlBatchNo)，同批次幂等）；
      * 已停用的跳过并汇总计数。</p>
      *
      * @param aliveDeptUuids 本轮 iHR 全量拉取到的部门 uuid 集合
@@ -143,11 +155,18 @@ public class MdmDeptIngestServiceImpl implements IMdmDeptIngestService {
             log.info("【{}】存活部门集合为空, 跳过停用比对, reason=防止误停用全量, batchNo={}", BIZ, etlBatchNo);
             return 0;
         }
+        Map<Long, String> uuidByDeptId = loadIhrUuidMap();
         List<MdmDeptDO> mdmList = mdmDeptMapper.selectList(null);
         int disabled = 0;
         int alreadyDisabled = 0;
         for (MdmDeptDO mdDept : mdmList) {
-            if (aliveDeptUuids.contains(mdDept.getDeptUuid())) {
+            String deptUuid = uuidByDeptId.get(mdDept.getId());
+            if (deptUuid == null) {
+                log.info("【{}】部门无 iHR 来源映射, 跳过停用比对, deptId={}, deptCode={}",
+                        BIZ, mdDept.getId(), mdDept.getDeptCode());
+                continue;
+            }
+            if (aliveDeptUuids.contains(deptUuid)) {
                 continue;
             }
             if (MdmDeptCommonConstants.DEPT_STATUS_DISABLED.equals(mdDept.getDeptStatus())) {
@@ -156,15 +175,31 @@ public class MdmDeptIngestServiceImpl implements IMdmDeptIngestService {
             }
             mdDept.setDeptStatus(MdmDeptCommonConstants.DEPT_STATUS_DISABLED);
             mdmDeptMapper.updateById(mdDept);
-            insertEvent(mdDept, MdmDeptEventConstants.EVENT_TYPE_DISABLE,
+            insertEvent(mdDept, deptUuid, MdmDeptEventConstants.EVENT_TYPE_DISABLE,
                     MdmDeptEventConstants.CHANGE_LEVEL_HIGH, etlBatchNo, etlBatchNo);
             disabled++;
             log.info("【{}】部门停用完成, deptId={}, ihrDeptUuid={}, deptCode={}, batchNo={}",
-                    BIZ, mdDept.getId(), mdDept.getDeptUuid(), mdDept.getDeptCode(), etlBatchNo);
+                    BIZ, mdDept.getId(), deptUuid, mdDept.getDeptCode(), etlBatchNo);
         }
         log.info("【{}】停用比对完成, 停用数={}, 既往已停用数={}, 存活集大小={}, batchNo={}",
                 BIZ, disabled, alreadyDisabled, aliveDeptUuids.size(), etlBatchNo);
         return disabled;
+    }
+
+    /**
+     * 加载 iHR 域 src_ref 映射（deptId → iHR uuid，自动过滤逻辑删除）
+     *
+     * @return deptId → iHR 部门 uuid 映射；无映射时返回空 Map
+     */
+    private Map<Long, String> loadIhrUuidMap() {
+        List<MdmDeptSrcRefDO> refs = mdmDeptSrcRefMapper.selectList(new LambdaQueryWrapper<MdmDeptSrcRefDO>()
+                .eq(MdmDeptSrcRefDO::getSrcSysCode, MdmDeptCommonConstants.SRC_SYS_CODE_IHR)
+                .eq(MdmDeptSrcRefDO::getSrcEntityType, MdmDeptCommonConstants.SRC_ENTITY_TYPE_DEPT));
+        Map<Long, String> map = new HashMap<>(refs.size() * 2);
+        for (MdmDeptSrcRefDO ref : refs) {
+            map.put(ref.getDeptId(), ref.getSrcEntityId());
+        }
+        return map;
     }
 
     /**
@@ -186,16 +221,16 @@ public class MdmDeptIngestServiceImpl implements IMdmDeptIngestService {
 
     /**
      * 部门主数据一致性核对（mdm_dept 与 ods_ihr_dept 双向 uuid 差集，纯查询无事务）
+     *
+     * <p>mdm 侧 uuid 集合取自 iHR 域 src_ref（多源映射），ods 侧取自
+     * ods_ihr_dept.ihr_dept_uuid；双向差集为空视为一致。</p>
      */
     @Override
     public DeptVerifyResult verifyWithOds() {
-        List<MdmDeptDO> mdmList = mdmDeptMapper.selectList(null);
+        Map<Long, String> uuidByDeptId = loadIhrUuidMap();
         List<OdsIhrDeptDO> odsList = odsIhrDeptMapper.selectList(null);
 
-        Set<String> mdmUuids = new HashSet<>();
-        for (MdmDeptDO md : mdmList) {
-            mdmUuids.add(md.getDeptUuid());
-        }
+        Set<String> mdmUuids = new HashSet<>(uuidByDeptId.values());
         Set<String> odsUuids = new HashSet<>();
         for (OdsIhrDeptDO ods : odsList) {
             odsUuids.add(ods.getIhrDeptUuid());
@@ -205,7 +240,7 @@ public class MdmDeptIngestServiceImpl implements IMdmDeptIngestService {
         missingInMdm.removeAll(mdmUuids);
         List<String> missingInOds = new ArrayList<>(mdmUuids);
         missingInOds.removeAll(odsUuids);
-        return new DeptVerifyResult(mdmList.size(), odsList.size(), missingInMdm, missingInOds);
+        return new DeptVerifyResult(uuidByDeptId.size(), odsList.size(), missingInMdm, missingInOds);
     }
 
     /**
@@ -216,17 +251,18 @@ public class MdmDeptIngestServiceImpl implements IMdmDeptIngestService {
      * （同批次同部门仅一条 DISABLE 事件）。</p>
      *
      * @param mdDept      部门主档 DO（已落库，含 id）
+     * @param deptUuid    iHR 部门 uuid（来源标识，经入参传递——主档本体不再存储）
      * @param eventType   事件类型（CREATE / UPDATE / DISABLE）
      * @param changeLevel 变更级别（HIGH / NORMAL）
      * @param etlBatchNo  ETL 批次号
      * @param idBasis     事件幂等键基础串（落库场景传 rowHash，停用场景传 etlBatchNo）
      */
-    private void insertEvent(MdmDeptDO mdDept, String eventType, String changeLevel,
+    private void insertEvent(MdmDeptDO mdDept, String deptUuid, String eventType, String changeLevel,
                              String etlBatchNo, String idBasis) {
         Long deptId = mdDept.getId();
         Map<String, Object> payloadMap = new LinkedHashMap<>();
         payloadMap.put("deptId", deptId);
-        payloadMap.put("deptUuid", mdDept.getDeptUuid());
+        payloadMap.put("deptUuid", deptUuid);
         payloadMap.put("deptCode", mdDept.getDeptCode());
         payloadMap.put("deptName", mdDept.getDeptName());
         payloadMap.put("etlBatchNo", etlBatchNo);
@@ -239,7 +275,7 @@ public class MdmDeptIngestServiceImpl implements IMdmDeptIngestService {
             throw new BizException(ResultCode.SYSTEM_ERROR, "事件 payload 序列化失败");
         }
 
-        String eventId = MdmDeptUtils.sha256Hex(mdDept.getDeptUuid() + ":" + eventType + ":" + idBasis);
+        String eventId = MdmDeptUtils.sha256Hex(deptUuid + ":" + eventType + ":" + idBasis);
         MdmDeptEventDO event = new MdmDeptEventDO();
         event.setId(IdWorker.getId());
         event.setEventId(eventId);
