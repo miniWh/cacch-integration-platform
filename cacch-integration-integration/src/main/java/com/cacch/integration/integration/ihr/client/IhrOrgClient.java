@@ -58,7 +58,7 @@ public class IhrOrgClient {
             throw new RestClientException("IHR 部门查询请求体为空");
         }
 
-        String fullUrl = ihrProperties.getBaseUrl() + IhrConstants.ORG_SEARCH_DEPARTMENT_PATH;
+        String fullUrl = ihrProperties.getBaseUrl() + IhrPathConstants.ORG_SEARCH_DEPARTMENT_PATH;
         log.info("【{}】{}, 完整url={}", BIZ, ACTION_SEARCH_DEPARTMENTS, fullUrl);
         HttpHeaders headers = buildBearerHeaders(accessToken, true);
 

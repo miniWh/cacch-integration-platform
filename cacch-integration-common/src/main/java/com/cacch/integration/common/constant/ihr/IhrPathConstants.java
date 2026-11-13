@@ -34,8 +34,12 @@ public final class IhrPathConstants {
     public static final String STAFF_MODIFICATIONS_PATH = "/openapi/thirdparty/api/staff/v2/staffs/modifications";
 
     /**
+     * 获取部门清单 v3 — 组织架构/部门
+     */
+    public static final String ORG_SEARCH_DEPARTMENT_PATH = "/openapi/thirdparty/api/org/v1/organizations/search";
+
+    /**
      * 获取部门详情 — 组织架构/部门
      */
-    public static final String ORG_DEPARTMENT_DETAIL_PATH =
-            "/openapi/thirdparty/api/org/v1/organizations/departments/%s";
+    public static final String ORG_DEPARTMENT_DETAIL_PATH = "/openapi/thirdparty/api/org/v1/organizations/departments/%s";
 }

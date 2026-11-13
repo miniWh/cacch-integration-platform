@@ -35,12 +35,6 @@ public final class IhrConstants {
     public static final String TOKEN_PATH = "/openapi/oauth/token";
 
     /**
-     * 获取部门清单 v3 — 组织架构/部门（相对 {@code IhrProperties#getBaseUrl()} 拼接）
-     */
-    public static final String ORG_SEARCH_DEPARTMENT_PATH =
-            "/openapi/thirdparty/api/org/v1/organizations/search";
-
-    /**
      * 获取公司职位清单（相对 {@code IhrProperties#getBaseUrl()} 拼接）
      *
      * <p>接口文档：GET /openapi/thirdparty/api/org/v1/organizations/positions
