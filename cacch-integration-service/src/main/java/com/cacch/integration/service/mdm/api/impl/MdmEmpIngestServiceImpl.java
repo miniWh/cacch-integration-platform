@@ -103,7 +103,17 @@ public class MdmEmpIngestServiceImpl implements IMdmEmpIngestService {
     public MdmEmpIngestResultEnum ingestOne(IhrStaffBasicInfo basic, String rawJson, String etlBatchNo) {
         String staffId = basic.getStaffId();
 
-        // 1. stg 贴源（同批次重复报文幂等吞掉）
+        // 1. rowHash 比对 —— 未变化则幂等短路（不写贴源层，避免日度全量产生重复 stg 数据）
+        String rowHash = buildRowHash(basic);
+        OdsIhrEmpDO existing = odsIhrEmpMapper.selectOne(new LambdaQueryWrapper<OdsIhrEmpDO>()
+                .eq(OdsIhrEmpDO::getIhrStaffId, staffId)
+                .last("LIMIT 1"));
+        if (existing != null && rowHash.equals(existing.getRowHash())) {
+            log.info("【{}】ods 数据无变化, 幂等跳过后续处理（含贴源）, ihrStaffId={}, batchNo={}", BIZ, staffId, etlBatchNo);
+            return MdmEmpIngestResultEnum.SKIPPED_UNCHANGED;
+        }
+
+        // 2. stg 贴源（仅变更数据进入；同批次重复报文幂等吞掉）
         StgIhrEmpDO stg = new StgIhrEmpDO();
         stg.setId(IdWorker.getId());
         stg.setEtlBatchNo(etlBatchNo);
@@ -111,16 +121,6 @@ public class MdmEmpIngestServiceImpl implements IMdmEmpIngestService {
         stg.setRawJson(rawJson);
         stg.setHttpStatus(HttpStatus.OK.value());
         stgIhrEmpMapper.insertIgnore(stg);
-
-        // 2. rowHash 比对 —— 未变化则幂等短路
-        String rowHash = buildRowHash(basic);
-        OdsIhrEmpDO existing = odsIhrEmpMapper.selectOne(new LambdaQueryWrapper<OdsIhrEmpDO>()
-                .eq(OdsIhrEmpDO::getIhrStaffId, staffId)
-                .last("LIMIT 1"));
-        if (existing != null && rowHash.equals(existing.getRowHash())) {
-            log.info("【{}】ods 数据无变化, 幂等跳过后续处理, ihrStaffId={}, batchNo={}", BIZ, staffId, etlBatchNo);
-            return MdmEmpIngestResultEnum.SKIPPED_UNCHANGED;
-        }
 
         // 3. 数据质检
         boolean idCardMissing = !StringUtils.hasText(basic.getIdCardNo());

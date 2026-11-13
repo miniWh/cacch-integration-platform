@@ -16,13 +16,13 @@ public interface IMdmEmpIngestService {
     /**
      * 单员工落库（单员工事务粒度，纯 DB 操作）
      *
-     * <p>处理顺序：stg 贴源（幂等）→ rowHash 比对幂等短路 → ods upsert →
+     * <p>处理顺序：rowHash 比对幂等短路（未变化不写贴源）→ stg 贴源（幂等）→ ods upsert →
      * 证件号质检 → mdm_emp 主档 upsert（按 idHash 识别自然人）→
      * 任职拉链判定（HIRE/REHIRE/LEAVE/TRANSFER/UPDATE）→ mdm_emp_event 幂等插入。</p>
      *
      * <p>幂等与质检规则：
      * <ul>
-     *     <li>rowHash 未变化：跳过后续所有处理（仅写 stg）</li>
+     *     <li>rowHash 未变化：跳过后续所有处理（不写 stg 贴源层）</li>
      *     <li>证件号缺失：致命项，stg/ods 落库后终止，不产主档与事件</li>
      *     <li>离职无离职日期：置 dq_flag=1 后继续</li>
      *     <li>事件幂等键 = SHA-256(mdCode:eventType:rowHash)，重复事件吞掉</li>
