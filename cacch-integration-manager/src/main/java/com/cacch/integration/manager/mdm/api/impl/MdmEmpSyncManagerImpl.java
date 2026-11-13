@@ -229,28 +229,27 @@ public class MdmEmpSyncManagerImpl implements IMdmEmpSyncManager {
                 log.info("【{}】部门保障终止, reason=iHR 未返回任何部门, deptBatchNo={}", BIZ, deptEtlBatchNo);
                 return;
             }
-            int ingested = 0;
-            int skipped = 0;
-            int failed = 0;
+            BatchProcessResult<String> deptResult = new BatchProcessResult<>();
             for (IhrDepartment dept : depts) {
                 try {
                     String rawJson = MAPPER.writeValueAsString(dept);
                     MdmDeptIngestResultEnum ingestResult =
                             mdmDeptIngestService.ingestOne(dept, rawJson, deptEtlBatchNo);
                     if (ingestResult == MdmDeptIngestResultEnum.INGESTED) {
-                        ingested++;
+                        deptResult.recordSuccess(dept.getUuid());
                     } else {
-                        skipped++;
+                        deptResult.recordSkip(dept.getUuid(), ingestResult.getDesc());
                     }
                 } catch (Exception e) {
-                    failed++;
                     log.info("【{}】部门保障单部门处理终止, ihrDeptUuid={}, deptBatchNo={}, reason={}",
                             BIZ, dept.getUuid(), deptEtlBatchNo, e.getMessage());
                     log.error("【{}】部门保障单部门落库失败, ihrDeptUuid={}", BIZ, dept.getUuid(), e);
+                    deptResult.recordFailure(dept.getUuid(), e.getMessage());
                 }
             }
             log.info("【{}】员工落库前部门保障完成, 涉及部门数={}, iHR返回={}, 已落库={}, 无变化跳过={}, 失败={}, deptBatchNo={}",
-                    BIZ, deptIds.size(), depts.size(), ingested, skipped, failed, deptEtlBatchNo);
+                    BIZ, deptIds.size(), depts.size(), deptResult.getSuccessCount(),
+                    deptResult.getSkipCount(), deptResult.getFailureCount(), deptEtlBatchNo);
         } catch (Exception e) {
             log.info("【{}】员工落库前部门保障终止, 员工落库继续, empBatchNo={}, reason={}",
                     BIZ, empEtlBatchNo, e.getMessage());
