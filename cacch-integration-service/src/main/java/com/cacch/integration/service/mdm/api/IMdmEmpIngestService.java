@@ -1,6 +1,6 @@
 package com.cacch.integration.service.mdm.api;
 
-import com.cacch.integration.common.enums.mdm.MdmEmpIngestResultEnum;
+import com.cacch.integration.common.enums.mdm.MdmIngestResultEnum;
 import com.cacch.integration.integration.ihr.client.dto.IhrStaffBasicInfo;
 
 import java.util.Collection;
@@ -34,7 +34,7 @@ public interface IMdmEmpIngestService {
      * @return 落库结果（已落库 / 无变化跳过 / 证件号缺失跳过）
      * @throws com.cacch.integration.common.exception.BizException DB 写入失败等不可恢复错误时抛出（事务回滚）
      */
-    MdmEmpIngestResultEnum ingestOne(IhrStaffBasicInfo basic, String rawJson, String etlBatchNo);
+    MdmIngestResultEnum ingestOne(IhrStaffBasicInfo basic, String rawJson, String etlBatchNo);
 
     /**
      * 批量查询员工上一快照的部门 ID（ods_ihr_emp.ihr_dept_id）

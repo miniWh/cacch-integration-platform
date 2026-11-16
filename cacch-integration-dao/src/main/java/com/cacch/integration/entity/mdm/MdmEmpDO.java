@@ -1,30 +1,23 @@
 package com.cacch.integration.entity.mdm;
 
-import com.baomidou.mybatisplus.annotation.FieldFill;
-import com.baomidou.mybatisplus.annotation.IdType;
-import com.baomidou.mybatisplus.annotation.TableField;
-import com.baomidou.mybatisplus.annotation.TableId;
-import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.cacch.integration.entity.base.BaseDO;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 
 /**
  * 人员主数据身份主档 DO —— 映射 PG 表 {@code mdm_emp}
  *
+ * <p>标准公共字段（id/createdAt/updatedAt/isDeleted）继承自 {@link BaseDO}。</p>
+ *
  * @author hongfu_zhou@cacch.com
  */
 @Data
+@EqualsAndHashCode(callSuper = true)
 @TableName("mdm_emp")
-public class MdmEmpDO {
-
-    /**
-     * 内部主键（雪花生成，BaseMapper.insert 自动填充 ASSIGN_ID）
-     */
-    @TableId(type = IdType.ASSIGN_ID)
-    private Long id;
+public class MdmEmpDO extends BaseDO {
 
     /**
      * 工号（变更不断链，仅覆盖更新）
@@ -95,13 +88,4 @@ public class MdmEmpDO {
      * 首次建档来源系统：IHR / WECOM / OA ...
      */
     private String srcSysCode;
-
-    @TableField(fill = FieldFill.INSERT)
-    private LocalDateTime createdAt;
-
-    @TableField(fill = FieldFill.INSERT_UPDATE)
-    private LocalDateTime updatedAt;
-
-    @TableLogic
-    private Integer isDeleted;
 }

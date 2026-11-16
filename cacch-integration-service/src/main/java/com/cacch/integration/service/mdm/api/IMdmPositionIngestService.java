@@ -1,6 +1,6 @@
 package com.cacch.integration.service.mdm.api;
 
-import com.cacch.integration.common.enums.mdm.MdmPositionIngestResultEnum;
+import com.cacch.integration.common.enums.mdm.MdmIngestResultEnum;
 import com.cacch.integration.integration.ihr.client.dto.IhrPosition;
 
 import java.util.Collection;
@@ -30,7 +30,7 @@ public interface IMdmPositionIngestService {
      * @return 落库结果（已落库 / 无变化跳过）
      * @throws com.cacch.integration.common.exception.BizException DB 写入失败或事件 payload 序列化失败时抛出（事务回滚）
      */
-    MdmPositionIngestResultEnum ingestOne(IhrPosition position, String rawJson, String etlBatchNo);
+    MdmIngestResultEnum ingestOne(IhrPosition position, String rawJson, String etlBatchNo);
 
     /**
      * 停用比对 —— 将 mdm_position 中已不在 iHR 存活集合内的岗位置为停用并写 DISABLE 事件

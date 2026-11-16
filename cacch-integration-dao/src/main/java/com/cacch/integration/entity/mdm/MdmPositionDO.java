@@ -1,32 +1,22 @@
 package com.cacch.integration.entity.mdm;
 
-import com.baomidou.mybatisplus.annotation.FieldFill;
-import com.baomidou.mybatisplus.annotation.IdType;
-import com.baomidou.mybatisplus.annotation.TableField;
-import com.baomidou.mybatisplus.annotation.TableId;
-import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.cacch.integration.entity.base.BaseDO;
 import lombok.Data;
-
-import java.time.LocalDateTime;
+import lombok.EqualsAndHashCode;
 
 /**
  * 岗位主数据主档 DO —— 映射 PG 表 {@code mdm_position}
  *
  * <p>主档本体不存来源标识（iHR 职位 uuid 经 {@code mdm_position_src_ref} 映射），
- * 岗位定位与多源追溯经 src_ref 进行。</p>
+ * 岗位定位与多源追溯经 src_ref 进行；标准公共字段继承自 {@link BaseDO}。</p>
  *
  * @author hongfu_zhou@cacch.com
  */
 @Data
+@EqualsAndHashCode(callSuper = true)
 @TableName("mdm_position")
-public class MdmPositionDO {
-
-    /**
-     * 内部主键
-     */
-    @TableId(type = IdType.ASSIGN_ID)
-    private Long id;
+public class MdmPositionDO extends BaseDO {
 
     /**
      * 职位编号（iHR positionCode，覆盖更新）
@@ -97,13 +87,4 @@ public class MdmPositionDO {
      * 首次建档来源系统：IHR
      */
     private String srcSysCode;
-
-    @TableField(fill = FieldFill.INSERT)
-    private LocalDateTime createdAt;
-
-    @TableField(fill = FieldFill.INSERT_UPDATE)
-    private LocalDateTime updatedAt;
-
-    @TableLogic
-    private Integer isDeleted;
 }

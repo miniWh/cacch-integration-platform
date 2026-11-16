@@ -1,6 +1,6 @@
 package com.cacch.integration.service.mdm.api;
 
-import com.cacch.integration.common.enums.mdm.MdmDeptIngestResultEnum;
+import com.cacch.integration.common.enums.mdm.MdmIngestResultEnum;
 import com.cacch.integration.integration.ihr.client.dto.IhrDepartment;
 
 import java.util.Collection;
@@ -30,7 +30,7 @@ public interface IMdmDeptIngestService {
      * @return 落库结果（已落库 / 无变化跳过）
      * @throws com.cacch.integration.common.exception.BizException DB 写入失败或事件 payload 序列化失败时抛出（事务回滚）
      */
-    MdmDeptIngestResultEnum ingestOne(IhrDepartment dept, String rawJson, String etlBatchNo);
+    MdmIngestResultEnum ingestOne(IhrDepartment dept, String rawJson, String etlBatchNo);
 
     /**
      * 停用比对 —— 将 mdm_dept 中已不在 iHR 存活集合内的部门置为停用并写 DISABLE 事件
@@ -46,17 +46,6 @@ public interface IMdmDeptIngestService {
      * @throws com.cacch.integration.common.exception.BizException DB 写入失败或事件 payload 序列化失败时抛出（事务回滚）
      */
     int disableMissing(Collection<String> aliveDeptUuids, String etlBatchNo);
-
-    /**
-     * 按 iHR 部门 ID 解析部门编码（ods_ihr_dept.ihr_dept_id → department_code）
-     *
-     * <p>供员工链路将 iHR departmentId 映射为任职组织编码；
-     * 映射缺失（部门主数据未同步或 iHR 新增滞后）返回 null，由调用方决定回退策略。</p>
-     *
-     * @param ihrDeptId iHR 部门 ID（数字字符串形式；null 或空时直接返回 null）
-     * @return 部门编码；未匹配时返回 null
-     */
-    String resolveDeptCodeByIhrDeptId(String ihrDeptId);
 
     /**
      * 部门主数据一致性核对（mdm_dept 与 ods_ihr_dept 双向 uuid 差集）

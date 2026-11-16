@@ -1,13 +1,15 @@
 package com.cacch.integration.service.mdm.api.impl;
 
+import com.cacch.integration.common.utils.mdm.MdmUtils;
+import com.cacch.integration.common.constant.mdm.MdmEventConstants;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.cacch.integration.common.constant.ihr.IhrStaffConstants;
-import com.cacch.integration.common.constant.mdm.MdmEmpCommonConstants;
+import com.cacch.integration.common.constant.mdm.MdmCommonConstants;
 import com.cacch.integration.common.constant.mdm.MdmEmpOrgAssignConstants;
 import com.cacch.integration.common.constant.mdm.MdmEmpEventConstants;
 import com.cacch.integration.common.constant.mdm.MdmEmpLogConstants;
-import com.cacch.integration.common.enums.mdm.MdmEmpIngestResultEnum;
+import com.cacch.integration.common.enums.mdm.MdmIngestResultEnum;
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.ResultCode;
 import com.cacch.integration.common.utils.mdm.MdmEmpUtils;
@@ -100,7 +102,7 @@ public class MdmEmpIngestServiceImpl implements IMdmEmpIngestService {
 
     @Override
     @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED, timeout = 30)
-    public MdmEmpIngestResultEnum ingestOne(IhrStaffBasicInfo basic, String rawJson, String etlBatchNo) {
+    public MdmIngestResultEnum ingestOne(IhrStaffBasicInfo basic, String rawJson, String etlBatchNo) {
         String staffId = basic.getStaffId();
 
         // 1. rowHash 比对 —— 未变化则幂等短路（不写贴源层，避免日度全量产生重复 stg 数据）
@@ -110,7 +112,7 @@ public class MdmEmpIngestServiceImpl implements IMdmEmpIngestService {
                 .last("LIMIT 1"));
         if (existing != null && rowHash.equals(existing.getRowHash())) {
             log.info("【{}】ods 数据无变化, 幂等跳过后续处理（含贴源）, ihrStaffId={}, batchNo={}", BIZ, staffId, etlBatchNo);
-            return MdmEmpIngestResultEnum.SKIPPED_UNCHANGED;
+            return MdmIngestResultEnum.SKIPPED_UNCHANGED;
         }
 
         // 2. stg 贴源（仅变更数据进入；同批次重复报文幂等吞掉）
@@ -143,13 +145,13 @@ public class MdmEmpIngestServiceImpl implements IMdmEmpIngestService {
         odsIhrEmpMapper.upsert(ods);
 
         if (idCardMissing) {
-            return MdmEmpIngestResultEnum.SKIPPED_MISSING_IDCARD;
+            return MdmIngestResultEnum.SKIPPED_MISSING_IDCARD;
         }
 
         // 5. src_ref 匹配主档
         //    先查 src_ref 拿 emp_id → 查 mdm_emp.id；无 src_ref 则主档不存在，走 INSERT
         MdmEmpSrcRefDO srcRef = mdEmpSrcRefMapper.selectByBusinessKey(
-                MdmEmpCommonConstants.SRC_SYS_CODE_IHR, SRC_ENTITY_TYPE_STAFF, staffId);
+                MdmCommonConstants.SRC_SYS_CODE_IHR, SRC_ENTITY_TYPE_STAFF, staffId);
         MdmEmpDO mdEmp = null;
         if (srcRef != null) {
             mdEmp = mdEmpMapper.selectOne(new LambdaQueryWrapper<MdmEmpDO>()
@@ -164,7 +166,7 @@ public class MdmEmpIngestServiceImpl implements IMdmEmpIngestService {
         if (mdEmp == null) {
             // 首次建档：构造完整主档 DO
             // 证件号明文存储，敏感字段对外查询/导出侧脱敏）
-            mdEmp = mdmEmpConverter.toNewMdEmp(basic, MdmEmpCommonConstants.SRC_SYS_CODE_IHR, enrollInDate);
+            mdEmp = mdmEmpConverter.toNewMdEmp(basic, MdmCommonConstants.SRC_SYS_CODE_IHR, enrollInDate);
             mdEmpMapper.insert(mdEmp);
             log.info("【{}】新建主档, empId={}, ihrStaffId={}, batchNo={}", BIZ, mdEmp.getId(), staffId, etlBatchNo);
         } else {
@@ -175,14 +177,14 @@ public class MdmEmpIngestServiceImpl implements IMdmEmpIngestService {
 
         // 6. src_ref 幂等插入（主档建立后立即建立映射，保证后续全链路可查）
         mdEmpSrcRefMapper.insertIgnore(IdWorker.getId(), mdEmp.getId(),
-                MdmEmpCommonConstants.SRC_SYS_CODE_IHR, SRC_ENTITY_TYPE_STAFF, staffId);
+                MdmCommonConstants.SRC_SYS_CODE_IHR, SRC_ENTITY_TYPE_STAFF, staffId);
 
         // 7. 任职拉链判定 + 事件产生
         String eventType = resolveAssignAndEvent(mdEmp, basic, enrollInDate, probationEndDate, leaveDate, mdExisted, etlBatchNo, rowHash);
 
         log.info("【{}】单员工落库完成, ihrStaffId={}, empId={}, eventType={}, mdExisted={}, batchNo={}",
                 BIZ, staffId, mdEmp.getId(), eventType, mdExisted, etlBatchNo);
-        return MdmEmpIngestResultEnum.INGESTED;
+        return MdmIngestResultEnum.INGESTED;
     }
 
     /**
@@ -271,9 +273,9 @@ public class MdmEmpIngestServiceImpl implements IMdmEmpIngestService {
         String staffId = basic.getStaffId();
         Long empId = mdEmp.getId();
         String orgCode = resolveOrgCode(basic.getDepartmentId(), staffId);
-        String orgName = MdmEmpUtils.nullIfBlank(basic.getDepartmentName());
-        String positionCode = MdmEmpUtils.nullIfBlank(basic.getPositionId());
-        String positionName = MdmEmpUtils.nullIfBlank(basic.getPositionName());
+        String orgName = MdmUtils.nullIfBlank(basic.getDepartmentName());
+        String positionCode = MdmUtils.nullIfBlank(basic.getPositionId());
+        String positionName = MdmUtils.nullIfBlank(basic.getPositionName());
         boolean quit = IhrStaffConstants.STAFF_STATUS_QUIT.equals(basic.getStaffStatus());
 
         MdmEmpOrgAssignDO active = mdEmpOrgAssignMapper.selectOne(new LambdaQueryWrapper<MdmEmpOrgAssignDO>()
@@ -292,22 +294,22 @@ public class MdmEmpIngestServiceImpl implements IMdmEmpIngestService {
             if (lastEnded != null) {
                 // 离职后属性修正：不开新任职行（避免误判 REHIRE 与矛盾行），仅发 UPDATE 事件
                 log.info("【{}】离职员工属性修正, 不新开任职行, ihrStaffId={}, empId={}, batchNo={}", BIZ, staffId, empId, etlBatchNo);
-                eventType = MdmEmpEventConstants.EVENT_TYPE_UPDATE;
-                insertEvent(mdEmp, basic, eventType, MdmEmpEventConstants.CHANGE_LEVEL_NORMAL,
+                eventType = MdmEventConstants.EVENT_TYPE_UPDATE;
+                insertEvent(mdEmp, basic, eventType, MdmEventConstants.CHANGE_LEVEL_NORMAL,
                         lastEnded.getOrgCode(), lastEnded.getOrgName(), lastEnded.getPositionCode(), lastEnded.getPositionName(),
                         lastEnded.getValidFrom(), lastEnded.getValidTo(), etlBatchNo, rowHash);
             } else {
                 // 首次同步即离职：开一行完整封口的任职行（validFrom=入职日, validTo=离职日）
                 insertAssign(empId, basic, orgCode, enrollInDate, probationEndDate, leaveDate, leaveDate);
                 eventType = MdmEmpEventConstants.EVENT_TYPE_LEAVE;
-                insertEvent(mdEmp, basic, eventType, MdmEmpEventConstants.CHANGE_LEVEL_HIGH,
+                insertEvent(mdEmp, basic, eventType, MdmEventConstants.CHANGE_LEVEL_HIGH,
                         orgCode, orgName, positionCode, positionName, enrollInDate, leaveDate, etlBatchNo, rowHash);
             }
         } else if (active == null) {
             // 新开任职（首次建档或再入职）
             insertAssign(empId, basic, orgCode, enrollInDate, probationEndDate, leaveDate, null);
             eventType = mdExisted ? MdmEmpEventConstants.EVENT_TYPE_REHIRE : MdmEmpEventConstants.EVENT_TYPE_HIRE;
-            insertEvent(mdEmp, basic, eventType, MdmEmpEventConstants.CHANGE_LEVEL_HIGH,
+            insertEvent(mdEmp, basic, eventType, MdmEventConstants.CHANGE_LEVEL_HIGH,
                     orgCode, orgName, positionCode, positionName, enrollInDate, null, etlBatchNo, rowHash);
         } else if (quit) {
             // 离职关链；离职日期缺失时保留有效行（validTo 语义为 NULL=当前有效）
@@ -319,7 +321,7 @@ public class MdmEmpIngestServiceImpl implements IMdmEmpIngestService {
                 log.info("【{}】离职但无离职日期, 任职行暂不关链, ihrStaffId={}, empId={}", BIZ, staffId, empId);
             }
             eventType = MdmEmpEventConstants.EVENT_TYPE_LEAVE;
-            insertEvent(mdEmp, basic, eventType, MdmEmpEventConstants.CHANGE_LEVEL_HIGH,
+            insertEvent(mdEmp, basic, eventType, MdmEventConstants.CHANGE_LEVEL_HIGH,
                     active.getOrgCode(), active.getOrgName(), active.getPositionCode(), active.getPositionName(),
                     active.getValidFrom(), leaveDate, etlBatchNo, rowHash);
         } else if (!Objects.equals(active.getOrgCode(), orgCode)
@@ -331,7 +333,7 @@ public class MdmEmpIngestServiceImpl implements IMdmEmpIngestService {
             mdEmpOrgAssignMapper.updateById(active);
             insertAssign(empId, basic, orgCode, transferDate, probationEndDate, leaveDate, null);
             eventType = MdmEmpEventConstants.EVENT_TYPE_TRANSFER;
-            insertEvent(mdEmp, basic, eventType, MdmEmpEventConstants.CHANGE_LEVEL_NORMAL,
+            insertEvent(mdEmp, basic, eventType, MdmEventConstants.CHANGE_LEVEL_NORMAL,
                     orgCode, orgName, positionCode, positionName, transferDate, null, etlBatchNo, rowHash);
         } else {
             // 属性更新：仅刷新当前行的组织/职位名称
@@ -339,8 +341,8 @@ public class MdmEmpIngestServiceImpl implements IMdmEmpIngestService {
             active.setPositionName(positionName);
             active.setAssignStatus(deriveAssignStatus(basic.getStaffStatus(), enrollInDate, probationEndDate, leaveDate));
             mdEmpOrgAssignMapper.updateById(active);
-            eventType = MdmEmpEventConstants.EVENT_TYPE_UPDATE;
-            insertEvent(mdEmp, basic, eventType, MdmEmpEventConstants.CHANGE_LEVEL_NORMAL,
+            eventType = MdmEventConstants.EVENT_TYPE_UPDATE;
+            insertEvent(mdEmp, basic, eventType, MdmEventConstants.CHANGE_LEVEL_NORMAL,
                     orgCode, orgName, positionCode, positionName, active.getValidFrom(), null, etlBatchNo, rowHash);
         }
         return eventType;
@@ -421,7 +423,7 @@ public class MdmEmpIngestServiceImpl implements IMdmEmpIngestService {
             throw new BizException(ResultCode.SYSTEM_ERROR, "事件 payload 序列化失败");
         }
 
-        String eventId = MdmEmpUtils.sha256Hex(empId + ":" + eventType + ":" + rowHash);
+        String eventId = MdmUtils.sha256Hex(empId + ":" + eventType + ":" + rowHash);
         MdmEmpEventDO event = new MdmEmpEventDO();
         event.setId(IdWorker.getId());
         event.setEventId(eventId);
@@ -431,7 +433,7 @@ public class MdmEmpIngestServiceImpl implements IMdmEmpIngestService {
         event.setEmpNo(mdEmp.getEmpNo());
         event.setPayload(payload);
         event.setEtlBatchNo(etlBatchNo);
-        event.setStatus(MdmEmpEventConstants.EVENT_STATUS_PENDING);
+        event.setStatus(MdmEventConstants.EVENT_STATUS_PENDING);
         int rows = sysEventMapper.insertIgnore(event);
         if (rows == 0) {
             log.info("【{}】事件已存在, 幂等跳过, empId={}, eventType={}, eventId={}",
@@ -448,21 +450,21 @@ public class MdmEmpIngestServiceImpl implements IMdmEmpIngestService {
      */
     private String buildRowHash(IhrStaffBasicInfo basic) {
         String joined = String.join(FIELD_SEP,
-                MdmEmpUtils.nullToEmpty(basic.getStaffNo()),
-                MdmEmpUtils.nullToEmpty(basic.getStaffName()),
-                MdmEmpUtils.nullToEmpty(basic.getMobileNo()),
-                MdmEmpUtils.nullToEmpty(basic.getEmail()),
-                MdmEmpUtils.nullToEmpty(basic.getWorkEmail()),
-                MdmEmpUtils.nullToEmpty(basic.getSex()),
-                MdmEmpUtils.nullToEmpty(basic.getBirthday()),
-                MdmEmpUtils.nullToEmpty(basic.getHighestEducation()),
-                MdmEmpUtils.nullToEmpty(basic.getIdCardType()),
+                MdmUtils.nullToEmpty(basic.getStaffNo()),
+                MdmUtils.nullToEmpty(basic.getStaffName()),
+                MdmUtils.nullToEmpty(basic.getMobileNo()),
+                MdmUtils.nullToEmpty(basic.getEmail()),
+                MdmUtils.nullToEmpty(basic.getWorkEmail()),
+                MdmUtils.nullToEmpty(basic.getSex()),
+                MdmUtils.nullToEmpty(basic.getBirthday()),
+                MdmUtils.nullToEmpty(basic.getHighestEducation()),
+                MdmUtils.nullToEmpty(basic.getIdCardType()),
                 basic.getDepartmentId() == null ? "" : String.valueOf(basic.getDepartmentId()),
-                MdmEmpUtils.nullToEmpty(basic.getPositionId()),
-                MdmEmpUtils.nullToEmpty(basic.getStaffStatus()),
-                MdmEmpUtils.nullToEmpty(basic.getEnrollInDate()),
-                MdmEmpUtils.nullToEmpty(basic.getLeaveDate()));
-        return MdmEmpUtils.sha256Hex(joined);
+                MdmUtils.nullToEmpty(basic.getPositionId()),
+                MdmUtils.nullToEmpty(basic.getStaffStatus()),
+                MdmUtils.nullToEmpty(basic.getEnrollInDate()),
+                MdmUtils.nullToEmpty(basic.getLeaveDate()));
+        return MdmUtils.sha256Hex(joined);
     }
 
     /**

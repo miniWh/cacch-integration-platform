@@ -1,9 +1,9 @@
 package com.cacch.integration.manager.mdm.api.impl;
 
-import com.cacch.integration.common.constant.mdm.MdmPositionCommonConstants;
+import com.cacch.integration.common.constant.mdm.MdmCommonConstants;
 import com.cacch.integration.common.constant.mdm.MdmPositionLogConstants;
 import com.cacch.integration.common.dto.batch.BatchProcessResult;
-import com.cacch.integration.common.enums.mdm.MdmPositionIngestResultEnum;
+import com.cacch.integration.common.enums.mdm.MdmIngestResultEnum;
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.ResultCode;
 import com.cacch.integration.integration.ihr.client.dto.IhrPosition;
@@ -68,7 +68,7 @@ public class MdmPositionSyncManagerImpl implements IMdmPositionSyncManager {
      * 全量同步主体：拉取 → 逐岗位落库 → 停用比对（守卫）→ 一致性核对
      */
     private PositionSyncResult doFullSync() {
-        String etlBatchNo = MdmPositionCommonConstants.buildEtlBatchNo();
+        String etlBatchNo = MdmCommonConstants.buildEtlBatchNo("POS");
         log.info("【{}】开始本轮 iHR 岗位全量同步, batchNo={}", BIZ, etlBatchNo);
 
         List<IhrPosition> positions = ihrPositionSyncService.fetchAllPositions();
@@ -91,7 +91,7 @@ public class MdmPositionSyncManagerImpl implements IMdmPositionSyncManager {
             try {
                 // 清单接口无 per-position 原文，重建单岗位 JSON 作贴源留底
                 String rawJson = MAPPER.writeValueAsString(position);
-                MdmPositionIngestResultEnum ingestResult =
+                MdmIngestResultEnum ingestResult =
                         mdmPositionIngestService.ingestOne(position, rawJson, etlBatchNo);
                 switch (ingestResult) {
                     case INGESTED -> result.recordSuccess(positionUuid);

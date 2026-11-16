@@ -1,14 +1,10 @@
 package com.cacch.integration.manager.mdm.api.impl;
 
 import com.cacch.integration.common.constant.ihr.IhrStaffConstants;
-import com.cacch.integration.common.constant.mdm.MdmDeptCommonConstants;
-import com.cacch.integration.common.constant.mdm.MdmEmpCommonConstants;
+import com.cacch.integration.common.constant.mdm.MdmCommonConstants;
 import com.cacch.integration.common.constant.mdm.MdmEmpLogConstants;
-import com.cacch.integration.common.constant.mdm.MdmPositionCommonConstants;
 import com.cacch.integration.common.dto.batch.BatchProcessResult;
-import com.cacch.integration.common.enums.mdm.MdmDeptIngestResultEnum;
-import com.cacch.integration.common.enums.mdm.MdmEmpIngestResultEnum;
-import com.cacch.integration.common.enums.mdm.MdmPositionIngestResultEnum;
+import com.cacch.integration.common.enums.mdm.MdmIngestResultEnum;
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.ResultCode;
 import com.cacch.integration.entity.mdm.StgStaffRecordDO;
@@ -119,7 +115,7 @@ public class MdmEmpSyncManagerImpl implements IMdmEmpSyncManager {
     // ==================== 全量落库（四阶段：拉取 → 部门保障 → 岗位保障 → 员工落库） ====================
 
     private BatchProcessResult<String> doPullAndIngest() {
-        String etlBatchNo = MdmEmpCommonConstants.buildEtlBatchNo();
+        String etlBatchNo = MdmCommonConstants.buildEtlBatchNo("IHR");
         log.info("【{}】开始本轮 iHR 人员拉取落库, batchNo={}", BIZ, etlBatchNo);
 
         List<String> staffIds = ihrStaffService.fetchAllStaffIds(null);
@@ -182,7 +178,7 @@ public class MdmEmpSyncManagerImpl implements IMdmEmpSyncManager {
      * @param ingestResult 单员工落库结果
      */
     private void recordIngestResult(BatchProcessResult<String> result, String staffId,
-                                    MdmEmpIngestResultEnum ingestResult) {
+                                    MdmIngestResultEnum ingestResult) {
         switch (ingestResult) {
             case INGESTED -> result.recordSuccess(staffId);
             case SKIPPED_UNCHANGED, SKIPPED_MISSING_IDCARD -> result.recordSkip(staffId, ingestResult.getDesc());
@@ -230,7 +226,7 @@ public class MdmEmpSyncManagerImpl implements IMdmEmpSyncManager {
             return;
         }
 
-        String deptEtlBatchNo = MdmDeptCommonConstants.buildEtlBatchNo();
+        String deptEtlBatchNo = MdmCommonConstants.buildEtlBatchNo("DEPT");
         log.info("【{}】员工落库前部门保障开始, 涉及部门数={}, empBatchNo={}, deptBatchNo={}",
                 BIZ, deptIds.size(), empEtlBatchNo, deptEtlBatchNo);
         try {
@@ -243,9 +239,9 @@ public class MdmEmpSyncManagerImpl implements IMdmEmpSyncManager {
             for (IhrDepartment dept : depts) {
                 try {
                     String rawJson = MAPPER.writeValueAsString(dept);
-                    MdmDeptIngestResultEnum ingestResult =
+                    MdmIngestResultEnum ingestResult =
                             mdmDeptIngestService.ingestOne(dept, rawJson, deptEtlBatchNo);
-                    if (ingestResult == MdmDeptIngestResultEnum.INGESTED) {
+                    if (ingestResult == MdmIngestResultEnum.INGESTED) {
                         deptResult.recordSuccess(dept.getUuid());
                     } else {
                         deptResult.recordSkip(dept.getUuid(), ingestResult.getDesc());
@@ -318,7 +314,7 @@ public class MdmEmpSyncManagerImpl implements IMdmEmpSyncManager {
             return;
         }
 
-        String positionEtlBatchNo = MdmPositionCommonConstants.buildEtlBatchNo();
+        String positionEtlBatchNo = MdmCommonConstants.buildEtlBatchNo("POS");
         log.info("【{}】员工落库前岗位保障开始, 涉及岗位数={}, empBatchNo={}, positionBatchNo={}",
                 BIZ, positionIds.size(), empEtlBatchNo, positionEtlBatchNo);
         try {
@@ -331,9 +327,9 @@ public class MdmEmpSyncManagerImpl implements IMdmEmpSyncManager {
             for (IhrPosition position : positions) {
                 try {
                     String rawJson = MAPPER.writeValueAsString(position);
-                    MdmPositionIngestResultEnum ingestResult =
+                    MdmIngestResultEnum ingestResult =
                             mdmPositionIngestService.ingestOne(position, rawJson, positionEtlBatchNo);
-                    if (ingestResult == MdmPositionIngestResultEnum.INGESTED) {
+                    if (ingestResult == MdmIngestResultEnum.INGESTED) {
                         positionResult.recordSuccess(position.getId());
                     } else {
                         positionResult.recordSkip(position.getId(), ingestResult.getDesc());
@@ -362,7 +358,7 @@ public class MdmEmpSyncManagerImpl implements IMdmEmpSyncManager {
      * → insertIgnore DO UPDATE 入队 stg_staff_record
      */
     private PullIncrementalResult doPullIncrementalToQueue() {
-        String pullBatchNo = MdmEmpCommonConstants.buildPullBatchNo();
+        String pullBatchNo = MdmCommonConstants.buildPullBatchNo();
         LocalDate today = LocalDate.now();
         LocalDate yesterday = today.minusDays(1);
         log.info("【{}】开始本轮增量 Pull 入队, pullBatchNo={}, dates=[{}, {}]",
@@ -451,8 +447,8 @@ public class MdmEmpSyncManagerImpl implements IMdmEmpSyncManager {
      * 异常崩溃的行由超时回收重置 PENDING。同 staffId 重复行共用一次拉取结果。</p>
      */
     private BatchProcessResult<String> doProcessIncrementalFromQueue(int limit) {
-        String processBatchNo = MdmEmpCommonConstants.buildProcessBatchNo();
-        String etlBatchNo = MdmEmpCommonConstants.buildEtlBatchNo();
+        String processBatchNo = MdmCommonConstants.buildProcessBatchNo();
+        String etlBatchNo = MdmCommonConstants.buildEtlBatchNo("IHR");
         log.info("【{}】开始本轮增量 Process, processBatchNo={}, etlBatchNo={}, limit={}",
                 BIZ, processBatchNo, etlBatchNo, limit);
 

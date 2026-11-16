@@ -1,6 +1,6 @@
 package com.cacch.integration.service.mdm.convert;
 
-import com.cacch.integration.common.utils.mdm.MdmDeptUtils;
+import com.cacch.integration.common.utils.mdm.MdmUtils;
 import com.cacch.integration.entity.mdm.MdmDeptDO;
 import com.cacch.integration.entity.mdm.OdsIhrDeptDO;
 import com.cacch.integration.integration.ihr.client.dto.IhrDepartment;
@@ -24,7 +24,7 @@ public interface MdmDeptConverter {
      * String → null 安全（空串视为 NULL，防止数据库存储 '' 污染）
      */
     default String nullIfBlank(String value) {
-        return MdmDeptUtils.nullIfBlank(value);
+        return MdmUtils.nullIfBlank(value);
     }
 
     /**

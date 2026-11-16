@@ -1,7 +1,10 @@
 package com.cacch.integration.common.constant.mdm;
 
 /**
- * 人员主数据（MDM）人员子域 —— mdm_emp_event 事件域常量
+ * 人员主数据（MDM）人员子域 —— mdm_emp_event 人员特有事件常量
+ *
+ * <p>仅承载人员子域特有的事件类型；CREATE / UPDATE / DISABLE、变更级别、
+ * 处理状态等组织实体通用字典见 {@link MdmEventConstants}。</p>
  *
  * @author hongfu_zhou@cacch.com
  */
@@ -10,7 +13,7 @@ public final class MdmEmpEventConstants {
     private MdmEmpEventConstants() {
     }
 
-    // ==================== 事件类型（mdm_emp_event.event_type） ====================
+    // ==================== 人员特有事件类型（mdm_emp_event.event_type） ====================
 
     /**
      * 入职（首次建档）
@@ -28,26 +31,4 @@ public final class MdmEmpEventConstants {
      * 调岗（部门或职位变更）
      */
     public static final String EVENT_TYPE_TRANSFER = "TRANSFER";
-    /**
-     * 属性更新（部门职位未变的其余内容变更）
-     */
-    public static final String EVENT_TYPE_UPDATE = "UPDATE";
-
-    // ==================== 变更级别（mdm_emp_event.change_level） ====================
-
-    /**
-     * 高级别变更：入职 / 离职 / 再入职
-     */
-    public static final String CHANGE_LEVEL_HIGH = "HIGH";
-    /**
-     * 普通级别变更：调岗 / 属性更新
-     */
-    public static final String CHANGE_LEVEL_NORMAL = "NORMAL";
-
-    // ==================== 事件处理状态（mdm_emp_event.status） ====================
-
-    /**
-     * 待消费（初始状态）
-     */
-    public static final String EVENT_STATUS_PENDING = "PENDING";
 }

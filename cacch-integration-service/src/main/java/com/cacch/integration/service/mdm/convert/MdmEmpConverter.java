@@ -1,5 +1,6 @@
 package com.cacch.integration.service.mdm.convert;
 
+import com.cacch.integration.common.utils.mdm.MdmUtils;
 import com.cacch.integration.common.utils.mdm.MdmEmpUtils;
 import com.cacch.integration.entity.mdm.MdmEmpDO;
 import com.cacch.integration.entity.mdm.MdmEmpOrgAssignDO;
@@ -43,7 +44,7 @@ public interface MdmEmpConverter {
      * String → null 安全（空串视为 NULL，防止数据库存储 '' 污染）
      */
     default String nullIfBlank(String value) {
-        return MdmEmpUtils.nullIfBlank(value);
+        return MdmUtils.nullIfBlank(value);
     }
 
     // ==================== ODS 规范化 ====================

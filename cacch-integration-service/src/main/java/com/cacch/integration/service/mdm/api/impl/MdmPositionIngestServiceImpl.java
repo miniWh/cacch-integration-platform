@@ -1,14 +1,15 @@
 package com.cacch.integration.service.mdm.api.impl;
 
+import com.cacch.integration.common.constant.mdm.MdmCommonConstants;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.cacch.integration.common.constant.mdm.MdmPositionCommonConstants;
-import com.cacch.integration.common.constant.mdm.MdmPositionEventConstants;
+import com.cacch.integration.common.constant.mdm.MdmEventConstants;
 import com.cacch.integration.common.constant.mdm.MdmPositionLogConstants;
-import com.cacch.integration.common.enums.mdm.MdmPositionIngestResultEnum;
+import com.cacch.integration.common.enums.mdm.MdmIngestResultEnum;
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.ResultCode;
-import com.cacch.integration.common.utils.mdm.MdmPositionUtils;
+import com.cacch.integration.common.utils.mdm.MdmUtils;
 import com.cacch.integration.entity.mdm.MdmPositionDO;
 import com.cacch.integration.entity.mdm.MdmPositionEventDO;
 import com.cacch.integration.entity.mdm.MdmPositionSrcRefDO;
@@ -72,7 +73,7 @@ public class MdmPositionIngestServiceImpl implements IMdmPositionIngestService {
 
     @Override
     @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED, timeout = 30)
-    public MdmPositionIngestResultEnum ingestOne(IhrPosition position, String rawJson, String etlBatchNo) {
+    public MdmIngestResultEnum ingestOne(IhrPosition position, String rawJson, String etlBatchNo) {
         String positionUuid = position.getId();
 
         // 1. rowHash 比对 —— 未变化则幂等短路（不写贴源层，避免每轮同步产生重复 stg 数据）
@@ -84,7 +85,7 @@ public class MdmPositionIngestServiceImpl implements IMdmPositionIngestService {
         if (existing != null && rowHash.equals(existing.getRowHash())) {
             log.info("【{}】ods 数据无变化, 幂等跳过后续处理（含贴源）, ihrPositionUuid={}, batchNo={}",
                     BIZ, positionUuid, etlBatchNo);
-            return MdmPositionIngestResultEnum.SKIPPED_UNCHANGED;
+            return MdmIngestResultEnum.SKIPPED_UNCHANGED;
         }
 
         // 2. stg 贴源（仅变更数据进入；同批次重复报文幂等吞掉）
@@ -103,7 +104,7 @@ public class MdmPositionIngestServiceImpl implements IMdmPositionIngestService {
 
         // 4. mdm_position 主档 upsert（经 src_ref 定位唯一岗位；parentPositionId 存 UUID 不做自引用，乱序建档安全）
         MdmPositionSrcRefDO srcRef = mdmPositionSrcRefMapper.selectByBusinessKey(
-                MdmPositionCommonConstants.SRC_SYS_CODE_IHR, MdmPositionCommonConstants.SRC_ENTITY_TYPE_POSITION,
+                MdmCommonConstants.SRC_SYS_CODE_IHR, MdmPositionCommonConstants.SRC_ENTITY_TYPE_POSITION,
                 positionUuid);
         MdmPositionDO mdPosition = null;
         if (srcRef != null) {
@@ -113,22 +114,22 @@ public class MdmPositionIngestServiceImpl implements IMdmPositionIngestService {
         String eventType;
         String changeLevel;
         if (mdPosition == null) {
-            mdPosition = mdmPositionConverter.toNewMdPosition(position, MdmPositionCommonConstants.SRC_SYS_CODE_IHR);
+            mdPosition = mdmPositionConverter.toNewMdPosition(position, MdmCommonConstants.SRC_SYS_CODE_IHR);
             mdmPositionMapper.insert(mdPosition);
-            eventType = MdmPositionEventConstants.EVENT_TYPE_CREATE;
-            changeLevel = MdmPositionEventConstants.CHANGE_LEVEL_HIGH;
+            eventType = MdmEventConstants.EVENT_TYPE_CREATE;
+            changeLevel = MdmEventConstants.CHANGE_LEVEL_HIGH;
             log.info("【{}】新建岗位主档, positionId={}, ihrPositionUuid={}, batchNo={}",
                     BIZ, mdPosition.getId(), positionUuid, etlBatchNo);
         } else {
             mdmPositionConverter.updateBasicInfo(position, mdPosition);
             mdmPositionMapper.updateById(mdPosition);
-            eventType = MdmPositionEventConstants.EVENT_TYPE_UPDATE;
-            changeLevel = MdmPositionEventConstants.CHANGE_LEVEL_NORMAL;
+            eventType = MdmEventConstants.EVENT_TYPE_UPDATE;
+            changeLevel = MdmEventConstants.CHANGE_LEVEL_NORMAL;
         }
 
         // 4.1 src_ref 幂等插入（主档建立后立即建立来源映射，保证后续定位与多源追溯可查）
         mdmPositionSrcRefMapper.insertIgnore(IdWorker.getId(), mdPosition.getId(),
-                MdmPositionCommonConstants.SRC_SYS_CODE_IHR, MdmPositionCommonConstants.SRC_ENTITY_TYPE_POSITION,
+                MdmCommonConstants.SRC_SYS_CODE_IHR, MdmPositionCommonConstants.SRC_ENTITY_TYPE_POSITION,
                 positionUuid);
 
         // 5. 事件幂等插入
@@ -136,7 +137,7 @@ public class MdmPositionIngestServiceImpl implements IMdmPositionIngestService {
 
         log.info("【{}】单岗位落库完成, ihrPositionUuid={}, positionId={}, eventType={}, mdExisted={}, batchNo={}",
                 BIZ, positionUuid, mdPosition.getId(), eventType, mdExisted, etlBatchNo);
-        return MdmPositionIngestResultEnum.INGESTED;
+        return MdmIngestResultEnum.INGESTED;
     }
 
     /**
@@ -179,8 +180,8 @@ public class MdmPositionIngestServiceImpl implements IMdmPositionIngestService {
             }
             mdPosition.setPositionState(MdmPositionCommonConstants.POSITION_STATUS_DISABLED);
             mdmPositionMapper.updateById(mdPosition);
-            insertEvent(mdPosition, positionUuid, MdmPositionEventConstants.EVENT_TYPE_DISABLE,
-                    MdmPositionEventConstants.CHANGE_LEVEL_HIGH, etlBatchNo, etlBatchNo);
+            insertEvent(mdPosition, positionUuid, MdmEventConstants.EVENT_TYPE_DISABLE,
+                    MdmEventConstants.CHANGE_LEVEL_HIGH, etlBatchNo, etlBatchNo);
             disabled++;
             log.info("【{}】岗位停用完成, positionId={}, ihrPositionUuid={}, positionCode={}, batchNo={}",
                     BIZ, mdPosition.getId(), positionUuid, mdPosition.getPositionCode(), etlBatchNo);
@@ -197,7 +198,7 @@ public class MdmPositionIngestServiceImpl implements IMdmPositionIngestService {
      */
     private Map<Long, String> loadIhrUuidMap() {
         List<MdmPositionSrcRefDO> refs = mdmPositionSrcRefMapper.selectList(new LambdaQueryWrapper<MdmPositionSrcRefDO>()
-                .eq(MdmPositionSrcRefDO::getSrcSysCode, MdmPositionCommonConstants.SRC_SYS_CODE_IHR)
+                .eq(MdmPositionSrcRefDO::getSrcSysCode, MdmCommonConstants.SRC_SYS_CODE_IHR)
                 .eq(MdmPositionSrcRefDO::getSrcEntityType, MdmPositionCommonConstants.SRC_ENTITY_TYPE_POSITION));
         Map<Long, String> map = new HashMap<>(refs.size() * 2);
         for (MdmPositionSrcRefDO ref : refs) {
@@ -262,7 +263,7 @@ public class MdmPositionIngestServiceImpl implements IMdmPositionIngestService {
             throw new BizException(ResultCode.SYSTEM_ERROR, "事件 payload 序列化失败");
         }
 
-        String eventId = MdmPositionUtils.sha256Hex(positionUuid + ":" + eventType + ":" + idBasis);
+        String eventId = MdmUtils.sha256Hex(positionUuid + ":" + eventType + ":" + idBasis);
         MdmPositionEventDO event = new MdmPositionEventDO();
         event.setId(IdWorker.getId());
         event.setEventId(eventId);
@@ -272,7 +273,7 @@ public class MdmPositionIngestServiceImpl implements IMdmPositionIngestService {
         event.setPositionCode(mdPosition.getPositionCode());
         event.setPayload(payload);
         event.setEtlBatchNo(etlBatchNo);
-        event.setStatus(MdmPositionEventConstants.EVENT_STATUS_PENDING);
+        event.setStatus(MdmEventConstants.EVENT_STATUS_PENDING);
         int rows = mdmPositionEventMapper.insertIgnore(event);
         if (rows == 0) {
             log.info("【{}】事件已存在, 幂等跳过, positionId={}, eventType={}, eventId={}",
@@ -296,26 +297,26 @@ public class MdmPositionIngestServiceImpl implements IMdmPositionIngestService {
      */
     private String buildRowHash(IhrPosition position, String positionScopeJson) {
         String joined = String.join(FIELD_SEP,
-                MdmPositionUtils.nullToEmpty(position.getPositionName()),
-                MdmPositionUtils.nullToEmpty(position.getCompanyId()),
-                MdmPositionUtils.nullToEmpty(position.getAbbreviation()),
-                MdmPositionUtils.nullToEmpty(position.getPositionCode()),
-                MdmPositionUtils.nullToEmpty(position.getAppliedRange()),
+                MdmUtils.nullToEmpty(position.getPositionName()),
+                MdmUtils.nullToEmpty(position.getCompanyId()),
+                MdmUtils.nullToEmpty(position.getAbbreviation()),
+                MdmUtils.nullToEmpty(position.getPositionCode()),
+                MdmUtils.nullToEmpty(position.getAppliedRange()),
                 position.getCapacity() == null ? "" : String.valueOf(position.getCapacity()),
-                MdmPositionUtils.nullToEmpty(position.getEffectiveDate()),
+                MdmUtils.nullToEmpty(position.getEffectiveDate()),
                 position.getDepartmentId() == null ? "" : String.valueOf(position.getDepartmentId()),
-                MdmPositionUtils.nullToEmpty(position.getDepartmentName()),
-                MdmPositionUtils.nullToEmpty(position.getDescription()),
-                MdmPositionUtils.nullToEmpty(position.getJobTitleId()),
-                MdmPositionUtils.nullToEmpty(position.getJobTitleName()),
-                MdmPositionUtils.nullToEmpty(position.getPositionGradeId()),
-                MdmPositionUtils.nullToEmpty(position.getPositionGradeName()),
-                MdmPositionUtils.nullToEmpty(position.getQualifications()),
-                MdmPositionUtils.nullToEmpty(position.getParentId()),
+                MdmUtils.nullToEmpty(position.getDepartmentName()),
+                MdmUtils.nullToEmpty(position.getDescription()),
+                MdmUtils.nullToEmpty(position.getJobTitleId()),
+                MdmUtils.nullToEmpty(position.getJobTitleName()),
+                MdmUtils.nullToEmpty(position.getPositionGradeId()),
+                MdmUtils.nullToEmpty(position.getPositionGradeName()),
+                MdmUtils.nullToEmpty(position.getQualifications()),
+                MdmUtils.nullToEmpty(position.getParentId()),
                 position.getIsPositionGroup() == null ? "" : String.valueOf(position.getIsPositionGroup()),
-                MdmPositionUtils.nullToEmpty(position.getPositionState()),
-                MdmPositionUtils.nullToEmpty(positionScopeJson));
-        return MdmPositionUtils.sha256Hex(joined);
+                MdmUtils.nullToEmpty(position.getPositionState()),
+                MdmUtils.nullToEmpty(positionScopeJson));
+        return MdmUtils.sha256Hex(joined);
     }
 
     /**

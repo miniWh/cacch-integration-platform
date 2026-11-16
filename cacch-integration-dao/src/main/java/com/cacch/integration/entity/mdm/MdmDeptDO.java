@@ -1,29 +1,21 @@
 package com.cacch.integration.entity.mdm;
 
-import com.baomidou.mybatisplus.annotation.FieldFill;
-import com.baomidou.mybatisplus.annotation.IdType;
-import com.baomidou.mybatisplus.annotation.TableField;
-import com.baomidou.mybatisplus.annotation.TableId;
-import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.cacch.integration.entity.base.BaseDO;
 import lombok.Data;
-
-import java.time.LocalDateTime;
+import lombok.EqualsAndHashCode;
 
 /**
  * 部门主数据主档 DO —— 映射 PG 表 {@code mdm_dept}
  *
+ * <p>标准公共字段（id/createdAt/updatedAt/isDeleted）继承自 {@link BaseDO}。</p>
+ *
  * @author hongfu_zhou@cacch.com
  */
 @Data
+@EqualsAndHashCode(callSuper = true)
 @TableName("mdm_dept")
-public class MdmDeptDO {
-
-    /**
-     * 内部主键
-     */
-    @TableId(type = IdType.ASSIGN_ID)
-    private Long id;
+public class MdmDeptDO extends BaseDO {
 
     /**
      * 部门编码
@@ -64,13 +56,4 @@ public class MdmDeptDO {
      * 首次建档来源系统：IHR
      */
     private String srcSysCode;
-
-    @TableField(fill = FieldFill.INSERT)
-    private LocalDateTime createdAt;
-
-    @TableField(fill = FieldFill.INSERT_UPDATE)
-    private LocalDateTime updatedAt;
-
-    @TableLogic
-    private Integer isDeleted;
 }

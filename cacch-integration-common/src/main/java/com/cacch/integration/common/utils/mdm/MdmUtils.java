@@ -7,19 +7,23 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
 /**
- * 部门主数据（MDM）域通用工具方法 —— 跨模块复用的算法类逻辑
+ * 主数据（MDM）域级通用工具方法 —— 人员 / 部门 / 岗位子域共用的算法类逻辑
+ *
+ * <p>子域特有工具方法保留在各子域 {@code Mdm{Sub}Utils} 中
+ * （当前仅人员子域存在特有方法）。</p>
  *
  * @author hongfu_zhou@cacch.com
  */
-public final class MdmDeptUtils {
+public final class MdmUtils {
 
-    private MdmDeptUtils() {
+    private MdmUtils() {
     }
 
     /**
      * SHA-256 哈希（小写 hex）
      *
-     * <p>用于 ods 行哈希（rowHash）、mdm_dept_event.event_id（事件幂等键）。</p>
+     * <p>用于 mdm_emp.id_hash（身份哈希）、ods 行哈希（rowHash）、
+     * mdm_*_event.event_id（事件幂等键）。</p>
      *
      * @param value 原文（可为 null，按空串处理）
      * @return 64 位小写 hex 哈希
@@ -42,7 +46,7 @@ public final class MdmDeptUtils {
      * null 或空串 → null（防止数据库存储 '' 污染）
      *
      * @param value 原值（可为 null 或空串）
-     * @return null —— 空串或纯空白视为 null；否则返回原值
+     * @return 空串或纯空白视为 null；否则返回原值
      */
     public static String nullIfBlank(String value) {
         return StringUtils.isBlank(value) ? null : value;

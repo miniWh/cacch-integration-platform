@@ -1,9 +1,9 @@
 package com.cacch.integration.manager.mdm.api.impl;
 
-import com.cacch.integration.common.constant.mdm.MdmDeptCommonConstants;
+import com.cacch.integration.common.constant.mdm.MdmCommonConstants;
 import com.cacch.integration.common.constant.mdm.MdmDeptLogConstants;
 import com.cacch.integration.common.dto.batch.BatchProcessResult;
-import com.cacch.integration.common.enums.mdm.MdmDeptIngestResultEnum;
+import com.cacch.integration.common.enums.mdm.MdmIngestResultEnum;
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.ResultCode;
 import com.cacch.integration.integration.ihr.client.dto.IhrDepartment;
@@ -68,7 +68,7 @@ public class MdmDeptSyncManagerImpl implements IMdmDeptSyncManager {
      * 全量同步主体：拉取 → 逐部门落库 → 停用比对（守卫）→ 一致性核对
      */
     private DeptSyncResult doFullSync() {
-        String etlBatchNo = MdmDeptCommonConstants.buildEtlBatchNo();
+        String etlBatchNo = MdmCommonConstants.buildEtlBatchNo("DEPT");
         log.info("【{}】开始本轮 iHR 部门全量同步, batchNo={}", BIZ, etlBatchNo);
 
         List<IhrDepartment> depts = ihrOrgService.fetchAllDepartments();
@@ -90,7 +90,7 @@ public class MdmDeptSyncManagerImpl implements IMdmDeptSyncManager {
             try {
                 // 搜索接口无 per-dept 原文，重建单部门 JSON 作贴源留底
                 String rawJson = MAPPER.writeValueAsString(dept);
-                MdmDeptIngestResultEnum ingestResult = mdmDeptIngestService.ingestOne(dept, rawJson, etlBatchNo);
+                MdmIngestResultEnum ingestResult = mdmDeptIngestService.ingestOne(dept, rawJson, etlBatchNo);
                 switch (ingestResult) {
                     case INGESTED -> result.recordSuccess(deptUuid);
                     case SKIPPED_UNCHANGED -> result.recordSkip(deptUuid, ingestResult.getDesc());
