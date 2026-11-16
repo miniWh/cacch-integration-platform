@@ -75,7 +75,7 @@ public class OdsIhrPositionDO {
     private String description;
 
     /**
-     * 所属部门 ID（iHR 返回 Long，存字符串形式）
+     * iHR 原始部门 ID
      */
     private String departmentId;
 

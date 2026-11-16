@@ -3,6 +3,7 @@ package com.cacch.integration.service.mdm.api.impl;
 import com.cacch.integration.common.constant.mdm.MdmCommonConstants;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
+import com.cacch.integration.common.constant.mdm.MdmDeptCommonConstants;
 import com.cacch.integration.common.constant.mdm.MdmPositionCommonConstants;
 import com.cacch.integration.common.constant.mdm.MdmEventConstants;
 import com.cacch.integration.common.constant.mdm.MdmPositionLogConstants;
@@ -10,15 +11,19 @@ import com.cacch.integration.common.enums.mdm.MdmIngestResultEnum;
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.ResultCode;
 import com.cacch.integration.common.utils.mdm.MdmUtils;
+import com.cacch.integration.entity.mdm.MdmDeptSrcRefDO;
 import com.cacch.integration.entity.mdm.MdmPositionDO;
 import com.cacch.integration.entity.mdm.MdmPositionEventDO;
 import com.cacch.integration.entity.mdm.MdmPositionSrcRefDO;
+import com.cacch.integration.entity.mdm.OdsIhrDeptDO;
 import com.cacch.integration.entity.mdm.OdsIhrPositionDO;
 import com.cacch.integration.entity.mdm.StgIhrPositionDO;
 import com.cacch.integration.integration.ihr.client.dto.IhrPosition;
+import com.cacch.integration.mapper.mdm.MdmDeptSrcRefMapper;
 import com.cacch.integration.mapper.mdm.MdmPositionEventMapper;
 import com.cacch.integration.mapper.mdm.MdmPositionMapper;
 import com.cacch.integration.mapper.mdm.MdmPositionSrcRefMapper;
+import com.cacch.integration.mapper.mdm.OdsIhrDeptMapper;
 import com.cacch.integration.mapper.mdm.OdsIhrPositionMapper;
 import com.cacch.integration.mapper.mdm.StgIhrPositionMapper;
 import com.cacch.integration.service.mdm.api.IMdmPositionIngestService;
@@ -70,13 +75,18 @@ public class MdmPositionIngestServiceImpl implements IMdmPositionIngestService {
     private final MdmPositionEventMapper mdmPositionEventMapper;
     private final MdmPositionSrcRefMapper mdmPositionSrcRefMapper;
     private final MdmPositionConverter mdmPositionConverter;
+    private final OdsIhrDeptMapper odsIhrDeptMapper;
+    private final MdmDeptSrcRefMapper mdmDeptSrcRefMapper;
 
     @Override
     @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED, timeout = 30)
     public MdmIngestResultEnum ingestOne(IhrPosition position, String rawJson, String etlBatchNo) {
         String positionUuid = position.getId();
 
-        // 1. rowHash 比对 —— 未变化则幂等短路（不写贴源层，避免每轮同步产生重复 stg 数据）
+        // 0. 部门 ID 翻译：iHR departmentId(Long) → mdm_dept.id(BIGINT)，主档写入阶段使用
+        Long mdmDeptId = translateDeptId(position.getDepartmentId());
+
+        // 1. rowHash 比对 —— ODS 职责是完整源系统快照，哈希基于 ODS 侧字段（含 iHR 原始部门 ID）
         String positionScopeJson = toJson(position.getPositionScope());
         String rowHash = buildRowHash(position, positionScopeJson);
         OdsIhrPositionDO existing = odsIhrPositionMapper.selectOne(new LambdaQueryWrapper<OdsIhrPositionDO>()
@@ -97,12 +107,14 @@ public class MdmPositionIngestServiceImpl implements IMdmPositionIngestService {
         stg.setHttpStatus(HttpStatus.OK.value());
         stgIhrPositionMapper.insertIgnore(stg);
 
-        // 3. ods 规范化 upsert（verNo 递增；dqFlag 当前恒 0，岗位域暂无致命质检项）
+        // 3. ods 规范化 upsert（verNo 递增；departmentId 存 iHR 原始 Long 型部门 ID — ODS 职责）
         OdsIhrPositionDO ods = mdmPositionConverter.toOds(position, IdWorker.getId(), rowHash,
-                existing == null || existing.getVerNo() == null ? 1 : existing.getVerNo() + 1, positionScopeJson);
+                existing == null || existing.getVerNo() == null ? 1 : existing.getVerNo() + 1,
+                positionScopeJson);
         odsIhrPositionMapper.upsert(ods);
 
-        // 4. mdm_position 主档 upsert（经 src_ref 定位唯一岗位；parentPositionId 存 UUID 不做自引用，乱序建档安全）
+        // 4. mdm_position 主档 upsert（经 src_ref 定位唯一岗位；departmentId 存翻译后的 mdm_dept.id，
+        //    纯主数据语义；parentPositionId 存 UUID 不做自引用，乱序建档安全）
         MdmPositionSrcRefDO srcRef = mdmPositionSrcRefMapper.selectByBusinessKey(
                 MdmCommonConstants.SRC_SYS_CODE_IHR, MdmPositionCommonConstants.SRC_ENTITY_TYPE_POSITION,
                 positionUuid);
@@ -114,14 +126,15 @@ public class MdmPositionIngestServiceImpl implements IMdmPositionIngestService {
         String eventType;
         String changeLevel;
         if (mdPosition == null) {
-            mdPosition = mdmPositionConverter.toNewMdPosition(position, MdmCommonConstants.SRC_SYS_CODE_IHR);
+            mdPosition = mdmPositionConverter.toNewMdPosition(position, MdmCommonConstants.SRC_SYS_CODE_IHR,
+                    mdmDeptId);
             mdmPositionMapper.insert(mdPosition);
             eventType = MdmEventConstants.EVENT_TYPE_CREATE;
             changeLevel = MdmEventConstants.CHANGE_LEVEL_HIGH;
             log.info("【{}】新建岗位主档, positionId={}, ihrPositionUuid={}, batchNo={}",
                     BIZ, mdPosition.getId(), positionUuid, etlBatchNo);
         } else {
-            mdmPositionConverter.updateBasicInfo(position, mdPosition);
+            mdmPositionConverter.updateBasicInfo(position, mdmDeptId, mdPosition);
             mdmPositionMapper.updateById(mdPosition);
             eventType = MdmEventConstants.EVENT_TYPE_UPDATE;
             changeLevel = MdmEventConstants.CHANGE_LEVEL_NORMAL;
@@ -296,6 +309,7 @@ public class MdmPositionIngestServiceImpl implements IMdmPositionIngestService {
      * @return 64 位小写 hex 行哈希
      */
     private String buildRowHash(IhrPosition position, String positionScopeJson) {
+        // ODS 职责：完整源系统快照 —— departmentId 参与哈希用 iHR 原始 Long 值
         String joined = String.join(FIELD_SEP,
                 MdmUtils.nullToEmpty(position.getPositionName()),
                 MdmUtils.nullToEmpty(position.getCompanyId()),
@@ -317,6 +331,40 @@ public class MdmPositionIngestServiceImpl implements IMdmPositionIngestService {
                 MdmUtils.nullToEmpty(position.getPositionState()),
                 MdmUtils.nullToEmpty(positionScopeJson));
         return MdmUtils.sha256Hex(joined);
+    }
+
+    /**
+     * 翻译 iHR departmentId → mdm_dept.id
+     *
+     * <p>路径：iHR departmentId（Long → String）→ ods_ihr_dept.ihr_dept_id 命中 → ihr_dept_uuid →
+     * mdm_dept_src_ref（IHR / DEPT / ihrDeptUuid）→ mdm_dept.id。
+     * 翻译失败（部门未同步 / iHR 无该部门 / 无主档映射）时返回 null，不抛异常——
+     * 岗位落库降级继续（department_id 置 null，department_ihr_id 独立保留溯源）。</p>
+     *
+     * @param ihrDeptIdLong iHR 原始部门 ID（Long；null 或无有效值时直接返回 null）
+     * @return mdm_dept.id（BIGINT）；未命中时为 null
+     */
+    private Long translateDeptId(Long ihrDeptIdLong) {
+        if (ihrDeptIdLong == null) {
+            return null;
+        }
+        String ihrDeptIdStr = String.valueOf(ihrDeptIdLong);
+        OdsIhrDeptDO odsDept = odsIhrDeptMapper.selectOne(new LambdaQueryWrapper<OdsIhrDeptDO>()
+                .eq(OdsIhrDeptDO::getIhrDeptId, ihrDeptIdStr)
+                .last("LIMIT 1"));
+        if (odsDept == null || odsDept.getIhrDeptUuid() == null || odsDept.getIhrDeptUuid().isEmpty()) {
+            log.info("【{}】部门翻译终止, ihrDeptId={}, reason=ods_ihr_dept 未命中", BIZ, ihrDeptIdStr);
+            return null;
+        }
+        MdmDeptSrcRefDO deptRef = mdmDeptSrcRefMapper.selectByBusinessKey(
+                MdmCommonConstants.SRC_SYS_CODE_IHR, MdmDeptCommonConstants.SRC_ENTITY_TYPE_DEPT,
+                odsDept.getIhrDeptUuid());
+        if (deptRef == null) {
+            log.info("【{}】部门翻译终止, ihrDeptId={}, ihrDeptUuid={}, reason=mdm_dept_src_ref 未命中",
+                    BIZ, ihrDeptIdStr, odsDept.getIhrDeptUuid());
+            return null;
+        }
+        return deptRef.getDeptId();
     }
 
     /**

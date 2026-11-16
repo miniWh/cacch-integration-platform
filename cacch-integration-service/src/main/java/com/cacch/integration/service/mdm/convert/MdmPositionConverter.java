@@ -28,7 +28,7 @@ public interface MdmPositionConverter {
     }
 
     /**
-     * Long（iHR departmentId）→ String（ODS/主档 department_id 字段；null 透传）
+     * Long（iHR departmentId）→ String（ODS departmentId 字段；null 透传）
      */
     default String toStr(Long value) {
         return value == null ? null : String.valueOf(value);
@@ -46,9 +46,12 @@ public interface MdmPositionConverter {
     /**
      * 构造 OdsIhrPositionDO（含额外业务参数：rowHash / verNo / id / positionScopeJson；dqFlag 当前恒 0）
      *
+     * <p>ODS 职责：完整源系统快照。departmentId 存 iHR 原始部门 ID（Long 转 String），
+     * 主档翻译由 Service 层独立完成，Converter 不持有翻译逻辑。</p>
+     *
      * @param pos               iHR 职位实体 DTO
      * @param odsId             雪花主键（由 Service 预生成）
-     * @param rowHash           行变更检测哈希
+     * @param rowHash           行变更检测哈希（基于 ODS 侧字段构造）
      * @param verNo             数据版本号（首次 1，变更递增）
      * @param positionScopeJson 应用范围部门 ID 列表 JSON 字符串（由 Service 预序列化；null 透传）
      * @return 已填充字段的规范化 DO
@@ -88,11 +91,13 @@ public interface MdmPositionConverter {
     /**
      * 构造 MdmPositionDO（首次建档时调用）
      *
-     * <p>id 显式忽略（防止 MapStruct 同名隐式映射把 iHR 职位 ID 填入主键），
+     * <p>主档职责：纯主数据语义，departmentId 存翻译后的 mdm_dept.id(BIGINT)。
+     * id 显式忽略（防止 MapStruct 同名隐式映射把 iHR 职位 ID 填入主键），
      * insert 时保持 null 由 MyBatis-Plus ASSIGN_ID 生成雪花主键。</p>
      *
      * @param pos        iHR 职位实体 DTO
      * @param srcSysCode 首次建档来源系统（如 IHR）
+     * @param mdmDeptId  翻译后的 mdm_dept.id（未命中时为 null；由 Service 层完成翻译后传入）
      */
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     @Mapping(target = "id", ignore = true)
@@ -100,7 +105,7 @@ public interface MdmPositionConverter {
     @Mapping(target = "positionCode", expression = "java(nullIfBlank(pos.getPositionCode()))")
     @Mapping(target = "positionName", expression = "java(nullIfBlank(pos.getPositionName()))")
     @Mapping(target = "parentPositionId", expression = "java(nullIfBlank(pos.getParentId()))")
-    @Mapping(target = "departmentId", expression = "java(toStr(pos.getDepartmentId()))")
+    @Mapping(target = "departmentId", source = "mdmDeptId")
     @Mapping(target = "departmentName", expression = "java(nullIfBlank(pos.getDepartmentName()))")
     @Mapping(target = "jobTitleId", expression = "java(nullIfBlank(pos.getJobTitleId()))")
     @Mapping(target = "jobTitleName", expression = "java(nullIfBlank(pos.getJobTitleName()))")
@@ -110,7 +115,7 @@ public interface MdmPositionConverter {
     @Mapping(target = "capacity", source = "pos.capacity")
     @Mapping(target = "effectiveDate", expression = "java(nullIfBlank(pos.getEffectiveDate()))")
     @Mapping(target = "positionState", expression = "java(nullIfBlank(pos.getPositionState()))")
-    MdmPositionDO toNewMdPosition(IhrPosition pos, String srcSysCode);
+    MdmPositionDO toNewMdPosition(IhrPosition pos, String srcSysCode, Long mdmDeptId);
 
     /**
      * 更新 MdmPositionDO 可变属性（已有主档增量覆盖；srcSysCode / id 均保留不映射）
@@ -118,15 +123,16 @@ public interface MdmPositionConverter {
      * <p>id 显式忽略：防止 MapStruct 同名隐式映射用 iHR 职位 ID 覆写已有主键，
      * 导致 updateById 指向错误行。</p>
      *
-     * @param pos    iHR 职位实体 DTO
-     * @param target 已按 src_ref 定位的 MdmPositionDO（含真实主键）
+     * @param pos       iHR 职位实体 DTO
+     * @param mdmDeptId 翻译后的 mdm_dept.id（未命中时为 null）
+     * @param target    已按 src_ref 定位的 MdmPositionDO（含真实主键）
      */
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "positionCode", expression = "java(nullIfBlank(pos.getPositionCode()))")
     @Mapping(target = "positionName", expression = "java(nullIfBlank(pos.getPositionName()))")
     @Mapping(target = "parentPositionId", expression = "java(nullIfBlank(pos.getParentId()))")
-    @Mapping(target = "departmentId", expression = "java(toStr(pos.getDepartmentId()))")
+    @Mapping(target = "departmentId", source = "mdmDeptId")
     @Mapping(target = "departmentName", expression = "java(nullIfBlank(pos.getDepartmentName()))")
     @Mapping(target = "jobTitleId", expression = "java(nullIfBlank(pos.getJobTitleId()))")
     @Mapping(target = "jobTitleName", expression = "java(nullIfBlank(pos.getJobTitleName()))")
@@ -136,5 +142,5 @@ public interface MdmPositionConverter {
     @Mapping(target = "capacity", source = "pos.capacity")
     @Mapping(target = "effectiveDate", expression = "java(nullIfBlank(pos.getEffectiveDate()))")
     @Mapping(target = "positionState", expression = "java(nullIfBlank(pos.getPositionState()))")
-    void updateBasicInfo(IhrPosition pos, @MappingTarget MdmPositionDO target);
+    void updateBasicInfo(IhrPosition pos, Long mdmDeptId, @MappingTarget MdmPositionDO target);
 }

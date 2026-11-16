@@ -34,9 +34,9 @@ public class MdmPositionDO extends BaseDO {
     private String parentPositionId;
 
     /**
-     * 所属部门 ID（暂存 iHR departmentId 字符串形式，后续融合 md_org）
+     * 所属部门 ID
      */
-    private String departmentId;
+    private Long departmentId;
 
     /**
      * 所属部门名称
