@@ -4,25 +4,31 @@ import com.cacch.integration.common.constant.ihr.IhrStaffConstants;
 import com.cacch.integration.common.constant.mdm.MdmDeptCommonConstants;
 import com.cacch.integration.common.constant.mdm.MdmEmpCommonConstants;
 import com.cacch.integration.common.constant.mdm.MdmEmpLogConstants;
+import com.cacch.integration.common.constant.mdm.MdmPositionCommonConstants;
 import com.cacch.integration.common.dto.batch.BatchProcessResult;
 import com.cacch.integration.common.enums.mdm.MdmDeptIngestResultEnum;
 import com.cacch.integration.common.enums.mdm.MdmEmpIngestResultEnum;
+import com.cacch.integration.common.enums.mdm.MdmPositionIngestResultEnum;
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.ResultCode;
 import com.cacch.integration.entity.mdm.StgStaffRecordDO;
 import com.cacch.integration.integration.ihr.client.dto.IhrDepartment;
+import com.cacch.integration.integration.ihr.client.dto.IhrPosition;
 import com.cacch.integration.integration.ihr.client.dto.IhrStaffBasicResponse;
 import com.cacch.integration.integration.ihr.client.dto.IhrStaffModificationInfo;
 import com.cacch.integration.manager.mdm.api.IMdmEmpSyncManager;
 import com.cacch.integration.service.ihr.api.IIhrOrgService;
+import com.cacch.integration.service.ihr.api.IIhrPositionSyncService;
 import com.cacch.integration.service.ihr.api.IIhrStaffService;
 import com.cacch.integration.service.mdm.api.IMdmDeptIngestService;
 import com.cacch.integration.service.mdm.api.IMdmEmpIncrementalQueueService;
 import com.cacch.integration.service.mdm.api.IMdmEmpIngestService;
+import com.cacch.integration.service.mdm.api.IMdmPositionIngestService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -63,6 +69,8 @@ public class MdmEmpSyncManagerImpl implements IMdmEmpSyncManager {
     private final IMdmEmpIncrementalQueueService incrementalQueueService;
     private final IIhrOrgService ihrOrgService;
     private final IMdmDeptIngestService mdmDeptIngestService;
+    private final IIhrPositionSyncService ihrPositionSyncService;
+    private final IMdmPositionIngestService mdmPositionIngestService;
 
     /**
      * 静态 ObjectMapper —— 仅用于部门保障阶段的单部门 rawJson 重建
@@ -108,7 +116,7 @@ public class MdmEmpSyncManagerImpl implements IMdmEmpSyncManager {
         }
     }
 
-    // ==================== 全量落库（三阶段：拉取 → 部门保障 → 员工落库） ====================
+    // ==================== 全量落库（四阶段：拉取 → 部门保障 → 岗位保障 → 员工落库） ====================
 
     private BatchProcessResult<String> doPullAndIngest() {
         String etlBatchNo = MdmEmpCommonConstants.buildEtlBatchNo();
@@ -136,6 +144,9 @@ public class MdmEmpSyncManagerImpl implements IMdmEmpSyncManager {
 
         // 阶段B：部门保障（变更前 + 变更后部门批量回源落库，失败降级不阻断员工落库）
         ensureDeptsBeforeIngest(responses, etlBatchNo);
+
+        // 阶段B2：岗位保障（变更前 + 变更后岗位批量回源落库，失败降级不阻断员工落库）
+        ensurePositionsBeforeIngest(responses, etlBatchNo);
 
         // 阶段C：逐员工落库（单员工事务粒度）
         for (Map.Entry<String, IhrStaffBasicResponse> entry : responses.entrySet()) {
@@ -174,8 +185,7 @@ public class MdmEmpSyncManagerImpl implements IMdmEmpSyncManager {
                                     MdmEmpIngestResultEnum ingestResult) {
         switch (ingestResult) {
             case INGESTED -> result.recordSuccess(staffId);
-            case SKIPPED_UNCHANGED, SKIPPED_MISSING_IDCARD ->
-                    result.recordSkip(staffId, ingestResult.getDesc());
+            case SKIPPED_UNCHANGED, SKIPPED_MISSING_IDCARD -> result.recordSkip(staffId, ingestResult.getDesc());
             default -> {
                 log.info("【{}】未知落库结果按跳过处理, ihrStaffId={}, result={}", BIZ, staffId, ingestResult);
                 result.recordSkip(staffId, ingestResult.getDesc());
@@ -193,7 +203,7 @@ public class MdmEmpSyncManagerImpl implements IMdmEmpSyncManager {
      * <p>降级策略：整体回源失败或单部门落库失败均不阻断员工落库
      * （员工 org_code 回退部门 ID 并有 INFO 日志）。</p>
      *
-     * @param responses   本轮已拉取的员工响应（staffId → 响应）
+     * @param responses     本轮已拉取的员工响应（staffId → 响应）
      * @param empEtlBatchNo 员工轮次 ETL 批次号（日志关联用）
      */
     private void ensureDeptsBeforeIngest(Map<String, IhrStaffBasicResponse> responses, String empEtlBatchNo) {
@@ -272,6 +282,79 @@ public class MdmEmpSyncManagerImpl implements IMdmEmpSyncManager {
         }
     }
 
+    /**
+     * 员工落库前岗位保障 —— 汇总本轮涉及岗位（变更后 + 变更前）批量回源并走岗位全链路落库
+     *
+     * <p>汇总规则：各员工当前报文 positionId（变更后）∪ 上一快照 ods_ihr_emp.ihr_position_id
+     * （变更前，新员工无快照自然不含），去重后经 listPositionsByIds（100/批）回源，
+     * 逐岗位重建 JSON 走 {@code IMdmPositionIngestService.ingestOne}
+     * （贴源/ods/mdm/事件全链路；rowHash 未变化幂等跳过）。</p>
+     *
+     * <p>降级策略：整体回源失败或单岗位落库失败均不阻断员工落库（与部门保障策略一致）。</p>
+     *
+     * @param responses     本轮已拉取的员工响应（staffId → 响应）
+     * @param empEtlBatchNo 员工轮次 ETL 批次号（日志关联用）
+     */
+    private void ensurePositionsBeforeIngest(Map<String, IhrStaffBasicResponse> responses, String empEtlBatchNo) {
+        if (responses.isEmpty()) {
+            log.info("【{}】岗位保障跳过, reason=本轮无员工响应, empBatchNo={}", BIZ, empEtlBatchNo);
+            return;
+        }
+
+        Set<String> positionIds = new LinkedHashSet<>();
+        for (IhrStaffBasicResponse resp : responses.values()) {
+            if (resp.getData() != null && StringUtils.hasText(resp.getData().getPositionId())) {
+                positionIds.add(resp.getData().getPositionId());
+            }
+        }
+        Map<String, String> prevPositionIds = mdmEmpIngestService.findPrevPositionIdByStaffIds(responses.keySet());
+        for (String positionId : prevPositionIds.values()) {
+            if (StringUtils.hasText(positionId)) {
+                positionIds.add(positionId);
+            }
+        }
+        if (positionIds.isEmpty()) {
+            log.info("【{}】岗位保障跳过, reason=本轮涉及岗位为空, empBatchNo={}", BIZ, empEtlBatchNo);
+            return;
+        }
+
+        String positionEtlBatchNo = MdmPositionCommonConstants.buildEtlBatchNo();
+        log.info("【{}】员工落库前岗位保障开始, 涉及岗位数={}, empBatchNo={}, positionBatchNo={}",
+                BIZ, positionIds.size(), empEtlBatchNo, positionEtlBatchNo);
+        try {
+            List<IhrPosition> positions = ihrPositionSyncService.listPositionsByIds(new ArrayList<>(positionIds));
+            if (CollectionUtils.isEmpty(positions)) {
+                log.info("【{}】岗位保障终止, reason=iHR 未返回任何岗位, positionBatchNo={}", BIZ, positionEtlBatchNo);
+                return;
+            }
+            BatchProcessResult<String> positionResult = new BatchProcessResult<>();
+            for (IhrPosition position : positions) {
+                try {
+                    String rawJson = MAPPER.writeValueAsString(position);
+                    MdmPositionIngestResultEnum ingestResult =
+                            mdmPositionIngestService.ingestOne(position, rawJson, positionEtlBatchNo);
+                    if (ingestResult == MdmPositionIngestResultEnum.INGESTED) {
+                        positionResult.recordSuccess(position.getId());
+                    } else {
+                        positionResult.recordSkip(position.getId(), ingestResult.getDesc());
+                    }
+                } catch (Exception e) {
+                    log.info("【{}】岗位保障单岗位处理终止, ihrPositionUuid={}, positionBatchNo={}, reason={}",
+                            BIZ, position.getId(), positionEtlBatchNo, e.getMessage());
+                    log.error("【{}】岗位保障单岗位落库失败, ihrPositionUuid={}", BIZ, position.getId(), e);
+                    positionResult.recordFailure(position.getId(), e.getMessage());
+                }
+            }
+            log.info("【{}】员工落库前岗位保障完成, 涉及岗位数={}, iHR返回={}, 已落库={}, 无变化跳过={}, 失败={}, positionBatchNo={}",
+                    BIZ, positionIds.size(), positions.size(), positionResult.getSuccessCount(),
+                    positionResult.getSkipCount(), positionResult.getFailureCount(), positionEtlBatchNo);
+        } catch (Exception e) {
+            log.info("【{}】员工落库前岗位保障终止, 员工落库继续, empBatchNo={}, reason={}",
+                    BIZ, empEtlBatchNo, e.getMessage());
+            log.error("【{}】员工落库前岗位保障失败, empBatchNo={}", BIZ, empEtlBatchNo, e);
+        }
+    }
+
     // ==================== Pull 增量入队 ====================
 
     /**
@@ -338,7 +421,7 @@ public class MdmEmpSyncManagerImpl implements IMdmEmpSyncManager {
      * 拉取指定日期 modifications V2 接口 → 逐条 insertIgnore 入队 source=UPDATE
      */
     private CompletableFuture<Void> buildModificationsFuture(LocalDate date, String staffStatus,
-                                                            String pullBatchNo, AtomicInteger callCounter) {
+                                                             String pullBatchNo, AtomicInteger callCounter) {
         return CompletableFuture.runAsync(() -> {
             List<IhrStaffModificationInfo> mods = ihrStaffService.fetchModifications(date, staffStatus);
             if (CollectionUtils.isEmpty(mods)) {
@@ -360,8 +443,8 @@ public class MdmEmpSyncManagerImpl implements IMdmEmpSyncManager {
     // ==================== Process 增量落库 ====================
 
     /**
-     * 从 stg_staff_record 认领一批待处理行，三阶段处理：
-     * 逐行拉取（阶段A）→ 部门保障（阶段B）→ 逐行落库并标 PROCESSED（阶段C）
+     * 从 stg_staff_record 认领一批待处理行，四阶段处理：
+     * 逐行拉取（阶段A）→ 部门保障（阶段B）→ 岗位保障（阶段B2）→ 逐行落库并标 PROCESSED（阶段C）
      *
      * <p>UPDATE…RETURNING 原子认领（行置 PROCESSING）防多实例并发；
      * 阶段A 拉取失败的行立即标 PROCESSED；阶段C 落库完成立即标 PROCESSED，
@@ -399,6 +482,9 @@ public class MdmEmpSyncManagerImpl implements IMdmEmpSyncManager {
 
         // 阶段B：部门保障（变更前 + 变更后部门批量回源落库，失败降级不阻断）
         ensureDeptsBeforeIngest(responses, etlBatchNo);
+
+        // 阶段B2：岗位保障（变更前 + 变更后岗位批量回源落库，失败降级不阻断）
+        ensurePositionsBeforeIngest(responses, etlBatchNo);
 
         // 阶段C：逐行落库（无论成功/跳过/失败都标记 PROCESSED）
         for (StgStaffRecordDO row : batch) {

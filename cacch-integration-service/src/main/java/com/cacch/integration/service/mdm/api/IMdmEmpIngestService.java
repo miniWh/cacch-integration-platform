@@ -46,4 +46,16 @@ public interface IMdmEmpIngestService {
      * @return staffId → 上一快照 ihr_dept_id；无快照的员工不含 key
      */
     Map<String, String> findPrevDeptIdByStaffIds(Collection<String> staffIds);
+
+    /**
+     * 批量查询员工上一快照的职位 ID（ods_ihr_emp.ihr_position_id）
+     *
+     * <p>供员工同步 Manager 在落库前汇总"变更前职位"集合做岗位保障
+     * （调岗场景新旧岗位同时回源更新）。内部分片 IN 查询（500/片）；
+     * 无快照或快照职位为空的员工不含于返回 Map。</p>
+     *
+     * @param staffIds 员工 ID 集合；null 或空时返回空 Map
+     * @return staffId → 上一快照 ihr_position_id（iHR 职位 uuid）；无快照的员工不含 key
+     */
+    Map<String, String> findPrevPositionIdByStaffIds(Collection<String> staffIds);
 }

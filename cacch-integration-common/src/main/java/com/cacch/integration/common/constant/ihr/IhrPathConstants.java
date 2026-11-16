@@ -47,4 +47,9 @@ public final class IhrPathConstants {
      * 根据部门 id 集合获取部门详情
      */
     public static final String ORG_DEPARTMENT_LIST_BY_IDS_PATH = "/openapi/thirdparty/api/org/v1/organizations/list";
+
+    /**
+     * 根据职位 id 获取职位清单
+     */
+    public static final String ORG_POSITION_LIST_BY_IDS_PATH = "/openapi/thirdparty/api/org/v1/organizations/positionIds";
 }

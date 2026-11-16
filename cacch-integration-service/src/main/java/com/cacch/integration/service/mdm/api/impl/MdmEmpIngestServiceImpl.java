@@ -211,6 +211,38 @@ public class MdmEmpIngestServiceImpl implements IMdmEmpIngestService {
     }
 
     /**
+     * 批量查询员工上一快照的职位 ID（ods_ihr_emp.ihr_position_id）
+     *
+     * <p>供员工同步 Manager 在落库前汇总"变更前职位"集合做岗位保障
+     * （调岗场景新旧岗位同时回源更新）。内部分片 IN 查询（500/片）；
+     * 无快照或快照职位为空的员工不含于返回 Map。</p>
+     *
+     * @param staffIds 员工 ID 集合；null 或空时返回空 Map
+     * @return staffId → 上一快照 ihr_position_id（iHR 职位 uuid）；无快照的员工不含 key
+     */
+    @Override
+    public Map<String, String> findPrevPositionIdByStaffIds(Collection<String> staffIds) {
+        if (CollectionUtils.isEmpty(staffIds)) {
+            return Map.of();
+        }
+        Map<String, String> result = new HashMap<>();
+        List<String> ids = new ArrayList<>(staffIds);
+        for (int from = 0; from < ids.size(); from += FIND_PREV_CHUNK_SIZE) {
+            List<String> chunk = ids.subList(from, Math.min(from + FIND_PREV_CHUNK_SIZE, ids.size()));
+            List<OdsIhrEmpDO> rows = odsIhrEmpMapper.selectList(new LambdaQueryWrapper<OdsIhrEmpDO>()
+                    .in(OdsIhrEmpDO::getIhrStaffId, chunk)
+                    .isNotNull(OdsIhrEmpDO::getIhrPositionId));
+            for (OdsIhrEmpDO row : rows) {
+                if (StringUtils.hasText(row.getIhrPositionId())) {
+                    result.put(row.getIhrStaffId(), row.getIhrPositionId());
+                }
+            }
+        }
+        log.info("【{}】批量查询员工上一快照职位完成, 查询员工数={}, 命中职位数={}", BIZ, staffIds.size(), result.size());
+        return result;
+    }
+
+    /**
      * 任职拉链判定（关旧 / 开新 / 更新）并写入变更事件
      *
      * <p>判定规则（按当前有效行 validTo IS NULL）：
