@@ -10,6 +10,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestClientException;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Moka 候选人 HTTP 客户端
@@ -27,11 +30,23 @@ public class MokaCandidatesClient {
     private static final String BIZ = MokaConstants.LOG_BIZ;
     private static final String ACTION_LIST_APPLICATIONS = "根据条件查询申请信息";
 
+    /**
+     * 静态 ObjectMapper —— 将原始响应报文反序列化为 {@link MokaApplicationListResponse}
+     */
+    private static final ObjectMapper MAPPER = JsonMapper.builder().build();
+
     private final RestTemplateHttpClient httpClient;
     private final MokaProperties mokaProperties;
 
     /**
      * 根据条件查询申请信息（分页）
+     *
+     * <p>先经 {@link RestTemplateHttpClient} 获取并记录原始 JSON 出参，再反序列化为响应 DTO。</p>
+     *
+     * @param request 查询条件与分页参数（含 next 游标）
+     * @return Moka 申请列表响应；业务成功与否以 {@link MokaApplicationListResponse#isSuccess()} 判定
+     * @throws IllegalStateException Moka API Key 未配置时抛出
+     * @throws RestClientException   HTTP 调用失败或响应体反序列化失败时抛出
      */
     public MokaApplicationListResponse listApplications(MokaApplicationListRequest request) {
         if (!mokaProperties.isApiKeyConfigured()) {
@@ -42,8 +57,17 @@ public class MokaCandidatesClient {
         String url = mokaProperties.getBaseUrl() + MokaConstants.APPLICATION_LIST_PATH;
         HttpHeaders headers = MokaAuthSupport.buildBasicAuthHeaders(mokaProperties, true);
 
-        MokaApplicationListResponse body = httpClient.doPostOrPut(
-                HttpMethod.POST, url, request, headers, BIZ, ACTION_LIST_APPLICATIONS, MokaApplicationListResponse.class);
+        String rawBody = httpClient.doPostOrPut(
+                HttpMethod.POST, url, request, headers, BIZ, ACTION_LIST_APPLICATIONS, String.class);
+
+        MokaApplicationListResponse body;
+        try {
+            body = MAPPER.readValue(rawBody, MokaApplicationListResponse.class);
+        } catch (Exception e) {
+            log.info("【{}】{}终止, reason=响应体反序列化失败", BIZ, ACTION_LIST_APPLICATIONS);
+            log.error("【{}】{} 响应体反序列化失败", BIZ, ACTION_LIST_APPLICATIONS, e);
+            throw new RestClientException(BIZ + " " + ACTION_LIST_APPLICATIONS + " 响应体反序列化失败: " + e.getMessage(), e);
+        }
 
         if (body.isSuccess()) {
             int listSize = body.getData() == null || body.getData().getApplicationList() == null
