@@ -62,8 +62,6 @@ public class MokaCandidatesClient {
         String rawBody = httpClient.doPostOrPut(
                 HttpMethod.POST, url, request, headers, BIZ, ACTION_LIST_APPLICATIONS, String.class);
 
-        ThirdPartyHttpLogSupport.logResponse(BIZ, ACTION_LIST_APPLICATIONS, rawBody);
-
         MokaApplicationListResponse body;
         try {
             body = MAPPER.readValue(rawBody, MokaApplicationListResponse.class);
