@@ -5,6 +5,8 @@ import com.cacch.integration.common.result.ResultCode;
 import com.cacch.integration.integration.moka.client.MokaCandidatesClient;
 import com.cacch.integration.integration.moka.client.dto.MokaApplicationListRequest;
 import com.cacch.integration.integration.moka.client.dto.MokaApplicationListResponse;
+import com.cacch.integration.integration.moka.client.dto.MokaEhrApplicationsV2Request;
+import com.cacch.integration.integration.moka.client.dto.MokaEhrApplicationsV2Response;
 import com.cacch.integration.service.moka.api.IMokaCandidatesService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -64,6 +66,47 @@ public class MokaCandidatesServiceImpl implements IMokaCandidatesService {
             log.error("【{}】未知异常", BIZ, e);
             throw new BizException(ResultCode.SYSTEM_ERROR,
                     "Moka 查询申请信息系统异常", e);
+        }
+    }
+
+    @Override
+    public MokaEhrApplicationsV2Response listEhrApplicationsV2(MokaEhrApplicationsV2Request request) {
+        if (request == null) {
+            request = new MokaEhrApplicationsV2Request();
+        }
+
+        log.info("【{}】开始获取候选人信息v2, limit={}, hireMode={}, applicationIdCount={}",
+                BIZ, request.getLimit(), request.getHireMode(),
+                request.getApplicationIds() == null ? 0 : request.getApplicationIds().size());
+
+        try {
+            MokaEhrApplicationsV2Response response = mokaCandidatesClient.listEhrApplicationsV2(request);
+            if (!response.isSuccess()) {
+                log.info("【{}】获取候选人信息v2终止, code={}, msg={}",
+                        BIZ, response.getCode(), response.getMsg());
+                throw new BizException(ResultCode.INTEGRATION_ERROR,
+                        String.format("Moka 获取候选人信息v2业务失败: code=%d, msg=%s",
+                                response.getCode(), response.getMsg()));
+            }
+            int listSize = response.getData() == null ? 0 : response.getData().size();
+            log.info("【{}】获取候选人信息v2成功, listSize={}, next={}", BIZ, listSize, response.getNext());
+            return response;
+
+        } catch (BizException e) {
+            throw e;
+        } catch (IllegalStateException e) {
+            log.info("【{}】获取候选人信息v2终止, reason={}", BIZ, e.getMessage());
+            throw new BizException(ResultCode.INTEGRATION_ERROR, e.getMessage(), e);
+        } catch (RestClientException e) {
+            log.info("【{}】获取候选人信息v2终止, reason={}", BIZ, e.getMessage());
+            log.error("【{}】Moka HTTP 调用失败", BIZ, e);
+            throw new BizException(ResultCode.INTEGRATION_ERROR,
+                    "Moka 获取候选人信息v2失败: " + e.getMessage(), e);
+        } catch (Exception e) {
+            log.info("【{}】获取候选人信息v2终止, reason={}", BIZ, e.getMessage());
+            log.error("【{}】未知异常", BIZ, e);
+            throw new BizException(ResultCode.SYSTEM_ERROR,
+                    "Moka 获取候选人信息v2系统异常", e);
         }
     }
 }

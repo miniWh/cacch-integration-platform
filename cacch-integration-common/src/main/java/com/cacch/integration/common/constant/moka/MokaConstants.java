@@ -115,6 +115,15 @@ public final class MokaConstants {
     public static final String APPLICATION_LIST_PATH = "/api-platform/v3/applications/list_by_condition";
 
     /**
+     * 获取候选人信息 v2（EHR 申请）接口路径 —— 相对 {@code MokaProperties#getBaseUrl()} 拼接
+     *
+     * <p>POST 请求，对接 Moka「同步人事信息」域
+     * {@code POST /api-platform/v2/data/ehrApplications}（文档标注不迭代）。
+     * 成功码为 200；响应顶层含 {@code next} 分页游标，{@code data} 为申请详情数组。</p>
+     */
+    public static final String EHR_APPLICATIONS_V2_PATH = "/api-platform/v2/data/ehrApplications";
+
+    /**
      * 标记候选人已离职接口路径模板 —— 相对 {@code MokaProperties#getBaseUrl()} 拼接
      *
      * <p>PUT 请求，对接 Moka ATS 申请归档接口

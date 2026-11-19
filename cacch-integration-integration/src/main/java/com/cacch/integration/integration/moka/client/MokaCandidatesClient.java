@@ -4,6 +4,8 @@ import com.cacch.integration.common.config.moka.MokaProperties;
 import com.cacch.integration.common.constant.moka.MokaConstants;
 import com.cacch.integration.integration.moka.client.dto.MokaApplicationListRequest;
 import com.cacch.integration.integration.moka.client.dto.MokaApplicationListResponse;
+import com.cacch.integration.integration.moka.client.dto.MokaEhrApplicationsV2Request;
+import com.cacch.integration.integration.moka.client.dto.MokaEhrApplicationsV2Response;
 import com.cacch.integration.integration.support.RestTemplateHttpClient;
 import com.cacch.integration.integration.support.ThirdPartyHttpLogSupport;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +32,7 @@ public class MokaCandidatesClient {
 
     private static final String BIZ = MokaConstants.LOG_BIZ;
     private static final String ACTION_LIST_APPLICATIONS = "根据条件查询申请信息";
+    private static final String ACTION_EHR_APPLICATIONS_V2 = "获取候选人信息v2";
 
     /**
      * 静态 ObjectMapper —— 将原始响应报文反序列化为 {@link MokaApplicationListResponse}
@@ -79,6 +82,48 @@ public class MokaCandidatesClient {
         } else {
             log.info("【{}】{}终止, code={}, msg={}",
                     BIZ, ACTION_LIST_APPLICATIONS, body.getCode(), body.getMsg());
+        }
+        return body;
+    }
+
+    /**
+     * 获取候选人信息 v2（EHR 申请列表）
+     *
+     * <p>对接 Moka {@code POST /api-platform/v2/data/ehrApplications}。
+     * 先获取原始 JSON，打印出参后再反序列化为响应 DTO。</p>
+     *
+     * @param request 查询条件与分页参数（含 next 游标）
+     * @return Moka EHR 申请响应；成功与否以 {@link MokaEhrApplicationsV2Response#isSuccess()} 判定
+     * @throws IllegalStateException Moka API Key 未配置时抛出
+     * @throws RestClientException   HTTP 调用失败或响应体反序列化失败时抛出
+     */
+    public MokaEhrApplicationsV2Response listEhrApplicationsV2(MokaEhrApplicationsV2Request request) {
+        if (!mokaProperties.isApiKeyConfigured()) {
+            log.info("【{}】{}终止, reason=Moka API Key 未配置", BIZ, ACTION_EHR_APPLICATIONS_V2);
+            throw new IllegalStateException("Moka API Key 未配置");
+        }
+
+        String url = mokaProperties.getBaseUrl() + MokaConstants.EHR_APPLICATIONS_V2_PATH;
+        HttpHeaders headers = MokaAuthSupport.buildBasicAuthHeaders(mokaProperties, true);
+
+        String rawBody = httpClient.doPostOrPut(
+                HttpMethod.POST, url, request, headers, BIZ, ACTION_EHR_APPLICATIONS_V2, String.class);
+
+        MokaEhrApplicationsV2Response body;
+        try {
+            body = MAPPER.readValue(rawBody, MokaEhrApplicationsV2Response.class);
+        } catch (Exception e) {
+            log.info("【{}】{}终止, reason=响应体反序列化失败", BIZ, ACTION_EHR_APPLICATIONS_V2);
+            log.error("【{}】{} 响应体反序列化失败", BIZ, ACTION_EHR_APPLICATIONS_V2, e);
+            throw new RestClientException(BIZ + " " + ACTION_EHR_APPLICATIONS_V2 + " 响应体反序列化失败: " + e.getMessage(), e);
+        }
+
+        if (body.isSuccess()) {
+            int listSize = body.getData() == null ? 0 : body.getData().size();
+            log.info("【{}】{}成功, listSize={}, next={}", BIZ, ACTION_EHR_APPLICATIONS_V2, listSize, body.getNext());
+        } else {
+            log.info("【{}】{}终止, code={}, msg={}",
+                    BIZ, ACTION_EHR_APPLICATIONS_V2, body.getCode(), body.getMsg());
         }
         return body;
     }

@@ -3,6 +3,8 @@ package com.cacch.integration.controller.moka;
 import com.cacch.integration.common.result.Result;
 import com.cacch.integration.integration.moka.client.dto.MokaApplicationListRequest;
 import com.cacch.integration.integration.moka.client.dto.MokaApplicationListResponse;
+import com.cacch.integration.integration.moka.client.dto.MokaEhrApplicationsV2Request;
+import com.cacch.integration.integration.moka.client.dto.MokaEhrApplicationsV2Response;
 import com.cacch.integration.service.moka.api.IMokaCandidatesService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,7 +19,8 @@ import org.springframework.web.bind.annotation.RestController;
  *
  * <p>当前暴露接口：
  * <ul>
- *     <li>{@link #listApplications(MokaApplicationListRequest)} — 根据条件查询申请信息（透传 Moka API）</li>
+ *     <li>{@link #listApplications(MokaApplicationListRequest)} — 根据条件查询申请信息（透传 Moka v3 API）</li>
+ *     <li>{@link #listEhrApplicationsV2(MokaEhrApplicationsV2Request)} — 获取候选人信息 v2（透传 Moka EHR API）</li>
  * </ul></p>
  *
  * <p>鉴权：Moka API Key 由配置文件 {@code moka.api-key}（经环境变量 {@code MOKA_API_KEY} 注入）注入，
@@ -61,6 +64,29 @@ public class MokaCandidatesController {
                 ? 0 : response.getData().getApplicationList().size();
         log.info("【MokaCandidates】查询完成, listSize={}, hasNext={}",
                 listSize, response.getData() != null && response.getData().getNext() != null);
+        return Result.success(response);
+    }
+
+    /**
+     * 获取候选人信息 v2 —— 透传 Moka API
+     * {@code POST /api-platform/v2/data/ehrApplications}
+     *
+     * <p>返回 EHR 完整结构（含 basicInfo、jobInfo、offerInfo 等）；分页使用 {@code limit} 与响应顶层 {@code next}。</p>
+     *
+     * @param request 查询条件；所有字段均可选，null 时自动兜底空对象
+     * @return Moka 原始响应（code、msg、next、data 数组）
+     */
+    @PostMapping("/ehr-applications")
+    public Result<MokaEhrApplicationsV2Response> listEhrApplicationsV2(
+            @RequestBody(required = false) MokaEhrApplicationsV2Request request) {
+        log.info("【MokaCandidates】开始获取候选人信息v2, hireMode={}, applicationIdCount={}",
+                request == null ? null : request.getHireMode(),
+                request == null || request.getApplicationIds() == null
+                        ? 0 : request.getApplicationIds().size());
+        MokaEhrApplicationsV2Response response = mokaCandidatesService.listEhrApplicationsV2(request);
+        int listSize = response.getData() == null ? 0 : response.getData().size();
+        log.info("【MokaCandidates】获取候选人信息v2完成, listSize={}, hasNext={}",
+                listSize, response.getNext() != null);
         return Result.success(response);
     }
 }
