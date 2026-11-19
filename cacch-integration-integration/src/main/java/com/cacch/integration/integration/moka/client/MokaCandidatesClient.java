@@ -5,6 +5,7 @@ import com.cacch.integration.common.constant.moka.MokaConstants;
 import com.cacch.integration.integration.moka.client.dto.MokaApplicationListRequest;
 import com.cacch.integration.integration.moka.client.dto.MokaApplicationListResponse;
 import com.cacch.integration.integration.support.RestTemplateHttpClient;
+import com.cacch.integration.integration.support.ThirdPartyHttpLogSupport;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
@@ -41,7 +42,8 @@ public class MokaCandidatesClient {
     /**
      * 根据条件查询申请信息（分页）
      *
-     * <p>先经 {@link RestTemplateHttpClient} 获取并记录原始 JSON 出参，再反序列化为响应 DTO。</p>
+     * <p>先获取原始 JSON 字符串，在本方法内 {@link ThirdPartyHttpLogSupport#logResponse} 打印原始出参，
+     * 再反序列化为响应 DTO。</p>
      *
      * @param request 查询条件与分页参数（含 next 游标）
      * @return Moka 申请列表响应；业务成功与否以 {@link MokaApplicationListResponse#isSuccess()} 判定
@@ -59,6 +61,8 @@ public class MokaCandidatesClient {
 
         String rawBody = httpClient.doPostOrPut(
                 HttpMethod.POST, url, request, headers, BIZ, ACTION_LIST_APPLICATIONS, String.class);
+
+        ThirdPartyHttpLogSupport.logResponse(BIZ, ACTION_LIST_APPLICATIONS, rawBody);
 
         MokaApplicationListResponse body;
         try {
