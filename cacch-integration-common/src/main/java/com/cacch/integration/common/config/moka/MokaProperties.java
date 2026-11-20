@@ -74,6 +74,16 @@ public class MokaProperties {
     public static final String ENV_MOKA_DELETE_EMAIL = "MOKA_DELETE_EMAIL";
 
     /**
+     * 环境变量名 —— Moka OAuth2 clientID（获取人事信息 V3 等）
+     */
+    public static final String ENV_MOKA_OAUTH_CLIENT_ID = "MOKA_OAUTH_CLIENT_ID";
+
+    /**
+     * 环境变量名 —— Moka OAuth2 clientSecret
+     */
+    public static final String ENV_MOKA_OAUTH_CLIENT_SECRET = "MOKA_OAUTH_CLIENT_SECRET";
+
+    /**
      * Moka 开放平台网关根地址（自动去除结尾斜杠）
      *
      * <p>取值优先级：yml {@code moka.base-url} → 环境变量 {@code MOKA_BASE_URL} → 兜底值
@@ -106,7 +116,18 @@ public class MokaProperties {
      */
     private final String deleteEmail;
 
-    public MokaProperties(String baseUrl, String apiKey, String orgId, String deleteEmail) {
+    /**
+     * Moka OAuth2 clientID —— Bearer 鉴权获取 accessToken
+     */
+    private final String oauthClientId;
+
+    /**
+     * Moka OAuth2 clientSecret
+     */
+    private final String oauthClientSecret;
+
+    public MokaProperties(String baseUrl, String apiKey, String orgId, String deleteEmail,
+                          String oauthClientId, String oauthClientSecret) {
         // baseUrl：yml → 环境变量 → 兜底
         this.baseUrl = resolveBaseUrl(baseUrl);
         // apiKey：yml → 环境变量（yml 为 null/空串时主动读 System.getenv）
@@ -115,6 +136,8 @@ public class MokaProperties {
         this.orgId = resolveOrgId(orgId);
         // deleteEmail：yml → 环境变量 → 空串（不兜底，未配置时删除步骤跳过）
         this.deleteEmail = resolveDeleteEmail(deleteEmail);
+        this.oauthClientId = resolveOAuthClientId(oauthClientId);
+        this.oauthClientSecret = resolveOAuthClientSecret(oauthClientSecret);
     }
 
     /**
@@ -145,6 +168,16 @@ public class MokaProperties {
      */
     public boolean isDeleteEmailConfigured() {
         return deleteEmail != null && !deleteEmail.isBlank();
+    }
+
+    /**
+     * OAuth2 clientId / clientSecret 是否均已配置
+     *
+     * @return 两者均非空时返回 true
+     */
+    public boolean isOAuthConfigured() {
+        return oauthClientId != null && !oauthClientId.isBlank()
+                && oauthClientSecret != null && !oauthClientSecret.isBlank();
     }
 
     /**
@@ -214,6 +247,22 @@ public class MokaProperties {
             return ymlValue.trim();
         }
         String envValue = System.getenv(ENV_MOKA_DELETE_EMAIL);
+        return envValue != null ? envValue.trim() : "";
+    }
+
+    private static String resolveOAuthClientId(String ymlValue) {
+        if (ymlValue != null && !ymlValue.isBlank()) {
+            return ymlValue.trim();
+        }
+        String envValue = System.getenv(ENV_MOKA_OAUTH_CLIENT_ID);
+        return envValue != null ? envValue.trim() : "";
+    }
+
+    private static String resolveOAuthClientSecret(String ymlValue) {
+        if (ymlValue != null && !ymlValue.isBlank()) {
+            return ymlValue.trim();
+        }
+        String envValue = System.getenv(ENV_MOKA_OAUTH_CLIENT_SECRET);
         return envValue != null ? envValue.trim() : "";
     }
 }

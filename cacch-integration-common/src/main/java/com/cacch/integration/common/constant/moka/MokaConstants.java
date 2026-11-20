@@ -62,6 +62,24 @@ public final class MokaConstants {
      */
     public static final String USER_SYNC_INFO_PATH = "/api-platform/v2/users/syncInfo";
 
+    /**
+     * OAuth2 获取 accessToken —— 相对 {@code MokaProperties#getBaseUrl()} 拼接
+     */
+    public static final String OAUTH2_TOKEN_PATH = "/api-platform/v1/auth/oauth2/getToken";
+
+    /**
+     * 获取人事信息 V3 —— 相对 {@code MokaProperties#getBaseUrl()} 拼接（Bearer OAuth2）
+     */
+    public static final String USER_LIST_V3_PATH = "/open-api/ats/v3/users/list";
+
+    /** OAuth2 grantType 固定值 */
+    public static final String OAUTH2_GRANT_TYPE = "client_credentials";
+
+    /**
+     * accessToken 缓存 TTL 安全边际（秒），从 expiresIn 扣减
+     */
+    public static final int OAUTH2_TOKEN_TTL_BUFFER_SECONDS = 300;
+
     // ========== Moka 用户同步 API 固定参数 ==========
 
     /**

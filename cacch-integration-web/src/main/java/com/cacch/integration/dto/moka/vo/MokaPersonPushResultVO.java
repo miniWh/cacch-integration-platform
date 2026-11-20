@@ -15,6 +15,10 @@ import lombok.Getter;
 @Getter
 public class MokaPersonPushResultVO {
 
+    private final int reconcileFetched;
+    private final int reconcileUpdated;
+    private final int roleGateSkippedCount;
+
     /**
      * 从中间表读取的待推送记录总数
      */
@@ -46,9 +50,13 @@ public class MokaPersonPushResultVO {
      */
     private final int dbUpdateFailedCount;
 
-    public MokaPersonPushResultVO(int totalRead, int batchCount, boolean mokaApiSuccess,
+    public MokaPersonPushResultVO(int reconcileFetched, int reconcileUpdated, int roleGateSkippedCount,
+                                  int totalRead, int batchCount, boolean mokaApiSuccess,
                                   int syncedCount, int syncFailedCount,
                                   int dbUpdateFailedCount) {
+        this.reconcileFetched = reconcileFetched;
+        this.reconcileUpdated = reconcileUpdated;
+        this.roleGateSkippedCount = roleGateSkippedCount;
         this.totalRead = totalRead;
         this.batchCount = batchCount;
         this.mokaApiSuccess = mokaApiSuccess;
@@ -64,7 +72,8 @@ public class MokaPersonPushResultVO {
      * @return 对应的 VO 实例
      */
     public static MokaPersonPushResultVO from(IMokaPersonPushManager.MokaPersonPushResult result) {
-        return new MokaPersonPushResultVO(result.totalRead(), result.batchCount(),
+        return new MokaPersonPushResultVO(result.reconcileFetched(), result.reconcileUpdated(),
+                result.roleGateSkippedCount(), result.totalRead(), result.batchCount(),
                 result.mokaApiSuccess(), result.syncedCount(),
                 result.syncFailedCount(), result.dbUpdateFailedCount());
     }

@@ -54,6 +54,34 @@ public interface IMokaPersonService {
     int batchUpsert(List<MokaPersonDO> persons);
 
     /**
+     * 从 iHR 批量 upsert —— 不覆盖 role_id；按字段变更与门禁计算 moka_sync_status
+     *
+     * @param persons 待写入人员
+     * @return 成功条数
+     */
+    int batchUpsertFromIhr(List<MokaPersonDO> persons);
+
+    /**
+     * 按 Moka V3 全量快照对账回写本地人员
+     *
+     * @param snapshots 平台用户快照（以 phone 匹配）
+     * @param syncedAt  对账时间
+     * @return 成功更新条数
+     */
+    int reconcilePlatformSnapshots(List<MokaPlatformUserSnapshot> snapshots, LocalDateTime syncedAt);
+
+    /**
+     * Moka 平台用户快照（对账输入）
+     *
+     * @param phone           手机号
+     * @param mokaUserId      Moka userId
+     * @param roleId          自定义角色 id
+     * @param mokaBuiltinRole 内建角色 role
+     */
+    record MokaPlatformUserSnapshot(String phone, Long mokaUserId, Integer roleId, Integer mokaBuiltinRole) {
+    }
+
+    /**
      * 按 moka_sync_status 集合查询在职且未删除的人员 —— 接口 2 推送前过滤待同步记录
      *
      * <p>过滤条件：

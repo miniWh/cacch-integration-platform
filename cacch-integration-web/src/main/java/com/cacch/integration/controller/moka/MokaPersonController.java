@@ -70,7 +70,9 @@ public class MokaPersonController {
      *
      * <p>执行流程：
      * <ol>
+     *     <li>前置全量 V3 对账（失败则 Webhook 告警并终止）</li>
      *     <li>查询 moka_sync_status IN (0, 2) 的待推送记录（PENDING + SYNC_FAILED）</li>
+     *     <li>内建角色非 0/5/10 标记 SKIP(4)，不调用 syncInfo</li>
      *     <li>按每批 ≤ 100 条切分</li>
      *     <li>每批字段映射 → MokaUserSyncRequest → 调用 Moka syncInfo API</li>
      *     <li>Moka API 整批成功 → 回写 sync_status=1（SYNCED）；失败 → 回写 sync_status=2（SYNC_FAILED）</li>
@@ -86,7 +88,8 @@ public class MokaPersonController {
     public Result<MokaPersonPushResultVO> pushToMoka() {
         log.info("【MokaPersonPushToMoka】开始执行 Moka 人员中间表 → Moka 开放平台推送");
         IMokaPersonPushManager.MokaPersonPushResult result = mokaPersonPushManager.pushToMoka();
-        log.info("【MokaPersonPushToMoka】推送完成, totalRead={}, batchCount={}, mokaApiSuccess={}, syncedCount={}, syncFailedCount={}, dbUpdateFailedCount={}",
+        log.info("【MokaPersonPushToMoka】推送完成, reconcileFetched={}, reconcileUpdated={}, roleGateSkipped={}, totalRead={}, batchCount={}, mokaApiSuccess={}, syncedCount={}, syncFailedCount={}, dbUpdateFailedCount={}",
+                result.reconcileFetched(), result.reconcileUpdated(), result.roleGateSkippedCount(),
                 result.totalRead(), result.batchCount(), result.mokaApiSuccess(),
                 result.syncedCount(), result.syncFailedCount(), result.dbUpdateFailedCount());
         return Result.success(MokaPersonPushResultVO.from(result));

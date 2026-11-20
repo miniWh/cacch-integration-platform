@@ -150,8 +150,6 @@ public class MokaPersonSyncManagerImpl implements IMokaPersonSyncManager {
             personDO.setDeactivated(isQuit(p.getEmployeeStatus()) ? 1 : 0);
             personDO.setLocale("zh-CN");
             personDO.setTimezone("Asia/Shanghai");
-            personDO.setMokaSyncStatus(0); // PENDING
-
             batch.add(personDO);
         }
 
@@ -165,7 +163,7 @@ public class MokaPersonSyncManagerImpl implements IMokaPersonSyncManager {
         log.info("【{}】开始批量 upsert 落库, totalFetched={}, validToUpsert={}, deptCodeSkipped={}, invalidSkipped={}",
                 BIZ, totalFetched, batch.size(), deptCodeSkipped, invalidSkipped);
 
-        int personUpserted = mokaPersonService.batchUpsert(batch);
+        int personUpserted = mokaPersonService.batchUpsertFromIhr(batch);
 
         log.info("【{}】同步完成, totalFetched={}, personUpserted={}, deptCodeSkipped={}, invalidSkipped={}",
                 BIZ, totalFetched, personUpserted, deptCodeSkipped, invalidSkipped);

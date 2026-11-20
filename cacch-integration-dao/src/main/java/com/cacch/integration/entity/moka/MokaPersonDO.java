@@ -69,11 +69,29 @@ public class MokaPersonDO {
     private String contactPhone;
 
     /**
-     * Moka 自定义角色 ID（Moka API roleId）
-     *
-     * <p>阶段一默认值 223379；阶段二按 jobTitle 匹配 t_integration_moka_role 后更新</p>
+     * Moka 自定义角色 ID（Moka API roleId）—— 以对账回写为准
      */
     private Integer roleId;
+
+    /**
+     * Moka 平台用户 ID（获取人事信息 V3）
+     */
+    private Long mokaUserId;
+
+    /**
+     * Moka 内建角色值 role（0/5/10 等），用于自动推送门禁
+     */
+    private Integer mokaBuiltinRole;
+
+    /**
+     * 最近一次从 Moka V3 对账时间
+     */
+    private LocalDateTime mokaRoleSyncedAt;
+
+    /**
+     * Moka 存在性：0-未知 1-存在
+     */
+    private Integer mokaExists;
 
     /**
      * 部门编号（关联 organizationsdepartment.departmentcode 得到）

@@ -48,31 +48,63 @@ public interface MokaPersonMapper extends BaseMapper<MokaPersonDO> {
      */
     @Update("INSERT INTO t_integration_moka_person " +
             "(id, user_id, employee_no, user_name, nickname, company_email, contact_phone, " +
-            "role_id, department_code, employee_status, deactivated) " +
+            "role_id, department_code, employee_status, deactivated, moka_sync_status) " +
             "VALUES " +
             "(#{id}, #{userId}, #{employeeNo}, #{userName}, #{nickname}, #{companyEmail}, #{contactPhone}, " +
-            "#{roleId}, #{departmentCode}, #{employeeStatus}, #{deactivated}) " +
+            "#{roleId}, #{departmentCode}, #{employeeStatus}, #{deactivated}, #{mokaSyncStatus}) " +
             "ON CONFLICT (user_id) DO UPDATE SET " +
             "employee_no = EXCLUDED.employee_no, " +
             "user_name = EXCLUDED.user_name, " +
             "nickname = EXCLUDED.nickname, " +
             "company_email = EXCLUDED.company_email, " +
             "contact_phone = EXCLUDED.contact_phone, " +
-            "role_id = EXCLUDED.role_id, " +
+            "role_id = t_integration_moka_person.role_id, " +
             "department_code = EXCLUDED.department_code, " +
             "employee_status = EXCLUDED.employee_status, " +
-            "deactivated = EXCLUDED.deactivated")
-    int upsert(@Param("id") Long id,
-               @Param("userId") String userId,
-               @Param("employeeNo") String employeeNo,
-               @Param("userName") String userName,
-               @Param("nickname") String nickname,
-               @Param("companyEmail") String companyEmail,
-               @Param("contactPhone") String contactPhone,
-               @Param("roleId") Integer roleId,
-               @Param("departmentCode") String departmentCode,
-               @Param("employeeStatus") String employeeStatus,
-               @Param("deactivated") Integer deactivated);
+            "deactivated = EXCLUDED.deactivated, " +
+            "moka_sync_status = COALESCE(EXCLUDED.moka_sync_status, t_integration_moka_person.moka_sync_status), " +
+            "updated_at = NOW()")
+    int upsertFromIhr(@Param("id") Long id,
+                      @Param("userId") String userId,
+                      @Param("employeeNo") String employeeNo,
+                      @Param("userName") String userName,
+                      @Param("nickname") String nickname,
+                      @Param("companyEmail") String companyEmail,
+                      @Param("contactPhone") String contactPhone,
+                      @Param("roleId") Integer roleId,
+                      @Param("departmentCode") String departmentCode,
+                      @Param("employeeStatus") String employeeStatus,
+                      @Param("deactivated") Integer deactivated,
+                      @Param("mokaSyncStatus") Integer mokaSyncStatus);
+
+    /**
+     * 对账回写 Moka 平台快照（角色 / userId / 门禁状态）
+     *
+     * @param id              主键
+     * @param mokaUserId      Moka userId
+     * @param roleId          Moka 自定义角色 id
+     * @param mokaBuiltinRole 内建角色
+     * @param mokaExists      存在性标记
+     * @param mokaSyncStatus  同步状态（仅门禁降级时更新为 4）
+     * @param syncedAt        对账时间
+     * @return 受影响行数
+     */
+    @Update("UPDATE t_integration_moka_person SET " +
+            "moka_user_id = #{mokaUserId}, " +
+            "role_id = #{roleId}, " +
+            "moka_builtin_role = #{mokaBuiltinRole}, " +
+            "moka_exists = #{mokaExists}, " +
+            "moka_role_synced_at = #{syncedAt}, " +
+            "moka_sync_status = #{mokaSyncStatus}, " +
+            "updated_at = NOW() " +
+            "WHERE id = #{id} AND is_deleted = 0")
+    int updateMokaReconcileSnapshot(@Param("id") Long id,
+                                    @Param("mokaUserId") Long mokaUserId,
+                                    @Param("roleId") Integer roleId,
+                                    @Param("mokaBuiltinRole") Integer mokaBuiltinRole,
+                                    @Param("mokaExists") Integer mokaExists,
+                                    @Param("mokaSyncStatus") Integer mokaSyncStatus,
+                                    @Param("syncedAt") LocalDateTime syncedAt);
 
     /**
      * 按 id 更新 Moka 同步状态字段
