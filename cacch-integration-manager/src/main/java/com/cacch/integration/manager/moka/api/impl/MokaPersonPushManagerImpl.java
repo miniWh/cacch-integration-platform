@@ -15,7 +15,6 @@ import com.cacch.integration.integration.moka.client.dto.MokaUserSyncRequest;
 import com.cacch.integration.integration.moka.client.dto.MokaUserSyncResponse;
 import com.cacch.integration.manager.moka.api.IMokaPersonPushManager;
 import com.cacch.integration.manager.wecom.api.IWeComWebhookManager;
-import com.cacch.integration.service.moka.api.IMokaOAuth2TokenService;
 import com.cacch.integration.service.moka.api.IMokaPersonService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -52,7 +51,6 @@ public class MokaPersonPushManagerImpl implements IMokaPersonPushManager {
     private final IMokaPersonService mokaPersonService;
     private final MokaUserClient mokaUserClient;
     private final MokaUserListClient mokaUserListClient;
-    private final IMokaOAuth2TokenService mokaOAuth2TokenService;
     private final IWeComWebhookManager weComWebhookManager;
 
     @Override
@@ -151,7 +149,6 @@ public class MokaPersonPushManagerImpl implements IMokaPersonPushManager {
     }
 
     private ReconcileStats reconcileAllFromMokaV3() {
-        String accessToken = mokaOAuth2TokenService.getAccessToken();
         List<MokaUserListV3Item> allUsers = new ArrayList<>();
         Long nextUserId = null;
         int page = 0;
@@ -165,7 +162,7 @@ public class MokaPersonPushManagerImpl implements IMokaPersonPushManager {
 
             MokaUserListV3Response response;
             try {
-                response = mokaUserListClient.listUsers(request, accessToken);
+                response = mokaUserListClient.listUsers(request);
             } catch (RestClientException e) {
                 log.info("【{}】V3 对账第 {} 页 HTTP 失败, reason={}", BIZ, page, e.getMessage());
                 throw new BizException(ResultCode.INTEGRATION_ERROR, "Moka 人事 V3 HTTP 调用失败: " + e.getMessage(), e);
@@ -206,7 +203,7 @@ public class MokaPersonPushManagerImpl implements IMokaPersonPushManager {
                 .biz("moka")
                 .title("Moka 人员推送对账失败")
                 .subject("pushToMoka")
-                .context("对账失败已终止推送，请检查 OAuth2 与 V3 接口")
+                .context("对账失败已终止推送，请检查 MOKA_API_KEY 与 V3 接口")
                 .errorMessage(errorMessage)
                 .dedupType("moka-person-reconcile")
                 .dedupId(hourKey)

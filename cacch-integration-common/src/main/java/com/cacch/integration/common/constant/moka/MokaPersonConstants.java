@@ -1,11 +1,9 @@
 package com.cacch.integration.common.constant.moka;
 
-import com.cacch.integration.common.constant.redis.RedisConstants;
-
 import java.util.Set;
 
 /**
- * Moka 人员同步业务常量 —— 同步状态、自动推送门禁、Redis Key
+ * Moka 人员同步业务常量 —— 同步状态、自动推送门禁
  *
  * @author hongfu_zhou@cacch.com
  */
@@ -54,13 +52,6 @@ public final class MokaPersonConstants {
      * V3 人员列表每页条数（文档最大 500）
      */
     public static final int USER_LIST_V3_PAGE_LIMIT = 500;
-
-    /**
-     * OAuth2 accessToken Redis Key
-     */
-    public static String oauthAccessTokenRedisKey() {
-        return RedisConstants.KEY_PREFIX + "moka:oauth2:access_token";
-    }
 
     /**
      * 是否允许中台自动推送到 Moka

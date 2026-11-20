@@ -9,8 +9,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestClientException;
 
 /**
  * Moka 获取人事信息 V3 HTTP 客户端
@@ -28,20 +28,21 @@ public class MokaUserListClient {
     private final RestTemplateHttpClient httpClient;
     private final MokaProperties mokaProperties;
 
-    /**
-     * 分页查询人事用户列表
-     *
-     * @param request     分页请求
-     * @param accessToken Bearer token
-     * @return V3 响应
-     */
-    public MokaUserListV3Response listUsers(MokaUserListV3Request request, String accessToken) {
-        String url = mokaProperties.getBaseUrl() + MokaConstants.USER_LIST_V3_PATH;
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.setBearerAuth(accessToken);
+  /**
+   * 分页查询人事用户列表（HTTP Basic Auth，与 syncInfo 相同 API Key）
+   *
+   * @param request 分页请求
+   * @return V3 响应
+   */
+  public MokaUserListV3Response listUsers(MokaUserListV3Request request) {
+    if (!mokaProperties.isApiKeyConfigured()) {
+      log.info("【{}】{}终止, reason=Moka API Key 未配置", BIZ, ACTION);
+      throw new RestClientException("Moka API Key 未配置");
+    }
+    String url = mokaProperties.getBaseUrl() + MokaConstants.USER_LIST_V3_PATH;
+    HttpHeaders headers = MokaAuthSupport.buildBasicAuthHeaders(mokaProperties, true);
 
-        MokaUserListV3Response body = httpClient.doPostOrPut(
+    MokaUserListV3Response body = httpClient.doPostOrPut(
                 HttpMethod.POST, url, request, headers, BIZ, ACTION, MokaUserListV3Response.class);
 
         if (body != null && body.isSuccess()) {

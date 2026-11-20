@@ -126,8 +126,6 @@ moka:
   api-key: ${MOKA_API_KEY:}
   org-id: ${MOKA_ORG_ID:cac}
   delete-email: ${MOKA_DELETE_EMAIL:}
-  oauth-client-id: ${MOKA_OAUTH_CLIENT_ID:}
-  oauth-client-secret: ${MOKA_OAUTH_CLIENT_SECRET:}
 
 # ==================== 勤策 CRM OpenAPI（公共占位） ====================
 # 实际值请在 application-{profile}.yml 中覆盖；签名算法为 MD5(json|appkey|timestamp)
