@@ -61,6 +61,21 @@ public interface IMdmEmpSyncManager {
     BatchProcessResult<String> processIncrementalFromQueue(int limit);
 
     /**
+     * 增量同步编排 —— 先 Pull 入队，再 Process 落库
+     *
+     * <p>供 ESB 单接口调度：内部依次调用 {@link #pullIncrementalToQueue()} 与
+     * {@link #processIncrementalFromQueue(int)}，不合并为单一大流程。
+     * Pull 失败抛异常时不会执行 Process。</p>
+     *
+     * <p>单次调用仅处理至多 {@code limit} 条 PENDING 队列行，积压需提高调用频率或 limit。</p>
+     *
+     * @param limit Process 阶段单次认领上限，建议 500，有效范围 1～1000
+     * @return Pull 与 Process 分段统计
+     * @throws com.cacch.integration.common.exception.BizException Pull 失败、或上一轮 Pull/Process 仍在执行时抛出
+     */
+    IncrementalSyncResult runIncrementalSync(int limit);
+
+    /**
      * Pull 阶段返回结果
      */
     record PullIncrementalResult(
@@ -69,6 +84,18 @@ public interface IMdmEmpSyncManager {
             int updateInserted,
             int updateConflicted,
             String pullBatchNo
+    ) {
+    }
+
+    /**
+     * 增量同步编排返回 —— ESB 单接口分段结果
+     *
+     * @param pull    Pull 阶段入队统计
+     * @param process Process 阶段落库统计
+     */
+    record IncrementalSyncResult(
+            PullIncrementalResult pull,
+            BatchProcessResult<String> process
     ) {
     }
 }

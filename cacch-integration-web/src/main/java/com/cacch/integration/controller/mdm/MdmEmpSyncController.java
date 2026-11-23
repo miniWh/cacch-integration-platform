@@ -38,10 +38,27 @@ public class MdmEmpSyncController {
     }
 
     /**
+     * ESB 增量同步单接口 —— 编排 Pull 入队后 Process 落库
+     *
+     * <p>建议每 2～5 分钟调用一次；单次仅处理至多 {@code limit} 条队列积压。
+     * 内部仍走独立 Pull / Process 能力，Pull 失败时不执行 Process。</p>
+     *
+     * @param limit Process 单次认领上限，默认 500，有效范围 1～1000
+     * @return Pull 与 Process 分段统计
+     */
+    @PostMapping("/incremental-sync")
+    public Result<IMdmEmpSyncManager.IncrementalSyncResult> incrementalSync(
+            @RequestParam(defaultValue = "500") int limit) {
+        log.info("【{}】ESB 触发增量编排（Pull+Process）, limit={}", BIZ, limit);
+        int safeLimit = Math.min(Math.max(limit, 1), 1000);
+        return Result.success(mdmEmpSyncManager.runIncrementalSync(safeLimit));
+    }
+
+    /**
      * 触发一轮增量 Pull —— 从 iHR 拉取新增 + 更新员工 ID 入队 stg_staff_record
      *
-     * <p>ESB 建议每 5 分钟调用一次。内部自动并发 6 次 HTTP（3 类接口 × T + T-1 双窗口），
-     * 入队幂等：UNIQUE(staff_id, pull_batch_no) DO UPDATE。</p>
+     * <p>运维补跑用；生产 ESB 请使用 {@link #incrementalSync(int)}。内部自动并发 6 次 HTTP
+     * （3 类接口 × T + T-1 双窗口），入队幂等依赖部分唯一索引 ON CONFLICT DO NOTHING。</p>
      *
      * @return 本轮入队统计（按 source 分组）
      */
@@ -54,7 +71,7 @@ public class MdmEmpSyncController {
     /**
      * 触发一轮增量 Process —— 从 stg_staff_record 捞取 PENDING 行逐人落库
      *
-     * <p>ESB 建议每 2 分钟调用一次。捞取规则：</p>
+     * <p>运维清积压用；生产 ESB 请使用 {@link #incrementalSync(int)}。捞取规则：</p>
      * <ul>
      *     <li>UPDATE…RETURNING 原子认领（行置 PROCESSING），防多实例并发重复处理</li>
      *     <li>ORDER BY source='ADD' 先于 'UPDATE'</li>

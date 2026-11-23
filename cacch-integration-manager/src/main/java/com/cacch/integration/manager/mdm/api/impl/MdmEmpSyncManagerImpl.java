@@ -112,6 +112,17 @@ public class MdmEmpSyncManagerImpl implements IMdmEmpSyncManager {
         }
     }
 
+    @Override
+    public IncrementalSyncResult runIncrementalSync(int limit) {
+        log.info("【{}】开始增量编排（Pull → Process）, processLimit={}", BIZ, limit);
+        PullIncrementalResult pull = pullIncrementalToQueue();
+        BatchProcessResult<String> process = processIncrementalFromQueue(limit);
+        log.info("【{}】增量编排完成, pullBatchNo={}, process 总数={}, 成功={}, 跳过={}, 失败={}",
+                BIZ, pull.pullBatchNo(), process.getTotalCount(), process.getSuccessCount(),
+                process.getSkipCount(), process.getFailureCount());
+        return new IncrementalSyncResult(pull, process);
+    }
+
     // ==================== 全量落库（四阶段：拉取 → 部门保障 → 岗位保障 → 员工落库） ====================
 
     private BatchProcessResult<String> doPullAndIngest() {
