@@ -54,4 +54,27 @@ public interface MokaEntryCandidateBaseMapper extends BaseMapper<MokaEntryCandid
                @Param("mokaContactPhone") String mokaContactPhone,
                @Param("mokaContactEmail") String mokaContactEmail,
                @Param("mokaCountryCallingCode") String mokaCountryCallingCode);
+
+    /**
+     * 回写 EHR v2 面试登记表 — 紧急联系人（Step 1d）
+     *
+     * @param applicationId               申请 id
+     * @param emergencyContactName        姓名（trim）
+     * @param emergencyContactRelation    关系原文
+     * @param emergencyContactRelationIhr iHR 映射
+     * @param emergencyContactPhone       电话
+     * @return 更新行数
+     */
+    @Update("UPDATE t_integration_moka_entry_candidate_base SET " +
+            "emergency_contact_name = #{emergencyContactName}, " +
+            "emergency_contact_relation = #{emergencyContactRelation}, " +
+            "emergency_contact_relation_ihr = #{emergencyContactRelationIhr}, " +
+            "emergency_contact_phone = #{emergencyContactPhone}, " +
+            "updated_at = NOW() " +
+            "WHERE application_id = #{applicationId} AND is_deleted = 0")
+    int updateEmergencyContact(@Param("applicationId") Integer applicationId,
+                               @Param("emergencyContactName") String emergencyContactName,
+                               @Param("emergencyContactRelation") String emergencyContactRelation,
+                               @Param("emergencyContactRelationIhr") String emergencyContactRelationIhr,
+                               @Param("emergencyContactPhone") String emergencyContactPhone);
 }

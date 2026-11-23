@@ -53,6 +53,28 @@ public class MokaEntryCandidateBaseDO {
     private String mokaContactEmail;
     private String mokaCountryCallingCode;
 
+    // ========== EHR v2 面试登记表（Step 1d） ==========
+
+    /**
+     * 紧急联系人姓名
+     */
+    private String emergencyContactName;
+
+    /**
+     * 紧急联系人关系（Moka 原文）
+     */
+    private String emergencyContactRelation;
+
+    /**
+     * 紧急联系人关系（iHR Q-02 映射）
+     */
+    private String emergencyContactRelationIhr;
+
+    /**
+     * 紧急联系人电话（敏感）
+     */
+    private String emergencyContactPhone;
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
 

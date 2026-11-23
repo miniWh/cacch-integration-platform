@@ -6,10 +6,16 @@ import com.cacch.integration.entity.moka.MokaEntryApplicationDO;
 import com.cacch.integration.integration.moka.client.MokaCandidatesClient;
 import com.cacch.integration.integration.moka.client.MokaJobClient;
 import com.cacch.integration.integration.moka.client.MokaOfferClient;
+import com.cacch.integration.integration.moka.adapter.MokaEhrApplicationParseAdapter;
+import com.cacch.integration.integration.moka.adapter.MokaEhrApplicationParseAdapter.MokaEhrParsedApplication;
+import com.cacch.integration.integration.moka.adapter.MokaEhrApplicationParseAdapter.MokaEhrParsedEducation;
 import com.cacch.integration.integration.moka.client.dto.MokaApplicationListRequest;
 import com.cacch.integration.integration.moka.client.dto.MokaApplicationListResponse;
 import com.cacch.integration.integration.moka.client.dto.MokaApplicationListResponse.ApplicationItem;
+import com.cacch.integration.integration.moka.client.dto.MokaEhrApplicationsV2Request;
+import com.cacch.integration.integration.moka.client.dto.MokaEhrApplicationsV2Response;
 import com.cacch.integration.integration.moka.client.dto.MokaOfferExtendInfoResponse.OfferExtendInfo;
+import tools.jackson.databind.JsonNode;
 import com.cacch.integration.mapper.moka.*;
 import com.cacch.integration.service.moka.api.IMokaEntryCandidateService;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
@@ -34,7 +40,8 @@ import java.util.stream.Collectors;
  *
  * <p>Step 1a：分页拉取 + 4 表幂等 upsert（按 application_id）
  * Step 1b：按 jobId 去重查职位详情，回写 moka_department_code
- * Step 1c：按 applicationId 批量查 Offer 扩展，回写 check_in_date / offer_department_code</p>
+ * Step 1c：按 applicationId 批量查 Offer 扩展，回写 check_in_date / offer_department_code；
+ * Step 1d：EHR v2 登记表字段落库。</p>
  *
  * <p>事务说明：每个 ApplicationItem 的 4 表 upsert 在同一批次内，
  * 批次内同事务保证 1:1 一致性；批次之间由 Manager 层控制事务边界。</p>
@@ -54,6 +61,7 @@ public class MokaEntryCandidateServiceImpl implements IMokaEntryCandidateService
 
     private final MokaEntryApplicationMapper applicationMapper;
     private final MokaEntryCandidateBaseMapper candidateBaseMapper;
+    private final MokaEntryEducationMapper educationMapper;
     private final MokaEntryGraduateSchoolMapper graduateSchoolMapper;
     private final MokaEntryCitizenMapper citizenMapper;
     private final MokaEntrySyncMapper syncMapper;
@@ -303,6 +311,106 @@ public class MokaEntryCandidateServiceImpl implements IMokaEntryCandidateService
 
         log.info("【{}】Step1c 完成, updated={}", BIZ, updated);
         return updated;
+    }
+
+    // ========== Step 1d ==========
+
+    private static final int EHR_V2_BATCH_SIZE = 20;
+
+    @Override
+    public int[] enrichEhrApplicationFields(List<MokaEntryApplicationDO> applications) {
+        log.info("【{}】Step1d 开始, applications.size={}", BIZ, applications.size());
+
+        List<Long> appIds = applications.stream()
+                .map(MokaEntryApplicationDO::getApplicationId)
+                .filter(id -> id != null)
+                .map(Integer::longValue)
+                .collect(Collectors.toList());
+
+        if (appIds.isEmpty()) {
+            log.info("【{}】Step1d 跳过, reason=无有效applicationId", BIZ);
+            return new int[]{0, 0};
+        }
+
+        int baseUpdated = 0;
+        int educationRows = 0;
+
+        for (int offset = 0; offset < appIds.size(); offset += EHR_V2_BATCH_SIZE) {
+            List<Long> batch = appIds.subList(offset, Math.min(offset + EHR_V2_BATCH_SIZE, appIds.size()));
+
+            MokaEhrApplicationsV2Request request = new MokaEhrApplicationsV2Request();
+            request.setApplicationIds(batch);
+            request.setLimit(EHR_V2_BATCH_SIZE);
+            request.setPipelineIds(List.of(
+                    (long) MokaConstants.PIPELINE_ID_ENTRY_1,
+                    (long) MokaConstants.PIPELINE_ID_ENTRY_2));
+            request.setStageIds(List.of((long) MokaConstants.STAGE_ID_ENTRY));
+
+            MokaEhrApplicationsV2Response response;
+            try {
+                response = candidatesClient.listEhrApplicationsV2(request);
+            } catch (Exception e) {
+                log.info("【{}】Step1d 批次终止, offset={}, reason={}", BIZ, offset, e.getMessage());
+                continue;
+            }
+
+            if (response == null || !response.isSuccess() || response.getData() == null) {
+                log.info("【{}】Step1d 批次无有效数据, offset={}, success={}",
+                        BIZ, offset, response != null && response.isSuccess());
+                continue;
+            }
+
+            for (JsonNode item : response.getData()) {
+                MokaEhrParsedApplication parsed;
+                try {
+                    parsed = MokaEhrApplicationParseAdapter.parse(item);
+                } catch (Exception e) {
+                    log.info("【{}】Step1d 单条解析终止, reason={}", BIZ, e.getMessage());
+                    continue;
+                }
+                if (parsed == null) {
+                    continue;
+                }
+
+                int rows = candidateBaseMapper.updateEmergencyContact(
+                        parsed.applicationId(),
+                        parsed.emergencyName(),
+                        parsed.emergencyRelation(),
+                        parsed.emergencyRelationIhr(),
+                        parsed.emergencyPhone());
+                if (rows > 0) {
+                    baseUpdated++;
+                } else {
+                    log.info("【{}】Step1d 紧急联系人未更新(candidate_base 无行), applicationId={}",
+                            BIZ, parsed.applicationId());
+                }
+                if (parsed.emergencyRelation() != null && parsed.emergencyRelationIhr() == null) {
+                    log.info("【{}】Step1d 关系未映射 Q-02, applicationId={}, relation={}",
+                            BIZ, parsed.applicationId(), parsed.emergencyRelation());
+                }
+
+                if (!parsed.educations().isEmpty()) {
+                    educationMapper.deleteByApplicationId(parsed.applicationId());
+                    for (MokaEhrParsedEducation edu : parsed.educations()) {
+                        educationMapper.insertRow(
+                                IdWorker.getId(),
+                                parsed.applicationId(),
+                                edu.mokaEducationId(),
+                                edu.educationIndex(),
+                                edu.school(),
+                                edu.speciality(),
+                                edu.academicDegree(),
+                                edu.startDate(),
+                                edu.endDate(),
+                                edu.isFullTime());
+                        educationRows++;
+                    }
+                }
+            }
+        }
+
+        log.info("【{}】Step1d 完成, emergencyUpdated={}, educationRows={}", BIZ, baseUpdated, educationRows);
+        return new int[]{baseUpdated, educationRows};
     }
 
     // ========== Step 1c 历史薪资补数 ==========

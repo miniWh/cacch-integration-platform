@@ -41,9 +41,10 @@ public class MokaEntryCandidateController {
      * Moka 待入职候选人 -- Step 1: Moka & PG 快照
      *
      * <p>分页拉取 Moka list_by_condition，4 表幂等 upsert，
-     * 补全职位部门编码（Step 1b）和 Offer 入职日期（Step 1c）。</p>
+     * 补全职位部门编码（Step 1b）、Offer 入职日期（Step 1c）、
+     * EHR v2 登记表字段（Step 1d：紧急联系人 + 教育经历，仅落库）。</p>
      *
-     * @return 同步汇总（totalApplications / successCount / failedCount）
+     * @return 同步汇总（step1aTotal / step1b~1d 各阶段统计）
      */
     @PostMapping("/sync")
     public Result<MokaEntrySyncResult> sync() {

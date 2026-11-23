@@ -23,6 +23,7 @@ import java.util.List;
  *         （Service 层独立 UPDATE，每批事务独立）</li>
  *     <li><strong>Step 1c</strong>：按 applicationId 批量查 Offer 扩展 → 回写 check_in_date / offer_department_code
  *         （Service 层独立 UPDATE，每批事务独立）</li>
+ *     <li><strong>Step 1d</strong>：EHR v2 登记表字段落库（紧急联系人 + 教育经历）</li>
  * </ol></p>
  *
  * <p>事务策略：Manager 层不包裹大事务，避免跨 HTTP 调用 + 长事务。
@@ -53,7 +54,7 @@ public class MokaEntryCandidateSyncManagerImpl implements IMokaEntryCandidateSyn
 
         if (applications.isEmpty()) {
             log.info("【{}】Step1a 返回空数据, 同步结束, batch={}", BIZ, batch);
-            return new MokaEntrySyncResult(0, 0, 0);
+            return new MokaEntrySyncResult(0, 0, 0, 0, 0);
         }
 
         // === Step 1b：职位详情补全 departmentCode ===
@@ -74,10 +75,22 @@ public class MokaEntryCandidateSyncManagerImpl implements IMokaEntryCandidateSyn
             log.error("【{}】Step1c 异常堆栈", BIZ, e);
         }
 
-        log.info("【{}】第一步同步完成, batch={}, 1a入库={}, 1b补全部门={}, 1c补全Offer={}",
-                BIZ, batch, step1aTotal, step1bUpdated, step1cUpdated);
+        // === Step 1d：EHR v2 登记表字段落库 ===
+        int step1dEmergency = 0;
+        int step1dEducationRows = 0;
+        try {
+            int[] step1dStats = entryCandidateService.enrichEhrApplicationFields(applications);
+            step1dEmergency = step1dStats[0];
+            step1dEducationRows = step1dStats[1];
+        } catch (Exception e) {
+            log.info("【{}】Step1d 异常终止, reason={}", BIZ, e.getMessage());
+            log.error("【{}】Step1d 异常堆栈", BIZ, e);
+        }
 
-        return new MokaEntrySyncResult(step1aTotal, step1bUpdated, step1cUpdated);
+        log.info("【{}】第一步同步完成, batch={}, 1a入库={}, 1b补全部门={}, 1c补全Offer={}, 1d紧急联系人={}, 1d教育行={}",
+                BIZ, batch, step1aTotal, step1bUpdated, step1cUpdated, step1dEmergency, step1dEducationRows);
+
+        return new MokaEntrySyncResult(step1aTotal, step1bUpdated, step1cUpdated, step1dEmergency, step1dEducationRows);
     }
 
     @Override

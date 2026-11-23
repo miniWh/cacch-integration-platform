@@ -9,7 +9,8 @@ import java.util.List;
  *
  * <p>职责：Step 1a 分页拉取 + 4 表幂等 upsert；
  * Step 1b 职位详情补全 departmentCode；
- * Step 1c Offer 扩展补全 checkInDate + offerDepartmentCode。</p>
+ * Step 1c Offer 扩展补全 checkInDate + offerDepartmentCode；
+ * Step 1d EHR v2 补全紧急联系人与教育经历。</p>
  *
  * @author hongfu_zhou@cacch.com
  */
@@ -52,6 +53,17 @@ public interface IMokaEntryCandidateService {
      * @return 成功回写的记录数
      */
     int enrichOfferFields(List<MokaEntryApplicationDO> applications);
+
+    /**
+     * Step 1d：按 applicationId 批量拉取 EHR v2，落库紧急联系人与教育经历
+     *
+     * <p>调用 {@code listEhrApplicationsV2}，解析 {@code basicInfo.customFields} 与
+     * {@code educationInfo}。HTTP 在事务外执行；单条失败不阻断批次。</p>
+     *
+     * @param applications Step 1a 返回的主表列表
+     * @return int[2]：[0]=成功更新紧急联系人基数，[1]=写入教育经历行数
+     */
+    int[] enrichEhrApplicationFields(List<MokaEntryApplicationDO> applications);
 
     /**
      * 历史薪资补数：回填 salary_number 为空的历史记录
