@@ -1,5 +1,6 @@
 package com.cacch.integration.config.moka;
 
+import com.cacch.integration.common.config.moka.MokaEntryIhrExtensionProperties;
 import com.cacch.integration.common.config.moka.MokaProperties;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
@@ -17,7 +18,7 @@ import org.springframework.context.annotation.Configuration;
  */
 @Slf4j
 @Configuration
-@EnableConfigurationProperties(MokaProperties.class)
+@EnableConfigurationProperties({MokaProperties.class, MokaEntryIhrExtensionProperties.class})
 @RequiredArgsConstructor
 public class MokaConfiguration {
 

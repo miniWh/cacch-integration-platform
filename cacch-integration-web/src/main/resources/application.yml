@@ -126,6 +126,10 @@ moka:
   api-key: ${MOKA_API_KEY:}
   org-id: ${MOKA_ORG_ID:cac}
   delete-email: ${MOKA_DELETE_EMAIL:}
+  # push-ihr 成功后回写 iHR 花名册：花名册字段 key（「查询花名册字段信息」），未配置则跳过 flex
+  entry-ihr:
+    emergency-relation-field-key: ""
+    education-full-time-flex-key: ""
 
 # ==================== 勤策 CRM OpenAPI（公共占位） ====================
 # 实际值请在 application-{profile}.yml 中覆盖；签名算法为 MD5(json|appkey|timestamp)

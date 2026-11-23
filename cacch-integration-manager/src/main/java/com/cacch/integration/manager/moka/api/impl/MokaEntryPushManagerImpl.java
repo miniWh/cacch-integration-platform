@@ -2,15 +2,28 @@ package com.cacch.integration.manager.moka.api.impl;
 
 import org.apache.commons.lang3.StringUtils;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.cacch.integration.common.config.moka.MokaEntryIhrExtensionProperties;
 import com.cacch.integration.common.enums.moka.MokaEntrySyncStatusEnum;
 import com.cacch.integration.common.exception.BizException;
+import com.cacch.integration.entity.ihr.PersondetailDO;
+import com.cacch.integration.entity.moka.MokaEntryCandidateBaseDO;
+import com.cacch.integration.entity.moka.MokaEntryEducationDO;
 import com.cacch.integration.entity.moka.MokaEntryPushItemVO;
+import com.cacch.integration.integration.ihr.client.dto.IhrStaffBooleanResponse;
+import com.cacch.integration.integration.ihr.client.dto.IhrStaffEducationCreateV2Request;
 import com.cacch.integration.integration.ihr.client.dto.IhrStaffEntryFormCreateRequest;
 import com.cacch.integration.integration.ihr.client.dto.IhrStaffEntryFormCreateResponse;
+import com.cacch.integration.integration.ihr.client.dto.IhrStaffUpdateBasicInfoRequest;
 import com.cacch.integration.manager.moka.api.IMokaEntryPushManager;
+import com.cacch.integration.mapper.ihr.PersondetailMapper;
 import com.cacch.integration.mapper.moka.MokaEntryApplicationMapper;
+import com.cacch.integration.mapper.moka.MokaEntryCandidateBaseMapper;
+import com.cacch.integration.mapper.moka.MokaEntryEducationMapper;
 import com.cacch.integration.mapper.moka.MokaEntrySyncMapper;
 import com.cacch.integration.service.ihr.api.IIhrStaffEntryFormService;
+import com.cacch.integration.service.ihr.api.IIhrStaffService;
+import com.cacch.integration.service.moka.support.MokaEntryIhrPushExtensionAssembler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -23,7 +36,7 @@ import java.util.List;
  * Moka 待入职 → iHR 待入职 推送编排实现
  *
  * <p>流程：PG 联合查询 4 表 + ihr_department JOIN → 逐条前置校验 →
- * 字段映射 → 调 iHR 新增待入职接口 → 更新同步状态。</p>
+ * 字段映射 → 调 iHR 新增待入职接口 →（可选）按手机号解析 staffId 回写紧急联系人与教育经历 → 更新同步状态。</p>
  *
  * <p>事务策略：Manager 层<strong>不加</strong> @Transactional。
  * <ul>
@@ -60,7 +73,13 @@ public class MokaEntryPushManagerImpl implements IMokaEntryPushManager {
 
     private final MokaEntryApplicationMapper applicationMapper;
     private final MokaEntrySyncMapper syncMapper;
+    private final MokaEntryCandidateBaseMapper candidateBaseMapper;
+    private final MokaEntryEducationMapper educationMapper;
+    private final PersondetailMapper persondetailMapper;
     private final IIhrStaffEntryFormService ihrEntryFormService;
+    private final IIhrStaffService ihrStaffService;
+    private final MokaEntryIhrPushExtensionAssembler ihrPushExtensionAssembler;
+    private final MokaEntryIhrExtensionProperties entryIhrExtensionProperties;
 
     @Override
     public MokaEntryPushSummary pushToIhr(List<String> statusList, int limit) {
@@ -116,6 +135,7 @@ public class MokaEntryPushManagerImpl implements IMokaEntryPushManager {
             if (response != null && response.isSuccess()) {
                 String entryId = response.getEntryId();
                 log.info("【{}】推送成功, applicationId={}, ihrEntryId={}", BIZ, appId, entryId);
+                syncIhrExtensionsAfterEntry(appId, item.getPhone());
                 updateSyncResult(appId, MokaEntrySyncStatusEnum.SUCCESS, entryId, "推送成功");
                 return summary.add("success");
             } else {
@@ -220,6 +240,116 @@ public class MokaEntryPushManagerImpl implements IMokaEntryPushManager {
         }
 
         return req;
+    }
+
+    /**
+     * 待入职创建成功后，尝试将 Step1d 落库的紧急联系人/教育经历写入 iHR 花名册
+     *
+     * <p>依赖 persondetail 中已存在与手机号匹配的 staffId；新员工尚未入库时跳过（不影响 SUCCESS）。</p>
+     */
+    private void syncIhrExtensionsAfterEntry(Integer applicationId, String phone) {
+        if (applicationId == null) {
+            return;
+        }
+        if (StringUtils.isBlank(phone)) {
+            log.info("【{}】扩展字段回写跳过, applicationId={}, reason=手机号为空", BIZ, applicationId);
+            return;
+        }
+
+        String staffId = resolveStaffIdByMobile(phone.trim());
+        if (staffId == null) {
+            log.info("【{}】扩展字段回写跳过, applicationId={}, reason=persondetail 未匹配 staffId", BIZ, applicationId);
+            return;
+        }
+
+        syncEmergencyContact(applicationId, staffId);
+        syncEducations(applicationId, staffId);
+    }
+
+    private String resolveStaffIdByMobile(String mobile) {
+        try {
+            PersondetailDO row = persondetailMapper.selectByMobilePreferInService(mobile);
+            if (row == null || row.getUserId() == null || row.getUserId().isBlank()) {
+                return null;
+            }
+            return row.getUserId().trim();
+        } catch (Exception e) {
+            log.info("【{}】解析 staffId 终止, mobile=***, reason={}", BIZ, e.getMessage());
+            return null;
+        }
+    }
+
+    private void syncEmergencyContact(Integer applicationId, String staffId) {
+        MokaEntryCandidateBaseDO base = candidateBaseMapper.selectOne(
+                new LambdaQueryWrapper<MokaEntryCandidateBaseDO>()
+                        .eq(MokaEntryCandidateBaseDO::getApplicationId, applicationId)
+                        .last("LIMIT 1"));
+        IhrStaffUpdateBasicInfoRequest req = ihrPushExtensionAssembler.buildEmergencyContactUpdate(
+                base, entryIhrExtensionProperties);
+        if (req == null) {
+            log.info("【{}】紧急联系人回写跳过, applicationId={}, reason=PG 无扩展数据", BIZ, applicationId);
+            return;
+        }
+        try {
+            IhrStaffBooleanResponse resp = ihrStaffService.updateStaffBasicInfo(staffId, req);
+            boolean ok = resp != null && resp.isSuccess() && Boolean.TRUE.equals(resp.getData());
+            log.info("【{}】紧急联系人回写{}, applicationId={}, staffId={}",
+                    BIZ, ok ? "成功" : "失败", applicationId, staffId);
+        } catch (BizException e) {
+            log.info("【{}】紧急联系人回写终止, applicationId={}, staffId={}, reason={}",
+                    BIZ, applicationId, staffId, e.getMessage());
+        } catch (Exception e) {
+            log.info("【{}】紧急联系人回写终止, applicationId={}, staffId={}, reason={}",
+                    BIZ, applicationId, staffId, e.getMessage());
+            log.error("【{}】紧急联系人回写异常, applicationId={}, staffId={}", BIZ, applicationId, staffId, e);
+        }
+    }
+
+    private void syncEducations(Integer applicationId, String staffId) {
+        List<MokaEntryEducationDO> rows = educationMapper.selectList(
+                new LambdaQueryWrapper<MokaEntryEducationDO>()
+                        .eq(MokaEntryEducationDO::getApplicationId, applicationId)
+                        .orderByAsc(MokaEntryEducationDO::getEducationIndex));
+        if (rows == null || rows.isEmpty()) {
+            log.info("【{}】教育经历回写跳过, applicationId={}, reason=PG 无教育行", BIZ, applicationId);
+            return;
+        }
+        int ok = 0;
+        int skip = 0;
+        int fail = 0;
+        for (MokaEntryEducationDO row : rows) {
+            IhrStaffEducationCreateV2Request req = ihrPushExtensionAssembler.buildEducationCreate(
+                    row, staffId, entryIhrExtensionProperties);
+            if (req == null) {
+                skip++;
+                log.info("【{}】教育经历行跳过, applicationId={}, educationIndex={}, reason=必填字段不全",
+                        BIZ, applicationId, row.getEducationIndex());
+                continue;
+            }
+            try {
+                IhrStaffBooleanResponse resp = ihrStaffService.createStaffEducationV2(req);
+                boolean success = resp != null && resp.isSuccess() && Boolean.TRUE.equals(resp.getData());
+                if (success) {
+                    ok++;
+                } else {
+                    fail++;
+                    log.info("【{}】教育经历创建失败, applicationId={}, educationIndex={}, staffId={}",
+                            BIZ, applicationId, row.getEducationIndex(), staffId);
+                }
+            } catch (BizException e) {
+                fail++;
+                log.info("【{}】教育经历创建终止, applicationId={}, educationIndex={}, reason={}",
+                        BIZ, applicationId, row.getEducationIndex(), e.getMessage());
+            } catch (Exception e) {
+                fail++;
+                log.info("【{}】教育经历创建终止, applicationId={}, educationIndex={}, reason={}",
+                        BIZ, applicationId, row.getEducationIndex(), e.getMessage());
+                log.error("【{}】教育经历创建异常, applicationId={}, educationIndex={}",
+                        BIZ, applicationId, row.getEducationIndex(), e);
+            }
+        }
+        log.info("【{}】教育经历回写完成, applicationId={}, staffId={}, ok={}, skip={}, fail={}",
+                BIZ, applicationId, staffId, ok, skip, fail);
     }
 
     /**

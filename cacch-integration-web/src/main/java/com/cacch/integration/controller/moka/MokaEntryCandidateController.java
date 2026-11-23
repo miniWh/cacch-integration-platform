@@ -57,7 +57,8 @@ public class MokaEntryCandidateController {
      * Moka 待入职候选人 -- Step 2: PG & iHR 待入职
      *
      * <p>读取同步状态为 PENDING/FAILED/SKIPPED 的候选人，
-     * 逐条校验（部门/手机号/入职日期）→ 字段映射 → 调 iHR 新增待入职接口 → 更新同步状态。</p>
+     * 逐条校验（部门/手机号/入职日期）→ 字段映射 → 调 iHR 新增待入职接口 →
+     * 若 persondetail 已存在同手机号 staffId，则回写 Step1d 紧急联系人与教育经历 → 更新同步状态。</p>
      *
      * @param statusList 推送状态筛选（可选，默认 PENDING/FAILED/SKIPPED）
      * @param limit      单次读取上限（可选，默认 50）

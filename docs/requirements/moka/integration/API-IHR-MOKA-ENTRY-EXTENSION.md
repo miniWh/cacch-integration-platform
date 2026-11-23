@@ -63,16 +63,17 @@
 
 ---
 
-## 3. 建议编排（未实现 Manager）
+## 3. 编排（已实现：`MokaEntryPushManagerImpl#pushToIhr`）
 
 ```text
-Moka push-ihr SUCCESS
-  → 等待员工入职/花名册生成 staffId（事件或定时扫 modifications）
-  → 读 PG 紧急联系人 + education
-  → PUT staff/{id} 写紧急联系人
-  → 逐条 POST educations/create
-  → 记录扩展同步状态（可扩 t_integration_moka_entry_sync 字段）
+Moka push-ihr entryForms/create SUCCESS
+  → persondetail 按手机号解析 staffId（优先在职；无则 INFO 跳过，仍记 SUCCESS）
+  → 读 PG candidate_base / entry_education
+  → PUT staff/{id} 写紧急联系人（不传 mobileNo）
+  → 逐条 POST educations/create（单条失败不阻断待入职 SUCCESS）
 ```
+
+花名册 flex key：`moka.entry-ihr.emergency-relation-field-key` / `education-full-time-flex-key`（见 `application.yml`）。
 
 ## 4. Path 常量
 

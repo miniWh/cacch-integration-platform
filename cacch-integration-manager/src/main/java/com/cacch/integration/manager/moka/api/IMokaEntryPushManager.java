@@ -18,6 +18,7 @@ public interface IMokaEntryPushManager {
      *     <li>读取同步状态为 PENDING/FAILED 的候选人（4 表 JOIN + ihr_department）</li>
      *     <li>逐条前置校验（部门/手机号/入职日期缺失 → SKIPPED）</li>
      *     <li>字段映射 → 调 iHR 新增待入职接口</li>
+     *     <li>（可选）解析 staffId 后回写紧急联系人 / 教育经历</li>
      *     <li>更新同步状态（SUCCESS / FAILED / SKIPPED）</li>
      * </ol></p>
      *

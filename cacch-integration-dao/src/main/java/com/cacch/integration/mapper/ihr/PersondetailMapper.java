@@ -114,6 +114,18 @@ public interface PersondetailMapper {
     PersondetailDO selectByStaffNo(@Param("staffNo") String staffNo);
 
     /**
+     * 按手机号解析 iHR 员工 ID（优先在职）
+     *
+     * @param mobileNo 手机号（persondetail."mobileNo"）
+     * @return 员工 id（persondetail.id）；无匹配时 null
+     */
+    @Select("SELECT id AS user_id FROM persondetail " +
+            "WHERE \"mobileNo\" = #{mobileNo} " +
+            "ORDER BY CASE WHEN \"staffStatus\" = 'IN_SERVICE' THEN 0 ELSE 1 END, \"staffNo\" " +
+            "LIMIT 1")
+    PersondetailDO selectByMobilePreferInService(@Param("mobileNo") String mobileNo);
+
+    /**
      * 按 IHR 部门树递归查询在职员工（含 {@code ihr_staff_update_sync_record.last_update} 可选过滤）
      *
      * <p>SQL 执行流程：
