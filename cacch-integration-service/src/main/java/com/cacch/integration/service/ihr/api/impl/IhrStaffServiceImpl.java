@@ -7,6 +7,9 @@ import com.cacch.integration.integration.ihr.client.IhrStaffClient;
 import com.cacch.integration.integration.ihr.client.dto.IhrPageInfo;
 import com.cacch.integration.integration.ihr.client.dto.IhrStaffBasicInfo;
 import com.cacch.integration.integration.ihr.client.dto.IhrStaffBasicResponse;
+import com.cacch.integration.integration.ihr.client.dto.IhrStaffBooleanResponse;
+import com.cacch.integration.integration.ihr.client.dto.IhrStaffEducationCreateV2Request;
+import com.cacch.integration.integration.ihr.client.dto.IhrStaffUpdateBasicInfoRequest;
 import com.cacch.integration.integration.ihr.client.dto.IhrStaffIdsData;
 import com.cacch.integration.integration.ihr.client.dto.IhrStaffIdsResponse;
 import com.cacch.integration.integration.ihr.client.dto.IhrStaffModificationInfo;
@@ -166,6 +169,65 @@ public class IhrStaffServiceImpl implements IIhrStaffService {
 
         if (resp.getData() == null) {
             log.info("【{}】fetchStaffBasicResponse 返回空 data, staffId={}, reason=响应无 data", BIZ, staffId);
+        }
+        return resp;
+    }
+
+    @Override
+    public IhrStaffBooleanResponse updateStaffBasicInfo(String staffId, IhrStaffUpdateBasicInfoRequest requestBody) {
+        if (!StringUtils.hasText(staffId)) {
+            throw new BizException(ResultCode.PARAM_ERROR, "staffId 不能为空");
+        }
+        if (requestBody == null) {
+            throw new BizException(ResultCode.PARAM_ERROR, "requestBody 不能为空");
+        }
+        return callBooleanWithTokenRetry(
+                token -> ihrStaffClient.updateStaffBasicInfo(token, staffId, requestBody),
+                "修改员工基础信息", "staffId=" + staffId);
+    }
+
+    @Override
+    public IhrStaffBooleanResponse createStaffEducationV2(IhrStaffEducationCreateV2Request requestBody) {
+        if (requestBody == null || !StringUtils.hasText(requestBody.getStaffId())) {
+            throw new BizException(ResultCode.PARAM_ERROR, "staffId 不能为空");
+        }
+        if (!StringUtils.hasText(requestBody.getSchoolName())
+                || !StringUtils.hasText(requestBody.getEntryDate())
+                || !StringUtils.hasText(requestBody.getGraduateDate())
+                || !StringUtils.hasText(requestBody.getMajor())) {
+            throw new BizException(ResultCode.PARAM_ERROR, "学校/入校/结业/专业为必填");
+        }
+        return callBooleanWithTokenRetry(
+                token -> ihrStaffClient.createEducationV2(token, requestBody),
+                "创建教育经历v2", "staffId=" + requestBody.getStaffId());
+    }
+
+    private IhrStaffBooleanResponse callBooleanWithTokenRetry(
+            java.util.function.Function<String, IhrStaffBooleanResponse> call,
+            String action,
+            String bizKey) {
+        String accessToken = ihrTokenService.getAccessToken();
+        IhrStaffBooleanResponse resp;
+        try {
+            resp = call.apply(accessToken);
+        } catch (HttpStatusCodeException e) {
+            if (e.getStatusCode() == HttpStatus.UNAUTHORIZED || e.getStatusCode() == HttpStatus.FORBIDDEN) {
+                log.info("【{}】HTTP {}, 强制刷新 token 后重试, action={}, {}", BIZ, e.getStatusCode().value(), action, bizKey);
+                accessToken = ihrTokenService.forceRefresh();
+                resp = call.apply(accessToken);
+            } else {
+                log.info("【{}】HTTP 调用终止, action={}, {}, status={}", BIZ, action, bizKey, e.getStatusCode().value());
+                throw e;
+            }
+        } catch (RestClientException e) {
+            log.info("【{}】HTTP 调用终止, action={}, {}, reason={}", BIZ, action, bizKey, e.getMessage());
+            throw e;
+        }
+        if (resp == null || !resp.isSuccess()) {
+            throw new BizException(ResultCode.INTEGRATION_ERROR,
+                    "IHR " + action + "失败: " + bizKey
+                            + ", code=" + (resp == null ? "null" : resp.getCode())
+                            + ", message=" + (resp == null ? "空响应" : resp.getMessage()));
         }
         return resp;
     }

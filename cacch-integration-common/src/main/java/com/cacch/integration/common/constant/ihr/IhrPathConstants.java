@@ -24,6 +24,17 @@ public final class IhrPathConstants {
     public static final String STAFF_BASIC_PATH = "/openapi/thirdparty/api/staff/v1/staffs/%s/basic";
 
     /**
+     * 修改员工基础信息
+     */
+    public static final String STAFF_UPDATE_BASIC_PATH = "/openapi/thirdparty/api/v1/staff/%s";
+
+    /**
+     * 创建教育经历 v2（支持 flexAttributes / 附件）
+     */
+    public static final String STAFF_EDUCATION_CREATE_V2_PATH =
+            "/openapi/thirdparty/api/staff/v1/educations/create";
+
+    /**
      * 获取当日新增员工 ID 清单
      */
     public static final String STAFF_ADDITIONS_PATH = "/openapi/thirdparty/api/staff/v1/staffs/additions";

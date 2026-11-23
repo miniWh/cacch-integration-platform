@@ -3,7 +3,10 @@ package com.cacch.integration.service.ihr.api;
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.integration.ihr.client.dto.IhrStaffBasicInfo;
 import com.cacch.integration.integration.ihr.client.dto.IhrStaffBasicResponse;
+import com.cacch.integration.integration.ihr.client.dto.IhrStaffBooleanResponse;
+import com.cacch.integration.integration.ihr.client.dto.IhrStaffEducationCreateV2Request;
 import com.cacch.integration.integration.ihr.client.dto.IhrStaffModificationInfo;
+import com.cacch.integration.integration.ihr.client.dto.IhrStaffUpdateBasicInfoRequest;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -82,4 +85,23 @@ public interface IIhrStaffService {
      * @throws BizException iHR 接口返回业务失败码、HTTP 异常或重试后仍失败时抛出
      */
     List<IhrStaffModificationInfo> fetchModifications(LocalDate date, String staffStatus);
+
+    /**
+     * 修改员工基础信息（如紧急联系人）
+     *
+     * @param staffId     iHR 员工 ID
+     * @param requestBody 仅包含需更新字段
+     * @return iHR 响应；业务失败时抛出 {@link BizException}
+     * @throws BizException staffId 为空或 iHR 返回非 0
+     */
+    IhrStaffBooleanResponse updateStaffBasicInfo(String staffId, IhrStaffUpdateBasicInfoRequest requestBody);
+
+    /**
+     * 创建员工教育经历 v2
+     *
+     * @param requestBody 含 staffId、学校、起止日期等
+     * @return iHR 响应；业务失败时抛出 {@link BizException}
+     * @throws BizException 必填字段缺失或 iHR 返回非 0
+     */
+    IhrStaffBooleanResponse createStaffEducationV2(IhrStaffEducationCreateV2Request requestBody);
 }

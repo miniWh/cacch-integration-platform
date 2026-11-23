@@ -5,12 +5,17 @@ import com.cacch.integration.common.constant.ihr.IhrPathConstants;
 import com.cacch.integration.common.constant.ihr.IhrStaffConstants;
 import com.cacch.integration.common.constant.ihr.IhrStaffLogConstants;
 import com.cacch.integration.integration.ihr.client.dto.IhrStaffBasicResponse;
+import com.cacch.integration.integration.ihr.client.dto.IhrStaffBooleanResponse;
+import com.cacch.integration.integration.ihr.client.dto.IhrStaffEducationCreateV2Request;
 import com.cacch.integration.integration.ihr.client.dto.IhrStaffIdsResponse;
 import com.cacch.integration.integration.ihr.client.dto.IhrStaffModificationsResponse;
+import com.cacch.integration.integration.ihr.client.dto.IhrStaffUpdateBasicInfoRequest;
 import com.cacch.integration.integration.support.RestTemplateHttpClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClientException;
 import tools.jackson.databind.ObjectMapper;
@@ -34,6 +39,8 @@ public class IhrStaffClient {
     private static final String ACTION_STAFF_BASIC = IhrStaffLogConstants.buildAction("获取员工基本信息");
     private static final String ACTION_STAFF_ADDITIONS = IhrStaffLogConstants.buildAction("获取当日新增员工ID清单");
     private static final String ACTION_STAFF_MODIFICATIONS = IhrStaffLogConstants.buildAction("获取当日更新员工ID清单V2");
+    private static final String ACTION_UPDATE_BASIC = IhrStaffLogConstants.buildAction("修改员工基础信息");
+    private static final String ACTION_EDUCATION_CREATE_V2 = IhrStaffLogConstants.buildAction("创建教育经历v2");
 
     /**
      * 静态 ObjectMapper —— 将原始响应报文反序列化为 {@link IhrStaffBasicResponse}
@@ -198,6 +205,60 @@ public class IhrStaffClient {
     }
 
     /**
+     * 修改员工基础信息（紧急联系人等）
+     *
+     * @param accessToken iHR access_token
+     * @param staffId     员工 ID（path）
+     * @param requestBody 仅包含需更新字段；不传则不处理
+     * @return iHR 原始响应
+     */
+    public IhrStaffBooleanResponse updateStaffBasicInfo(String accessToken, String staffId,
+                                                        IhrStaffUpdateBasicInfoRequest requestBody) {
+        String fullUrl = ihrProperties.getBaseUrl() + String.format(IhrPathConstants.STAFF_UPDATE_BASIC_PATH, staffId);
+        log.info("【{}】{}, 完整url={}", BIZ, ACTION_STAFF_BASIC, fullUrl);
+        HttpHeaders headers = buildJsonHeaders(accessToken);
+        IhrStaffBooleanResponse body = httpClient.doPostOrPut(
+                HttpMethod.PUT, fullUrl, requestBody, headers,
+                BIZ, ACTION_UPDATE_BASIC, IhrStaffBooleanResponse.class);
+        if (body != null && body.isSuccess()) {
+            log.info("【{}】{}成功, staffId={}, data={}", BIZ, ACTION_UPDATE_BASIC, staffId, body.getData());
+        } else {
+            log.info("【{}】{}终止, staffId={}, code={}, message={}",
+                    BIZ, ACTION_UPDATE_BASIC, staffId,
+                    body == null ? "null" : body.getCode(),
+                    body == null ? "空响应" : body.getMessage());
+        }
+        return body;
+    }
+
+    /**
+     * 创建员工教育经历 v2
+     *
+     * @param accessToken iHR access_token
+     * @param requestBody 教育经历请求体
+     * @return iHR 原始响应
+     */
+    public IhrStaffBooleanResponse createEducationV2(String accessToken,
+                                                     IhrStaffEducationCreateV2Request requestBody) {
+        String fullUrl = ihrProperties.getBaseUrl() + IhrPathConstants.STAFF_EDUCATION_CREATE_V2_PATH;
+        log.info("【{}】{}, 完整url={}", BIZ, ACTION_STAFF_BASIC, fullUrl);
+        HttpHeaders headers = buildJsonHeaders(accessToken);
+        IhrStaffBooleanResponse body = httpClient.doPostOrPut(
+                HttpMethod.POST, fullUrl, requestBody, headers,
+                BIZ, ACTION_EDUCATION_CREATE_V2, IhrStaffBooleanResponse.class);
+        if (body != null && body.isSuccess()) {
+            log.info("【{}】{}成功, staffId={}, data={}",
+                    BIZ, ACTION_EDUCATION_CREATE_V2, requestBody.getStaffId(), body.getData());
+        } else {
+            log.info("【{}】{}终止, staffId={}, code={}, message={}",
+                    BIZ, ACTION_EDUCATION_CREATE_V2, requestBody.getStaffId(),
+                    body == null ? "null" : body.getCode(),
+                    body == null ? "空响应" : body.getMessage());
+        }
+        return body;
+    }
+
+    /**
      * 构建通用请求头（Accept + Authorization Bearer）
      *
      * @param accessToken iHR access_token
@@ -205,8 +266,14 @@ public class IhrStaffClient {
      */
     private HttpHeaders buildHeaders(String accessToken) {
         HttpHeaders headers = new HttpHeaders();
-        headers.setAccept(Collections.singletonList(org.springframework.http.MediaType.APPLICATION_JSON));
+        headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
         headers.set(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken);
+        return headers;
+    }
+
+    private HttpHeaders buildJsonHeaders(String accessToken) {
+        HttpHeaders headers = buildHeaders(accessToken);
+        headers.setContentType(MediaType.APPLICATION_JSON);
         return headers;
     }
 }
