@@ -40,11 +40,8 @@ public class MdmEmpSyncController {
     /**
      * ESB 增量同步单接口 —— 编排 Pull 入队后 Process 落库
      *
-     * <p>建议每 2～5 分钟调用一次；单次仅处理至多 {@code limit} 条队列积压。
-     * 内部仍走独立 Pull / Process 能力，Pull 失败时不执行 Process。</p>
-     *
      * @param limit Process 单次认领上限，默认 500，有效范围 1～1000
-     * @return Pull 与 Process 分段统计
+     * @return {@code pullStatus}/{@code processStatus} 及分段统计
      */
     @PostMapping("/incremental-sync")
     public Result<IMdmEmpSyncManager.IncrementalSyncResult> incrementalSync(@RequestParam(defaultValue = "500") int limit) {

@@ -1,6 +1,7 @@
 package com.cacch.integration.manager.mdm.api;
 
 import com.cacch.integration.common.dto.batch.BatchProcessResult;
+import com.cacch.integration.common.enums.mdm.MdmEmpIncrementalSyncPhaseStatus;
 
 /**
  * 人员主数据（MDM）iHR 人员同步 Manager 接口
@@ -61,17 +62,11 @@ public interface IMdmEmpSyncManager {
     BatchProcessResult<String> processIncrementalFromQueue(int limit);
 
     /**
-     * 增量同步编排 —— 先 Pull 入队，再 Process 落库
-     *
-     * <p>供 ESB 单接口调度：内部依次调用 {@link #pullIncrementalToQueue()} 与
-     * {@link #processIncrementalFromQueue(int)}，不合并为单一大流程。
-     * Pull 失败抛异常时不会执行 Process。</p>
-     *
-     * <p>单次调用仅处理至多 {@code limit} 条 PENDING 队列行，积压需提高调用频率或 limit。</p>
+     * 增量同步编排 —— 先尝试 Pull 入队，再 Process 落库（两段互斥独立）
      *
      * @param limit Process 阶段单次认领上限，建议 500，有效范围 1～1000
-     * @return Pull 与 Process 分段统计
-     * @throws com.cacch.integration.common.exception.BizException Pull 失败、或上一轮 Pull/Process 仍在执行时抛出
+     * @return Pull 与 Process 分段状态及统计
+     * @throws com.cacch.integration.common.exception.BizException Process 互斥拒绝或整轮异常时抛出
      */
     IncrementalSyncResult runIncrementalSync(int limit);
 
@@ -90,12 +85,20 @@ public interface IMdmEmpSyncManager {
     /**
      * 增量同步编排返回 —— ESB 单接口分段结果
      *
-     * @param pull    Pull 阶段入队统计
-     * @param process Process 阶段落库统计
+     * @param pullStatus    Pull 阶段状态
+     * @param pull          Pull 成功时的入队统计；否则 null
+     * @param pullError     Pull 失败/互斥原因；成功时为 null
+     * @param processStatus Process 阶段状态（含 {@link MdmEmpIncrementalSyncPhaseStatus#PARTIAL_FAILURE}）
+     * @param process       Process 落库统计
+     * @param processError  预留；整轮 Process 失败时由异常返回，正常为 null
      */
     record IncrementalSyncResult(
+            MdmEmpIncrementalSyncPhaseStatus pullStatus,
             PullIncrementalResult pull,
-            BatchProcessResult<String> process
+            String pullError,
+            MdmEmpIncrementalSyncPhaseStatus processStatus,
+            BatchProcessResult<String> process,
+            String processError
     ) {
     }
 }
