@@ -100,6 +100,13 @@ public class CrmProductQueryResponse extends CrmBaseResponse<List<CrmProductInfo
 
 - 请求 DTO 使用 `@Data` + `@JsonInclude(JsonInclude.Include.NON_NULL)`：未赋值字段不进入请求体，也不会进入签名串。
 - 三方字段用 `@JsonProperty` 显式映射；金额、系数、税率等数值统一用 `BigDecimal`。
+- **入站别名（强制）**：`@JsonProperty` 只声明出站蛇形名，Spring 反序列化默认忽略未知属性，会导致本系统测试端点按驼峰传参时字段被**静默丢弃**。因此每个下划线字段必须同时声明驼峰别名 `@JsonAlias`，例如：
+  ```java
+  @JsonProperty("prd_code")
+  @JsonAlias("prdCode")
+  private String prdCode;
+  ```
+  确保 `{"prdCode":"xxx"}` 与 `{"prd_code":"xxx"}` 均可入站，出站仍为 `prd_code`。
 - 枚举型字段使用 `String` + 常量类取值，**不绑定 Java 枚举**，避免三方新增枚举值导致反序列化失败。
 - 请求字段全部可选时，Service 需对 `null` 请求做兜底，Client 不得假设非空。
 
