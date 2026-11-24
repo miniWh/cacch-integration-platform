@@ -331,6 +331,7 @@ is_deleted  SMALLINT NOT NULL DEFAULT 0  -- 逻辑删除标记（0正常 1删除
 - **Controller 按业务域聚合**：正式端点 `{业务域}Controller`、测试端点 `Test{业务域}Controller`，**禁止按单接口建 Controller**。
 - 测试 Controller 路由 `/api/v1/test/{domain}/...`、正式 Controller 路由 `/api/v1/{domain}/...`，**URL + 类名双保险隔离**，测试完成可单独删除 Test 类。
 - 以上三条聚合规则不适用于 Manager 层（Manager 按跨聚合编排粒度拆分）和 Mapper 层（Mapper 按表粒度拆分）。
+- **第三方接口对接结构**：Client 抽象基类、统一响应基类、请求 DTO、常量三分类、测试端点等完整约定见 `.trae/rules/java-third-party-integration.md`，新增第三方接口必须遵守；存量实现不强制迁移。
 
 ### 接口 URL 命名
 - RESTful 风格，名词复数，小写连字符：`/api/v1/api-keys`
@@ -955,6 +956,7 @@ revert: feat(wecom): 实现 Token Redis 缓存与自动刷新
 17. **接口文档注释**：新增或修改公开 API 时，必须按第十六节为类、方法、参数补充 Javadoc，禁止无说明的裸方法签名。
 18. **Git 提交说明**：创建 commit 时必须按第十七节编写提交信息，禁止使用「开发」「修改」等无意义说明。
 19. **作者标识**：类级 Javadoc 的 `@author` 统一为 `hongfu_zhou@cacch.com`，见第十六节 16.2。
+20. **第三方接口对接**：新增第三方接口必须遵循 `.trae/rules/java-third-party-integration.md`——Client 继承 `Abstract{业务域}Client` 复用签名/解析，响应 DTO 继承 `{业务域}BaseResponse<T>`，请求 DTO 使用 `NON_NULL`，常量三分类，并提供 `Test{业务域}Controller` 联调端点；存量接口保持现状，待后续迭代迁移。
 
 ---
 
