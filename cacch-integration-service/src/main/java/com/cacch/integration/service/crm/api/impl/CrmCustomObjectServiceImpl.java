@@ -7,6 +7,8 @@ import com.cacch.integration.common.result.ResultCode;
 import com.cacch.integration.integration.crm.client.CrmCustomObjectClient;
 import com.cacch.integration.integration.crm.client.dto.CrmCustomObjectQueryRequest;
 import com.cacch.integration.integration.crm.client.dto.CrmCustomObjectQueryResponse;
+import com.cacch.integration.integration.crm.client.dto.CrmCustomObjectSaveRequest;
+import com.cacch.integration.integration.crm.client.dto.CrmCustomObjectSaveResponse;
 import com.cacch.integration.integration.crm.client.dto.CrmSortItem;
 import com.cacch.integration.service.crm.api.ICrmCustomObjectService;
 import lombok.RequiredArgsConstructor;
@@ -63,6 +65,37 @@ public class CrmCustomObjectServiceImpl implements ICrmCustomObjectService {
             throw e;
         } catch (RestClientException e) {
             throw new BizException(ResultCode.INTEGRATION_ERROR, "查询自定义对象数据调用失败: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public CrmCustomObjectSaveResponse saveObjectData(CrmCustomObjectSaveRequest request) {
+        if (request == null || !StringUtils.hasText(request.getObjectKey())) {
+            log.info("【{}】创建自定义对象数据终止, reason=object_key为空", CrmCustomObjectLogConstants.LOG_BIZ);
+            throw new BizException(ResultCode.PARAM_MISSING, "object_key 不能为空");
+        }
+        if (Boolean.TRUE.equals(request.getIsTrigger()) && !StringUtils.hasText(request.getTriggerEmployee())) {
+            log.info("【{}】创建自定义对象数据终止, reason=is_trigger为true但trigger_employee为空",
+                    CrmCustomObjectLogConstants.LOG_BIZ);
+            throw new BizException(ResultCode.PARAM_MISSING, "is_trigger 为 true 时 trigger_employee 不能为空");
+        }
+        request.setObjectKey(request.getObjectKey().trim());
+        log.info("【{}】创建自定义对象数据, objectKey={}, isTrigger={}, checkRule={}",
+                CrmCustomObjectLogConstants.LOG_BIZ, request.getObjectKey(),
+                request.getIsTrigger(), request.getCheckRule());
+        try {
+            CrmCustomObjectSaveResponse response = crmCustomObjectClient.saveObjectData(request);
+            if (!response.isSuccess()) {
+                throw new BizException(ResultCode.INTEGRATION_ERROR,
+                        "创建自定义对象数据失败, return_code=" + response.getReturnCode()
+                                + ", return_msg=" + response.getReturnMsg());
+            }
+            return response;
+        } catch (BizException e) {
+            log.error("【{}】创建自定义对象数据终止, reason={}", CrmCustomObjectLogConstants.LOG_BIZ, e.getMessage());
+            throw e;
+        } catch (RestClientException e) {
+            throw new BizException(ResultCode.INTEGRATION_ERROR, "创建自定义对象数据调用失败: " + e.getMessage(), e);
         }
     }
 }

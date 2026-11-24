@@ -15,4 +15,10 @@ public final class CrmCustomObjectPathConstants {
      */
     public static final String QUERY_OBJECT_DATA_PATH =
             "/api/apaas/v2/queryObjectData/{openid}/{timestamp}/{digest}/{msgId}";
+
+    /**
+     * 创建自定义对象数据
+     */
+    public static final String SAVE_OBJECT_DATA_PATH =
+            "/api/apaas/v2/saveObjectData/{openid}/{timestamp}/{digest}/{msgId}";
 }
