@@ -87,12 +87,23 @@ AI 解析 PDF → JSON(含置信度)
   ↓
 SFTP 上传附件 → crmimage URL（HTTP 200 校验）
   ↓
-CRM 查客户 → 取号 → 查港口/目的地
+CRM 查客户（customerCode=S1212000018）
   ↓
-contractAdd 建单（isTrigger=true）→ 审批流
+┌──────── 可选旁路：NCC 客户余额（F16，heart.ncc.enabled）────────┐
+│ 用友 NCC POST /ncc/v1/uapws/rest/uapbd/dataquerymanage/query    │
+│ （视图 V_QC_customerarye，按 customerCode 查客户余额等 ERP 字段） │
+│   ├─ 成功 → 余额写入建单报文（及台账对应列，按需）                 │
+│   └─ 失败/超时/token 失效 → WARN + 字段置空，**不阻断主流程**      │
+└────────────────────────────────────────────────────────────────┘
+  ↓
+取号（saveObjectData / object_70cY4__c）→ 查港口/目的地对象 ID
+  ↓
+contractAdd 建单（isTrigger=true，报文含附件 URL 与余额字段）→ 审批流
   ↓
 回写合同号/流水号 + 告警 + 归档
 ```
+
+> **NCC 旁路说明**：客户余额是**补充字段**而非建单前置条件，且 NCC 接口当前卡在 token 未打通（见第七节）。因此设计为「主流程内的可选旁路」——成功后参与报文组装，失败仅降级告警、字段置空；token 打通后只需打开 `heart.ncc.enabled` 与配置凭证，**无需改动流程编排**。若业务确认余额为建单必填，则改为强依赖分支（失败即转 `MANUAL_REVIEW`）。
 
 ---
 
@@ -107,6 +118,7 @@ MAIL_RECEIVED
    → LEDGER_WRITTEN
    → FILE_UPLOADED
    → CUSTOMER_RESOLVED
+   → NCC_BALANCE_FETCHED（可选旁路；失败不改变状态，仅记 WARN）
    → SERIAL_NUMBERED
    → ORDER_CREATED
    → DONE
@@ -210,6 +222,7 @@ integration  integration.heart.client.MailClient（IMAP）
              integration.heart.client.AiPoParseClient（AI 解析）
              integration.heart.adapter.HeartPoParseAdapter（AI 结果 → 领域对象）
              integration.crm.client.CrmClient（扩展：查客户 / 取号 / 查港口 / contractAdd）
+             integration.ncc.client.NccQueryClient（客户余额查询，可选旁路）
 dao        entity.heart / mapper.heart
 common     common.config.heart.HeartProperties / common.constant.heart.*
 ```
@@ -262,6 +275,13 @@ heart:
     owner: "6291185993388435139"
     trigger-employee: "6288291750959183118"
     is-trigger: true
+  ncc:
+    enabled: false                    # F16 开关，token 打通后置为 true
+    base-url: http://10.80.86.94
+    query-path: /ncc/v1/uapws/rest/uapbd/dataquerymanage/query
+    view: V_QC_customerarye
+    token: ${NCC_TOKEN}               # 取 token 方式待确认（Q7）
+    timeout-ms: 3000                  # 超时即降级，不阻断建单
   auto-run: true          # 全链路总开关（灰度用）
   backfill-cac-po: false  # F15
 ```
@@ -285,6 +305,7 @@ heart:
 | integration | `integration/heart/client/AiPoParseClient.java` | AI 解析调用 |
 | integration | `integration/heart/adapter/HeartPoParseAdapter.java` | AI JSON → 领域对象 + 置信度 |
 | integration | `integration/crm/client/CrmClient.java`（修改） | 新增 `queryCustomer`、`saveSerialNumber`、`queryPort`、`contractAdd` |
+| integration | `integration/ncc/client/NccQueryClient.java` | NCC 客户余额查询（可选旁路） |
 | dao | `entity/heart/*`、`mapper/heart/*` | 6 张表实体与 Mapper |
 | service | `service/heart/api/IHeartLedgerService.java` + `impl/HeartLedgerServiceImpl.java` | POI 台账写入、V1.3 校验 |
 | manager | `manager/heart/api/IHeartOrderFlowManager.java` + `impl/HeartOrderFlowManagerImpl.java` | 状态机编排、事务入口 |
@@ -352,6 +373,7 @@ heart:
 | Q4 | AI 解析服务选型与内网可达性（自建/大模型 API） | 阻塞 F4 |
 | Q5 | 台账母本存放位置与只读权限（微盘/共享盘） | 阻塞 F6 |
 | Q6 | 3 张测试单的清理责任人与时间 | 阻塞上线 |
+| Q7 | NCC 取 token 方式（账号/接口文档）及余额字段是否必填 | 影响 F16 是否升级为强依赖 |
 
 ---
 
@@ -360,3 +382,4 @@ heart:
 | 日期 | 修改人 | 修改内容 |
 |------|--------|----------|
 | 2026-11-24 | TraeCode | 创建文档（依据《项目交接总结-Heart订单自动化与CRM对接.md》与三方决策） |
+| 2026-11-24 | TraeCode | 补充 3.2 中 NCC 客户余额可选旁路流程、状态机 `NCC_BALANCE_FETCHED` 节点、NCC 客户端与配置、待确认 Q7 |
