@@ -51,24 +51,27 @@
 
 ### 3.1 功能点
 
-| 序号 | 功能点 | 描述 | 必选/可选 |
-|------|--------|------|-----------|
-| F1 | 邮箱定时轮询 | 每 5 分钟通过 IMAP 拉取指定邮箱未读邮件；按 `UID/Message-ID` 去重，断点续拉；单轮限流（默认 20 封） | 必选 |
-| F2 | 邮件识别与附件提取 | 发件人白名单（`ycho@heart-jp.com`）且主题/正文含 PO 标识时，提取 PDF 附件；非 Heart 邮件记 `SKIP` 不入库主流程 | 必选 |
-| F3 | 附件归档与去重 | 附件落盘（`heart.attach.root`），计算 `SHA256` 去重；同名文件加时间戳，避免覆盖 | 必选 |
-| F4 | PDF 结构化解析 | 调用 AI 解析适配器，将 PO PDF 转为 JSON（PO 号、客户、贸易条款、目的港、柜型、产品明细行、数量、单价、金额等），返回**置信度** | 必选 |
-| F5 | 规则校验（V1.3） | 代码侧确定性校验：产品简称→13 位 `pdCode` 映射、目的港→对象 ID、箱数×单箱量=总量、行金额汇总=总额、包干费按报价表、毛利率重算；任一不符转人工复核 | 必选 |
-| F6 | 台账自动登记 | 以母本为模板，按 V1.3 规则插入明细行 + 小计行 + 全量汇总，保留公式体系；输出新副本 `HeartSR-...-更新至YYYYMMDD.xlsx`，**不修改母本** | 必选 |
-| F7 | 附件上传 | 通过 SFTP 上传至 `10.80.88.38:/data/UploadFiles/oafiles/heartorderfile`，按「PO号_时间戳_原名」命名，返回 `https://crmimage.cacch.com:50002/...` 并校验 HTTP 200 | 必选 |
-| F8 | CRM 查客户 | 按固定 `customerCode=S1212000018`（HEART CO., LTD.）查询客户，校验存在性与状态 | 必选 |
-| F9 | CRM 取号 | 调用 `saveObjectData`（`object_70cY4__c`）生成 CAC 流水号（26CACCPOTHxxx）；**同一 PO 只取一次**，失败重试复用已取号 | 必选 |
-| F10 | CRM 港口/目的地解析 | 目的港按对象 `object_yEQGF__c` 转对象 ID；「目的地」字段 `field_RHVAG__c` 待确认后启用 | 必选 |
-| F11 | CRM 建单 | 组装 `contractAdd` 报文（V2 签名、`isTrigger=true` 触发审批流、附件字段 `field_8s0nt__c` 填 crmimage URL），提交并回写合同号/ID | 必选 |
-| F12 | 状态机与重试 | 全流程状态落库，按步骤失败可重试；单条失败不阻塞同批其余 PO；超过最大重试次数转人工 | 必选 |
-| F13 | 告警与审计 | 建单成功/失败、人工复核、取号异常等通过企微 Webhook 告警；全链路 `traceId` 可查，三方 Client 记录完整入参/出参（脱敏） | 必选 |
-| F14 | 人工复核与补偿 | 低置信度/校验失败/重试耗尽生成复核任务；提供手动触发、重试、跳过接口 | 必选 |
-| F15 | 台账 CAC PO 回填 | 取号后回填台账 CAC PO 列（当前决策为人工补，本需求提供开关，默认关闭） | 可选 |
-| F16 | NCC 客户余额 | 打通用友 NCC `V_QC_customerarye` 视图，补「客户余额」字段；**不阻塞主链路** | 可选 |
+| 序号 | 功能点 | 描述 | 实现阶段 | 必选/可选 |
+|------|--------|------|----------|-----------|
+| F1 | 邮箱定时轮询 | 每 5 分钟通过 IMAP 拉取指定邮箱未读邮件；按 `UID/Message-ID` 去重，断点续拉；单轮限流（默认 20 封） | 阶段一 邮件接入 | 必选 |
+| F2 | 邮件识别与附件提取 | 发件人白名单（`ycho@heart-jp.com`）且主题/正文含 PO 标识时，提取 PDF 附件；非 Heart 邮件记 `SKIP` 不入库主流程 | 阶段一 | 必选 |
+| F3 | 附件归档与去重 | 附件落盘（`heart.attach.root`），计算 `SHA256` 去重；同名文件加时间戳，避免覆盖 | 阶段一 | 必选 |
+| F4 | PDF 结构化解析 | 调用 AI 解析适配器，将 PO PDF 转为 JSON（PO 号、客户、贸易条款、目的港、柜型、产品明细行、数量、单价、金额等），返回**置信度**（实现见 7.8） | 阶段二 解析校验 | 必选 |
+| F5 | 规则校验（V1.3） | 代码侧确定性校验：产品简称→13 位 `pdCode` 映射、目的港→对象 ID、箱数×单箱量=总量、行金额汇总=总额、包干费按报价表、毛利率重算；任一不符转人工复核 | 阶段二 | 必选 |
+| F6 | 台账自动登记 | 以母本为模板，按 V1.3 规则插入明细行 + 小计行 + 全量汇总，保留公式体系；输出新副本 `HeartSR-...-更新至YYYYMMDD.xlsx`，**不修改母本** | 阶段三 台账与附件 | 必选 |
+| F7 | 附件上传 | 通过 SFTP 上传至 `10.80.88.38:/data/UploadFiles/oafiles/heartorderfile`，按「PO号_时间戳_原名」命名，返回 `https://crmimage.cacch.com:50002/...` 并校验 HTTP 200 | 阶段三 | 必选 |
+| F8 | CRM 查客户 | 按固定 `customerCode=S1212000018`（HEART CO., LTD.）查询客户，校验存在性与状态 | 阶段四 CRM 建单 | 必选 |
+| F9 | NCC 客户余额（旁路） | 用友 NCC `V_QC_customerarye` 视图查客户余额；成功并入建单报文，失败降级告警、**不阻塞主链路** | 阶段四 | 可选 |
+| F10 | CRM 取号 | 调用 `saveObjectData`（`object_70cY4__c`）生成 CAC 流水号（26CACCPOTHxxx）；**同一 PO 只取一次**，失败重试复用已取号 | 阶段四 | 必选 |
+| F11 | CRM 港口/目的地解析 | 目的港按对象 `object_yEQGF__c` 转对象 ID；「目的地」字段 `field_RHVAG__c` 待确认后启用 | 阶段四 | 必选 |
+| F12 | CRM 建单 | 组装 `contractAdd` 报文（V2 签名、`isTrigger=true` 触发审批流、附件字段 `field_8s0nt__c` 填 crmimage URL），提交并回写合同号/ID | 阶段四 | 必选 |
+| F13 | 状态机与重试 | 全流程状态落库，按步骤失败可重试；单条失败不阻塞同批其余 PO；超过最大重试次数转人工 | 阶段五 运维兜底 | 必选 |
+| F14 | 告警与审计 | 建单成功/失败、人工复核、取号异常等通过企微 Webhook 告警；全链路 `traceId` 可查，三方 Client 记录完整入参/出参（脱敏） | 阶段五 | 必选 |
+| F15 | 人工复核与补偿 | 低置信度/校验失败/重试耗尽生成复核任务；提供手动触发、重试、跳过接口 | 阶段五 | 必选 |
+| F16 | 台账 CAC PO 回填 | 取号后回填台账 CAC PO 列（当前决策为人工补，本需求提供开关，默认关闭） | 阶段五 | 可选 |
+
+> **实现顺序约定**：上表即为开发与验收顺序（F1 → F16），每阶段完成并验证后再进入下一阶段；F13~F15 为横切能力，在阶段一先落「状态落库 + 基础日志」最小版本，随阶段逐级增强，避免最后一轮补锅。
+
 
 ### 3.2 交互流程
 
@@ -89,7 +92,7 @@ SFTP 上传附件 → crmimage URL（HTTP 200 校验）
   ↓
 CRM 查客户（customerCode=S1212000018）
   ↓
-┌──────── 可选旁路：NCC 客户余额（F16，heart.ncc.enabled）────────┐
+┌──────── 可选旁路：NCC 客户余额（F9，heart.ncc.enabled）────────┐
 │ 用友 NCC POST /ncc/v1/uapws/rest/uapbd/dataquerymanage/query    │
 │ （视图 V_QC_customerarye，按 customerCode 查客户余额等 ERP 字段） │
 │   ├─ 成功 → 余额写入建单报文（及台账对应列，按需）                 │
@@ -129,7 +132,7 @@ MAIL_RECEIVED
 
 ### 4.2 关键业务规则（V1.3，来自《HeartSR自动填写逻辑设计.md》）
 
-1. CAC PO 列留空人工补（F15 开关默认关闭）；
+1. CAC PO 列留空人工补（F16 开关默认关闭）；
 2. 船公司写英文原文（如 `NAMSUNG`），不翻译；
 3. 目的港大写英文、去括号道县名（`SHIBUSHI`）；
 4. 中信保/结算单价等公式以工作簿 CN27 区现有公式为准（中信保 = `(X-Z*F*0.45)*0.315%*0.65`）；
@@ -176,7 +179,7 @@ MAIL_RECEIVED
 | Container Type | 柜型 | 小柜/大柜 |
 | Product / Qty / Unit Price | 明细行 | 产品简称→`pdCode` 映射 |
 | Amount | 金额 | 数量 × 单价，校验与 PO 总额一致 |
-| — | CAC PO | 取号流水号（F15 开关，默认空） |
+| — | CAC PO | 取号流水号（F16 开关，默认空） |
 | — | 小计行 | 每 PO 块生成，计算列汇总 |
 
 ### 6.2 产品编码映射（HeartSR 简称 → CRM）
@@ -269,21 +272,26 @@ heart:
     output-dir: ${HEART_LEDGER_OUTPUT}
   ai:
     endpoint: ${HEART_AI_ENDPOINT}
+    model-name: ${HEART_AI_MODEL}
+    prompt-version: v1
     confidence-threshold: 0.9
+    timeout-ms: 60000
+    max-retry: 2
+    render-dpi: 200
   crm:
     customer-code: S1212000018
     owner: "6291185993388435139"
     trigger-employee: "6288291750959183118"
     is-trigger: true
   ncc:
-    enabled: false                    # F16 开关，token 打通后置为 true
+    enabled: false                    # F9 开关，token 打通后置为 true
     base-url: http://10.80.86.94
     query-path: /ncc/v1/uapws/rest/uapbd/dataquerymanage/query
     view: V_QC_customerarye
     token: ${NCC_TOKEN}               # 取 token 方式待确认（Q7）
     timeout-ms: 3000                  # 超时即降级，不阻断建单
   auto-run: true          # 全链路总开关（灰度用）
-  backfill-cac-po: false  # F15
+  backfill-cac-po: false  # F16
 ```
 
 ### 7.4 依赖变更（需父 POM 审批）
@@ -328,6 +336,100 @@ heart:
 - 台账母本 1301 行、38 列，写入前需删除 100 列后的空列（规避 16384 列网格上限），写入后保存为副本；
 - 邮箱轮询单轮 ≤ 20 封，避免阻塞调度线程。
 
+### 7.8 AI 解析适配器实现
+
+**定位**：`integration` 层的可插拔解析组件，只做「PDF → 结构化字段」，**不做金额计算、不写库、不调业务接口**；计算与规则判定全部由 Service 层（F5）确定性代码完成。
+
+**组件结构**
+
+| 组件 | 位置 | 职责 |
+|------|------|------|
+| `IHeartPoParser` | `integration.heart.client` | 解析能力接口（策略模式，可替换） |
+| `AiPoParseClient` | `integration.heart.client` | 主实现：PDF 渲染为图片 → 调用模型（OpenAI 兼容 `/v1/chat/completions` 或内网推理服务），含超时与重试 |
+| `PdfTextPoParser` | `integration.heart.client` | 兜底实现：PDFBox 提取文本 + 固定模板正则（版式稳定时可用） |
+| `HeartPoParseAdapter` | `integration.heart.adapter` | 协议转换：PDF 预处理、Schema 校验、DTO 映射、置信度汇总 |
+| `HeartPoParseResult` | `integration.heart.client.dto` | 解析结果 DTO（`confidence` / `warnings` / `promptVersion`） |
+
+**处理流程**
+
+1. **预处理**：PDFBox 按 200dpi 渲染 PNG（兼容扫描件/加密件）；>10 页按页分批，避免超出上下文；
+2. **调用模型**：system prompt 固化 JSON Schema + few-shot（`CN27-051SHB` 样例），`temperature=0`，明确「只抄录原文、禁止计算」；
+3. **结构化校验**：Jackson 反序列化 + JSON Schema 校验（必填、类型、枚举）；
+4. **交叉校验**：明细金额合计 = PO 总额、数量 × 单价 = 行金额、箱数 × 单箱量 = 总数量；
+5. **结果输出**：`parse_payload` 落库 + `parse_confidence`；低置信度或校验失败转 `MANUAL_REVIEW`。
+
+**输出契约（Schema 摘要）**
+
+```json
+{
+  "poNo": "CN27-051SHB",
+  "customerName": "HEART CO., LTD.",
+  "tradeTerm": "FOB",
+  "portOfDischarge": "SHIBUSHI",
+  "shippingLine": "NAMSUNG",
+  "containerType": "40HQ",
+  "currency": "USD",
+  "totalAmount": 149016.00,
+  "items": [
+    { "lineNo": 1, "productName": "GLYPHOSATE 500ML", "shortName": "GA500",
+      "quantity": "560 CARTONS", "unitPrice": "266.10", "amount": "149016.00",
+      "cartons": "560", "volume": "8976", "auxText": "40 × 14", "remark": "" }
+  ],
+  "confidence": 0.97,
+  "warnings": []
+}
+```
+
+**代码骨架**
+
+```java
+/** PO PDF 解析能力接口（策略） */
+public interface IHeartPoParser {
+    HeartPoParseResult parse(byte[] pdf, String fileName);
+}
+
+/** 适配器：预处理 + Schema 校验 + 映射，不含业务规则 */
+@Component
+@RequiredArgsConstructor
+public class HeartPoParseAdapter {
+    private final IHeartPoParser parser;
+    private final HeartPoSchemaValidator schemaValidator;
+
+    public HeartPoParseResult parseWithGuard(byte[] pdf, String fileName) {
+        HeartPoParseResult raw = parser.parse(pdf, fileName);
+        schemaValidator.validate(raw);      // 仅结构与类型校验
+        return raw;                          // V1.3 业务校验由 Service 层 F5 负责
+    }
+}
+```
+
+**置信度与路由**
+
+| 条件 | 路由 |
+|------|------|
+| `confidence ≥ 0.9` 且 Schema / 交叉校验通过 | 自动进入 F5 规则校验 |
+| `0.7 ≤ confidence < 0.9` | 人工复核（标注低置信字段） |
+| `confidence < 0.7` 或 Schema 失败 | 降级 `PdfTextPoParser`，仍失败转人工 |
+| 模型超时 / 5xx | 退避重试 2 次（2s、5s），仍失败降级 |
+
+**缓存与成本**
+
+- 以 PDF `SHA256` 为键缓存解析结果（Caffeine 本地 7 天 + `parse_payload` 持久化），重复投递不重复计费；
+- 记录 `promptVersion`、`modelName`、`promptTokens/completionTokens`、`durationMs`，用于效果回溯与成本核算。
+
+**安全与合规**
+
+- PDF 不出内网：优先内网推理服务；使用公网模型须经脱敏与合规审批；
+- 日志只输出 `sha256`、页数、耗时、置信度，不输出 PDF 全文与客户敏感信息；
+- Prompt 与 Schema 纳入版本管理（`heart.ai.prompt-version`），变更须回归样例集。
+
+**测试与验收**
+
+- 离线样例集：历史 10 份 PO（含扫描件、多页、手写批注），字段级准确率 ≥ 99%，**金额/编码字段 100%**；
+- 单元测试覆盖：Schema 校验、交叉校验、降级路径、缓存命中；
+- 集成测试：Mock 模型服务，验证超时 / 5xx / 空响应三条异常链路。
+
+
 ---
 
 ## 8. 验收标准
@@ -357,7 +459,7 @@ heart:
 | 企微邮箱 IMAP 授权/频率限制 | 拉取失败、延迟 | 复用连接、失败退避、告警；必要时改企业邮 OpenAPI |
 | AI 解析幻觉导致金额/编码错误 | 错单 | 代码侧强校验（F5）+ 置信度阈值 + 人工复核兜底 |
 | 台账母本公式变更 | 写入错位 | 母本只读、版本号管理；模板路径配置化 |
-| NCC token 未打通 | 客户余额缺失 | 不阻塞主链路，F16 独立排期 |
+| NCC token 未打通 | 客户余额缺失 | 不阻塞主链路，F9 独立排期 |
 | 新增 4 类依赖 | 构建与安全审计 | 父 POM 统一声明版本，走依赖审批 |
 | 全自动建单无人工确认 | 错误直接进审批 | 保留 `heart.auto-run` 总开关与单 PO 人工复核；首周灰度观察 |
 
@@ -368,12 +470,12 @@ heart:
 | 序号 | 事项 | 影响 |
 |------|------|------|
 | Q1 | 企微邮箱 IMAP 账号、授权码、是否开启 IMAP 服务 | 阻塞 F1 |
-| Q2 | 「目的地」`field_RHVAG__c` 引用的对象 | 阻塞 F10 完整字段 |
-| Q3 | 报关口岸是否可在本期补太仓港主数据 | 影响 F11 口径 |
+| Q2 | 「目的地」`field_RHVAG__c` 引用的对象 | 阻塞 F11 完整字段 |
+| Q3 | 报关口岸是否可在本期补太仓港主数据 | 影响 F12 口径 |
 | Q4 | AI 解析服务选型与内网可达性（自建/大模型 API） | 阻塞 F4 |
 | Q5 | 台账母本存放位置与只读权限（微盘/共享盘） | 阻塞 F6 |
 | Q6 | 3 张测试单的清理责任人与时间 | 阻塞上线 |
-| Q7 | NCC 取 token 方式（账号/接口文档）及余额字段是否必填 | 影响 F16 是否升级为强依赖 |
+| Q7 | NCC 取 token 方式（账号/接口文档）及余额字段是否必填 | 影响 F9 是否升级为强依赖 |
 
 ---
 
@@ -383,3 +485,4 @@ heart:
 |------|--------|----------|
 | 2026-11-24 | TraeCode | 创建文档（依据《项目交接总结-Heart订单自动化与CRM对接.md》与三方决策） |
 | 2026-11-24 | TraeCode | 补充 3.2 中 NCC 客户余额可选旁路流程、状态机 `NCC_BALANCE_FETCHED` 节点、NCC 客户端与配置、待确认 Q7 |
+| 2026-11-24 | TraeCode | 3.1 功能点按执行顺序重排（NCC 调整为 F9），新增实现阶段列；新增 7.8 AI 解析适配器实现 |
