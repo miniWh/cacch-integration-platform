@@ -1,5 +1,6 @@
 package com.cacch.integration.integration.crm.client.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
@@ -22,6 +23,7 @@ import java.util.List;
 public class CrmQueryFilter {
 
     @JsonProperty("field_key")
+    @JsonAlias("fieldKey")
     private String fieldKey;
 
     /**
@@ -30,5 +32,6 @@ public class CrmQueryFilter {
     private String operator;
 
     @JsonProperty("field_values")
+    @JsonAlias("fieldValues")
     private List<String> fieldValues;
 }

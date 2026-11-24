@@ -1,5 +1,6 @@
 package com.cacch.integration.integration.crm.client.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -18,6 +19,7 @@ import lombok.NoArgsConstructor;
 public class CrmSortItem {
 
     @JsonProperty("field_key")
+    @JsonAlias("fieldKey")
     private String fieldKey;
 
     /**
