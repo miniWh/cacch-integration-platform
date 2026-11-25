@@ -89,7 +89,7 @@ public class HeartSerialNoServiceImpl implements IHeartSerialNoService {
      * 按固定参数调用勤策自定义对象接口取号
      *
      * @param poId PO 主键，仅用于日志定位
-     * @return CAC PO 流水号（为不需依赖 response_data 的 String 表示）
+     * @return CAC PO 流水号（response_data 数组首条记录的 id）
      */
     private String requestCacPoNo(Long poId) {
         Map<String, Object> fields = new LinkedHashMap<>();
@@ -106,8 +106,12 @@ public class HeartSerialNoServiceImpl implements IHeartSerialNoService {
                 HeartSerialNoLogConstants.LOG_BIZ, poId, request.getObjectKey());
         try {
             CrmCustomObjectSaveResponse response = crmCustomObjectService.saveObjectData(request);
-            JsonNode data = response.getResponseData();
-            String id = data == null ? null : data.path(HeartSerialNoConstants.RESPONSE_FIELD_ID).asString();
+            // 勤策创建接口 response_data 为新建记录数组，取首条记录的 id 作为 CAC PO 号
+            JsonNode record = response.getResponseData();
+            if (record != null && record.isArray()) {
+                record = !record.isEmpty() ? record.get(0) : null;
+            }
+            String id = record == null ? null : record.path(HeartSerialNoConstants.RESPONSE_FIELD_ID).asString();
             if (!StringUtils.hasText(id)) {
                 log.info("【{}】CAC PO 取号终止, reason=响应缺少id, poId={}", HeartSerialNoLogConstants.LOG_BIZ, poId);
                 throw new BizException(ResultCode.INTEGRATION_ERROR, "CAC PO 取号失败, 响应缺少 id");
