@@ -384,6 +384,7 @@ heart:
 | manager | `manager/heart/api/IHeartOrderFlowManager.java` + `impl/HeartOrderFlowManagerImpl.java` | 状态机编排、事务入口 |
 | async | `async/heart/task/HeartMailPollingTask.java` | 5 分钟轮询 |
 | web | `controller/heart/HeartOrderController.java`、`dto/heart/*`、`convert/heart/*`、`config/heart/HeartConfiguration.java` | 手动触发/查询/重试 |
+| web | `controller/heart/HeartOrderOpenApiController.java`、`dto/heart/vo/HeartOrderSubmitVO.java` | ESB 对外提交接口（当前空实现，无入参，参数全部取 `heart.*` 配置）：`POST /api/v1/heart/orders/submit` |
 | web | `db/migration/V47~V51__heart_*.sql` | 建表脚本 |
 
 [↑ 返回顶部](#top)
