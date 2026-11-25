@@ -65,7 +65,7 @@ public class CrmCustomObjectClient extends AbstractCrmClient {
     /**
      * 创建自定义对象数据
      *
-     * <p>勤策要求 fields、slave_fields 为 JSON 格式字符串，此处将入站 Map 序列化后组装出站报文；
+     * <p>fields、slave_fields 以 JSON 对象结构出站，由 Jackson 直接序列化；
      * 签名与请求体使用同一份序列化结果。</p>
      *
      * @param request 创建请求，object_key 必填
@@ -75,8 +75,8 @@ public class CrmCustomObjectClient extends AbstractCrmClient {
     public CrmCustomObjectSaveResponse saveObjectData(CrmCustomObjectSaveRequest request) {
         CrmCustomObjectSavePayload payload = CrmCustomObjectSavePayload.builder()
                 .objectKey(request.getObjectKey())
-                .fields(toJsonString(request.getFields()))
-                .slaveFields(toJsonString(request.getSlaveFields()))
+                .fields(request.getFields())
+                .slaveFields(request.getSlaveFields())
                 .isTrigger(request.getIsTrigger())
                 .triggerEmployee(request.getTriggerEmployee())
                 .checkRule(request.getCheckRule())
@@ -92,15 +92,5 @@ public class CrmCustomObjectClient extends AbstractCrmClient {
         response.setMsgId(raw.getMsgId());
         response.setResponseData(raw.getResponseData());
         return response;
-    }
-
-    /**
-     * 将 Map 序列化为 JSON 字符串，null 保持 null 以便出站时被忽略
-     *
-     * @param value 待序列化对象
-     * @return JSON 字符串；入参为 null 时返回 null
-     */
-    private String toJsonString(Object value) {
-        return value == null ? null : OBJECT_MAPPER.writeValueAsString(value);
     }
 }

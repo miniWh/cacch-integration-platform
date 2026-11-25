@@ -12,7 +12,7 @@ import java.util.Map;
  * 勤策创建自定义对象数据请求参数（入站）
  *
  * <p>测试端点与上层调用使用驼峰命名；出站由 {@link CrmCustomObjectSavePayload} 转为 snake_case，
- * 其中 fields、slave_fields 会被序列化为 JSON 字符串。</p>
+ * 其中 fields、slave_fields 保持 JSON 对象结构出站。</p>
  *
  * @author hongfu_zhou@cacch.com
  */

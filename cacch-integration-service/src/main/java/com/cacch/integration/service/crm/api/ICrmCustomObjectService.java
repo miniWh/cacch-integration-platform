@@ -29,7 +29,7 @@ public interface ICrmCustomObjectService {
      * 创建自定义对象数据
      *
      * <p>object_key 必填；is_trigger=true 时 trigger_employee 必填。
-     * fields、slave_fields 由 Client 序列化为 JSON 字符串后出站。</p>
+     * fields、slave_fields 保持 JSON 对象结构出站。</p>
      *
      * @param request 创建请求
      * @return 创建响应，response_data 为新建数据标识节点（含 id）
