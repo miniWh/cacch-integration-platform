@@ -1,8 +1,11 @@
 package com.cacch.integration.integration.crm.client.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
@@ -24,6 +27,11 @@ public class CrmContractAddRequest {
      * 触发员工 ID；isTrigger=true 时必填
      */
     private Long triggerEmployee;
+
+    /**
+     * 负责人 ID
+     */
+    private String ownerId;
 
     /**
      * 是否校验验证规则，默认 false
@@ -83,7 +91,16 @@ public class CrmContractAddRequest {
     /**
      * 币种代码，如 CNY；不传则使用本位币
      */
+    @JsonProperty("currency_type")
+    @JsonAlias("currencyType")
     private String currencyType;
+
+    /**
+     * 汇率
+     */
+    @JsonProperty("exchange_rate")
+    @JsonAlias("exchangeRate")
+    private BigDecimal exchangeRate;
 
     /**
      * 主对象自定义字段，格式 {字段key: 字段值}

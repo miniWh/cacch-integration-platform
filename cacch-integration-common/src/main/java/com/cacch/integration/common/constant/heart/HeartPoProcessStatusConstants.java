@@ -26,4 +26,9 @@ public final class HeartPoProcessStatusConstants {
      * 启运港、目的港对象 ID 已解析回写，可进入建单
      */
     public static final String PORT_RESOLVED = "PORT_RESOLVED";
+
+    /**
+     * 已在 CRM 建单成功
+     */
+    public static final String ORDER_CREATED = "ORDER_CREATED";
 }

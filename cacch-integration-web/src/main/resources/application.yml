@@ -272,3 +272,11 @@ share-drive:
   allowed-extensions: [pdf, doc, docx, xls, xlsx, png, jpg, jpeg, zip]
   max-file-size-bytes: 536870912
   # 目录名归一化：删除 \\ / : * ? " < > | % 等非法字符后与 OA 名称匹配
+# ==================== Heart 客户 PO 订单自动化（公共占位） ====================
+# 建单固定参数，联调确认后如需调整可直接改配置；台账取号/客户/附件等配置在 application-{profile}.yml 覆盖
+heart:
+  crm:
+    customer-code: S1212000018
+    owner-id: "6291185993388435139"
+    trigger-employee: "6288291750959183118"
+    is-trigger: true

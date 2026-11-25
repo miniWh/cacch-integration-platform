@@ -1,6 +1,8 @@
 package com.cacch.integration.integration.crm.client.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -66,4 +68,18 @@ public class CrmContractDetailItem {
      * 明细自定义字段，格式 {字段key: 字段值}
      */
     private Map<String, Object> extFields;
+
+    /**
+     * 明细币种
+     */
+    @JsonProperty("currency_type")
+    @JsonAlias("currencyType")
+    private String currencyType;
+
+    /**
+     * 明细汇率
+     */
+    @JsonProperty("exchange_rate")
+    @JsonAlias("exchangeRate")
+    private BigDecimal exchangeRate;
 }

@@ -4,15 +4,18 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.cacch.integration.common.constant.heart.HeartOrderConstants;
 import com.cacch.integration.common.constant.heart.HeartOrderLogConstants;
 import com.cacch.integration.common.constant.heart.HeartPoProcessStatusConstants;
+import com.cacch.integration.common.dto.heart.HeartOrderCreateResult;
 import com.cacch.integration.common.dto.heart.HeartOrderSubmitResult;
 import com.cacch.integration.entity.heart.HeartPoDO;
 import com.cacch.integration.mapper.heart.HeartPoMapper;
 import com.cacch.integration.manager.heart.api.IHeartOrderFlowManager;
+import com.cacch.integration.service.heart.api.IHeartOrderCreateService;
 import com.cacch.integration.service.heart.api.IHeartPortService;
 import com.cacch.integration.service.heart.api.IHeartSerialNoService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
 /**
  * Heart 客户 PO 订单流程编排实现
@@ -30,6 +33,8 @@ public class HeartOrderFlowManagerImpl implements IHeartOrderFlowManager {
 
     private final IHeartPortService heartPortService;
 
+    private final IHeartOrderCreateService heartOrderCreateService;
+
     @Override
     public HeartOrderSubmitResult submitOrder() {
         log.info("【{}】收到 ESB Heart 订单提交请求", HeartOrderLogConstants.LOG_BIZ);
@@ -40,22 +45,41 @@ public class HeartOrderFlowManagerImpl implements IHeartOrderFlowManager {
                                 .and(cac -> cac.isNull(HeartPoDO::getCacPoNo).or().eq(HeartPoDO::getCacPoNo, "")))
                         // 已取号、待港口解析（港口解析失败后的重试）
                         .or()
-                        .eq(HeartPoDO::getProcessStatus, HeartPoProcessStatusConstants.SERIAL_NUMBERED))
+                        .eq(HeartPoDO::getProcessStatus, HeartPoProcessStatusConstants.SERIAL_NUMBERED)
+                        // 港口已解析、待 CRM 建单
+                        .or()
+                        .eq(HeartPoDO::getProcessStatus, HeartPoProcessStatusConstants.PORT_RESOLVED))
                 .orderByAsc(HeartPoDO::getCreatedAt)
                 .last("LIMIT 1"));
         if (pending == null) {
             log.info("【{}】无待处理 PO, 跳过", HeartOrderLogConstants.LOG_BIZ);
-            return new HeartOrderSubmitResult(HeartOrderConstants.SUBMIT_STATUS_NO_DATA, "无待处理 PO", null);
+            return new HeartOrderSubmitResult(HeartOrderConstants.SUBMIT_STATUS_NO_DATA, "无待处理 PO", null, null);
         }
-        // 取号（已有 CAC PO 号时服务内部直接复用，重试不会重复取号）
-        String cacPoNo = heartSerialNoService.acquireCacPoNo(pending.getId());
-        log.info("【{}】CAC PO 取号完成, poId={}, poNo={}, cacPoNo={}",
-                HeartOrderLogConstants.LOG_BIZ, pending.getId(), pending.getPoNo(), cacPoNo);
-        // 港口解析并回写对象 ID，成功后推进 PORT_RESOLVED；失败时保持 SERIAL_NUMBERED，下次提交只重试本阶段
-        heartPortService.resolveAndSavePorts(pending.getId());
-        log.info("【{}】港口对象ID回写完成, poId={}, poNo={}",
-                HeartOrderLogConstants.LOG_BIZ, pending.getId(), pending.getPoNo());
+        // 取号（已有 CAC PO 号时直接复用，重试不会重复取号）
+        String cacPoNo = pending.getCacPoNo();
+        if (!StringUtils.hasText(cacPoNo)) {
+            cacPoNo = heartSerialNoService.acquireCacPoNo(pending.getId());
+            log.info("【{}】CAC PO 取号完成, poId={}, poNo={}, cacPoNo={}",
+                    HeartOrderLogConstants.LOG_BIZ, pending.getId(), pending.getPoNo(), cacPoNo);
+        }
+        // 港口解析并回写对象 ID，成功后推进 PORT_RESOLVED；已解析的 PO 直接进入建单
+        if (!HeartPoProcessStatusConstants.PORT_RESOLVED.equals(pending.getProcessStatus())) {
+            heartPortService.resolveAndSavePorts(pending.getId());
+            log.info("【{}】港口对象ID回写完成, poId={}, poNo={}",
+                    HeartOrderLogConstants.LOG_BIZ, pending.getId(), pending.getPoNo());
+        }
+        // CRM 建单：服务内部完成幂等校验、报文组装、提交记录落库与状态推进
+        HeartOrderCreateResult createResult = heartOrderCreateService.createOrder(pending.getId());
+        if (!createResult.success()) {
+            log.error("【{}】CRM 建单失败, poId={}, poNo={}, message={}",
+                    HeartOrderLogConstants.LOG_BIZ, pending.getId(), pending.getPoNo(), createResult.message());
+            return new HeartOrderSubmitResult(HeartOrderConstants.SUBMIT_STATUS_FAILED,
+                    createResult.message(), cacPoNo, null);
+        }
+        log.info("【{}】CRM 建单完成, poId={}, poNo={}, crmContractNo={}, skipped={}",
+                HeartOrderLogConstants.LOG_BIZ, pending.getId(), pending.getPoNo(),
+                createResult.crmContractNo(), createResult.skipped());
         return new HeartOrderSubmitResult(HeartOrderConstants.SUBMIT_STATUS_SUCCESS,
-                "取号及港口解析成功, poNo=" + pending.getPoNo() + ", cacPoNo=" + cacPoNo, cacPoNo);
+                createResult.message(), cacPoNo, createResult.crmContractNo());
     }
 }

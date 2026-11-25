@@ -34,6 +34,6 @@ public class HeartOrderOpenApiController {
     @PostMapping("/submit")
     public Result<HeartOrderSubmitVO> submit() {
         HeartOrderSubmitResult result = heartOrderFlowManager.submitOrder();
-        return Result.success(new HeartOrderSubmitVO(result.status(), result.message()));
+        return Result.success(new HeartOrderSubmitVO(result.status(), result.message(), result.crmContractNo()));
     }
 }
