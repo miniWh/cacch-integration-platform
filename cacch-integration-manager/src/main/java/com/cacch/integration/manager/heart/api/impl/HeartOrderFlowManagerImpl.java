@@ -38,13 +38,9 @@ public class HeartOrderFlowManagerImpl implements IHeartOrderFlowManager {
                         // 待取号（客户已解析且无 CAC PO 号）
                         .nested(w -> w.eq(HeartPoDO::getProcessStatus, HeartPoProcessStatusConstants.CUSTOMER_RESOLVED)
                                 .and(cac -> cac.isNull(HeartPoDO::getCacPoNo).or().eq(HeartPoDO::getCacPoNo, "")))
-                        // 已取号但港口对象 ID 未回写（取号成功、港口解析失败后的重试）
+                        // 已取号、待港口解析（港口解析失败后的重试）
                         .or()
-                        .nested(w -> w.eq(HeartPoDO::getProcessStatus, HeartPoProcessStatusConstants.SERIAL_NUMBERED)
-                                .and(port -> port.isNull(HeartPoDO::getPortOfLoadingId)
-                                        .or().eq(HeartPoDO::getPortOfLoadingId, "")
-                                        .or().isNull(HeartPoDO::getPortOfDischargeId)
-                                        .or().eq(HeartPoDO::getPortOfDischargeId, ""))))
+                        .eq(HeartPoDO::getProcessStatus, HeartPoProcessStatusConstants.SERIAL_NUMBERED))
                 .orderByAsc(HeartPoDO::getCreatedAt)
                 .last("LIMIT 1"));
         if (pending == null) {
@@ -55,7 +51,7 @@ public class HeartOrderFlowManagerImpl implements IHeartOrderFlowManager {
         String cacPoNo = heartSerialNoService.acquireCacPoNo(pending.getId());
         log.info("【{}】CAC PO 取号完成, poId={}, poNo={}, cacPoNo={}",
                 HeartOrderLogConstants.LOG_BIZ, pending.getId(), pending.getPoNo(), cacPoNo);
-        // 港口解析并回写对象 ID，失败后 PO 保持 SERIAL_NUMBERED，下次提交只重试本阶段
+        // 港口解析并回写对象 ID，成功后推进 PORT_RESOLVED；失败时保持 SERIAL_NUMBERED，下次提交只重试本阶段
         heartPortService.resolveAndSavePorts(pending.getId());
         log.info("【{}】港口对象ID回写完成, poId={}, poNo={}",
                 HeartOrderLogConstants.LOG_BIZ, pending.getId(), pending.getPoNo());

@@ -18,7 +18,12 @@ public final class HeartPoProcessStatusConstants {
     public static final String CUSTOMER_RESOLVED = "CUSTOMER_RESOLVED";
 
     /**
-     * 已生成 CAC PO 流水号
+     * 已生成 CAC PO 流水号，待港口解析
      */
     public static final String SERIAL_NUMBERED = "SERIAL_NUMBERED";
+
+    /**
+     * 启运港、目的港对象 ID 已解析回写，可进入建单
+     */
+    public static final String PORT_RESOLVED = "PORT_RESOLVED";
 }

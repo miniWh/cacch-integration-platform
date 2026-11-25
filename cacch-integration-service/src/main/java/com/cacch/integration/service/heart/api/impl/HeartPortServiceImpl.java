@@ -2,6 +2,7 @@ package com.cacch.integration.service.heart.api.impl;
 
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.cacch.integration.common.constant.heart.HeartPoProcessStatusConstants;
 import com.cacch.integration.common.constant.heart.HeartPortConstants;
 import com.cacch.integration.common.constant.heart.HeartPortLogConstants;
 import com.cacch.integration.common.exception.BizException;
@@ -59,6 +60,7 @@ public class HeartPortServiceImpl implements IHeartPortService {
         if (!loadingMissing && !dischargeMissing) {
             log.info("【{}】港口解析复用已有对象ID, poId={}, loadingId={}, dischargeId={}",
                     HeartPortLogConstants.LOG_BIZ, poId, po.getPortOfLoadingId(), po.getPortOfDischargeId());
+            advanceToPortResolved(poId);
             return;
         }
 
@@ -82,8 +84,24 @@ public class HeartPortServiceImpl implements IHeartPortService {
                     HeartPortLogConstants.LOG_BIZ, poId, loadingId, dischargeId);
             throw new BizException(ResultCode.SYSTEM_ERROR, "港口对象ID回写失败, poId=" + poId);
         }
+        advanceToPortResolved(poId);
         log.info("【{}】港口解析完成, poId={}, loadingId={}, dischargeId={}",
                 HeartPortLogConstants.LOG_BIZ, poId, latest.getPortOfLoadingId(), latest.getPortOfDischargeId());
+    }
+
+    /**
+     * 两港对象 ID 均已回写后，将 PO 推进为 PORT_RESOLVED
+     *
+     * @param poId PO 主键
+     */
+    private void advanceToPortResolved(Long poId) {
+        int rows = heartPoMapper.update(null, Wrappers.<HeartPoDO>lambdaUpdate()
+                .eq(HeartPoDO::getId, poId)
+                .eq(HeartPoDO::getProcessStatus, HeartPoProcessStatusConstants.SERIAL_NUMBERED)
+                .set(HeartPoDO::getProcessStatus, HeartPoProcessStatusConstants.PORT_RESOLVED)
+                .set(HeartPoDO::getUpdatedAt, LocalDateTime.now()));
+        log.info("【{}】港口解析推进状态, poId={}, status={}, rows={}", HeartPortLogConstants.LOG_BIZ,
+                poId, HeartPoProcessStatusConstants.PORT_RESOLVED, rows);
     }
 
     @Override

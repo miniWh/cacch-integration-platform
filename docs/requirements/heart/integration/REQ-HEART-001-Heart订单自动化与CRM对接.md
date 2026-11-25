@@ -166,6 +166,7 @@ MAIL_RECEIVED
    → CUSTOMER_RESOLVED
    → NCC_BALANCE_FETCHED（可选旁路；失败不改变状态，仅记 WARN）
    → SERIAL_NUMBERED
+   → PORT_RESOLVED
    → ORDER_CREATED
    → DONE
 异常分支：
@@ -401,7 +402,7 @@ heart:
 | common | `common/constant/heart/HeartSerialNoConstants.java`、`HeartSerialNoLogConstants.java`、`HeartOrderConstants.java`、`HeartOrderLogConstants.java`、`HeartPoProcessStatusConstants.java`、`common/dto/heart/HeartOrderSubmitResult.java` | F10 取号固定参数、订单提交状态、PO 处理状态、日志域常量与提交流程结果 DTO |
 | dao | `entity/heart/HeartPoDO.java`、`mapper/heart/HeartPoMapper.java` | PO 阶段主表实体与 Mapper（`po_no` 为幂等键，`cac_po_no`/`process_status` 为取号回写与状态推进载体） |
 | service | `service/heart/api/IHeartSerialNoService.java` + `impl/HeartSerialNoServiceImpl.java` | F10 单 PO 取号：固定参数、同 PO 只取一次、并发复用；成功后回写 `cac_po_no` 并推进 `process_status=SERIAL_NUMBERED` |
-| manager | `manager/heart/api/IHeartOrderFlowManager.java` + `impl/HeartOrderFlowManagerImpl.java` | 流程推进入口：取待处理 PO（`CUSTOMER_RESOLVED` 未取号，或 `SERIAL_NUMBERED` 港口 ID 未回写）→ 取号 → 港口解析；后续阶段在此扩展 |
+| manager | `manager/heart/api/IHeartOrderFlowManager.java` + `impl/HeartOrderFlowManagerImpl.java` | 流程推进入口：取待处理 PO（`CUSTOMER_RESOLVED` 未取号，或 `SERIAL_NUMBERED` 待港口解析）→ 取号 → 港口解析（成功推进 `PORT_RESOLVED`）；后续阶段在此扩展 |
 | integration | `integration/crm/client/CrmCustomObjectClient.java`（复用，未修改） | F10/F11 直接复用 `saveObjectData` / `queryObjectData`，不新增 CRM Client |
 | service | `service/heart/api/IHeartPortService.java` + `impl/HeartPortServiceImpl.java` | F11 港口解析：按 PO 港口名称查询 `object_yEQGF__c`，精确匹配唯一记录后回写对象 ID；两侧均已有值则跳过 |
 | common | `common/constant/heart/HeartPortConstants.java`、`HeartPortLogConstants.java` | F11 港口查询固定参数与日志域常量 |
@@ -591,5 +592,6 @@ public class HeartPoParseAdapter {
 | 2026-11-25 | TraeCode | 完成 F10 CAC PO 取号：新增 `IHeartSerialNoService`/`HeartSerialNoServiceImpl`、`HeartPoDO`/`HeartPoMapper`、取号参数与日志域常量；取号业务由 `IHeartOrderFlowManager` 编排，ESB 提交接口 `POST /api/v1/heart/orders/submit` 仅转发；7.5 同步 |
 | 2026-11-25 | TraeCode | 修正 F10 取号时序：明确 PO 记录先落库后取号，`submitOrder` 改为按状态机取 `CUSTOMER_RESOLVED` 的 PO，取号成功后回写 `cac_po_no` 并推进 `process_status=SERIAL_NUMBERED`、累加 `submit_count`；新增 `HeartPoProcessStatusConstants` |
 | 2026-11-25 | TraeCode | 完成 F11 港口解析：新增 `V48` 主表港口列调整（新增 `port_of_loading_id`/`port_of_discharge_id`、删除 `port_object_id`）、`IHeartPortService`/`HeartPortServiceImpl` 与港口常量；取号后按港口名称查询 `object_yEQGF__c` 并回写对象 ID，两阶段幂等（港口解析失败时保持 `SERIAL_NUMBERED`，下次提交只重试本阶段） |
+| 2026-11-25 | TraeCode | 状态机新增 `PORT_RESOLVED`：`SERIAL_NUMBERED` 语义收敛为「已取号待港口解析」，港口 ID 回写成功后推进 `PORT_RESOLVED`，后续建单阶段按该状态捞取；4.1 状态机、7.5 同步 |
 
 [↑ 返回顶部](#top)
