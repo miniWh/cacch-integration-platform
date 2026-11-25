@@ -21,7 +21,7 @@ import java.time.LocalDateTime;
  * @author hongfu_zhou@cacch.com
  */
 @Data
-@TableName(value = "t_integration_heart_po", autoResultMap = true)
+@TableName(value = "t_integration_crm_heart_po", autoResultMap = true)
 public class HeartPoDO {
 
     @TableId(type = IdType.ASSIGN_ID)
