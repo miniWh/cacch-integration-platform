@@ -1,6 +1,7 @@
 package com.cacch.integration.service.heart.api.impl;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.cacch.integration.common.constant.heart.HeartPoProcessStatusConstants;
 import com.cacch.integration.common.constant.heart.HeartSerialNoConstants;
 import com.cacch.integration.common.constant.heart.HeartSerialNoLogConstants;
 import com.cacch.integration.common.exception.BizException;
@@ -26,8 +27,9 @@ import java.util.Map;
  * Heart 客户 PO 取号服务实现
  *
  * <p>取号接口参数全部为固定值，统一收敛在 {@link HeartSerialNoConstants}；
- * 幂等策略：先查 PO 上已有 CAC PO 号直接复用，取号后以「cac_po_no 为空」为条件更新，
- * 并发冲突时重查并复用已写入的号码，保证同一 PO 只取号一次。</p>
+ * PO 记录先由邮件入库流程落库，取号节点再调用本服务；
+ * 幂等策略：先查 PO 上已有 CAC PO 号直接复用，取号后以「状态为 CUSTOMER_RESOLVED 且 cac_po_no 为空」为条件更新，
+ * 成功后推进为 SERIAL_NUMBERED，并发冲突时重查并复用已写入的号码，保证同一 PO 只取号一次。</p>
  *
  * @author hongfu_zhou@cacch.com
  */
@@ -60,11 +62,16 @@ public class HeartSerialNoServiceImpl implements IHeartSerialNoService {
         String cacPoNo = requestCacPoNo(poId);
         int rows = heartPoMapper.update(null, Wrappers.<HeartPoDO>lambdaUpdate()
                 .eq(HeartPoDO::getId, poId)
+                .eq(HeartPoDO::getProcessStatus, HeartPoProcessStatusConstants.CUSTOMER_RESOLVED)
                 .and(wrapper -> wrapper.isNull(HeartPoDO::getCacPoNo).or().eq(HeartPoDO::getCacPoNo, ""))
                 .set(HeartPoDO::getCacPoNo, cacPoNo)
+                .set(HeartPoDO::getProcessStatus, HeartPoProcessStatusConstants.SERIAL_NUMBERED)
+                .setSql("submit_count = COALESCE(submit_count, 0) + 1")
+                .set(HeartPoDO::getLastSubmitAt, LocalDateTime.now())
                 .set(HeartPoDO::getUpdatedAt, LocalDateTime.now()));
         if (rows > 0) {
-            log.info("【{}】CAC PO 取号成功, poId={}, cacPoNo={}", HeartSerialNoLogConstants.LOG_BIZ, poId, cacPoNo);
+            log.info("【{}】CAC PO 取号成功并推进状态, poId={}, cacPoNo={}",
+                    HeartSerialNoLogConstants.LOG_BIZ, poId, cacPoNo);
             return cacPoNo;
         }
 

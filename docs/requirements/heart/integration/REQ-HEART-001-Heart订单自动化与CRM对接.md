@@ -392,12 +392,12 @@ heart:
 | web | `controller/heart/HeartOrderController.java`、`dto/heart/*`、`convert/heart/*`、`config/heart/HeartConfiguration.java` | 手动触发/查询/重试 |
 | web | `controller/heart/HeartOrderOpenApiController.java`、`dto/heart/vo/HeartOrderSubmitVO.java` | ESB 对外提交接口（当前空实现，无入参，参数全部取 `heart.*` 配置）：`POST /api/v1/heart/orders/submit` |
 | web | `db/migration/V47~V51__heart_*.sql` | 建表脚本 |
-| common | `common/constant/heart/HeartSerialNoConstants.java`、`HeartSerialNoLogConstants.java`、`HeartOrderConstants.java`、`HeartOrderLogConstants.java`、`common/dto/heart/HeartOrderSubmitResult.java` | F10 取号固定参数、订单提交状态与日志域常量、提交流程结果 DTO |
-| dao | `entity/heart/HeartPoDO.java`、`mapper/heart/HeartPoMapper.java` | PO 阶段主表实体与 Mapper（`cac_po_no` 为 F10 回写载体） |
-| service | `service/heart/api/IHeartSerialNoService.java` + `impl/HeartSerialNoServiceImpl.java` | F10 单 PO 取号：固定参数、同 PO 只取一次、并发冲突复用已取号 |
-| manager | `manager/heart/api/IHeartOrderFlowManager.java` + `impl/HeartOrderFlowManagerImpl.java` | 订单流程编排入口：选择最早待取号 PO → 调用取号 → 组装结果；后续阶段在此扩展 |
+| common | `common/constant/heart/HeartSerialNoConstants.java`、`HeartSerialNoLogConstants.java`、`HeartOrderConstants.java`、`HeartOrderLogConstants.java`、`HeartPoProcessStatusConstants.java`、`common/dto/heart/HeartOrderSubmitResult.java` | F10 取号固定参数、订单提交状态、PO 处理状态、日志域常量与提交流程结果 DTO |
+| dao | `entity/heart/HeartPoDO.java`、`mapper/heart/HeartPoMapper.java` | PO 阶段主表实体与 Mapper（`po_no` 为幂等键，`cac_po_no`/`process_status` 为取号回写与状态推进载体） |
+| service | `service/heart/api/IHeartSerialNoService.java` + `impl/HeartSerialNoServiceImpl.java` | F10 单 PO 取号：固定参数、同 PO 只取一次、并发复用；成功后回写 `cac_po_no` 并推进 `process_status=SERIAL_NUMBERED` |
+| manager | `manager/heart/api/IHeartOrderFlowManager.java` + `impl/HeartOrderFlowManagerImpl.java` | 流程推进入口：按状态机取 `CUSTOMER_RESOLVED` 的 PO → 调取号；后续阶段在此扩展 |
 | integration | `integration/crm/client/CrmCustomObjectClient.java`（复用，未修改） | F10 直接复用 `saveObjectData`，不新增 CRM Client |
-| web | `controller/heart/HeartOrderOpenApiController.java`（修改） | `submit` 仅转发 Manager 并转换 VO，返回 `SUCCESS` / `NO_DATA` |
+| web | `controller/heart/HeartOrderOpenApiController.java`（修改） | `submit` 仅触发流程推进并转换 VO，返回 `SUCCESS` / `NO_DATA` |
 
 [↑ 返回顶部](#top)
 
@@ -581,5 +581,6 @@ public class HeartPoParseAdapter {
 | 2026-11-24 | TraeCode | 新增文档目录（含最末一级标题）、章节内嵌锚点与「返回顶部」链接 |
 | 2026-11-25 | TraeCode | 新增 V47 建表脚本：PO 阶段主表/明细表/CRM 提交记录表；7.2 同步表结构说明 |
 | 2026-11-25 | TraeCode | 完成 F10 CAC PO 取号：新增 `IHeartSerialNoService`/`HeartSerialNoServiceImpl`、`HeartPoDO`/`HeartPoMapper`、取号参数与日志域常量；取号业务由 `IHeartOrderFlowManager` 编排，ESB 提交接口 `POST /api/v1/heart/orders/submit` 仅转发；7.5 同步 |
+| 2026-11-25 | TraeCode | 修正 F10 取号时序：明确 PO 记录先落库后取号，`submitOrder` 改为按状态机取 `CUSTOMER_RESOLVED` 的 PO，取号成功后回写 `cac_po_no` 并推进 `process_status=SERIAL_NUMBERED`、累加 `submit_count`；新增 `HeartPoProcessStatusConstants` |
 
 [↑ 返回顶部](#top)

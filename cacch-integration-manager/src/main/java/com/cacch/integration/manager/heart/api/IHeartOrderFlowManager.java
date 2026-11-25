@@ -11,7 +11,7 @@ import com.cacch.integration.common.exception.BizException;
 public interface IHeartOrderFlowManager {
 
     /**
-     * 提交 Heart 订单处理
+     * 触发一次 Heart 订单流程推进
      *
      * @return 流程结果（状态、说明、CAC PO 号）
      * @throws BizException 取号失败（INTEGRATION_ERROR）或回写失败（SYSTEM_ERROR）
