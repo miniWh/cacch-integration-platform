@@ -298,7 +298,7 @@ AI 边界：`AiPoParseClient` 只接收 PDF 字节并返回 JSON + 置信度，�
 | 表名 | 核心列 |
 |------|--------|
 | `t_integration_heart_mail` | `mail_uid`、`message_id`、`subject`、`from_address`、`received_at`、`attach_file_name`、`attach_sha256`、`attach_path`、`process_status`、`fail_reason`、`retry_count` |
-| `t_integration_crm_heart_po` | PO 级阶段数据：`po_no`、`cac_po_no`、`customer_code`、`destination_country`、`port_of_loading`、`port_of_discharge`、`port_object_id`、`shipping_line`、`container_type`、`packing_type`、`etd`；汇总列 `total_cartons`/`total_liters`/`total_volume`/`total_amount`/`total_cost`/`total_gross_profit`/`gross_margin_rate`；`mail_id`、`attachment_url`、`parse_confidence`、`parse_payload(JSONB)`、`process_status`、`crm_payload(JSONB)`、`submit_count`、`fail_reason`、`retry_count`、`version` |
+| `t_integration_crm_heart_po` | PO 级阶段数据：`po_no`、`cac_po_no`、`customer_code`、`destination_country`、`port_of_loading`、`port_of_discharge`、`port_of_loading_id`、`port_of_discharge_id`、`shipping_line`、`container_type`、`packing_type`、`etd`；汇总列 `total_cartons`/`total_liters`/`total_volume`/`total_amount`/`total_cost`/`total_gross_profit`/`gross_margin_rate`；`mail_id`、`attachment_url`、`parse_confidence`、`parse_payload(JSONB)`、`process_status`、`crm_payload(JSONB)`、`submit_count`、`fail_reason`、`retry_count`、`version` |
 | `t_integration_crm_heart_po_item` | 明细行（对应台账一产品一行）：`po_id`、`line_no`、`product_name`、`spec`、`pd_code`、`product_id`、`carton_count`、`liters`、`unit_price`、`amount`、`aux_text`、`density`、`net_weight`、`net_weight_with_carton`、`volume`、`carton_gross_weight`、`gross_weight`、`empty_carton_sets`、`gross_weight_with_extra_carton`、`cost_price`、`no_pallet_unit_price`、`package_fee`、`credit_insurance_fee`、`other_fee`、`cost_total`、`gross_profit`、`gross_margin_rate`、`remark`、`data_source` |
 | `t_integration_heart_ledger_record` | `po_id`、`ledger_file_path`、`sheet_name`、`start_row`、`end_row`、`subtotal_row`、`write_status` |
 | `t_integration_crm_heart_order_submit` | 提交与溯源（每次提交一条）：`po_id`、`attempt_no`、`submit_status`、`crm_contract_id`、`crm_contract_no`、`crm_serial_no`、`return_code`、`return_msg`、`http_status`、`error_message`、`request_payload(JSONB)`、`response_payload(JSONB)`、`duration_ms`、`trace_id`、`submitted_at` |
@@ -309,6 +309,12 @@ AI 边界：`AiPoParseClient` 只接收 PDF 字节并返回 JSON + 置信度，�
 - 主表与明细表列结构对齐台账「5. SR」（PO、CAC PO、产品名称、规格、箱数、L、单价、辅助、目的国、启运港、目的港、船公司、大小柜、备注、ETD、打托方式、密度、净重…USD考核价），台账小计行对应主表汇总列；
 - 阶段演进只更新主表 `process_status`（对应 4.1 状态机），明细行按 `(po_id, line_no)` 幂等写入；
 - 提交 CRM 前把最终报文写入主表 `crm_payload` 作为快照；每次实际调用在 `t_integration_crm_heart_order_submit` 追加一条记录（请求报文、响应报文、`return_code`/`return_msg`、合同号、耗时、`trace_id`），实现逐次溯源。
+
+`V48` 调整主表港口列（F11 港口解析）：
+
+- 新增 `port_of_loading_id` / `port_of_discharge_id`，分别承载启运港、目的港在 `object_yEQGF__c` 中的对象 ID；
+- 删除原单一列 `port_object_id`（无法同时承载启运港与目的港）；
+- 港口查询关键字取自名称列 `port_of_loading` / `port_of_discharge`（当前人工维护，后续由 AI 解析结果写入）；两列均已有对象 ID 时跳过查询，保证重试幂等。
 
 [↑ 返回顶部](#top)
 
@@ -395,8 +401,10 @@ heart:
 | common | `common/constant/heart/HeartSerialNoConstants.java`、`HeartSerialNoLogConstants.java`、`HeartOrderConstants.java`、`HeartOrderLogConstants.java`、`HeartPoProcessStatusConstants.java`、`common/dto/heart/HeartOrderSubmitResult.java` | F10 取号固定参数、订单提交状态、PO 处理状态、日志域常量与提交流程结果 DTO |
 | dao | `entity/heart/HeartPoDO.java`、`mapper/heart/HeartPoMapper.java` | PO 阶段主表实体与 Mapper（`po_no` 为幂等键，`cac_po_no`/`process_status` 为取号回写与状态推进载体） |
 | service | `service/heart/api/IHeartSerialNoService.java` + `impl/HeartSerialNoServiceImpl.java` | F10 单 PO 取号：固定参数、同 PO 只取一次、并发复用；成功后回写 `cac_po_no` 并推进 `process_status=SERIAL_NUMBERED` |
-| manager | `manager/heart/api/IHeartOrderFlowManager.java` + `impl/HeartOrderFlowManagerImpl.java` | 流程推进入口：按状态机取 `CUSTOMER_RESOLVED` 的 PO → 调取号；后续阶段在此扩展 |
-| integration | `integration/crm/client/CrmCustomObjectClient.java`（复用，未修改） | F10 直接复用 `saveObjectData`，不新增 CRM Client |
+| manager | `manager/heart/api/IHeartOrderFlowManager.java` + `impl/HeartOrderFlowManagerImpl.java` | 流程推进入口：取待处理 PO（`CUSTOMER_RESOLVED` 未取号，或 `SERIAL_NUMBERED` 港口 ID 未回写）→ 取号 → 港口解析；后续阶段在此扩展 |
+| integration | `integration/crm/client/CrmCustomObjectClient.java`（复用，未修改） | F10/F11 直接复用 `saveObjectData` / `queryObjectData`，不新增 CRM Client |
+| service | `service/heart/api/IHeartPortService.java` + `impl/HeartPortServiceImpl.java` | F11 港口解析：按 PO 港口名称查询 `object_yEQGF__c`，精确匹配唯一记录后回写对象 ID；两侧均已有值则跳过 |
+| common | `common/constant/heart/HeartPortConstants.java`、`HeartPortLogConstants.java` | F11 港口查询固定参数与日志域常量 |
 | web | `controller/heart/HeartOrderOpenApiController.java`（修改） | `submit` 仅触发流程推进并转换 VO，返回 `SUCCESS` / `NO_DATA` |
 
 [↑ 返回顶部](#top)
@@ -582,5 +590,6 @@ public class HeartPoParseAdapter {
 | 2026-11-25 | TraeCode | 新增 V47 建表脚本：PO 阶段主表/明细表/CRM 提交记录表；7.2 同步表结构说明 |
 | 2026-11-25 | TraeCode | 完成 F10 CAC PO 取号：新增 `IHeartSerialNoService`/`HeartSerialNoServiceImpl`、`HeartPoDO`/`HeartPoMapper`、取号参数与日志域常量；取号业务由 `IHeartOrderFlowManager` 编排，ESB 提交接口 `POST /api/v1/heart/orders/submit` 仅转发；7.5 同步 |
 | 2026-11-25 | TraeCode | 修正 F10 取号时序：明确 PO 记录先落库后取号，`submitOrder` 改为按状态机取 `CUSTOMER_RESOLVED` 的 PO，取号成功后回写 `cac_po_no` 并推进 `process_status=SERIAL_NUMBERED`、累加 `submit_count`；新增 `HeartPoProcessStatusConstants` |
+| 2026-11-25 | TraeCode | 完成 F11 港口解析：新增 `V48` 主表港口列调整（新增 `port_of_loading_id`/`port_of_discharge_id`、删除 `port_object_id`）、`IHeartPortService`/`HeartPortServiceImpl` 与港口常量；取号后按港口名称查询 `object_yEQGF__c` 并回写对象 ID，两阶段幂等（港口解析失败时保持 `SERIAL_NUMBERED`，下次提交只重试本阶段） |
 
 [↑ 返回顶部](#top)

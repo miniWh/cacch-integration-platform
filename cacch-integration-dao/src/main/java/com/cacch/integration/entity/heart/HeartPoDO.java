@@ -50,9 +50,14 @@ public class HeartPoDO {
     private String portOfDischarge;
 
     /**
-     * CRM 港口对象 ID（object_yEQGF__c）
+     * 启运港 CRM 对象 ID（object_yEQGF__c）
      */
-    private String portObjectId;
+    private String portOfLoadingId;
+
+    /**
+     * 目的港 CRM 对象 ID（object_yEQGF__c）
+     */
+    private String portOfDischargeId;
 
     private String shippingLine;
 
@@ -133,7 +138,7 @@ public class HeartPoDO {
     private Object parsePayload;
 
     /**
-     * 阶段状态，取值见需求文档 4.1 状态机
+     * 阶段状态
      */
     private String processStatus;
 
