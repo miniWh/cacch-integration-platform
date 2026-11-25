@@ -17,6 +17,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
+import java.time.LocalDateTime;
+
 /**
  * Heart 客户 PO 订单流程编排实现
  *
@@ -48,7 +50,12 @@ public class HeartOrderFlowManagerImpl implements IHeartOrderFlowManager {
                         .eq(HeartPoDO::getProcessStatus, HeartPoProcessStatusConstants.SERIAL_NUMBERED)
                         // 港口已解析、待 CRM 建单
                         .or()
-                        .eq(HeartPoDO::getProcessStatus, HeartPoProcessStatusConstants.PORT_RESOLVED))
+                        .eq(HeartPoDO::getProcessStatus, HeartPoProcessStatusConstants.PORT_RESOLVED)
+                        // 建单认领超时（进程异常中断），允许重新进入建单
+                        .or()
+                        .nested(w -> w.eq(HeartPoDO::getProcessStatus, HeartPoProcessStatusConstants.CREATING)
+                                .lt(HeartPoDO::getLastSubmitAt, LocalDateTime.now()
+                                        .minusMinutes(HeartOrderConstants.CREATE_CLAIM_TIMEOUT_MINUTES))))
                 .orderByAsc(HeartPoDO::getCreatedAt)
                 .last("LIMIT 1"));
         if (pending == null) {
@@ -62,8 +69,9 @@ public class HeartOrderFlowManagerImpl implements IHeartOrderFlowManager {
             log.info("【{}】CAC PO 取号完成, poId={}, poNo={}, cacPoNo={}",
                     HeartOrderLogConstants.LOG_BIZ, pending.getId(), pending.getPoNo(), cacPoNo);
         }
-        // 港口解析并回写对象 ID，成功后推进 PORT_RESOLVED；已解析的 PO 直接进入建单
-        if (!HeartPoProcessStatusConstants.PORT_RESOLVED.equals(pending.getProcessStatus())) {
+        // 港口解析并回写对象 ID，成功后推进 PORT_RESOLVED；已解析（含建单认领超时回到 CREATING）的 PO 直接进入建单
+        if (!HeartPoProcessStatusConstants.PORT_RESOLVED.equals(pending.getProcessStatus())
+                && !HeartPoProcessStatusConstants.CREATING.equals(pending.getProcessStatus())) {
             heartPortService.resolveAndSavePorts(pending.getId());
             log.info("【{}】港口对象ID回写完成, poId={}, poNo={}",
                     HeartOrderLogConstants.LOG_BIZ, pending.getId(), pending.getPoNo());

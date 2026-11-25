@@ -28,7 +28,17 @@ public final class HeartPoProcessStatusConstants {
     public static final String PORT_RESOLVED = "PORT_RESOLVED";
 
     /**
+     * 建单处理中：已认领该 PO，正在调用 CRM（防止并发重复建单）
+     */
+    public static final String CREATING = "CREATING";
+
+    /**
      * 已在 CRM 建单成功
      */
     public static final String ORDER_CREATED = "ORDER_CREATED";
+
+    /**
+     * 转人工：CRM 已建单但本地落库失败，需人工核对，避免自动重试重复建单
+     */
+    public static final String MANUAL_REVIEW = "MANUAL_REVIEW";
 }

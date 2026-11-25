@@ -1,5 +1,6 @@
 package com.cacch.integration.service.heart.api.impl;
 
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.cacch.integration.common.config.heart.HeartProperties;
 import com.cacch.integration.common.constant.heart.HeartContractConstants;
@@ -23,7 +24,10 @@ import com.cacch.integration.service.heart.api.IHeartOrderCreateService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 import tools.jackson.databind.JsonNode;
@@ -62,6 +66,19 @@ public class HeartOrderCreateServiceImpl implements IHeartOrderCreateService {
 
     private final HeartProperties heartProperties;
 
+    private final PlatformTransactionManager transactionManager;
+
+    /**
+     * 建单流程（不开启长事务）
+     *
+     * <p>CRM 建单为外部 HTTP 调用，无法随本地事务回滚，因此整体流程不加事务，
+     * 改为「条件更新认领 → 预写 PROCESSING 记录 → 调用 CRM → 本地短事务收尾」：</p>
+     * <ol>
+     *   <li>认领：{@code PORT_RESOLVED → CREATING} 条件更新，成功者才允许调用 CRM，杜绝并发重复建单；</li>
+     *   <li>预写提交记录（PROCESSING），保证调用前有留痕，异常中断可追溯；</li>
+     *   <li>CRM 返回后在本地短事务内同时完成「提交记录终态 + PO 状态推进」，避免半更新。</li>
+     * </ol>
+     */
     @Override
     public HeartOrderCreateResult createOrder(Long poId) {
         if (poId == null) {
@@ -79,11 +96,21 @@ public class HeartOrderCreateServiceImpl implements IHeartOrderCreateService {
                     LOG_BIZ, poId, po.getPoNo(), successRecord.getCrmContractNo());
             return HeartOrderCreateResult.skipped(successRecord.getCrmContractId(), successRecord.getCrmContractNo());
         }
-        if (!HeartPoProcessStatusConstants.PORT_RESOLVED.equals(po.getProcessStatus())) {
+        if (!isClaimable(po)) {
+            if (HeartPoProcessStatusConstants.CREATING.equals(po.getProcessStatus())) {
+                log.info("【{}】建单终止：PO 正在由其他请求处理, poId={}, poNo={}, lastSubmitAt={}",
+                        LOG_BIZ, poId, po.getPoNo(), po.getLastSubmitAt());
+                return new HeartOrderCreateResult(true, true, "PO 正在由其他请求处理，跳过", null, null);
+            }
             log.info("【{}】建单终止：状态不可建单, poId={}, poNo={}, processStatus={}",
                     LOG_BIZ, poId, po.getPoNo(), po.getProcessStatus());
             throw new BizException(ResultCode.PARAM_INVALID,
                     "PO 状态不可建单, processStatus=" + po.getProcessStatus());
+        }
+        // 认领：条件更新保证同一 PO 同一时刻只有一个处理者（并发重复建单的唯一防线）
+        if (!claim(po)) {
+            log.info("【{}】建单终止：PO 已被并发认领或状态已推进, poId={}, poNo={}", LOG_BIZ, poId, po.getPoNo());
+            return new HeartOrderCreateResult(true, true, "PO 已被并发认领，跳过", null, null);
         }
 
         String traceId = currentTraceId();
@@ -98,11 +125,22 @@ public class HeartOrderCreateServiceImpl implements IHeartOrderCreateService {
             savePayloadSnapshot(poId, request);
         } catch (BizException e) {
             log.error("【{}】建单前置校验失败, poId={}, poNo={}, error={}", LOG_BIZ, poId, po.getPoNo(), e.getMessage());
-            return fail(po, request, e.getMessage(), System.currentTimeMillis() - start, traceId);
+            return fail(po, request, null, e.getMessage(), System.currentTimeMillis() - start, traceId);
         } catch (Exception e) {
             log.error("【{}】建单报文组装异常, poId={}, poNo={}", LOG_BIZ, poId, po.getPoNo(), e);
-            return fail(po, request, "建单报文组装异常: " + e.getMessage(),
+            return fail(po, request, null, "建单报文组装异常: " + e.getMessage(),
                     System.currentTimeMillis() - start, traceId);
+        }
+
+        // 调用 CRM 前预写 PROCESSING 记录：即使后续进程中断，也留有「已发起建单」痕迹
+        Long submitRecordId;
+        try {
+            submitRecordId = insertSubmitRecord(po, request, HeartOrderConstants.RECORD_STATUS_PROCESSING,
+                    null, null, traceId);
+        } catch (Exception e) {
+            log.error("【{}】提交记录预写失败, poId={}, poNo={}", LOG_BIZ, poId, po.getPoNo(), e);
+            releaseClaim(poId, po.getPoNo(), "提交记录预写失败: " + e.getMessage());
+            return HeartOrderCreateResult.failed("提交记录预写失败: " + e.getMessage());
         }
 
         CrmContractAddResponse response;
@@ -110,10 +148,10 @@ public class HeartOrderCreateServiceImpl implements IHeartOrderCreateService {
             response = crmContractService.addContract(request);
         } catch (BizException e) {
             log.error("【{}】CRM 建单失败, poId={}, poNo={}, error={}", LOG_BIZ, poId, po.getPoNo(), e.getMessage());
-            return fail(po, request, e.getMessage(), System.currentTimeMillis() - start, traceId);
+            return fail(po, request, submitRecordId, e.getMessage(), System.currentTimeMillis() - start, traceId);
         } catch (Exception e) {
             log.error("【{}】CRM 建单异常, poId={}, poNo={}", LOG_BIZ, poId, po.getPoNo(), e);
-            return fail(po, request, "CRM 建单异常: " + e.getMessage(),
+            return fail(po, request, submitRecordId, "CRM 建单异常: " + e.getMessage(),
                     System.currentTimeMillis() - start, traceId);
         }
 
@@ -126,23 +164,76 @@ public class HeartOrderCreateServiceImpl implements IHeartOrderCreateService {
                     LOG_BIZ, poId, po.getPoNo(), crmContractId);
         }
 
+        // 本地收尾：记录终态与状态推进在同一短事务内完成，任一失败整体回滚
         try {
-            recordSubmit(po, request, buildResponsePayload(response, responseData),
-                    HeartOrderConstants.RECORD_STATUS_SUCCESS, crmContractId, crmContractNo,
-                    response.getReturnCode(), response.getReturnMsg(), null, durationMs, traceId);
+            localTransaction().executeWithoutResult(status -> {
+                updateSubmitRecord(submitRecordId, HeartOrderConstants.RECORD_STATUS_SUCCESS, response,
+                        buildResponsePayload(response, responseData), crmContractId, crmContractNo, null, durationMs);
+                markOrderCreated(poId);
+            });
         } catch (Exception e) {
-            log.error("【{}】建单成功但提交记录落库失败, poId={}, poNo={}, crmContractNo={}",
-                    LOG_BIZ, poId, po.getPoNo(), crmContractNo, e);
-        }
-        try {
-            markOrderCreated(po);
-        } catch (Exception e) {
-            log.error("【{}】建单成功但状态推进失败, poId={}, poNo={}, crmContractNo={}",
-                    LOG_BIZ, poId, po.getPoNo(), crmContractNo, e);
+            // CRM 已建单成功，本地无法留痕时必须阻止自动重试，否则会重复建单
+            log.error("【{}】CRM 建单成功但本地落库失败，转人工核对, poId={}, poNo={}, crmContractId={}, crmContractNo={}",
+                    LOG_BIZ, poId, po.getPoNo(), crmContractId, crmContractNo, e);
+            markManualReview(poId, "CRM 建单成功但本地落库失败, crmContractNo=" + crmContractNo);
+            return HeartOrderCreateResult.created(crmContractId, crmContractNo);
         }
         log.info("【{}】建单成功, poId={}, poNo={}, crmContractId={}, crmContractNo={}, durationMs={}",
                 LOG_BIZ, poId, po.getPoNo(), crmContractId, crmContractNo, durationMs);
         return HeartOrderCreateResult.created(crmContractId, crmContractNo);
+    }
+
+    /**
+     * 判断 PO 是否可认领建单
+     *
+     * <p>待建单状态直接可认领；{@code CREATING} 仅当认领时间已超时才允许重新认领（进程异常中断的兜底）。</p>
+     *
+     * @param po PO 主表
+     * @return 是否可认领
+     */
+    private boolean isClaimable(HeartPoDO po) {
+        if (HeartPoProcessStatusConstants.PORT_RESOLVED.equals(po.getProcessStatus())) {
+            return true;
+        }
+        return HeartPoProcessStatusConstants.CREATING.equals(po.getProcessStatus()) && isClaimExpired(po);
+    }
+
+    /**
+     * 判断建单认领是否已超时
+     *
+     * @param po PO 主表
+     * @return 是否超时
+     */
+    private boolean isClaimExpired(HeartPoDO po) {
+        return po.getLastSubmitAt() == null || po.getLastSubmitAt().isBefore(LocalDateTime.now()
+                .minusMinutes(HeartOrderConstants.CREATE_CLAIM_TIMEOUT_MINUTES));
+    }
+
+    /**
+     * 认领 PO：状态置为 CREATING，并原子累加提交次数
+     *
+     * @param po PO 主表（使用读取时的状态做 CAS）
+     * @return 是否认领成功
+     */
+    private boolean claim(HeartPoDO po) {
+        int rows = heartPoMapper.update(null, Wrappers.<HeartPoDO>lambdaUpdate()
+                .eq(HeartPoDO::getId, po.getId())
+                .eq(HeartPoDO::getProcessStatus, po.getProcessStatus())
+                .set(HeartPoDO::getProcessStatus, HeartPoProcessStatusConstants.CREATING)
+                .set(HeartPoDO::getLastSubmitAt, LocalDateTime.now())
+                .setSql("submit_count = submit_count + 1"));
+        return rows > 0;
+    }
+
+    /**
+     * 本地短事务模板（仅包裹本地库操作，不含 CRM 调用）
+     *
+     * @return 事务模板
+     */
+    private TransactionTemplate localTransaction() {
+        TransactionTemplate template = new TransactionTemplate(transactionManager);
+        template.setTimeout(10);
+        return template;
     }
 
     /**
@@ -425,110 +516,187 @@ public class HeartOrderCreateServiceImpl implements IHeartOrderCreateService {
     }
 
     /**
-     * 记录提交结果
+     * 插入提交记录
      *
-     * @param po              PO 主表
-     * @param request         请求报文
-     * @param responsePayload 响应报文
-     * @param submitStatus    提交状态
-     * @param crmContractId   CRM 订单数据 ID
-     * @param crmContractNo   CRM 订单编号
-     * @param returnCode      返回码
-     * @param returnMsg       返回信息
-     * @param errorMessage    错误信息
-     * @param durationMs      耗时
-     * @param traceId         链路 ID
+     * <p>attempt_no 取当前最大值 +1；认领机制已保证同一 PO 串行提交，
+     * 仅在超时重领等极端场景下可能撞唯一键，此时重新取号再试一次。</p>
+     *
+     * @param po           PO 主表
+     * @param request      请求报文
+     * @param submitStatus 提交状态
+     * @param errorMessage 错误信息
+     * @param durationMs   耗时，可为空
+     * @param traceId      链路 ID
+     * @return 记录主键
      */
-    private void recordSubmit(HeartPoDO po, Object request, Object responsePayload, String submitStatus,
-                              String crmContractId, String crmContractNo, String returnCode,
-                              String returnMsg, String errorMessage, long durationMs, String traceId) {
+    private Long insertSubmitRecord(HeartPoDO po, Object request, String submitStatus, String errorMessage,
+                                    Long durationMs, String traceId) {
         HeartOrderSubmitDO record = new HeartOrderSubmitDO();
         record.setPoId(po.getId());
-        record.setAttemptNo(nextAttemptNo(po.getId()));
         record.setSubmitStatus(submitStatus);
-        record.setCrmContractId(crmContractId);
-        record.setCrmContractNo(crmContractNo);
-        record.setReturnCode(returnCode);
-        record.setReturnMsg(returnMsg);
         record.setErrorMessage(truncate(errorMessage));
         record.setRequestPayload(request);
-        record.setResponsePayload(responsePayload);
-        record.setDurationMs((int) durationMs);
+        record.setDurationMs(durationMs == null ? null : durationMs.intValue());
         record.setTraceId(traceId);
         record.setSubmittedAt(LocalDateTime.now());
-        heartOrderSubmitMapper.insert(record);
+        for (int i = 1; i <= 2; i++) {
+            record.setId(null);
+            record.setAttemptNo(nextAttemptNo(po.getId()));
+            try {
+                heartOrderSubmitMapper.insert(record);
+                return record.getId();
+            } catch (DuplicateKeyException e) {
+                log.info("【{}】提交序号冲突，重新取号重试, poId={}, attemptNo={}, times={}",
+                        LOG_BIZ, po.getId(), record.getAttemptNo(), i);
+            }
+        }
+        throw new BizException(ResultCode.SYSTEM_ERROR, "提交记录序号冲突, poId=" + po.getId());
     }
 
     /**
-     * 计算下一次提交序号
+     * 更新提交记录为终态
+     *
+     * @param recordId        记录主键
+     * @param submitStatus    提交状态
+     * @param response        CRM 响应，失败场景为空
+     * @param responsePayload 响应报文
+     * @param crmContractId   CRM 订单数据 ID
+     * @param crmContractNo   CRM 订单编号
+     * @param errorMessage    错误信息
+     * @param durationMs      耗时
+     */
+    private void updateSubmitRecord(Long recordId, String submitStatus, CrmContractAddResponse response,
+                                    Object responsePayload, String crmContractId, String crmContractNo,
+                                    String errorMessage, long durationMs) {
+        HeartOrderSubmitDO update = new HeartOrderSubmitDO();
+        update.setId(recordId);
+        update.setSubmitStatus(submitStatus);
+        update.setCrmContractId(crmContractId);
+        update.setCrmContractNo(crmContractNo);
+        update.setErrorMessage(truncate(errorMessage));
+        update.setResponsePayload(responsePayload);
+        update.setDurationMs((int) durationMs);
+        if (response != null) {
+            update.setReturnCode(response.getReturnCode());
+            update.setReturnMsg(truncate(response.getReturnMsg()));
+        }
+        heartOrderSubmitMapper.updateById(update);
+    }
+
+    /**
+     * 计算下一次提交序号（当前最大值 +1）
      *
      * @param poId PO 主键
      * @return 提交序号
      */
     private int nextAttemptNo(Long poId) {
-        Long count = heartOrderSubmitMapper.selectCount(Wrappers.<HeartOrderSubmitDO>lambdaQuery()
-                .eq(HeartOrderSubmitDO::getPoId, poId));
-        return count == null ? 1 : count.intValue() + 1;
+        List<Object> maxValues = heartOrderSubmitMapper.selectObjs(new QueryWrapper<HeartOrderSubmitDO>()
+                .select("MAX(attempt_no)")
+                .eq("po_id", poId));
+        Object max = CollectionUtils.isEmpty(maxValues) ? null : maxValues.get(0);
+        return max == null ? 1 : ((Number) max).intValue() + 1;
     }
 
     /**
-     * 建单失败处理：落失败记录并回写失败原因
+     * 建单失败处理：失败记录与状态回写在同一短事务内完成
      *
-     * @param po         PO 主表
-     * @param request    请求报文，可能为空
-     * @param message    失败原因
-     * @param durationMs 耗时
-     * @param traceId    链路 ID
+     * @param po             PO 主表
+     * @param request        请求报文，可能为空
+     * @param submitRecordId 已预写的提交记录主键，未预写时为空
+     * @param message        失败原因
+     * @param durationMs     耗时
+     * @param traceId        链路 ID
      * @return 失败结果
      */
-    private HeartOrderCreateResult fail(HeartPoDO po, Object request, String message,
+    private HeartOrderCreateResult fail(HeartPoDO po, Object request, Long submitRecordId, String message,
                                         long durationMs, String traceId) {
         try {
-            recordSubmit(po, request, null, HeartOrderConstants.RECORD_STATUS_FAILED,
-                    null, null, null, null, message, durationMs, traceId);
+            localTransaction().executeWithoutResult(status -> {
+                if (submitRecordId == null) {
+                    insertSubmitRecord(po, request, HeartOrderConstants.RECORD_STATUS_FAILED,
+                            message, durationMs, traceId);
+                } else {
+                    updateSubmitRecord(submitRecordId, HeartOrderConstants.RECORD_STATUS_FAILED,
+                            null, null, null, null, message, durationMs);
+                }
+                markFailed(po.getId(), message);
+            });
         } catch (Exception e) {
-            log.error("【{}】提交失败记录落库异常, poId={}, poNo={}", LOG_BIZ, po.getId(), po.getPoNo(), e);
-        }
-        try {
-            markFailed(po, message);
-        } catch (Exception e) {
-            log.error("【{}】失败原因回写异常, poId={}, poNo={}", LOG_BIZ, po.getId(), po.getPoNo(), e);
+            log.error("【{}】失败记录落库/状态回写异常, poId={}, poNo={}", LOG_BIZ, po.getId(), po.getPoNo(), e);
+            releaseClaim(po.getId(), po.getPoNo(), message);
         }
         return HeartOrderCreateResult.failed(message);
     }
 
     /**
-     * 推进 PO 状态为已建单
+     * 推进 PO 状态为已建单（提交次数已在认领时原子累加，此处不再累加）
      *
-     * @param po PO 主表
+     * @param poId PO 主键
      */
-    private void markOrderCreated(HeartPoDO po) {
+    private void markOrderCreated(Long poId) {
         int rows = heartPoMapper.update(null, Wrappers.<HeartPoDO>lambdaUpdate()
-                .eq(HeartPoDO::getId, po.getId())
-                .eq(HeartPoDO::getProcessStatus, HeartPoProcessStatusConstants.PORT_RESOLVED)
+                .eq(HeartPoDO::getId, poId)
+                .eq(HeartPoDO::getProcessStatus, HeartPoProcessStatusConstants.CREATING)
                 .set(HeartPoDO::getProcessStatus, HeartPoProcessStatusConstants.ORDER_CREATED)
-                .set(HeartPoDO::getSubmitCount, (po.getSubmitCount() == null ? 0 : po.getSubmitCount()) + 1)
-                .set(HeartPoDO::getLastSubmitAt, LocalDateTime.now())
                 .set(HeartPoDO::getFailReason, null));
         if (rows == 0) {
-            log.info("【{}】状态推进未生效（可能已被并发处理）, poId={}, poNo={}", LOG_BIZ, po.getId(), po.getPoNo());
+            log.info("【{}】状态推进未生效（状态已变更）, poId={}", LOG_BIZ, poId);
         }
     }
 
     /**
-     * 回写失败原因与重试次数
+     * 回写失败原因并原子累加重试次数，同时释放认领（CREATING → PORT_RESOLVED）以便下一轮重试
      *
-     * @param po      PO 主表
+     * @param poId    PO 主键
      * @param message 失败原因
      */
-    private void markFailed(HeartPoDO po, String message) {
-        HeartPoDO update = new HeartPoDO();
-        update.setId(po.getId());
-        update.setFailReason(truncate(message));
-        update.setRetryCount((po.getRetryCount() == null ? 0 : po.getRetryCount()) + 1);
-        update.setSubmitCount((po.getSubmitCount() == null ? 0 : po.getSubmitCount()) + 1);
-        update.setLastSubmitAt(LocalDateTime.now());
-        heartPoMapper.updateById(update);
+    private void markFailed(Long poId, String message) {
+        int rows = heartPoMapper.update(null, Wrappers.<HeartPoDO>lambdaUpdate()
+                .eq(HeartPoDO::getId, poId)
+                .eq(HeartPoDO::getProcessStatus, HeartPoProcessStatusConstants.CREATING)
+                .set(HeartPoDO::getProcessStatus, HeartPoProcessStatusConstants.PORT_RESOLVED)
+                .set(HeartPoDO::getFailReason, truncate(message))
+                .setSql("retry_count = retry_count + 1"));
+        if (rows == 0) {
+            log.info("【{}】失败状态回写未生效（状态已变更）, poId={}", LOG_BIZ, poId);
+        }
+    }
+
+    /**
+     * 释放认领：CREATING 回退为 PORT_RESOLVED，便于下一轮重试
+     *
+     * @param poId    PO 主键
+     * @param poNo    PO 号
+     * @param message 失败原因
+     */
+    private void releaseClaim(Long poId, String poNo, String message) {
+        try {
+            heartPoMapper.update(null, Wrappers.<HeartPoDO>lambdaUpdate()
+                    .eq(HeartPoDO::getId, poId)
+                    .eq(HeartPoDO::getProcessStatus, HeartPoProcessStatusConstants.CREATING)
+                    .set(HeartPoDO::getProcessStatus, HeartPoProcessStatusConstants.PORT_RESOLVED)
+                    .set(HeartPoDO::getFailReason, truncate(message)));
+        } catch (Exception e) {
+            log.error("【{}】释放建单认领异常, poId={}, poNo={}", LOG_BIZ, poId, poNo, e);
+        }
+    }
+
+    /**
+     * 标记转人工：CRM 已建单但本地落库失败，禁止自动重试以避免重复建单
+     *
+     * @param poId    PO 主键
+     * @param message 原因
+     */
+    private void markManualReview(Long poId, String message) {
+        try {
+            heartPoMapper.update(null, Wrappers.<HeartPoDO>lambdaUpdate()
+                    .eq(HeartPoDO::getId, poId)
+                    .eq(HeartPoDO::getProcessStatus, HeartPoProcessStatusConstants.CREATING)
+                    .set(HeartPoDO::getProcessStatus, HeartPoProcessStatusConstants.MANUAL_REVIEW)
+                    .set(HeartPoDO::getFailReason, truncate(message)));
+        } catch (Exception e) {
+            log.error("【{}】转人工标记异常, poId={}", LOG_BIZ, poId, e);
+        }
     }
 
     /**

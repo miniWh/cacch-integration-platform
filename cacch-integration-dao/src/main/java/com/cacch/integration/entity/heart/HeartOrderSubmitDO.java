@@ -34,7 +34,7 @@ public class HeartOrderSubmitDO {
     private Integer attemptNo;
 
     /**
-     * 提交结果：SUCCESS/FAILED
+     * 提交结果：PROCESSING-处理中/SUCCESS-成功/FAILED-失败
      */
     private String submitStatus;
 
