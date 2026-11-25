@@ -311,8 +311,8 @@ public class HeartOrderCreateServiceImpl implements IHeartOrderCreateService {
         extFields.put(HeartContractConstants.FIELD_CUSTOMS_PORT,
                 StringUtils.hasText(po.getPortOfLoadingId())
                         ? po.getPortOfLoadingId() : HeartContractConstants.CUSTOMS_PORT_FALLBACK_ID);
-        String grossMargin = po.getGrossMarginRate() == null
-                ? HeartContractConstants.GROSS_MARGIN_PLACEHOLDER : po.getGrossMarginRate().toPlainString();
+        BigDecimal grossMargin = po.getGrossMarginRate() == null
+                ? HeartContractConstants.GROSS_MARGIN_PLACEHOLDER : po.getGrossMarginRate();
         extFields.put(HeartContractConstants.FIELD_GROSS_MARGIN_A, grossMargin);
         extFields.put(HeartContractConstants.FIELD_GROSS_MARGIN_B, grossMargin);
         extFields.put(HeartContractConstants.FIELD_CAC_PO, po.getCacPoNo());
@@ -593,7 +593,7 @@ public class HeartOrderCreateServiceImpl implements IHeartOrderCreateService {
         List<Object> maxValues = heartOrderSubmitMapper.selectObjs(new QueryWrapper<HeartOrderSubmitDO>()
                 .select("MAX(attempt_no)")
                 .eq("po_id", poId));
-        Object max = CollectionUtils.isEmpty(maxValues) ? null : maxValues.get(0);
+        Object max = CollectionUtils.isEmpty(maxValues) ? null : maxValues.getFirst();
         return max == null ? 1 : ((Number) max).intValue() + 1;
     }
 
