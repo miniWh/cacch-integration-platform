@@ -298,11 +298,17 @@ AI 边界：`AiPoParseClient` 只接收 PDF 字节并返回 JSON + 置信度，�
 | 表名 | 核心列 |
 |------|--------|
 | `t_integration_heart_mail` | `mail_uid`、`message_id`、`subject`、`from_address`、`received_at`、`attach_file_name`、`attach_sha256`、`attach_path`、`process_status`、`fail_reason`、`retry_count` |
-| `t_integration_heart_po` | `po_no`、`customer_code`、`trade_term`、`port_code`、`port_object_id`、`container_type`、`total_quantity`、`total_amount`、`currency`、`mail_id`、`parse_confidence`、`parse_payload(JSONB)`、`validate_status` |
-| `t_integration_heart_po_item` | `po_id`、`line_no`、`product_short_name`、`pd_code`、`product_id`、`quantity`、`unit_price`、`amount`、`cartons`、`volume`、`aux_text`、`remark` |
+| `t_integration_heart_po` | PO 级阶段数据：`po_no`、`cac_po_no`、`customer_code`、`destination_country`、`port_of_loading`、`port_of_discharge`、`port_object_id`、`shipping_line`、`container_type`、`packing_type`、`etd`；汇总列 `total_cartons`/`total_liters`/`total_volume`/`total_amount`/`total_cost`/`total_gross_profit`/`gross_margin_rate`；`mail_id`、`attachment_url`、`parse_confidence`、`parse_payload(JSONB)`、`process_status`、`crm_payload(JSONB)`、`submit_count`、`fail_reason`、`retry_count`、`version` |
+| `t_integration_heart_po_item` | 明细行（对应台账一产品一行）：`po_id`、`line_no`、`product_name`、`spec`、`pd_code`、`product_id`、`carton_count`、`liters`、`unit_price`、`amount`、`aux_text`、`density`、`net_weight`、`net_weight_with_carton`、`volume`、`carton_gross_weight`、`gross_weight`、`empty_carton_sets`、`gross_weight_with_extra_carton`、`cost_price`、`no_pallet_unit_price`、`package_fee`、`credit_insurance_fee`、`other_fee`、`cost_total`、`gross_profit`、`gross_margin_rate`、`remark`、`data_source` |
 | `t_integration_heart_ledger_record` | `po_id`、`ledger_file_path`、`sheet_name`、`start_row`、`end_row`、`subtotal_row`、`write_status` |
-| `t_integration_heart_order_sync` | `po_id`、`serial_no`、`crm_contract_id`、`crm_contract_no`、`attach_url`、`sync_status`、`current_step`、`retry_count`、`last_error` |
+| `t_integration_heart_order_submit` | 提交与溯源（每次提交一条）：`po_id`、`attempt_no`、`submit_status`、`crm_contract_id`、`crm_contract_no`、`crm_serial_no`、`return_code`、`return_msg`、`http_status`、`error_message`、`request_payload(JSONB)`、`response_payload(JSONB)`、`duration_ms`、`trace_id`、`submitted_at` |
 | `t_integration_heart_review_task` | `po_id`、`reason`、`confidence`、`status`、`handler`、`handled_at` |
+
+`V47` 已落地 `t_integration_heart_po` / `t_integration_heart_po_item` / `t_integration_heart_order_submit` 三张表：
+
+- 主表与明细表列结构对齐台账「5. SR」（PO、CAC PO、产品名称、规格、箱数、L、单价、辅助、目的国、启运港、目的港、船公司、大小柜、备注、ETD、打托方式、密度、净重…USD考核价），台账小计行对应主表汇总列；
+- 阶段演进只更新主表 `process_status`（对应 4.1 状态机），明细行按 `(po_id, line_no)` 幂等写入；
+- 提交 CRM 前把最终报文写入主表 `crm_payload` 作为快照；每次实际调用在 `t_integration_heart_order_submit` 追加一条记录（请求报文、响应报文、`return_code`/`return_msg`、合同号、耗时、`trace_id`），实现逐次溯源。
 
 [↑ 返回顶部](#top)
 
@@ -567,5 +573,6 @@ public class HeartPoParseAdapter {
 | 2026-11-24 | TraeCode | 补充 3.2 中 NCC 客户余额可选旁路流程、状态机 `NCC_BALANCE_FETCHED` 节点、NCC 客户端与配置、待确认 Q7 |
 | 2026-11-24 | TraeCode | 3.1 功能点按执行顺序重排（NCC 调整为 F9），新增实现阶段列；新增 7.8 AI 解析适配器实现 |
 | 2026-11-24 | TraeCode | 新增文档目录（含最末一级标题）、章节内嵌锚点与「返回顶部」链接 |
+| 2026-11-25 | TraeCode | 新增 V47 建表脚本：PO 阶段主表/明细表/CRM 提交记录表；7.2 同步表结构说明 |
 
 [↑ 返回顶部](#top)
