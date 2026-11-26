@@ -166,7 +166,6 @@ public final class HeartContractConstants {
 
         Map<String, Object> detailFields = new LinkedHashMap<>();
         detailFields.put("field_5xbnz__c", "1");
-        detailFields.put("field_6mBjw__c", "1");
         detailFields.put("field_Orije__c", "b");
         FIXED_DETAIL_EXT_FIELDS = Collections.unmodifiableMap(detailFields);
     }

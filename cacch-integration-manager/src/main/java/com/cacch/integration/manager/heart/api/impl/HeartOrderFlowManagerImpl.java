@@ -10,6 +10,7 @@ import com.cacch.integration.entity.heart.HeartPoDO;
 import com.cacch.integration.mapper.heart.HeartPoMapper;
 import com.cacch.integration.manager.heart.api.IHeartOrderFlowManager;
 import com.cacch.integration.service.heart.api.IHeartAttachmentService;
+import com.cacch.integration.service.heart.api.IHeartBomVersionService;
 import com.cacch.integration.service.heart.api.IHeartOrderCreateService;
 import com.cacch.integration.service.heart.api.IHeartPortService;
 import com.cacch.integration.service.heart.api.IHeartSerialNoService;
@@ -37,6 +38,8 @@ public class HeartOrderFlowManagerImpl implements IHeartOrderFlowManager {
     private final IHeartPortService heartPortService;
 
     private final IHeartAttachmentService heartAttachmentService;
+
+    private final IHeartBomVersionService heartBomVersionService;
 
     private final IHeartOrderCreateService heartOrderCreateService;
 
@@ -83,6 +86,17 @@ public class HeartOrderFlowManagerImpl implements IHeartOrderFlowManager {
             log.info("【{}】港口对象ID回写完成, poId={}, poNo={}",
                     HeartOrderLogConstants.LOG_BIZ, pending.getId(), pending.getPoNo());
         }
+        // BOM 版本解析：无法确定时不改变状态，仅追加备注，便于人工修正后自动重试
+        String bomSkipReason = heartBomVersionService.resolveAndSaveBomVersions(pending.getId());
+        if (bomSkipReason != null) {
+            appendRemark(pending.getId(), bomSkipReason);
+            log.info("【{}】BOM版本未确定, 跳过建单, poId={}, poNo={}, reason={}",
+                    HeartOrderLogConstants.LOG_BIZ, pending.getId(), pending.getPoNo(), bomSkipReason);
+            return new HeartOrderSubmitResult(HeartOrderConstants.SUBMIT_STATUS_FAILED,
+                    bomSkipReason, cacPoNo, null);
+        }
+        log.info("【{}】BOM版本解析完成, poId={}, poNo={}",
+                HeartOrderLogConstants.LOG_BIZ, pending.getId(), pending.getPoNo());
         // CRM 建单：服务内部完成幂等校验、报文组装、提交记录落库与状态推进
         HeartOrderCreateResult createResult = heartOrderCreateService.createOrder(pending.getId());
         if (!createResult.success()) {
@@ -96,5 +110,24 @@ public class HeartOrderFlowManagerImpl implements IHeartOrderFlowManager {
                 createResult.crmContractNo(), createResult.skipped());
         return new HeartOrderSubmitResult(HeartOrderConstants.SUBMIT_STATUS_SUCCESS,
                 createResult.message(), cacPoNo, createResult.crmContractNo());
+    }
+
+    /**
+     * 追加主表备注，保留原有内容
+     *
+     * @param poId PO 主键
+     * @param note 追加说明
+     */
+    private void appendRemark(Long poId, String note) {
+        HeartPoDO latest = heartPoMapper.selectById(poId);
+        String existing = latest == null ? null : latest.getRemark();
+        if (StringUtils.hasText(existing) && existing.contains(note)) {
+            return;
+        }
+        String remark = StringUtils.hasText(existing) ? existing + "；" + note : note;
+        heartPoMapper.update(null, Wrappers.<HeartPoDO>lambdaUpdate()
+                .eq(HeartPoDO::getId, poId)
+                .set(HeartPoDO::getRemark, remark)
+                .set(HeartPoDO::getUpdatedAt, LocalDateTime.now()));
     }
 }

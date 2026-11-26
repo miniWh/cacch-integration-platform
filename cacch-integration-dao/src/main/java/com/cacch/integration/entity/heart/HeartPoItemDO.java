@@ -48,6 +48,11 @@ public class HeartPoItemDO {
     private String productId;
 
     /**
+     * BOM 版本 ID（object_XbTYD__c 记录 ID）
+     */
+    private String bomVersionId;
+
+    /**
      * 箱数
      */
     private BigDecimal cartonCount;

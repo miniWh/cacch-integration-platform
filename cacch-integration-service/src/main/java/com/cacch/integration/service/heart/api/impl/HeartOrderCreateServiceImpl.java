@@ -3,6 +3,7 @@ package com.cacch.integration.service.heart.api.impl;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.cacch.integration.common.config.heart.HeartProperties;
+import com.cacch.integration.common.constant.heart.HeartBomConstants;
 import com.cacch.integration.common.constant.heart.HeartContractConstants;
 import com.cacch.integration.common.constant.heart.HeartOrderConstants;
 import com.cacch.integration.common.constant.heart.HeartOrderLogConstants;
@@ -360,8 +361,12 @@ public class HeartOrderCreateServiceImpl implements IHeartOrderCreateService {
         if (!StringUtils.hasText(item.getPdCode())) {
             throw new BizException(ResultCode.PARAM_MISSING, "明细物料编码为空, lineNo=" + item.getLineNo());
         }
+        if (!StringUtils.hasText(item.getBomVersionId())) {
+            throw new BizException(ResultCode.PARAM_MISSING, "明细BOM版本为空, lineNo=" + item.getLineNo());
+        }
         LineMetrics metrics = calculateLine(item);
         Map<String, Object> extFields = new LinkedHashMap<>(HeartContractConstants.FIXED_DETAIL_EXT_FIELDS);
+        extFields.put(HeartBomConstants.FIELD_BOM_VERSION, item.getBomVersionId());
         extFields.put("field_ik73t__c", metrics.actualPrice());
         extFields.put("field_BVXk8__c", metrics.lineAmount());
         extFields.put("field_wdqjr__c", item.getCostPrice() == null

@@ -2,6 +2,7 @@ package com.cacch.integration.service.heart.api.impl;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.cacch.integration.common.constant.heart.HeartAttachmentConstants;
+import com.cacch.integration.common.constant.heart.HeartAttachmentLogConstants;
 import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.ResultCode;
 import com.cacch.integration.entity.heart.HeartPoDO;
@@ -40,24 +41,24 @@ public class HeartAttachmentServiceImpl implements IHeartAttachmentService {
     @Override
     public void resolveAndSaveAttachment(Long poId) {
         if (poId == null) {
-            log.info("【{}】附件上传终止, reason=poId为空", HeartAttachmentConstants.LOG_BIZ);
+            log.info("【{}】附件上传终止, reason=poId为空", HeartAttachmentLogConstants.LOG_BIZ);
             throw new BizException(ResultCode.PARAM_MISSING, "poId 不能为空");
         }
         HeartPoDO po = heartPoMapper.selectById(poId);
         if (po == null) {
-            log.info("【{}】附件上传终止, reason=PO不存在, poId={}", HeartAttachmentConstants.LOG_BIZ, poId);
+            log.info("【{}】附件上传终止, reason=PO不存在, poId={}", HeartAttachmentLogConstants.LOG_BIZ, poId);
             throw new BizException(ResultCode.PARAM_INVALID, "PO 不存在, poId=" + poId);
         }
         if (StringUtils.hasText(po.getAttachmentUrl())) {
             log.info("【{}】复用已有附件URL, poId={}, url={}",
-                    HeartAttachmentConstants.LOG_BIZ, poId, po.getAttachmentUrl());
+                    HeartAttachmentLogConstants.LOG_BIZ, poId, po.getAttachmentUrl());
             return;
         }
 
         Path localPath = Paths.get(HeartAttachmentConstants.DEFAULT_ATTACHMENT_FILE_PATH);
         if (!Files.isReadable(localPath)) {
             log.info("【{}】附件上传终止, reason=本地文件不存在或不可读, poId={}, path={}",
-                    HeartAttachmentConstants.LOG_BIZ, poId, localPath);
+                    HeartAttachmentLogConstants.LOG_BIZ, poId, localPath);
             throw new BizException(ResultCode.SYSTEM_ERROR, "附件文件不存在或不可读: " + localPath);
         }
         byte[] content;
@@ -65,7 +66,7 @@ public class HeartAttachmentServiceImpl implements IHeartAttachmentService {
             content = Files.readAllBytes(localPath);
         } catch (IOException e) {
             log.error("【{}】附件读取失败, poId={}, path={}",
-                    HeartAttachmentConstants.LOG_BIZ, poId, localPath, e);
+                    HeartAttachmentLogConstants.LOG_BIZ, poId, localPath, e);
             throw new BizException(ResultCode.SYSTEM_ERROR, "附件文件读取失败: " + e.getMessage(), e);
         }
 
@@ -75,7 +76,7 @@ public class HeartAttachmentServiceImpl implements IHeartAttachmentService {
             url = fileServerUploadClient.uploadFile(content, fileName, String.valueOf(poId));
         } catch (IllegalStateException e) {
             log.error("【{}】附件落盘失败, poId={}, fileName={}",
-                    HeartAttachmentConstants.LOG_BIZ, poId, fileName, e);
+                    HeartAttachmentLogConstants.LOG_BIZ, poId, fileName, e);
             throw new BizException(ResultCode.SYSTEM_ERROR, "附件落盘失败: " + e.getMessage(), e);
         }
 
@@ -86,16 +87,16 @@ public class HeartAttachmentServiceImpl implements IHeartAttachmentService {
                 .set(HeartPoDO::getUpdatedAt, LocalDateTime.now()));
         if (rows > 0) {
             log.info("【{}】附件上传完成, poId={}, fileName={}, url={}",
-                    HeartAttachmentConstants.LOG_BIZ, poId, fileName, url);
+                    HeartAttachmentLogConstants.LOG_BIZ, poId, fileName, url);
             return;
         }
 
         HeartPoDO latest = heartPoMapper.selectById(poId);
         if (latest == null || !StringUtils.hasText(latest.getAttachmentUrl())) {
-            log.info("【{}】附件URL回写失败, poId={}", HeartAttachmentConstants.LOG_BIZ, poId);
+            log.info("【{}】附件URL回写失败, poId={}", HeartAttachmentLogConstants.LOG_BIZ, poId);
             throw new BizException(ResultCode.SYSTEM_ERROR, "附件URL回写失败, poId=" + poId);
         }
         log.info("【{}】附件URL并发回写, 复用已有值, poId={}, url={}",
-                HeartAttachmentConstants.LOG_BIZ, poId, latest.getAttachmentUrl());
+                HeartAttachmentLogConstants.LOG_BIZ, poId, latest.getAttachmentUrl());
     }
 }
