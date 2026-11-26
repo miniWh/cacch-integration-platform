@@ -155,12 +155,44 @@ public class OaContractDbClient {
                 OaContractAttachmentConstants.SALES_ORDER_FIELD_NO,
                 OaContractAttachmentConstants.SALES_ORDER_FIELD_SOURCE);
         ReadOnlyOaJdbcTemplate.assertSelectOnly(sql);
+        // 执行前打印参数展开后的完整 SQL（? 替换为字面量），便于联调期拷贝到 Oracle 客户端直接排查
+        log.info("【{}】扫描SQL执行, notInSize={}, sql={}",
+                OaContractAttachmentConstants.LOG_BIZ, notInIds.size(), bindArgs(sql, args));
         try {
             return jdbc.query(sql, new ContractRowMapper(), args.toArray());
         } catch (Exception e) {
             log.error("【{}】扫描查询异常, notInSize={}", OaContractAttachmentConstants.LOG_BIZ, notInIds.size(), e);
             throw e;
         }
+    }
+
+    /**
+     * 将 SQL 中的 ? 占位符按顺序替换为绑定参数字面量，生成可直接执行的完整 SQL
+     *
+     * <p>仅用于联调期日志输出：数字直接拼接，字符串单引号包裹并对内部单引号转义；
+     * 本类 SQL 文本不含字符串字面量，占位符字符 {@code '?'} 无歧义。</p>
+     *
+     * @param sql  含 ? 占位符的 SQL 文本，非空
+     * @param args 绑定参数列表，按占位符出现顺序排列，非空
+     * @return 参数展开后的完整 SQL 文本
+     */
+    private static String bindArgs(String sql, List<Object> args) {
+        StringBuilder sb = new StringBuilder(sql.length() + args.size() * 16);
+        int argIndex = 0;
+        for (int i = 0; i < sql.length(); i++) {
+            char c = sql.charAt(i);
+            if (c == '?' && argIndex < args.size()) {
+                Object arg = args.get(argIndex++);
+                if (arg instanceof Number) {
+                    sb.append(arg);
+                } else {
+                    sb.append('\'').append(String.valueOf(arg).replace("'", "''")).append('\'');
+                }
+            } else {
+                sb.append(c);
+            }
+        }
+        return sb.toString();
     }
 
     /**
