@@ -30,10 +30,13 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
+
 import tools.jackson.databind.JsonNode;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -331,8 +334,20 @@ public class HeartOrderCreateServiceImpl implements IHeartOrderCreateService {
     private List<Map<String, Object>> buildAttachment(HeartPoDO po) {
         Map<String, Object> file = new LinkedHashMap<>();
         file.put("path", po.getAttachmentUrl());
-        file.put("name", po.getPoNo() + HeartContractConstants.ATTACHMENT_FILE_SUFFIX);
+        file.put("name", resolveAttachmentName(po));
         return List.of(file);
+    }
+
+    /**
+     * 从附件 URL 解析落盘文件名（URL 解码），解析失败时回退 PO 号
+     *
+     * @param po PO 主表
+     * @return 附件文件名
+     */
+    private String resolveAttachmentName(HeartPoDO po) {
+        String url = po.getAttachmentUrl();
+        String name = URLDecoder.decode(url.substring(url.lastIndexOf('/') + 1), StandardCharsets.UTF_8);
+        return StringUtils.hasText(name) ? name : po.getPoNo();
     }
 
     /**

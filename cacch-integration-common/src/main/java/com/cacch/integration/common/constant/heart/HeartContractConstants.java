@@ -39,11 +39,6 @@ public final class HeartContractConstants {
     public static final String UNIT_NAME_KILOLITER = "千升";
 
     /**
-     * 合同附件文件名后缀
-     */
-    public static final String ATTACHMENT_FILE_SUFFIX = ".pdf";
-
-    /**
      * 报关口岸兜底对象 ID（上海；启运港对象 ID 为空时使用）
      */
     public static final String CUSTOMS_PORT_FALLBACK_ID = "5801559508238571560";

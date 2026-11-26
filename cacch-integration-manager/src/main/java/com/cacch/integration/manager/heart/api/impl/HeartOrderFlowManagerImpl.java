@@ -9,6 +9,7 @@ import com.cacch.integration.common.dto.heart.HeartOrderSubmitResult;
 import com.cacch.integration.entity.heart.HeartPoDO;
 import com.cacch.integration.mapper.heart.HeartPoMapper;
 import com.cacch.integration.manager.heart.api.IHeartOrderFlowManager;
+import com.cacch.integration.service.heart.api.IHeartAttachmentService;
 import com.cacch.integration.service.heart.api.IHeartOrderCreateService;
 import com.cacch.integration.service.heart.api.IHeartPortService;
 import com.cacch.integration.service.heart.api.IHeartSerialNoService;
@@ -34,6 +35,8 @@ public class HeartOrderFlowManagerImpl implements IHeartOrderFlowManager {
     private final IHeartSerialNoService heartSerialNoService;
 
     private final IHeartPortService heartPortService;
+
+    private final IHeartAttachmentService heartAttachmentService;
 
     private final IHeartOrderCreateService heartOrderCreateService;
 
@@ -69,9 +72,13 @@ public class HeartOrderFlowManagerImpl implements IHeartOrderFlowManager {
             log.info("【{}】CAC PO 取号完成, poId={}, poNo={}, cacPoNo={}",
                     HeartOrderLogConstants.LOG_BIZ, pending.getId(), pending.getPoNo(), cacPoNo);
         }
-        // 港口解析并回写对象 ID，成功后推进 PORT_RESOLVED；已解析（含建单认领超时回到 CREATING）的 PO 直接进入建单
+        // 附件上传并按需落盘 NAS，已有 URL 时跳过
         if (!HeartPoProcessStatusConstants.PORT_RESOLVED.equals(pending.getProcessStatus())
                 && !HeartPoProcessStatusConstants.CREATING.equals(pending.getProcessStatus())) {
+            heartAttachmentService.resolveAndSaveAttachment(pending.getId());
+            log.info("【{}】PO 附件上传完成, poId={}, poNo={}",
+                    HeartOrderLogConstants.LOG_BIZ, pending.getId(), pending.getPoNo());
+            // 港口解析并回写对象 ID，成功后推进 PORT_RESOLVED；已解析（含建单认领超时回到 CREATING）的 PO 直接进入建单
             heartPortService.resolveAndSavePorts(pending.getId());
             log.info("【{}】港口对象ID回写完成, poId={}, poNo={}",
                     HeartOrderLogConstants.LOG_BIZ, pending.getId(), pending.getPoNo());

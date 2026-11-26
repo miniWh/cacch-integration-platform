@@ -10,11 +10,15 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClientException;
 
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
+import java.util.stream.Collectors;
 
 /**
  * 公司内部文件服务器上传客户端（REQ-OA-003 / D12）
@@ -81,6 +85,35 @@ public class FileServerUploadClient {
     }
 
     /**
+     * 保存本地文件内容至挂载目录，返回 URL 编码后的可访问地址
+     *
+     * <p>用于本系统自有文件（如 Heart PO 附件）落盘；文件名保留调用方传入值
+     * （仅清洗路径非法字符），URL 按路径分段 UTF-8 编码，避免中文 / 空格导致访问异常。</p>
+     *
+     * @param content  文件内容，不可为空
+     * @param fileName 落盘文件名（含扩展名），不可为空
+     * @param fileId   文件标识（唯一，独立子目录防同名覆盖），不可为空
+     * @return 附件可访问 URL（url-prefix + 编码后的落盘绝对路径）
+     * @throws IllegalStateException 文件标识 / 文件名为空、挂载目录未配置或落盘失败时抛出
+     */
+    public String uploadFile(byte[] content, String fileName, String fileId) {
+        if (!StringUtils.hasText(fileId)) {
+            log.info("【{}】上传终止, reason=文件标识为空", BIZ);
+            throw new IllegalStateException("文件服务器上传失败：文件标识为空");
+        }
+        if (!StringUtils.hasText(fileName)) {
+            log.info("【{}】上传终止, reason=文件名为空, fileId={}", BIZ, fileId);
+            throw new IllegalStateException("文件服务器上传失败：文件名为空, fileId=" + fileId);
+        }
+        String sanitized = fileName.trim().replaceAll(FILE_NAME_ILLEGAL_CHARS, "_");
+        String absolutePath = saveToMountDir(fileId, sanitized, content);
+        String url = fileServerProperties.getUrlPrefix() + encodeUrlPath(absolutePath);
+        log.info("【{}】落盘完成, fileId={}, fileName={}, path={}, url={}",
+                BIZ, fileId, sanitized, absolutePath, url);
+        return url;
+    }
+
+    /**
      * 解析落盘文件名：优先 OA 下载接口返回的文件名，缺失时回退附件元数据文件名
      *
      * @param downloadedName   下载响应 Content-Disposition 文件名，可空
@@ -130,6 +163,18 @@ public class FileServerUploadClient {
             log.error("【{}】落盘失败, fileId={}, target={}", BIZ, fileId, target, e);
             throw new IllegalStateException("文件服务器落盘失败: " + target + ", reason=" + e.getMessage(), e);
         }
+    }
+
+    /**
+     * 按路径分段做 URL 编码（UTF-8），保留 / 分隔符
+     *
+     * @param absolutePath 以 / 开头的落盘绝对路径
+     * @return 编码后的路径
+     */
+    private String encodeUrlPath(String absolutePath) {
+        return Arrays.stream(absolutePath.split("/"))
+                .map(segment -> URLEncoder.encode(segment, StandardCharsets.UTF_8).replace("+", "%20"))
+                .collect(Collectors.joining("/"));
     }
 
     /**
