@@ -29,12 +29,14 @@ public class TestHeartMailController {
     /**
      * 拉取邮件摘要
      *
-     * @param request 拉取条件，since 为空时取当天 00:00
+     * @param request 拉取条件，时间为空时取当天 00:00:00 ~ 23:59:59
      * @return 邮件摘要列表
      */
     @PostMapping("/query")
     public Result<List<HeartMailInfo>> query(@RequestBody(required = false) HeartMailQueryRequest request) {
         log.info("【HeartMail】收到拉取邮件测试请求");
-        return Result.success(heartMailService.queryMails(request == null ? null : request.getSince()));
+        return Result.success(heartMailService.queryMails(
+                request == null ? null : request.getStartTime(),
+                request == null ? null : request.getEndTime()));
     }
 }

@@ -15,6 +15,7 @@ import jakarta.mail.Store;
 import jakarta.mail.UIDFolder;
 import jakarta.mail.internet.InternetAddress;
 import jakarta.mail.internet.MimeUtility;
+import jakarta.mail.search.AndTerm;
 import jakarta.mail.search.ComparisonTerm;
 import jakarta.mail.search.ReceivedDateTerm;
 import jakarta.mail.search.SearchTerm;
@@ -48,12 +49,13 @@ public class HeartMailClient {
     private final HeartProperties heartProperties;
 
     /**
-     * 拉取指定时间之后的邮件摘要
+     * 拉取指定时间区间内的邮件摘要
      *
-     * @param since 起始时间（含）
+     * @param startTime 开始时间（含）
+     * @param endTime   结束时间（含）
      * @return 邮件摘要列表，最多 {@code heart.mail.max-per-round} 封
      */
-    public List<HeartMailInfo> queryMails(LocalDateTime since) {
+    public List<HeartMailInfo> queryMails(LocalDateTime startTime, LocalDateTime endTime) {
         HeartProperties.Mail mail = heartProperties.getMail();
         String host = mail.getHost();
         int port = mail.getPort();
@@ -77,12 +79,16 @@ public class HeartMailClient {
             folder = store.getFolder(folderName);
             folder.open(Folder.READ_ONLY);
 
-            SearchTerm searchTerm = new ReceivedDateTerm(ComparisonTerm.GE,
-                    Date.from(since.atZone(ZoneId.systemDefault()).toInstant()));
+            SearchTerm searchTerm = new AndTerm(
+                    new ReceivedDateTerm(ComparisonTerm.GE,
+                            Date.from(startTime.atZone(ZoneId.systemDefault()).toInstant())),
+                    new ReceivedDateTerm(ComparisonTerm.LE,
+                            Date.from(endTime.atZone(ZoneId.systemDefault()).toInstant())));
             Message[] messages = folder.search(searchTerm);
             int count = Math.min(messages.length, maxPerRound);
             log.info("【{}】{}", LOG_BIZ, HeartMailLogConstants.buildAction(
                     "IMAP 连接成功, host=" + host + ", port=" + port
+                            + ", startTime=" + startTime + ", endTime=" + endTime
                             + ", 命中邮件=" + messages.length + ", 本轮处理=" + count));
 
             List<HeartMailInfo> result = new ArrayList<>(count);

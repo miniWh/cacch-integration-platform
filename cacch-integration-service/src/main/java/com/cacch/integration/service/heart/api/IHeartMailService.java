@@ -13,10 +13,11 @@ import java.util.List;
 public interface IHeartMailService {
 
     /**
-     * 拉取指定时间之后的邮件摘要
+     * 拉取指定时间区间内的邮件摘要
      *
-     * @param since 起始时间，为空时取当天 00:00
+     * @param startTime 开始时间，为空时取当天 00:00:00
+     * @param endTime   结束时间，为空时取当天 23:59:59
      * @return 邮件摘要列表
      */
-    List<HeartMailInfo> queryMails(LocalDateTime since);
+    List<HeartMailInfo> queryMails(LocalDateTime startTime, LocalDateTime endTime);
 }

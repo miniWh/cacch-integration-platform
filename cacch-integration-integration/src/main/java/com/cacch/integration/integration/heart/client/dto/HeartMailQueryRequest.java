@@ -1,5 +1,6 @@
 package com.cacch.integration.integration.heart.client.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -13,7 +14,14 @@ import java.time.LocalDateTime;
 public class HeartMailQueryRequest {
 
     /**
-     * 拉取起始时间（为空时取当天 00:00）
+     * 开始时间（为空时取当天 00:00:00）
      */
-    private LocalDateTime since;
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime startTime;
+
+    /**
+     * 结束时间（为空时取当天 23:59:59）
+     */
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime endTime;
 }

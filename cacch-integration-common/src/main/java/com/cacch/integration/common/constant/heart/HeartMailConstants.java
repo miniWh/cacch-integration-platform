@@ -1,5 +1,7 @@
 package com.cacch.integration.common.constant.heart;
 
+import java.time.LocalTime;
+
 /**
  * Heart 邮件拉取业务参数常量
  *
@@ -24,6 +26,11 @@ public final class HeartMailConstants {
      * 单轮最多处理邮件数
      */
     public static final Integer DEFAULT_MAX_PER_ROUND = 20;
+
+    /**
+     * 缺省结束时间（当天 23:59:59）
+     */
+    public static final LocalTime DEFAULT_END_TIME = LocalTime.of(23, 59, 59);
 
     /**
      * 连接超时（毫秒）
