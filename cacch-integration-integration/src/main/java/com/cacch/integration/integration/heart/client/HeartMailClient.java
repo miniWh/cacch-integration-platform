@@ -79,11 +79,13 @@ public class HeartMailClient {
             folder = store.getFolder(folderName);
             folder.open(Folder.READ_ONLY);
 
+            // 腾讯企业邮对 JavaMail 的 LE 条件（生成 OR BEFORE ... ON ...）解析异常，改用 LT 次日 00:00 表达上界
+            LocalDateTime endExclusive = endTime.toLocalDate().plusDays(1).atStartOfDay();
             SearchTerm searchTerm = new AndTerm(
                     new ReceivedDateTerm(ComparisonTerm.GE,
                             Date.from(startTime.atZone(ZoneId.systemDefault()).toInstant())),
-                    new ReceivedDateTerm(ComparisonTerm.LE,
-                            Date.from(endTime.atZone(ZoneId.systemDefault()).toInstant())));
+                    new ReceivedDateTerm(ComparisonTerm.LT,
+                            Date.from(endExclusive.atZone(ZoneId.systemDefault()).toInstant())));
             Message[] messages = folder.search(searchTerm);
             int count = Math.min(messages.length, maxPerRound);
             log.info("【{}】{}", LOG_BIZ, HeartMailLogConstants.buildAction(
