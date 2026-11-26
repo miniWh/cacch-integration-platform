@@ -45,6 +45,12 @@
             <artifactId>smbj</artifactId>
         </dependency>
 
+        <!-- 邮件收发（IMAP 收信，jakarta.mail + angus-mail） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
+
         <!-- 腾讯会议 OpenAPI SDK（智能纪要等 REST API） -->
         <dependency>
             <groupId>com.tencentcloudapi.wemeet</groupId>

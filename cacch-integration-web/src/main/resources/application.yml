@@ -280,3 +280,13 @@ heart:
     owner-id: "6291185993388435139"
     trigger-employee: "6288291750959183118"
     is-trigger: true
+  # 邮件拉取（IMAP 收信）
+  mail:
+    host: imap.exmail.qq.com
+    port: 993
+    ssl: true
+    username: hongfu_zhou@cacch.com
+    # TODO 临时明文：联调通过后改为 ${HEART_MAIL_PASSWORD} 环境变量注入
+    password: "5q8SVaKwmLtP54aT"
+    folder: INBOX
+    max-per-round: 20
