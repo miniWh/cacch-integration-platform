@@ -24,9 +24,9 @@ public class CrmContractAddRequest {
     private Boolean isTrigger;
 
     /**
-     * 触发员工 ID；isTrigger=true 时必填
+     * 触发员工 ID，按字符串传输；isTrigger=true 时必填
      */
-    private Long triggerEmployee;
+    private String triggerEmployee;
 
     /**
      * 负责人 ID

@@ -3,23 +3,24 @@ package com.cacch.integration.service.heart.api;
 import com.cacch.integration.common.exception.BizException;
 
 /**
- * Heart 客户 PO 港口解析服务接口
+ * Heart 客户 PO 港口与目的地解析服务接口
  *
  * <p>以 PO 上的港口名称（启运港 / 目的港）为关键字，调用勤策自定义对象
- * {@code object_yEQGF__c} 查询对应港口对象 ID，并回写
- * {@code t_integration_crm_heart_po.port_of_loading_id / port_of_discharge_id}；
- * 已存在对象 ID 的港口不再重复查询，保证重试幂等。</p>
+ * {@code object_yEQGF__c} 查询对应港口对象 ID；目的地按 {@code destination_name} 调用
+ * {@code object_65Zui__c} 查询目的地对象 ID（为空时回退固定关键字）。查询结果分别回写
+ * {@code t_integration_crm_heart_po.port_of_loading_id / port_of_discharge_id / destination_id}；
+ * 已存在对象 ID 的项不再重复查询，保证重试幂等。</p>
  *
  * @author hongfu_zhou@cacch.com
  */
 public interface IHeartPortService {
 
     /**
-     * 解析并回写指定 PO 的启运港、目的港对象 ID
+     * 解析并回写指定 PO 的启运港、目的港、目的地对象 ID
      *
      * @param poId PO 主键（t_integration_crm_heart_po.id）
      * @throws BizException poId 为空（PARAM_MISSING）、PO 不存在（PARAM_INVALID）、
-     *                      港口名称为空（PARAM_MISSING）、未匹配或匹配不唯一（INTEGRATION_ERROR）、
+     *                      港口/目的地名称为空（PARAM_MISSING）、未匹配或匹配不唯一（INTEGRATION_ERROR）、
      *                      回写失败（SYSTEM_ERROR）
      */
     void resolveAndSavePorts(Long poId);
@@ -33,4 +34,14 @@ public interface IHeartPortService {
      * @throws BizException 港口名称为空（PARAM_MISSING）、未匹配或匹配不唯一（INTEGRATION_ERROR）
      */
     String resolvePortObjectId(String portName, String portType);
+
+    /**
+     * 按目的地名称查询勤策目的地对象 ID
+     *
+     * @param destinationName 目的地名称关键字（来自 PO 的 destination_name 列）；
+     *                        为空时回退固定关键字 {@code SHIBUSHI}
+     * @return 目的地对象 ID
+     * @throws BizException 未匹配或匹配不唯一（INTEGRATION_ERROR）
+     */
+    String resolveDestinationObjectId(String destinationName);
 }

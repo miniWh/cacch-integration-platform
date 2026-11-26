@@ -29,8 +29,9 @@ import java.util.Map;
  * Heart 客户 PO 港口解析服务实现
  *
  * <p>港口关键字当前取自 PO 主表的 {@code port_of_loading / port_of_discharge}
- * （后续由 AI 解析结果写入），查询勤策 {@code object_yEQGF__c} 得到对象 ID 并回写。
- * 幂等策略：已存在对象 ID 的港口跳过查询；回写以「该列仍为空」为条件，
+ * （后续由 AI 解析结果写入），查询勤策 {@code object_yEQGF__c} 得到对象 ID；目的地按 PO 上的
+ * {@code destination_name} 查询 {@code object_65Zui__c} 得到对象 ID（为空时回退固定关键字），并回写 PO 主表。
+ * 幂等策略：已存在对象 ID 的项跳过查询；回写以「该列仍为空」为条件，
  * 并发场景下重查并复用已写入值。</p>
  *
  * @author hongfu_zhou@cacch.com
@@ -57,9 +58,11 @@ public class HeartPortServiceImpl implements IHeartPortService {
         }
         boolean loadingMissing = !StringUtils.hasText(po.getPortOfLoadingId());
         boolean dischargeMissing = !StringUtils.hasText(po.getPortOfDischargeId());
-        if (!loadingMissing && !dischargeMissing) {
-            log.info("【{}】港口解析复用已有对象ID, poId={}, loadingId={}, dischargeId={}",
-                    HeartPortLogConstants.LOG_BIZ, poId, po.getPortOfLoadingId(), po.getPortOfDischargeId());
+        boolean destinationMissing = !StringUtils.hasText(po.getDestinationId());
+        if (!loadingMissing && !dischargeMissing && !destinationMissing) {
+            log.info("【{}】港口与目的地解析复用已有对象ID, poId={}, loadingId={}, dischargeId={}, destinationId={}",
+                    HeartPortLogConstants.LOG_BIZ, poId, po.getPortOfLoadingId(), po.getPortOfDischargeId(),
+                    po.getDestinationId());
             advanceToPortResolved(poId);
             return;
         }
@@ -68,6 +71,8 @@ public class HeartPortServiceImpl implements IHeartPortService {
                 ? resolvePortObjectId(po.getPortOfLoading(), HeartPortConstants.PORT_TYPE_LOADING) : null;
         String dischargeId = dischargeMissing
                 ? resolvePortObjectId(po.getPortOfDischarge(), HeartPortConstants.PORT_TYPE_DISCHARGE) : null;
+        String destinationId = destinationMissing
+                ? resolveDestinationObjectId(po.getDestinationName()) : null;
 
         if (loadingId != null) {
             updatePortId(poId, true, loadingId);
@@ -75,22 +80,27 @@ public class HeartPortServiceImpl implements IHeartPortService {
         if (dischargeId != null) {
             updatePortId(poId, false, dischargeId);
         }
+        if (destinationId != null) {
+            updateDestinationId(poId, destinationId);
+        }
 
         HeartPoDO latest = heartPoMapper.selectById(poId);
         if (latest == null
                 || !StringUtils.hasText(latest.getPortOfLoadingId())
-                || !StringUtils.hasText(latest.getPortOfDischargeId())) {
-            log.info("【{}】港口解析回写失败, poId={}, loadingId={}, dischargeId={}",
-                    HeartPortLogConstants.LOG_BIZ, poId, loadingId, dischargeId);
-            throw new BizException(ResultCode.SYSTEM_ERROR, "港口对象ID回写失败, poId=" + poId);
+                || !StringUtils.hasText(latest.getPortOfDischargeId())
+                || !StringUtils.hasText(latest.getDestinationId())) {
+            log.info("【{}】港口与目的地解析回写失败, poId={}, loadingId={}, dischargeId={}, destinationId={}",
+                    HeartPortLogConstants.LOG_BIZ, poId, loadingId, dischargeId, destinationId);
+            throw new BizException(ResultCode.SYSTEM_ERROR, "港口/目的地对象ID回写失败, poId=" + poId);
         }
         advanceToPortResolved(poId);
-        log.info("【{}】港口解析完成, poId={}, loadingId={}, dischargeId={}",
-                HeartPortLogConstants.LOG_BIZ, poId, latest.getPortOfLoadingId(), latest.getPortOfDischargeId());
+        log.info("【{}】港口与目的地解析完成, poId={}, loadingId={}, dischargeId={}, destinationId={}",
+                HeartPortLogConstants.LOG_BIZ, poId, latest.getPortOfLoadingId(), latest.getPortOfDischargeId(),
+                latest.getDestinationId());
     }
 
     /**
-     * 两港对象 ID 均已回写后，将 PO 推进为 PORT_RESOLVED
+     * 三项对象 ID 均已回写后，将 PO 推进为 PORT_RESOLVED
      *
      * @param poId PO 主键
      */
@@ -106,13 +116,37 @@ public class HeartPortServiceImpl implements IHeartPortService {
 
     @Override
     public String resolvePortObjectId(String portName, String portType) {
-        if (!StringUtils.hasText(portName)) {
-            log.info("【{}】{}解析终止, reason=港口名称为空", HeartPortLogConstants.LOG_BIZ, portType);
-            throw new BizException(ResultCode.PARAM_MISSING, portType + "名称为空, 请先维护 PO 上的港口名称");
+        return resolveObjectId(HeartPortConstants.OBJECT_KEY_PORT, portName, portType);
+    }
+
+    @Override
+    public String resolveDestinationObjectId(String destinationName) {
+        String keyword = destinationName;
+        if (!StringUtils.hasText(keyword)) {
+            keyword = HeartPortConstants.DESTINATION_NAME_FIXED;
+            log.info("【{}】目的地名称为空, 使用固定关键字 keyword={}",
+                    HeartPortLogConstants.LOG_BIZ, keyword);
         }
-        String keyword = portName.trim();
+        return resolveObjectId(HeartPortConstants.OBJECT_KEY_DESTINATION, keyword,
+                HeartPortConstants.PORT_TYPE_DESTINATION);
+    }
+
+    /**
+     * 按名称关键字查询勤策自定义对象记录 ID
+     *
+     * @param objectKey 自定义对象 key
+     * @param nameInput 名称关键字
+     * @param typeLabel 类型标识（启运港 / 目的港 / 目的地），仅用于日志与异常提示
+     * @return 对象记录 ID
+     */
+    private String resolveObjectId(String objectKey, String nameInput, String typeLabel) {
+        if (!StringUtils.hasText(nameInput)) {
+            log.info("【{}】{}解析终止, reason=名称为空", HeartPortLogConstants.LOG_BIZ, typeLabel);
+            throw new BizException(ResultCode.PARAM_MISSING, typeLabel + "名称为空");
+        }
+        String keyword = nameInput.trim();
         CrmCustomObjectQueryRequest request = new CrmCustomObjectQueryRequest();
-        request.setObjectKey(HeartPortConstants.OBJECT_KEY_PORT);
+        request.setObjectKey(objectKey);
         request.setPage(HeartPortConstants.DEFAULT_PAGE);
         request.setRows(HeartPortConstants.DEFAULT_ROWS);
         request.setQueryGroup(List.of(CrmQueryGroup.builder()
@@ -123,25 +157,25 @@ public class HeartPortServiceImpl implements IHeartPortService {
                         .build()))
                 .build()));
 
-        log.info("【{}】查询{}对象ID, keyword={}", HeartPortLogConstants.LOG_BIZ, portType, keyword);
+        log.info("【{}】查询{}对象ID, keyword={}", HeartPortLogConstants.LOG_BIZ, typeLabel, keyword);
         try {
             CrmCustomObjectQueryResponse response = crmCustomObjectService.queryObjectData(request);
-            Map<String, Object> matched = matchRecord(response.getResponseData(), keyword, portType);
+            Map<String, Object> matched = matchRecord(response.getResponseData(), keyword, typeLabel);
             String id = toText(matched.get(HeartPortConstants.RESPONSE_FIELD_ID));
             if (!StringUtils.hasText(id)) {
                 log.info("【{}】{}解析终止, reason=匹配记录缺少id, keyword={}",
-                        HeartPortLogConstants.LOG_BIZ, portType, keyword);
-                throw new BizException(ResultCode.INTEGRATION_ERROR, portType + "对象ID缺失, keyword=" + keyword);
+                        HeartPortLogConstants.LOG_BIZ, typeLabel, keyword);
+                throw new BizException(ResultCode.INTEGRATION_ERROR, typeLabel + "对象ID缺失, keyword=" + keyword);
             }
             log.info("【{}】{}对象ID解析成功, keyword={}, id={}, name={}", HeartPortLogConstants.LOG_BIZ,
-                    portType, keyword, id, toText(matched.get(HeartPortConstants.RESPONSE_FIELD_NAME)));
+                    typeLabel, keyword, id, toText(matched.get(HeartPortConstants.RESPONSE_FIELD_NAME)));
             return id;
         } catch (BizException e) {
             log.error("【{}】{}解析终止, keyword={}, reason={}",
-                    HeartPortLogConstants.LOG_BIZ, portType, keyword, e.getMessage());
+                    HeartPortLogConstants.LOG_BIZ, typeLabel, keyword, e.getMessage());
             throw e;
         } catch (RestClientException e) {
-            throw new BizException(ResultCode.INTEGRATION_ERROR, portType + "查询调用失败: " + e.getMessage(), e);
+            throw new BizException(ResultCode.INTEGRATION_ERROR, typeLabel + "查询调用失败: " + e.getMessage(), e);
         }
     }
 
@@ -171,21 +205,37 @@ public class HeartPortServiceImpl implements IHeartPortService {
     }
 
     /**
+     * 按「该列仍为空」为条件回写目的地对象 ID，避免覆盖并发写入值
+     *
+     * @param poId     PO 主键
+     * @param objectId 目的地对象 ID
+     */
+    private void updateDestinationId(Long poId, String objectId) {
+        int rows = heartPoMapper.update(null, Wrappers.<HeartPoDO>lambdaUpdate()
+                .eq(HeartPoDO::getId, poId)
+                .and(w -> w.isNull(HeartPoDO::getDestinationId).or().eq(HeartPoDO::getDestinationId, ""))
+                .set(HeartPoDO::getDestinationId, objectId)
+                .set(HeartPoDO::getUpdatedAt, LocalDateTime.now()));
+        log.info("【{}】回写{}对象ID, poId={}, objectId={}, rows={}", HeartPortLogConstants.LOG_BIZ,
+                HeartPortConstants.PORT_TYPE_DESTINATION, poId, objectId, rows);
+    }
+
+    /**
      * 从查询结果中确定唯一匹配记录
      *
      * <p>优先取名称精确匹配（忽略大小写）；无精确匹配且结果仅一条时取该条；
      * 其余情况视为无法唯一确定，转人工处理。</p>
      *
-     * @param records  查询结果
-     * @param keyword  港口名称关键字
-     * @param portType 港口类型标识
+     * @param records   查询结果
+     * @param keyword   名称关键字
+     * @param typeLabel 类型标识（启运港 / 目的港 / 目的地）
      * @return 唯一匹配记录
      */
-    private Map<String, Object> matchRecord(List<Map<String, Object>> records, String keyword, String portType) {
+    private Map<String, Object> matchRecord(List<Map<String, Object>> records, String keyword, String typeLabel) {
         if (records == null || records.isEmpty()) {
-            log.info("【{}】{}解析终止, reason=未查询到匹配港口, keyword={}",
-                    HeartPortLogConstants.LOG_BIZ, portType, keyword);
-            throw new BizException(ResultCode.INTEGRATION_ERROR, portType + "未查询到匹配港口, keyword=" + keyword);
+            log.info("【{}】{}解析终止, reason=未查询到匹配记录, keyword={}",
+                    HeartPortLogConstants.LOG_BIZ, typeLabel, keyword);
+            throw new BizException(ResultCode.INTEGRATION_ERROR, typeLabel + "未查询到匹配记录, keyword=" + keyword);
         }
         List<Map<String, Object>> exact = records.stream()
                 .filter(record -> keyword.equalsIgnoreCase(toText(record.get(HeartPortConstants.RESPONSE_FIELD_NAME))))
@@ -197,9 +247,9 @@ public class HeartPortServiceImpl implements IHeartPortService {
             return records.getFirst();
         }
         log.info("【{}】{}解析终止, reason=匹配多条且无唯一精确匹配, keyword={}, count={}",
-                HeartPortLogConstants.LOG_BIZ, portType, keyword, records.size());
+                HeartPortLogConstants.LOG_BIZ, typeLabel, keyword, records.size());
         throw new BizException(ResultCode.INTEGRATION_ERROR,
-                portType + "匹配到 " + records.size() + " 条且无唯一精确匹配, 请人工确认, keyword=" + keyword);
+                typeLabel + "匹配到 " + records.size() + " 条且无唯一精确匹配, 请人工确认, keyword=" + keyword);
     }
 
     /**

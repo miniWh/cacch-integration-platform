@@ -276,6 +276,9 @@ public class HeartOrderCreateServiceImpl implements IHeartOrderCreateService {
         if (!StringUtils.hasText(po.getPortOfDischargeId())) {
             throw new BizException(ResultCode.PARAM_MISSING, "目的港对象 ID 为空, poNo=" + po.getPoNo());
         }
+        if (!StringUtils.hasText(po.getDestinationId())) {
+            throw new BizException(ResultCode.PARAM_MISSING, "目的地对象 ID 为空, poNo=" + po.getPoNo());
+        }
         if (!StringUtils.hasText(po.getAttachmentUrl())) {
             throw new BizException(ResultCode.PARAM_MISSING, "PO 附件 URL 为空, poNo=" + po.getPoNo());
         }
@@ -283,7 +286,7 @@ public class HeartOrderCreateServiceImpl implements IHeartOrderCreateService {
         CrmContractAddRequest request = new CrmContractAddRequest();
         request.setCustomerCode(heartProperties.getCrm().getCustomerCode());
         request.setIsTrigger(heartProperties.getCrm().getIsTrigger());
-        request.setTriggerEmployee(Long.valueOf(heartProperties.getCrm().getTriggerEmployee()));
+        request.setTriggerEmployee(heartProperties.getCrm().getTriggerEmployee());
         request.setOwnerId(heartProperties.getCrm().getOwnerId());
         request.setContractDate(LocalDate.now().toString());
         request.setCurrencyType(HeartContractConstants.CURRENCY_CNY);
@@ -307,7 +310,7 @@ public class HeartOrderCreateServiceImpl implements IHeartOrderCreateService {
         extFields.put(HeartContractConstants.FIELD_CUSTOMER_BALANCE,
                 HeartContractConstants.CUSTOMER_BALANCE_PLACEHOLDER);
         extFields.put(HeartContractConstants.FIELD_DISCHARGE_PORT, po.getPortOfDischargeId());
-        extFields.put(HeartContractConstants.FIELD_DESTINATION, po.getPortOfDischargeId());
+        extFields.put(HeartContractConstants.FIELD_DESTINATION, po.getDestinationId());
         extFields.put(HeartContractConstants.FIELD_CUSTOMS_PORT,
                 StringUtils.hasText(po.getPortOfLoadingId())
                         ? po.getPortOfLoadingId() : HeartContractConstants.CUSTOMS_PORT_FALLBACK_ID);

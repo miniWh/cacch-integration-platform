@@ -66,7 +66,8 @@ public class CrmContractServiceImpl implements ICrmContractService {
             log.info("【{}】新增销售合同终止, reason=客户标识为空", CrmContractLogConstants.LOG_BIZ);
             throw new BizException(ResultCode.PARAM_MISSING, "customerId 与 customerCode 至少传一个");
         }
-        if (Boolean.TRUE.equals(request.getIsTrigger()) && request.getTriggerEmployee() == null) {
+        if (Boolean.TRUE.equals(request.getIsTrigger())
+                && !StringUtils.hasText(request.getTriggerEmployee())) {
             log.info("【{}】新增销售合同终止, reason=isTrigger为true但triggerEmployee为空",
                     CrmContractLogConstants.LOG_BIZ);
             throw new BizException(ResultCode.PARAM_MISSING, "isTrigger 为 true 时 triggerEmployee 不能为空");

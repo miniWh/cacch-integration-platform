@@ -18,6 +18,16 @@ public final class HeartPortConstants {
     public static final String OBJECT_KEY_PORT = "object_yEQGF__c";
 
     /**
+     * 目的地自定义对象 key
+     */
+    public static final String OBJECT_KEY_DESTINATION = "object_65Zui__c";
+
+    /**
+     * 目的地名称关键字（暂固定值，后续由邮件解析结果提供）
+     */
+    public static final String DESTINATION_NAME_FIXED = "SHIBUSHI";
+
+    /**
      * 港口名称字段 key
      */
     public static final String FIELD_NAME = "name";
@@ -56,4 +66,9 @@ public final class HeartPortConstants {
      * 目的港类型标识（用于日志与异常提示）
      */
     public static final String PORT_TYPE_DISCHARGE = "目的港";
+
+    /**
+     * 目的地类型标识（用于日志与异常提示）
+     */
+    public static final String PORT_TYPE_DESTINATION = "目的地";
 }

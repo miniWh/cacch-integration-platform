@@ -59,6 +59,16 @@ public class HeartPoDO {
      */
     private String portOfDischargeId;
 
+    /**
+     * 目的地名称（查询关键字，来源邮件解析；为空时使用固定值）
+     */
+    private String destinationName;
+
+    /**
+     * 目的地 CRM 对象 ID（object_65Zui__c）
+     */
+    private String destinationId;
+
     private String shippingLine;
 
     private String containerType;
