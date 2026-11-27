@@ -33,6 +33,8 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
 import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -59,6 +61,11 @@ public class HeartOrderCreateServiceImpl implements IHeartOrderCreateService {
     private static final String LOG_BIZ = HeartOrderLogConstants.LOG_BIZ;
 
     private static final int FAIL_REASON_MAX_LENGTH = 1000;
+
+    /**
+     * 附件字段序列化用，与 Mdm*IngestServiceImpl 保持同一写法
+     */
+    private static final ObjectMapper MAPPER = JsonMapper.builder().build();
 
     private final HeartPoMapper heartPoMapper;
 
@@ -329,14 +336,17 @@ public class HeartOrderCreateServiceImpl implements IHeartOrderCreateService {
     /**
      * 组装合同附件
      *
+     * <p>CRM 要求该字段传字符串化 JSON 数组，形如
+     * {@code [{"path":"https://...","name":"文件.png"}]}。</p>
+     *
      * @param po PO 主表
-     * @return 附件数组
+     * @return 字符串化附件数组
      */
-    private List<Map<String, Object>> buildAttachment(HeartPoDO po) {
+    private String buildAttachment(HeartPoDO po) {
         Map<String, Object> file = new LinkedHashMap<>();
         file.put("path", po.getAttachmentUrl());
         file.put("name", resolveAttachmentName(po));
-        return List.of(file);
+        return MAPPER.writeValueAsString(List.of(file));
     }
 
     /**

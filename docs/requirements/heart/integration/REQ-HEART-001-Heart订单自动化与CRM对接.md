@@ -103,7 +103,7 @@
 | F9 | NCC 客户余额（旁路） | 用友 NCC `V_QC_customerarye` 视图查客户余额；成功并入建单报文，失败降级告警、**不阻塞主链路** | 阶段四 | 可选 |
 | F10 | CRM 取号 | 调用 `saveObjectData`（`object_70cY4__c`）生成 CAC 流水号（26CACCPOTHxxx）；**同一 PO 只取一次**，失败重试复用已取号 | 阶段四 | 必选 |
 | F11 | CRM 港口/目的地解析 | 目的港按对象 `object_yEQGF__c` 转对象 ID；「目的地」字段 `field_RHVAG__c` 待确认后启用 | 阶段四 | 必选 |
-| F12 | CRM 建单 | 组装 `contractAdd` 报文（V2 签名、`isTrigger=true` 触发审批流、附件字段 `field_8s0nt__c` 填 crmimage URL），提交并回写合同号/ID | 阶段四 | 必选 |
+| F12 | CRM 建单 | 组装 `contractAdd` 报文（V2 签名、`isTrigger=true` 触发审批流、附件字段 `field_8s0nt__c` 填字符串化 JSON 数组 `[{path,name}]`，`path` 为 crmimage URL），提交并回写合同号/ID | 阶段四 | 必选 |
 | F13 | 状态机与重试 | 全流程状态落库，按步骤失败可重试；单条失败不阻塞同批其余 PO；超过最大重试次数转人工 | 阶段五 运维兜底 | 必选 |
 | F14 | 告警与审计 | 建单成功/失败、人工复核、取号异常等通过企微 Webhook 告警；全链路 `traceId` 可查，三方 Client 记录完整入参/出参（脱敏） | 阶段五 | 必选 |
 | F15 | 人工复核与补偿 | 低置信度/校验失败/重试耗尽生成复核任务；提供手动触发、重试、跳过接口 | 阶段五 | 必选 |
@@ -259,7 +259,7 @@ MAIL_RECEIVED
 | 港口对象 `object_yEQGF__c` | SHIBUSHI=`6864166600199432698`、TOKYO=`6961607334618785258`、SHANGHAI=`5801559508238571560` | 传对象 ID，非文本 |
 | 报关口岸 | 上海 ID `5801559508238571560` | 太仓港主数据缺失，暂代 |
 | 目的地 `field_RHVAG__c` | **待确认** | 引用的对象未知，暂省略 |
-| 附件字段 | `field_8s0nt__c` | 填 crmimage URL |
+| 附件字段 | `field_8s0nt__c` | 填字符串化 JSON 数组 `[{"path":"crmimage URL","name":"文件名"}]` |
 | BOM 版本 `field_6mBjw__c` | **不传** | 传值报「字段 id 值不存在」 |
 | `isTrigger` | `true` | 触发审批流 |
 
