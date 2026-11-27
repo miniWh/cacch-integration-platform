@@ -41,4 +41,24 @@ public final class HeartMailConstants {
      * 读取超时（毫秒）
      */
     public static final int READ_TIMEOUT_MS = 10000;
+
+    /**
+     * Message-ID 缺失时去重键前缀
+     */
+    public static final String MAIL_KEY_UID_PREFIX = "UID:";
+
+    /**
+     * 正文单段最大字符数（超出截断）
+     */
+    public static final int MAX_BODY_CHARS = 1_000_000;
+
+    /**
+     * 邮件拉取最大重试次数
+     */
+    public static final int MAX_RETRY = 3;
+
+    /**
+     * Heart 发件人白名单地址
+     */
+    public static final String HEART_SENDER_ADDRESS = "ycho@heart-jp.com";
 }

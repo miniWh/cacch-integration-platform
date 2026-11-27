@@ -15,6 +15,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
@@ -114,6 +115,39 @@ public class FileServerUploadClient {
     }
 
     /**
+     * 将本地临时文件流式复制至挂载目录，返回 URL 编码后的可访问地址
+     *
+     * <p>用于大文件（如邮件 PDF 附件）落盘：{@link Files#(Path, Path, java.nio.file.CopyOption)}
+     * 直接搬运，内存占用与文件大小无关；文件为覆盖写，重试幂等。</p>
+     *
+     * @param source   本地源文件，不可为空
+     * @param fileName 落盘文件名（含扩展名），不可为空
+     * @param fileId   文件标识（唯一，独立子目录防同名覆盖），不可为空
+     * @return 附件可访问 URL（url-prefix + 编码后的落盘绝对路径）
+     * @throws IllegalStateException 源文件为空、文件标识 / 文件名为空、挂载目录未配置或落盘失败时抛出
+     */
+    public String uploadFile(Path source, String fileName, String fileId) {
+        if (source == null) {
+            log.info("【{}】上传终止, reason=源文件为空, fileId={}", BIZ, fileId);
+            throw new IllegalStateException("文件服务器上传失败：源文件为空, fileId=" + fileId);
+        }
+        if (!StringUtils.hasText(fileId)) {
+            log.info("【{}】上传终止, reason=文件标识为空", BIZ);
+            throw new IllegalStateException("文件服务器上传失败：文件标识为空");
+        }
+        if (!StringUtils.hasText(fileName)) {
+            log.info("【{}】上传终止, reason=文件名为空, fileId={}", BIZ, fileId);
+            throw new IllegalStateException("文件服务器上传失败：文件名为空, fileId=" + fileId);
+        }
+        String sanitized = fileName.trim().replaceAll(FILE_NAME_ILLEGAL_CHARS, "_");
+        String absolutePath = saveToMountDir(fileId, sanitized, source);
+        String url = fileServerProperties.getUrlPrefix() + encodeUrlPath(absolutePath);
+        log.info("【{}】流式落盘完成, fileId={}, fileName={}, path={}, url={}",
+                BIZ, fileId, sanitized, absolutePath, url);
+        return url;
+    }
+
+    /**
      * 解析落盘文件名：优先 OA 下载接口返回的文件名，缺失时回退附件元数据文件名
      *
      * @param downloadedName   下载响应 Content-Disposition 文件名，可空
@@ -147,13 +181,7 @@ public class FileServerUploadClient {
      * @throws IllegalStateException 挂载目录未配置或目录创建 / 文件写入失败时抛出
      */
     private String saveToMountDir(String fileId, String fileName, byte[] content) {
-        if (!StringUtils.hasText(fileServerProperties.getMountPath())) {
-            log.info("【{}】落盘终止, reason=未配置挂载目录(file-server.mount-path)", BIZ);
-            throw new IllegalStateException("文件服务器上传失败：未配置挂载目录(file-server.mount-path)");
-        }
-        String dateDir = LocalDate.now().format(DATE_DIR_FORMAT);
-        Path dir = Paths.get(fileServerProperties.getMountPath(),
-                fileServerProperties.getSubDir(), dateDir, fileId.trim());
+        Path dir = resolveMountDir(fileId);
         Path target = dir.resolve(fileName);
         try {
             Files.createDirectories(dir);
@@ -163,6 +191,45 @@ public class FileServerUploadClient {
             log.error("【{}】落盘失败, fileId={}, target={}", BIZ, fileId, target, e);
             throw new IllegalStateException("文件服务器落盘失败: " + target + ", reason=" + e.getMessage(), e);
         }
+    }
+
+    /**
+     * 流式复制本地文件至 NFS 挂载目录
+     *
+     * @param fileId   附件文件标识（唯一，独立子目录防同名覆盖）
+     * @param fileName 落盘文件名（已清洗非法字符）
+     * @param source   本地源文件
+     * @return 落盘绝对路径（以 / 开头）
+     * @throws IllegalStateException 挂载目录未配置或目录创建 / 文件复制失败时抛出
+     */
+    private String saveToMountDir(String fileId, String fileName, Path source) {
+        Path dir = resolveMountDir(fileId);
+        Path target = dir.resolve(fileName);
+        try {
+            Files.createDirectories(dir);
+            Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
+            return toAbsolutePathString(target);
+        } catch (IOException e) {
+            log.error("【{}】流式落盘失败, fileId={}, source={}, target={}", BIZ, fileId, source, target, e);
+            throw new IllegalStateException("文件服务器落盘失败: " + target + ", reason=" + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 解析落盘目录：{mount-path}/{sub-dir}/{yyyyMMdd}/{fileId}
+     *
+     * @param fileId 文件标识
+     * @return 落盘目录
+     * @throws IllegalStateException 未配置挂载目录时抛出
+     */
+    private Path resolveMountDir(String fileId) {
+        if (!StringUtils.hasText(fileServerProperties.getMountPath())) {
+            log.info("【{}】落盘终止, reason=未配置挂载目录(file-server.mount-path)", BIZ);
+            throw new IllegalStateException("文件服务器上传失败：未配置挂载目录(file-server.mount-path)");
+        }
+        String dateDir = LocalDate.now().format(DATE_DIR_FORMAT);
+        return Paths.get(fileServerProperties.getMountPath(),
+                fileServerProperties.getSubDir(), dateDir, fileId.trim());
     }
 
     /**

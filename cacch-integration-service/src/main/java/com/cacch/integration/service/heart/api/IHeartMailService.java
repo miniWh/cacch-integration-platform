@@ -1,5 +1,6 @@
 package com.cacch.integration.service.heart.api;
 
+import com.cacch.integration.common.dto.heart.HeartMailPullResult;
 import com.cacch.integration.integration.heart.client.dto.HeartMailInfo;
 
 import java.time.LocalDateTime;
@@ -20,4 +21,16 @@ public interface IHeartMailService {
      * @return 邮件摘要列表
      */
     List<HeartMailInfo> queryMails(LocalDateTime startTime, LocalDateTime endTime);
+
+    /**
+     * 拉取邮件并入库（含失败邮件重试）
+     *
+     * <p>先重试历史失败邮件，再拉取指定区间的新邮件；正文与 PDF 附件一并落库，
+     * 以 {@code mail_key}（Message-ID，缺失时 UID）去重，重复邮件跳过。</p>
+     *
+     * @param startTime 开始时间，为空时取当天 00:00:00
+     * @param endTime   结束时间，为空时取当天 23:59:59
+     * @return 执行结果（含拉取、重试、成功、失败、跳过统计与明细）
+     */
+    HeartMailPullResult pullAndSaveMails(LocalDateTime startTime, LocalDateTime endTime);
 }

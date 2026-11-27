@@ -93,7 +93,7 @@
 | 序号 | 功能点 | 描述 | 实现阶段 | 必选/可选 |
 |------|--------|------|----------|-----------|
 | F1 | 邮箱定时轮询 | 每 5 分钟通过 IMAP 拉取指定邮箱未读邮件；按 `UID/Message-ID` 去重，断点续拉；单轮限流（默认 20 封） | 阶段一 邮件接入 | 必选 |
-| F2 | 邮件识别与附件提取 | 发件人白名单（`ycho@heart-jp.com`）且主题/正文含 PO 标识时，提取 PDF 附件；非 Heart 邮件记 `SKIP` 不入库主流程 | 阶段一 | 必选 |
+| F2 | 邮件识别与附件提取 | 发件人白名单（`ycho@heart-jp.com`）且主题/正文含 PO 标识时，提取 PDF 附件；非 Heart 邮件记 `SKIP` 不入库主流程。邮件摘要与正文一并入库，PDF 附件流式落盘 NAS（不设单附件大小上限），失败按 `retry_count` 重试 3 次后转人工 | 阶段一 | 必选 |
 | F3 | 附件归档与去重 | 附件落盘（`heart.attach.root`），计算 `SHA256` 去重；同名文件加时间戳，避免覆盖 | 阶段一 | 必选 |
 | F4 | PDF 结构化解析 | 调用 AI 解析适配器，将 PO PDF 转为 JSON（PO 号、客户、贸易条款、目的港、柜型、产品明细行、数量、单价、金额等），返回**置信度**（实现见 7.8） | 阶段二 解析校验 | 必选 |
 | F5 | 规则校验（V1.3） | 代码侧确定性校验：产品简称→13 位 `pdCode` 映射、目的港→对象 ID、箱数×单箱量=总量、行金额汇总=总额、包干费按报价表、毛利率重算；任一不符转人工复核 | 阶段二 | 必选 |
@@ -294,11 +294,11 @@ AI 边界：`AiPoParseClient` 只接收 PDF 字节并返回 JSON + 置信度，�
 
 ### <a id="s7-2"></a>7.2 数据库变更
 
-新增 Flyway 脚本 `V47` ~ `V51`（当前最新为 V46），均含标准字段 `id/created_at/updated_at/is_deleted`，主键雪花算法。
+新增 Flyway 脚本 `V47` ~ `V52`（当前最新为 V46），均含标准字段 `id/created_at/updated_at/is_deleted`，主键雪花算法。
 
 | 表名 | 核心列 |
 |------|--------|
-| `t_integration_heart_mail` | `mail_uid`、`message_id`、`subject`、`from_address`、`received_at`、`attach_file_name`、`attach_sha256`、`attach_path`、`process_status`、`fail_reason`、`retry_count` |
+| `t_integration_heart_mail` | `mail_key`（去重键：Message-ID，缺失时 `UID:{uid}`）、`mail_uid`、`message_id`、`subject`、`from_address`、`received_at`、`body_text`、`body_html`、`attach_files`（JSONB，元素为 name/sha256/path/size）、`process_status`、`fail_reason`、`retry_count` |
 | `t_integration_crm_heart_po` | PO 级阶段数据：`po_no`、`cac_po_no`、`customer_code`、`destination_country`、`port_of_loading`、`port_of_discharge`、`port_of_loading_id`、`port_of_discharge_id`、`shipping_line`、`container_type`、`packing_type`、`etd`；汇总列 `total_cartons`/`total_liters`/`total_volume`/`total_amount`/`total_cost`/`total_gross_profit`/`gross_margin_rate`；`mail_id`、`attachment_url`、`parse_confidence`、`parse_payload(JSONB)`、`process_status`、`crm_payload(JSONB)`、`submit_count`、`fail_reason`、`retry_count`、`version` |
 | `t_integration_crm_heart_po_item` | 明细行（对应台账一产品一行）：`po_id`、`line_no`、`product_name`、`spec`、`pd_code`、`product_id`、`carton_count`、`liters`、`unit_price`、`amount`、`aux_text`、`density`、`net_weight`、`net_weight_with_carton`、`volume`、`carton_gross_weight`、`gross_weight`、`empty_carton_sets`、`gross_weight_with_extra_carton`、`cost_price`、`no_pallet_unit_price`、`package_fee`、`credit_insurance_fee`、`other_fee`、`cost_total`、`gross_profit`、`gross_margin_rate`、`remark`、`data_source` |
 | `t_integration_heart_ledger_record` | `po_id`、`ledger_file_path`、`sheet_name`、`start_row`、`end_row`、`subtotal_row`、`write_status` |
@@ -398,7 +398,7 @@ heart:
 | async | `async/heart/task/HeartMailPollingTask.java` | 5 分钟轮询 |
 | web | `controller/heart/HeartOrderController.java`、`dto/heart/*`、`convert/heart/*`、`config/heart/HeartConfiguration.java` | 手动触发/查询/重试 |
 | web | `controller/heart/HeartOrderOpenApiController.java`、`dto/heart/vo/HeartOrderSubmitVO.java` | ESB 对外提交接口（当前空实现，无入参，参数全部取 `heart.*` 配置）：`POST /api/v1/heart/orders/submit` |
-| web | `db/migration/V47~V51__heart_*.sql` | 建表脚本 |
+| web | `db/migration/V47~V52__heart_*.sql` | 建表脚本 |
 | common | `common/constant/heart/HeartSerialNoConstants.java`、`HeartSerialNoLogConstants.java`、`HeartOrderConstants.java`、`HeartOrderLogConstants.java`、`HeartPoProcessStatusConstants.java`、`common/dto/heart/HeartOrderSubmitResult.java` | F10 取号固定参数、订单提交状态、PO 处理状态、日志域常量与提交流程结果 DTO |
 | dao | `entity/heart/HeartPoDO.java`、`mapper/heart/HeartPoMapper.java` | PO 阶段主表实体与 Mapper（`po_no` 为幂等键，`cac_po_no`/`process_status` 为取号回写与状态推进载体） |
 | service | `service/heart/api/IHeartSerialNoService.java` + `impl/HeartSerialNoServiceImpl.java` | F10 单 PO 取号：固定参数、同 PO 只取一次、并发复用；成功后回写 `cac_po_no` 并推进 `process_status=SERIAL_NUMBERED` |
