@@ -78,7 +78,7 @@ public class AiPoParseClient implements IHeartPoParser {
                   "productName": "产品名称原文",
                   "productCode": "产品编码，找不到填 null",
                   "quantity": 0,
-                  "unit": "计量单位",
+                  "unit": "计量单位，取 L 列时填 L",
                   "unitPrice": 0.00,
                   "amount": 0.00,
                   "cartons": 0,
@@ -96,7 +96,9 @@ public class AiPoParseClient implements IHeartPoParser {
             2. 找不到的字段填 null，禁止编造；
             3. 数字不带千分位与货币符号；
             4. confidence 为整体抽取置信度（0~1），字段缺失或文本模糊时降低；
-            5. 只输出 JSON，不要输出 markdown 代码块标记。
+            5. 只输出 JSON，不要输出 markdown 代码块标记；
+            6. 明细行 quantity 取表格 L / LTR / 数量(L) 列的升数，严禁填箱数、件数、桶数；
+            7. 明细行同时存在「箱数」与「L」两列时：quantity 取 L 列，cartons 取箱数列，unitsPerCarton 取单箱量（每箱升数），三者严禁互换。
             """;
 
     private final HeartProperties heartProperties;

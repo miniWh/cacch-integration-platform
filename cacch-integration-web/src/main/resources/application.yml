@@ -297,7 +297,7 @@ heart:
     api-key: ${HEART_AI_API_KEY:}
     # 接口真实 id（展示名 DeepSeek-V4.1-Flash-1017 对应 id=deepseek-v4.1-flash-1017，注意勿用同名的 deepseek/deepseek-flash）
     model: deepseek-v4.1-flash-1017
-    prompt-version: heart-po-v1
+    prompt-version: heart-po-v2
     temperature: 0
     timeout-ms: 60000
     retry-times: 2

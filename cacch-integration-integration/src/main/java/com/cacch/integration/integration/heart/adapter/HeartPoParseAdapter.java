@@ -64,14 +64,15 @@ public class HeartPoParseAdapter {
             throw new BizException(ResultCode.INTEGRATION_ERROR, "PDF 内容为空, 无法解析");
         }
         String sha256 = sha256(pdfBytes);
-        HeartPoParseResult cached = PARSE_CACHE.getIfPresent(sha256);
+        String cacheKey = heartProperties.getAi().getPromptVersion() + ":" + sha256;
+        HeartPoParseResult cached = PARSE_CACHE.getIfPresent(cacheKey);
         if (cached != null) {
             log.info("【{}】命中解析缓存, file={}, sha256={}", LOG_BIZ, fileName, sha256);
             return cached;
         }
         HeartPoParseResult result = parseWithFallback(pdfBytes, fileName);
         validate(result);
-        PARSE_CACHE.put(sha256, result);
+        PARSE_CACHE.put(cacheKey, result);
         log.info("【{}】{}", LOG_BIZ, HeartAiLogConstants.buildAction(
                 "解析完成, file=" + fileName + ", parser=" + result.getParserType()
                         + ", confidence=" + result.getConfidence()
