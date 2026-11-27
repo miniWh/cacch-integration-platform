@@ -58,9 +58,9 @@ public class HeartOrderFlowManagerImpl implements IHeartOrderFlowManager {
     private final IHeartMailService heartMailService;
 
     @Override
-    public HeartOrderBatchSubmitResult submitOrder() {
+    public HeartOrderBatchSubmitResult submitOrder(LocalDateTime startTime, LocalDateTime endTime) {
         log.info("【{}】收到 ESB Heart 订单提交请求", HeartOrderLogConstants.LOG_BIZ);
-        pullMails();
+        pullMails(startTime, endTime);
 
         List<HeartOrderItemSubmitResult> items = new ArrayList<>();
         Set<Long> processedIds = new HashSet<>();
@@ -94,14 +94,17 @@ public class HeartOrderFlowManagerImpl implements IHeartOrderFlowManager {
     }
 
     /**
-     * 拉取当天邮件并入库（含失败邮件重试）
+     * 拉取指定区间邮件并入库（含失败邮件重试）
      *
      * <p>开始/结束时间为空时由 Service 兜底为当天 {@code 00:00:00} 至 {@code 23:59:59}；
      * 拉取或入库失败只记录日志，不阻塞后续已入库 PO 的建单流程。</p>
+     *
+     * @param startTime 开始时间，可为空
+     * @param endTime   结束时间，可为空
      */
-    private void pullMails() {
+    private void pullMails(LocalDateTime startTime, LocalDateTime endTime) {
         try {
-            HeartMailPullResult result = heartMailService.pullAndSaveMails(null, null);
+            HeartMailPullResult result = heartMailService.pullAndSaveMails(startTime, endTime);
             log.info("【{}】邮件拉取入库完成, 拉取 {} 封, 重试 {} 封, 成功 {} 封, 跳过 {} 封, 失败 {} 封",
                     HeartOrderLogConstants.LOG_BIZ, result.getPulled(), result.getRetried(),
                     result.getSuccessCount(), result.getSkipCount(), result.getFailureCount());

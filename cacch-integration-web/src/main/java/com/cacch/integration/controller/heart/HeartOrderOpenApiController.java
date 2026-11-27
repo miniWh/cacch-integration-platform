@@ -2,15 +2,18 @@ package com.cacch.integration.controller.heart;
 
 import com.cacch.integration.common.dto.heart.HeartOrderBatchSubmitResult;
 import com.cacch.integration.common.result.Result;
+import com.cacch.integration.dto.heart.request.HeartOrderSubmitRequest;
 import com.cacch.integration.dto.heart.vo.HeartOrderBatchSubmitVO;
 import com.cacch.integration.dto.heart.vo.HeartOrderItemSubmitVO;
 import com.cacch.integration.manager.heart.api.IHeartOrderFlowManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -35,11 +38,17 @@ public class HeartOrderOpenApiController {
      * <p>单次调用最多处理 {@code HeartOrderConstants.SUBMIT_MAX_PER_ROUND} 条待处理 PO，
      * 返回整体状态与单条明细；{@code hasMore=true} 时建议立即再次调用以消化积压。</p>
      *
+     * <p>时间范围仅作用于邮件拉取入库，为空时取当天 {@code 00:00:00} 至 {@code 23:59:59}。</p>
+     *
+     * @param request 邮件拉取时间范围，可为空
      * @return 批量受理结果
      */
     @PostMapping("/submit")
-    public Result<HeartOrderBatchSubmitVO> submit() {
-        HeartOrderBatchSubmitResult result = heartOrderFlowManager.submitOrder();
+    public Result<HeartOrderBatchSubmitVO> submit(
+            @RequestBody(required = false) HeartOrderSubmitRequest request) {
+        LocalDateTime startTime = request == null ? null : request.getStartTime();
+        LocalDateTime endTime = request == null ? null : request.getEndTime();
+        HeartOrderBatchSubmitResult result = heartOrderFlowManager.submitOrder(startTime, endTime);
         List<HeartOrderItemSubmitVO> items = result.items().stream()
                 .map(item -> new HeartOrderItemSubmitVO(item.poId(), item.poNo(), item.status(),
                         item.message(), item.cacPoNo(), item.crmContractNo()))
