@@ -61,4 +61,9 @@ public final class HeartMailConstants {
      * Heart 发件人白名单地址
      */
     public static final String HEART_SENDER_ADDRESS = "ycho@heart-jp.com";
+
+    /**
+     * PO 标识关键字（主题/正文忽略大小写包含匹配）
+     */
+    public static final String PO_KEYWORD = "po";
 }

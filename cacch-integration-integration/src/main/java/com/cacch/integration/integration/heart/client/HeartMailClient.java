@@ -7,6 +7,7 @@ import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.ResultCode;
 import com.cacch.integration.integration.heart.client.dto.HeartMailAttachmentInfo;
 import com.cacch.integration.integration.heart.client.dto.HeartMailInfo;
+import jakarta.mail.Flags;
 import jakarta.mail.Folder;
 import jakarta.mail.Message;
 import jakarta.mail.Multipart;
@@ -18,6 +19,7 @@ import jakarta.mail.internet.InternetAddress;
 import jakarta.mail.internet.MimeUtility;
 import jakarta.mail.search.AndTerm;
 import jakarta.mail.search.ComparisonTerm;
+import jakarta.mail.search.FlagTerm;
 import jakarta.mail.search.ReceivedDateTerm;
 import jakarta.mail.search.SearchTerm;
 import lombok.RequiredArgsConstructor;
@@ -109,6 +111,8 @@ public class HeartMailClient {
     /**
      * 拉取邮件（摘要或带内容）
      *
+     * <p>仅检索未读邮件，并与收件时间区间取交集。</p>
+     *
      * @param startTime   开始时间（含）
      * @param endTime     结束时间（含）
      * @param withContent 是否下载正文与附件
@@ -125,11 +129,13 @@ public class HeartMailClient {
         try {
             // 腾讯企业邮对 JavaMail 的 LE 条件（生成 OR BEFORE ... ON ...）解析异常，改用 LT 次日 00:00 表达上界
             LocalDateTime endExclusive = endTime.toLocalDate().plusDays(1).atStartOfDay();
-            SearchTerm searchTerm = new AndTerm(
+            // 仅拉取未读邮件：UNSEEN 与时间区间取交集
+            SearchTerm searchTerm = new AndTerm(new SearchTerm[]{
                     new ReceivedDateTerm(ComparisonTerm.GE,
                             Date.from(startTime.atZone(ZoneId.systemDefault()).toInstant())),
                     new ReceivedDateTerm(ComparisonTerm.LT,
-                            Date.from(endExclusive.atZone(ZoneId.systemDefault()).toInstant())));
+                            Date.from(endExclusive.atZone(ZoneId.systemDefault()).toInstant())),
+                    new FlagTerm(new Flags(Flags.Flag.SEEN), false)});
             Message[] messages = session.folder().search(searchTerm);
             int count = Math.min(messages.length, maxPerRound);
             log.info("【{}】{}", LOG_BIZ, HeartMailLogConstants.buildAction(

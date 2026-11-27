@@ -348,7 +348,10 @@ public class HeartMailServiceImpl implements IHeartMailService {
     }
 
     /**
-     * 校验发件人白名单，返回流程状态
+     * 校验发件人白名单与 PO 标识，返回流程状态
+     *
+     * <p>仅发件人为 Heart 白名单且主题/正文包含 PO 关键字时进入主流程，
+     * 其余邮件照常入库但置 {@code SKIP}。</p>
      *
      * @param mail 邮件信息
      * @return MAIL_RECEIVED 或 SKIP
@@ -356,9 +359,38 @@ public class HeartMailServiceImpl implements IHeartMailService {
     private String resolveStatus(HeartMailInfo mail) {
         boolean heartMail = StringUtils.hasText(mail.getFrom())
                 && HeartMailConstants.HEART_SENDER_ADDRESS.equalsIgnoreCase(mail.getFrom().trim());
-        return heartMail
-                ? HeartMailProcessStatusConstants.MAIL_RECEIVED
-                : HeartMailProcessStatusConstants.SKIP;
+        if (heartMail && containsPoKeyword(mail)) {
+            return HeartMailProcessStatusConstants.MAIL_RECEIVED;
+        }
+        log.info("【{}】{}", LOG_BIZ, HeartMailLogConstants.buildAction(
+                "非 Heart PO 邮件, 置 SKIP, uid=" + mail.getUid()
+                        + ", subject=" + truncate(mail.getSubject(), 200)));
+        return HeartMailProcessStatusConstants.SKIP;
+    }
+
+    /**
+     * 判断主题或正文是否包含 PO 标识
+     *
+     * <p>忽略大小写做包含匹配，正文同时检查纯文本与 HTML 两种形态。</p>
+     *
+     * @param mail 邮件信息
+     * @return 是否包含 PO 标识
+     */
+    private boolean containsPoKeyword(HeartMailInfo mail) {
+        return containsIgnoreCase(mail.getSubject())
+                || containsIgnoreCase(mail.getBodyText())
+                || containsIgnoreCase(mail.getBodyHtml());
+    }
+
+    /**
+     * 忽略大小写判断文本是否包含 PO 关键字
+     *
+     * @param text 待判断文本
+     * @return 是否命中
+     */
+    private boolean containsIgnoreCase(String text) {
+        return StringUtils.hasText(text)
+                && text.toLowerCase(java.util.Locale.ROOT).contains(HeartMailConstants.PO_KEYWORD);
     }
 
     /**
