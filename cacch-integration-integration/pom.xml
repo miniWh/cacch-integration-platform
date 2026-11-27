@@ -56,6 +56,18 @@
             <groupId>com.tencentcloudapi.wemeet</groupId>
             <artifactId>wemeet-openapi-sdk</artifactId>
         </dependency>
+
+        <!-- PDF 文本抽取（PO 结构化解析前置） -->
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox</artifactId>
+        </dependency>
+
+        <!-- 解析结果本地缓存（按 PDF SHA-256 去重，避免重复计费） -->
+        <dependency>
+            <groupId>com.github.ben-manes.caffeine</groupId>
+            <artifactId>caffeine</artifactId>
+        </dependency>
     </dependencies>
 
 </project>

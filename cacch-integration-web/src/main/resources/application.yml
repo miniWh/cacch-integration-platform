@@ -290,3 +290,17 @@ heart:
     password: "5q8SVaKwmLtP54aT"
     folder: INBOX
     max-per-round: 20
+  # PO 智能解析（OpenAI 兼容接口，密钥走环境变量 HEART_AI_API_KEY）
+  ai:
+    enabled: true
+    base-url: https://tokenhub.tencentmaas.com/v1
+    api-key: ${HEART_AI_API_KEY:}
+    # 接口真实 id（展示名为 DeepSeek-V4.1-Flash-1017，/v1/models 返回的 id 为 deepseek/deepseek-flash）
+    model: deepseek/deepseek-flash
+    prompt-version: heart-po-v1
+    temperature: 0
+    timeout-ms: 60000
+    retry-times: 2
+    confidence-threshold: 0.9
+    fallback-threshold: 0.7
+    max-text-chars: 100000
