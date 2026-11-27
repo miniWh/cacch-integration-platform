@@ -7,7 +7,7 @@ import com.cacch.integration.common.exception.BizException;
 import com.cacch.integration.common.result.ResultCode;
 import com.cacch.integration.integration.heart.client.dto.HeartPoInfo;
 import com.cacch.integration.integration.heart.client.dto.HeartPoParseResult;
-import com.cacch.integration.integration.heart.support.HeartPdfTextExtractor;
+import com.cacch.integration.integration.heart.support.HeartPdfPageRenderer;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
@@ -28,6 +28,7 @@ import org.springframework.web.client.RestTemplate;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -54,7 +55,7 @@ public class AiPoParseClient implements IHeartPoParser {
      */
     private static final String SYSTEM_PROMPT = """
             你是采购订单（PO）结构化抽取器，只做抄录，禁止任何计算、四舍五入、单位换算或推断。
-            请从用户提供的 PO 文本中抽取字段，严格输出 JSON 对象，不要输出任何解释文字。
+            请从用户提供的 PO 图片（可能为 PDF 扫描件，可能多页）中抽取字段，严格输出 JSON 对象，不要输出任何解释文字。
             
             输出 JSON 结构：
             {
@@ -100,7 +101,7 @@ public class AiPoParseClient implements IHeartPoParser {
 
     private final HeartProperties heartProperties;
 
-    private final HeartPdfTextExtractor heartPdfTextExtractor;
+    private final HeartPdfPageRenderer heartPdfPageRenderer;
 
     private RestTemplate restTemplate;
 
@@ -121,12 +122,12 @@ public class AiPoParseClient implements IHeartPoParser {
         HeartProperties.Ai ai = heartProperties.getAi();
         validateConfig(ai);
         long start = System.currentTimeMillis();
-        String text = heartPdfTextExtractor.extract(pdfBytes, fileName, ai.getMaxTextChars());
-        if (!StringUtils.hasText(text)) {
-            log.info("【{}】解析终止, reason=PDF 无文本层需 OCR 或人工处理, file={}", LOG_BIZ, fileName);
-            throw new BizException(ResultCode.INTEGRATION_ERROR, "PDF 无文本层, 需 OCR 或人工处理");
+        List<byte[]> pageImages = heartPdfPageRenderer.render(pdfBytes, fileName, ai.getRenderDpi(), ai.getMaxPages());
+        if (pageImages.isEmpty()) {
+            log.info("【{}】解析终止, reason=PDF 无可用页面, file={}", LOG_BIZ, fileName);
+            throw new BizException(ResultCode.INTEGRATION_ERROR, "PDF 无可用页面, 无法解析");
         }
-        String responseBody = requestModel(ai, text, fileName);
+        String responseBody = requestModel(ai, pageImages, fileName);
         return convertResponse(ai, responseBody, fileName, start);
     }
 
@@ -150,12 +151,12 @@ public class AiPoParseClient implements IHeartPoParser {
     /**
      * 调用模型（带退避重试）
      *
-     * @param ai       解析配置
-     * @param text     PDF 文本
-     * @param fileName 文件名（仅日志）
+     * @param ai         解析配置
+     * @param pageImages PDF 每页 PNG 图片
+     * @param fileName   文件名（仅日志）
      * @return 模型响应体
      */
-    private String requestModel(HeartProperties.Ai ai, String text, String fileName) {
+    private String requestModel(HeartProperties.Ai ai, List<byte[]> pageImages, String fileName) {
         String url = StringUtils.trimTrailingCharacter(ai.getBaseUrl().trim(), '/')
                 + HeartAiConstants.CHAT_COMPLETIONS_PATH;
         HttpHeaders headers = new HttpHeaders();
@@ -166,9 +167,16 @@ public class AiPoParseClient implements IHeartPoParser {
         body.put("model", ai.getModel());
         body.put("temperature", ai.getTemperature());
         body.put("response_format", Map.of("type", "json_object"));
+        List<Object> userContent = new ArrayList<>();
+        userContent.add(Map.of("type", "text", "text",
+                "PO 文件名：" + fileName + "，共 " + pageImages.size() + " 页，请逐页读取并合并为一张采购订单。"));
+        for (byte[] pageImage : pageImages) {
+            String dataUri = "data:image/png;base64," + Base64.getEncoder().encodeToString(pageImage);
+            userContent.add(Map.of("type", "image_url", "image_url", Map.of("url", dataUri)));
+        }
         body.put("messages", List.of(
                 Map.of("role", "system", "content", SYSTEM_PROMPT),
-                Map.of("role", "user", "content", "PO 文件名：" + fileName + "\nPO 文本：\n" + text)));
+                Map.of("role", "user", "content", userContent)));
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
 
         int attempts = Math.max(1, ai.getRetryTimes() + 1);
@@ -226,8 +234,8 @@ public class AiPoParseClient implements IHeartPoParser {
             result.getWarnings().addAll(resolveWarnings(data));
 
             int totalTokens = root.path("usage").path("total_tokens").asInt(-1);
-            log.info("【{}】AI 解析完成, file={}, textChars={}, durationMs={}, confidence={}, tokens={}",
-                    LOG_BIZ, fileName, json.length(), result.getDurationMs(),
+            log.info("【{}】AI 解析完成, file={}, durationMs={}, confidence={}, tokens={}",
+                    LOG_BIZ, fileName, result.getDurationMs(),
                     result.getConfidence(), totalTokens);
             return result;
         } catch (BizException e) {

@@ -81,4 +81,14 @@ public final class HeartAiConstants {
      * 默认送入模型的最大文本字符数
      */
     public static final int DEFAULT_MAX_TEXT_CHARS = 100000;
+
+    /**
+     * 默认 PDF 渲染 DPI（扫描件走图片通道）
+     */
+    public static final int DEFAULT_RENDER_DPI = 150;
+
+    /**
+     * 默认单次最多渲染页数
+     */
+    public static final int DEFAULT_MAX_PAGES = 10;
 }

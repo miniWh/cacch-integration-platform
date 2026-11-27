@@ -224,11 +224,11 @@ oa:
     # 仅指定 formMainId 触发时限制子表行数
     sub-row-batch-size: 500
     # 测试白名单（登记负责人姓名），空=全量
-    owner-allowlist: []
+    owner-allowlist: [ ]
     # SKIPPED_NOT_EMPTY 是否企微提醒
     alert-not-empty-skipped: true
     # 空目录判定时忽略的文件名（默认空=不忽略，更安全）
-    ignore-system-files: []
+    ignore-system-files: [ ]
   # REQ-OA-003 货物购销合同附件回传 CRM（ESB 每 10 分钟调用执行接口，无本地定时）
   contract-attachment-sync:
     enabled: true
@@ -269,7 +269,7 @@ share-drive:
   domain: ""
   final-version-suffix: "最终版本"
   version-pattern: "_v(\\d+)"
-  allowed-extensions: [pdf, doc, docx, xls, xlsx, png, jpg, jpeg, zip]
+  allowed-extensions: [ pdf, doc, docx, xls, xlsx, png, jpg, jpeg, zip ]
   max-file-size-bytes: 536870912
   # 目录名归一化：删除 \\ / : * ? " < > | % 等非法字符后与 OA 名称匹配
 # ==================== Heart 客户 PO 订单自动化（公共占位） ====================
@@ -295,8 +295,8 @@ heart:
     enabled: true
     base-url: https://tokenhub.tencentmaas.com/v1
     api-key: ${HEART_AI_API_KEY:}
-    # 接口真实 id（展示名为 DeepSeek-V4.1-Flash-1017，/v1/models 返回的 id 为 deepseek/deepseek-flash）
-    model: deepseek/deepseek-flash
+    # 接口真实 id（展示名 DeepSeek-V4.1-Flash-1017 对应 id=deepseek-v4.1-flash-1017，注意勿用同名的 deepseek/deepseek-flash）
+    model: deepseek-v4.1-flash-1017
     prompt-version: heart-po-v1
     temperature: 0
     timeout-ms: 60000
@@ -304,3 +304,6 @@ heart:
     confidence-threshold: 0.9
     fallback-threshold: 0.7
     max-text-chars: 100000
+    # PDF 渲染 DPI 与单次最多页数（扫描件走图片通道）
+    render-dpi: 150
+    max-pages: 10

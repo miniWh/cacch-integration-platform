@@ -162,5 +162,15 @@ public class HeartProperties {
          * 送入模型的最大文本字符数
          */
         private Integer maxTextChars = HeartAiConstants.DEFAULT_MAX_TEXT_CHARS;
+
+        /**
+         * PDF 渲染 DPI（扫描件走图片通道）
+         */
+        private Integer renderDpi = HeartAiConstants.DEFAULT_RENDER_DPI;
+
+        /**
+         * 单次最多渲染页数
+         */
+        private Integer maxPages = HeartAiConstants.DEFAULT_MAX_PAGES;
     }
 }
