@@ -44,9 +44,9 @@ public final class HeartContractConstants {
     public static final String CUSTOMS_PORT_FALLBACK_ID = "5801559508238571560";
 
     /**
-     * 客户余额占位值（ERP 接口未接入前），按数值类型传输
+     * 客户余额占位值（ERP 接口未接入前），按字符串类型传输
      */
-    public static final BigDecimal CUSTOMER_BALANCE_PLACEHOLDER = BigDecimal.ZERO;
+    public static final String CUSTOMER_BALANCE_PLACEHOLDER = "0";
 
     /**
      * 毛利率缺省值，按数值类型传输
