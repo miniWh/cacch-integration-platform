@@ -429,7 +429,7 @@ public class HeartOrderCreateServiceImpl implements IHeartOrderCreateService {
      */
     private Map<String, Object> buildShipmentRow(HeartPoDO po, HeartPoItemDO item, LineMetrics metrics) {
         Map<String, Object> row = new LinkedHashMap<>();
-        row.put("field_qnF4Z__c", po.getEtd() == null ? LocalDate.now().toString() : po.getEtd().toString());
+        row.put("field_Gbeyu__c", po.getEtd() == null ? LocalDate.now().toString() : po.getEtd().toString());
         row.put("field_VgRQI__c", StringUtils.hasText(item.getProductId()) ? item.getProductId() : item.getPdCode());
         row.put("field_KCPjb__c", metrics.pdCount());
         row.put("field_2AZ9H__c", metrics.actualPrice());
@@ -487,7 +487,7 @@ public class HeartOrderCreateServiceImpl implements IHeartOrderCreateService {
      */
     private Map<String, Object> buildFeeRow(String feeTypeId, BigDecimal amount, String supplierId) {
         Map<String, Object> row = new LinkedHashMap<>();
-        row.put("field_qnF4Z__c", feeTypeId);
+        row.put("field_Gbeyu__c", feeTypeId);
         row.put("field_M0UBt__c", amount);
         if (StringUtils.hasText(supplierId)) {
             row.put("field_0fU4o__c", supplierId);
