@@ -470,7 +470,7 @@ public class HeartOrderCreateServiceImpl implements IHeartOrderCreateService {
         List<Map<String, Object>> rows = new ArrayList<>(3);
         rows.add(buildFeeRow(HeartContractConstants.FEE_TYPE_PACKAGE,
                 packageTotal.setScale(4, RoundingMode.HALF_UP), HeartContractConstants.SUPPLIER_PACKAGE));
-        rows.add(buildFeeRow(HeartContractConstants.FEE_TYPE_PACKAGE,
+        rows.add(buildFeeRow(HeartContractConstants.FEE_TYPE_INSURANCE,
                 insuranceTotal.setScale(4, RoundingMode.HALF_UP), null));
         rows.add(buildFeeRow(HeartContractConstants.FEE_TYPE_BOOKING, BigDecimal.ZERO,
                 HeartContractConstants.SUPPLIER_BOOKING));

@@ -74,9 +74,14 @@ public final class HeartContractConstants {
     public static final String OBJECT_CUSTOMS = "object_liHgv__c";
 
     /**
-     * 包干费/信保费费用类型 ID
+     * 包干费费用类型 ID
      */
     public static final String FEE_TYPE_PACKAGE = "8335140024167817834";
+
+    /**
+     * 信保费费用类型 ID
+     */
+    public static final String FEE_TYPE_INSURANCE = "5756541997336160304";
 
     /**
      * 订舱费费用类型 ID
