@@ -5,7 +5,6 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
@@ -100,7 +99,7 @@ public class CrmContractAddRequest {
      */
     @JsonProperty("exchange_rate")
     @JsonAlias("exchangeRate")
-    private BigDecimal exchangeRate;
+    private String exchangeRate;
 
     /**
      * 主对象自定义字段，格式 {字段key: 字段值}

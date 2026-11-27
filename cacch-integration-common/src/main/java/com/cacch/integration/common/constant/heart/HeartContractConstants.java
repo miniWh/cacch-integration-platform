@@ -26,7 +26,7 @@ public final class HeartContractConstants {
     /**
      * 汇率
      */
-    public static final BigDecimal EXCHANGE_RATE_ONE = BigDecimal.ONE;
+    public static final String EXCHANGE_RATE_ONE = "1";
 
     /**
      * 千升与 L 的换算系数

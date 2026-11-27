@@ -81,5 +81,5 @@ public class CrmContractDetailItem {
      */
     @JsonProperty("exchange_rate")
     @JsonAlias("exchangeRate")
-    private BigDecimal exchangeRate;
+    private String exchangeRate;
 }
