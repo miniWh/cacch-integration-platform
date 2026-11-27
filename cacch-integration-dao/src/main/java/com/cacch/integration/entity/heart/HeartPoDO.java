@@ -177,6 +177,16 @@ public class HeartPoDO {
      */
     private Integer version;
 
+    /**
+     * 流程认领令牌（防并发重复处理，为空表示未被认领）
+     */
+    private String claimToken;
+
+    /**
+     * 流程认领时间（超过认领超时时间后允许被重新认领）
+     */
+    private LocalDateTime claimAt;
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
 

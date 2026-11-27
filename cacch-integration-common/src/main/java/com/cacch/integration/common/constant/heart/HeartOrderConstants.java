@@ -26,6 +26,16 @@ public final class HeartOrderConstants {
     public static final String SUBMIT_STATUS_FAILED = "FAILED";
 
     /**
+     * 提交状态：部分成功（批量处理时存在失败项）
+     */
+    public static final String SUBMIT_STATUS_PARTIAL = "PARTIAL";
+
+    /**
+     * 单轮最多处理条数，防止接口超时
+     */
+    public static final int SUBMIT_MAX_PER_ROUND = 20;
+
+    /**
      * 提交记录状态：处理中（调用 CRM 前预写，返回后更新为终态）
      */
     public static final String RECORD_STATUS_PROCESSING = "PROCESSING";
