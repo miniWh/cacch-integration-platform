@@ -9,10 +9,12 @@ import com.cacch.integration.common.dto.heart.HeartOrderCreateResult;
 import com.cacch.integration.common.dto.heart.HeartOrderItemSubmitResult;
 import com.cacch.integration.common.dto.heart.HeartOrderSubmitResult;
 import com.cacch.integration.entity.heart.HeartPoDO;
+import com.cacch.integration.integration.heart.client.dto.HeartMailInfo;
 import com.cacch.integration.mapper.heart.HeartPoMapper;
 import com.cacch.integration.manager.heart.api.IHeartOrderFlowManager;
 import com.cacch.integration.service.heart.api.IHeartAttachmentService;
 import com.cacch.integration.service.heart.api.IHeartBomVersionService;
+import com.cacch.integration.service.heart.api.IHeartMailService;
 import com.cacch.integration.service.heart.api.IHeartOrderCreateService;
 import com.cacch.integration.service.heart.api.IHeartPortService;
 import com.cacch.integration.service.heart.api.IHeartSerialNoService;
@@ -53,9 +55,13 @@ public class HeartOrderFlowManagerImpl implements IHeartOrderFlowManager {
 
     private final IHeartOrderCreateService heartOrderCreateService;
 
+    private final IHeartMailService heartMailService;
+
     @Override
     public HeartOrderBatchSubmitResult submitOrder() {
         log.info("【{}】收到 ESB Heart 订单提交请求", HeartOrderLogConstants.LOG_BIZ);
+        pullMails();
+
         List<HeartOrderItemSubmitResult> items = new ArrayList<>();
         Set<Long> processedIds = new HashSet<>();
         int successCount = 0;
@@ -85,6 +91,21 @@ public class HeartOrderFlowManagerImpl implements IHeartOrderFlowManager {
         boolean hasMore = items.size() >= HeartOrderConstants.SUBMIT_MAX_PER_ROUND
                 && selectPendingPo(processedIds) != null;
         return buildBatchResult(items, successCount, failedCount, hasMore);
+    }
+
+    /**
+     * 拉取当天邮件
+     *
+     * <p>开始/结束时间为空时由 Service 兜底为当天 {@code 00:00:00} 至 {@code 23:59:59}；
+     * 拉取失败只记录日志，不阻塞后续已入库 PO 的建单流程。</p>
+     */
+    private void pullMails() {
+        try {
+            List<HeartMailInfo> mails = heartMailService.queryMails(null, null);
+            log.info("【{}】邮件拉取完成, 共 {} 封", HeartOrderLogConstants.LOG_BIZ, mails.size());
+        } catch (Exception e) {
+            log.error("【{}】邮件拉取失败, 本轮继续处理已入库 PO", HeartOrderLogConstants.LOG_BIZ, e);
+        }
     }
 
     /**
